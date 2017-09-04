@@ -4,19 +4,23 @@
 #include <vector>
 #include "json.hpp"
 
-#include "zarr++/handles.hxx"
+#include "zarr++/handle/handle.hxx"
+#include "zarr++/types/types.hxx"
 
 namespace zarr {
 
     struct Metadata {
-        typedef std::vector<size_t> ShapeType;
-    
+
     private:
-        ShapeType shape_;
+        types::ShapeType shape_;
     };
 
-    void writeMetaData(const Handle & handle, const Metadata & metadata) {
+    void writeMetaData(const handle::Handle & handle, const Metadata & metadata) {
         
+    }
+
+    void readMetaData(const handle::Handle & handle, Metadata & metadata) {
+
     }
 
 } // namespace::zarr
