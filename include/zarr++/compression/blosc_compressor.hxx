@@ -54,5 +54,8 @@ namespace zarr {
         int clevel_;
         // blsoc shuffle
         int shuffle_;
+
+        // friend the test class
+        friend BloscTest;
     };
 }
