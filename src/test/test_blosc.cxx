@@ -21,18 +21,47 @@ namespace compression {
 
         virtual void SetUp() {
 
+            std::default_random_engine generator;
+            // fill 'dataInt_' with random values
+            std::uniform_int_distribution<int> distributionInt(0, 1000);
+            auto drawInt = std::bind(distributioniInt, generator);
+            for(size_t i = 0; i < size_; ++i) {
+                dataInt_[i] = drawInt();
+            }
+
+            // fill 'dataFloat_' with random values
+            std::uniform_real distributionFloat<float>(0., 1.);
+            auto drawFloat = std::bind(distributionFloat, generator);
+            for(size_t i = 0; i < size_; ++i) {
+                data_[i] = drawFloat();
+            }
         }
 
         virtual void TearDown() {
 
         }
 
-        BloscCompressor compressor_;
-        float * dataFloatIn_;
-        float * dataFloatOut_;
-        int * intDataIn_;
-        int * intDataOut_;
+
+        const static size_t size_ = 100*100*100;
+        int dataInt[size_];
+        float dataFloat[size_];
+
     };
+
+
+    TEST_F(BloscTest, CompressInt) {
+
+        // TODO metadata
+        BloscCompressor compressor(metadata);
+        compressor->compress();
+
+    }
+
+
+    TEST_F(BloscTest, CompressFloat) {
+
+    }
+
 
     TEST_F(BloscTest, CompressDecompressInt) {
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 namespace zarr {
 namespace compression {
 
@@ -12,10 +14,10 @@ namespace compression {
         //
 
         template<typename T>
-        virtual int compress(const T *, T *, size_t, size_t) const = 0;
+        virtual int compress(const T *, std::vector<T> &, size_t, size_t) const = 0;
 
         template<typename T>
-        virtual int decompress(const T *, T *, size_t) const = 0;
+        virtual int decompress(const std::vector<T> &, T *, size_t) const = 0;
 
     };
 

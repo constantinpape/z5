@@ -11,3 +11,7 @@ SET(TEST_LIBS
 # add io test
 add_executable(test_io test_io.cxx )
 target_link_libraries(test_io ${TEST_LIBS})
+
+# add blosc test
+add_executable(test_blosc test_blosc.cxx )
+target_link_libraries(test_blosc ${TEST_LIBS})

@@ -68,12 +68,7 @@ namespace zarr {
 
             // compress the data
             std::vector<T> dataOut; // TODO proper size
-            int sizeCompressed = compressor_->compress(
-                dataIn, dataOut, byteSize_, //TODO outSize_
-            );
-
-            // resize the out data
-            dataOut.resize(sizeCompressed);
+            void compressor_->compress(dataIn, dataOut, byteSize_); //TODO , outSize_);
 
             // get the chunk handle from ID TODO
             handle::Chunk chunk;

@@ -14,32 +14,41 @@ namespace zarr {
         }
 
         template<typename T>
-        int compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t sizeOut) const {
+        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn, size_t sizeOut) const {
+
+            // compress the data
             int sizeCompressed = blosc_compress_ctx(
                 clevel_, shuffle_,
                 sizeof(T),
                 sizeIn, dataIn,
-                dataOut, sizeOut,
+                &dataOut[0], sizeOut,
                 compressor_,
                 0, // blosc blocksize, 0 means automatic value
                 1  // number of internal threads -> we set this to 1 for now
             );
+
+            // check for errors
             if(sizeCompressed <= 0) {
                 throw std::runtime_error("Blosc compression failed");
             }
-            return sizeCompressed;
+
+            // resize the out data
+            dataOut.resize(sizeCompressed);
         }
 
         template<typename T>
-        int decompress(const T * dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {
+
+            // decompress the data
             int sizeDecompressed = blosc_decompress_ctx(
-                dataIn, dataOut,
+                &dataIn[0], dataOut,
                 sizeOut, 1 // number of internal threads
             );
+
+            // check for errors
             if(sizeDecompressed <= 0) {
                 throw std::runtime_error("Blosc decompression failed");
             }
-            return sizeDecompressed;
         }
 
     private:
@@ -54,8 +63,5 @@ namespace zarr {
         int clevel_;
         // blsoc shuffle
         int shuffle_;
-
-        // friend the test class
-        friend BloscTest;
     };
 }
