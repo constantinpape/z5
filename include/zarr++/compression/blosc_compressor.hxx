@@ -14,8 +14,8 @@ namespace zarr {
         }
 
         template<typename T>
-        int64_t compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t sizeOut) const {
-            int64_t sizeCompressed = blosc_compress_ctx(
+        int compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t sizeOut) const {
+            int sizeCompressed = blosc_compress_ctx(
                 clevel_, shuffle_,
                 sizeof(T),
                 sizeIn, dataIn,
@@ -31,8 +31,8 @@ namespace zarr {
         }
 
         template<typename T>
-        int64_t decompress(const T * dataIn, T * dataOut, size_t sizeOut) const {
-            int64_t sizeDecompressed = blosc_decompress_ctx(
+        int decompress(const T * dataIn, T * dataOut, size_t sizeOut) const {
+            int sizeDecompressed = blosc_decompress_ctx(
                 dataIn, dataOut,
                 sizeOut, 1 // number of internal threads
             );

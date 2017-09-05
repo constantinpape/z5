@@ -12,10 +12,10 @@ namespace compression {
         //
 
         template<typename T>
-        virtual int64_t compress(const T *, T *, size_t, size_t) const = 0;
+        virtual int compress(const T *, T *, size_t, size_t) const = 0;
 
         template<typename T>
-        virtual int64_t decompress(const T *, T *, size_t) const = 0;
+        virtual int decompress(const T *, T *, size_t) const = 0;
 
     };
 

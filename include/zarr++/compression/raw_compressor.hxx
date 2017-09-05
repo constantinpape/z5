@@ -12,13 +12,13 @@ namespace zarr {
         }
 
         template<typename T>
-        int64_t compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t) const {
+        int compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t) const {
             dataOut = dataIn;
             return sizeIn;
         }
 
         template<typename T>
-        int64_t decompress(const T * dataIn, T * dataOut, size_t sizeIn) const {
+        int decompress(const T * dataIn, T * dataOut, size_t sizeIn) const {
             dataOut = dataIn;
             return sizeIn;
         }
