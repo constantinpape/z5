@@ -1,4 +1,65 @@
-PROJECT(zarr++)
+cmake_minimum_required(VERSION 3.1)
 
+# TODO we need this if we have custom cmake modules
+#set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
+project(zarr++)
+
+include(CheckCXXCompilerFlag)
+
+
+# make sure the compiler supports c++11
+# FIXME I think this won't work for MSVC
+CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_CPP11_FLAG)
+if(NOT HAS_CPP11_FLAG)
+    message(FATAL_ERROR "Unsupported compiler -- zarr++ requires C++11 support!")
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+
+# set default build type
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to 'Release' as none was specified.")
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
+        "MinSizeRel" "RelWithDebInfo")
+endif()
+string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
+
+
+# find libraries - pthread
+find_package(Threads)
+# TODO do we need RT ?!
+
+
+# find libraries - boost
+find_package(Boost COMPONENTS system filesystem REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+MESSAGE(STATUS ${Boost_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIR})
+MESSAGE(STATUS ${Boost_LIBRARIES})
+
+
+# find global headers
+file(GLOB_RECURSE headers include/*.hxx)
+file(GLOB_RECURSE headers ${CMAKE_INSTALL_PREFIX}/include/*.hxx)
+include_directories(include)
+
+
+# add gtest external project and include the directories
 add_subdirectory(external/googletest/googletest)
+include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+
+
+# add subdirectories
 add_subdirectory(src)
+
+
+# install the headers
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/zarr++"
+  DESTINATION include
+  FILES_MATCHING
+  PATTERN "*.hxx"
+  PATTERN "*.hpp"
+  PATTERN "*.h"
+)

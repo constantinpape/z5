@@ -6,5 +6,6 @@ namespace zarr {
 namespace types {
     // type for array shapes
     typedef std::vector<size_t> ShapeType;
+    // datatypes
 }
 } // namespace::zarr
