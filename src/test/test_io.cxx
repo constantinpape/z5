@@ -15,7 +15,7 @@ namespace io {
     class IoTest : public ::testing::Test {
 
     protected:
-        IoTest() {
+        IoTest() : size2_(100*100*100) {
 
         }
 
@@ -49,20 +49,26 @@ namespace io {
         const static size_t size_ = 100*100*100;
         int data_[size_];
 
+        // FIXME for some reasons, I get linker errors when calling size_ from the outside,
+        // so here we have size2_ ....
+        size_t size2_;
+
     };
+
 
     TEST_F(IoTest, ReadFile) {
         handle::Chunk chunkHandle("chunk0.zr");
-        ChunkIo<int> io(size_, 0);
+        ChunkIo<int> io(size2_, 0);
 
-        // TODO try without proper size initialization
-        int tmpData[size_];
+        std::vector<int> tmpData;
         ASSERT_TRUE(io.read(chunkHandle, tmpData));
+        ASSERT_EQ(tmpData.size(), size2_);
 
-        for(size_t i = 0; i < size_; ++ i) {
+        for(size_t i = 0; i < size2_; ++ i) {
             ASSERT_EQ(data_[i], tmpData[i]);
         }
     }
+
 
     TEST_F(IoTest, ReadEmptyFile) {
         handle::Chunk chunkHandle("chunk2.zr");
@@ -70,37 +76,44 @@ namespace io {
         std::vector<int> fillValues({-100, -1, 0, 1, 100});
 
         for(auto fillVal : fillValues) {
-            ChunkIo<int> io(size_, fillVal);
+            ChunkIo<int> io(size2_, fillVal);
 
-            int tmpData[size_];
+            std::vector<int> tmpData;
             ASSERT_FALSE(io.read(chunkHandle, tmpData));
+            ASSERT_EQ(tmpData.size(), size2_);
 
-            for(size_t i = 0; i < size_; ++ i) {
+            for(size_t i = 0; i < size2_; ++ i) {
                 ASSERT_EQ(tmpData[i], fillVal);
             }
         }
     }
 
+
     TEST_F(IoTest, WriteFile) {
         handle::Chunk chunkHandle("chunk1.zr");
-        ChunkIo<int> io(size_, 0);
+        ChunkIo<int> io(size2_, 0);
 
-        io.write(chunkHandle, data_, size_ * sizeof(int));
+        std::vector<int> tmpData(size2_, 0);
+        io.write(chunkHandle, tmpData);
         ASSERT_TRUE(chunkHandle.exists());
     }
 
+
     TEST_F(IoTest, WriteReadFile) {
         handle::Chunk chunkHandle("chunk1.zr");
-        ChunkIo<int> io(size_, 0);
+        ChunkIo<int> io(size2_, 0);
 
-        io.write(chunkHandle, data_, size_ * sizeof(int));
+        std::vector<int> tmpData1(size2_);
+        std::copy(data_, data_ + size2_, tmpData1.begin());
+        io.write(chunkHandle, tmpData1);
         ASSERT_TRUE(chunkHandle.exists());
 
-        int tmpData[size_];
-        ASSERT_TRUE(io.read(chunkHandle, tmpData));
+        std::vector<int> tmpData2;
+        ASSERT_TRUE(io.read(chunkHandle, tmpData2));
+        ASSERT_EQ(tmpData2.size(), size2_);
 
-        for(size_t i = 0; i < size_; ++ i) {
-            ASSERT_EQ(data_[i], tmpData[i]);
+        for(size_t i = 0; i < size2_; ++ i) {
+            ASSERT_EQ(data_[i], tmpData2[i]);
         }
     }
 

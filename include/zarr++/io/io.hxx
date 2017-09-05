@@ -22,8 +22,7 @@ namespace io {
             : chunkSize_(chunkSize), fillValue_(fillValue) {
         }
 
-        // TODO how do we handle the bytesize ?
-        inline bool read(const handle::Chunk & chunk, T * data) {
+        inline bool read(const handle::Chunk & chunk, std::vector<T> & data) {
 
             // if the chunk exists, we read it,
             // otherwise, we write the fill value
@@ -35,8 +34,12 @@ namespace io {
                 size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
 
+                // resize the data vector
+                size_t vectorSize = fileSize / sizeof(T);
+                data.resize(vectorSize);
+
                 // read the file
-                file.read((char*) data, fileSize);
+                file.read((char*) &data[0], fileSize);
 
                 // return true, because we have read an existing chunk
                 return true;
@@ -45,15 +48,16 @@ namespace io {
 
                 // return chunk-size filled with zeros and return false,
                 // because we have read a non-existent chunk
-                std::fill(data, data + chunkSize_, fillValue_);
+                data.clear();
+                data.resize(chunkSize_, fillValue_);
                 return false;
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const T * data, const int byteSize) {
+        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) {
             //std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
-            file.write((char*) data, byteSize);
+            file.write((char*) &data[0], data.size() * sizeof(T));
             file.close();
         }
 

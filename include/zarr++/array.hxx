@@ -67,16 +67,19 @@ namespace zarr {
         inline void writeChunk(size_t chunkId, const T * dataIn) {
 
             // compress the data
-            // TODO allocate dataOut properly
+            std::vector<T> dataOut; // TODO proper size
             int sizeCompressed = compressor_->compress(
                 dataIn, dataOut, byteSize_, //TODO outSize_
             );
+
+            // resize the out data
+            dataOut.resize(sizeCompressed);
 
             // get the chunk handle from ID TODO
             handle::Chunk chunk;
 
             // write the data
-            io_->write(chunk, dataOut, sizeCompressed);
+            io_->write(chunk, dataOut);
 
         }
 
