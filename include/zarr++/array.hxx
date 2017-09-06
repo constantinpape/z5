@@ -24,9 +24,11 @@ namespace zarr {
 
         // we need to use void pointer here to have a generic API
         // write a chunk
-        virtual inline void writeChunk(size_t chunkId, const void * dataIn) = 0;
+        virtual inline void writeChunk(const handle::Chunk &, const void *) = 0;
+        virtual inline void writeChunk(const types::ShapeType &, const void *) = 0;
         // read a chunk
-        virtual inline void readChunk(size_t chunkId, void * dataOut) const = 0;
+        virtual inline void readChunk(const handle::Chunk &, void *) const = 0;
+        virtual inline void readChunk(const types::ShapeType &, void *) const = 0;
 
     };
 
@@ -39,7 +41,7 @@ namespace zarr {
         // create a new array with metadata
         ZarrArrayTyped(
             const handle::Array & handle,
-            const ArrayMetadata & metadata) : io_() {
+            const ArrayMetadata & metadata) : handle_(handle), io_() {
 
             // make sure that the file does not exist already
             if(handle.exists()) {
@@ -53,7 +55,7 @@ namespace zarr {
         }
 
         // open existing array
-        ZarrArrayTyped(const handle::Array & handle) : io_() {
+        ZarrArrayTyped(const handle::Array & handle) : handle_(handle), io_() {
 
             // make sure that the file exists
             if(!handle.exists()) {
@@ -66,15 +68,20 @@ namespace zarr {
             init(metadata);
         }
 
+        virtual inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) {
+            handle::Chunk chunk(handle_, chunkIndices);
+            writeChunk(chunk, dataIn);
+        }
+
         // write a chunk
-        virtual inline void writeChunk(size_t chunkId, const void * dataIn) {
+        virtual inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) {
+
+            // make sure that we have a valid chunk
+            // TODO
 
             // compress the data
             std::vector<T> dataOut;
             compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
-
-            // get the chunk handle from ID TODO
-            handle::Chunk chunk("");
 
             // write the data
             io_.write(chunk, dataOut);
@@ -82,11 +89,16 @@ namespace zarr {
         }
 
         // read a chunk
-        // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
-        virtual inline void readChunk(size_t chunkId, void * dataOut) const {
+        virtual inline void readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+            handle::Chunk chunk(handle_, chunkIndices);
+            readChunk(chunk, dataOut);
+        }
 
-            // get the chunk handle from ID TODO
-            handle::Chunk chunk("");
+        // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
+        virtual inline void readChunk(const handle::Chunk & chunk, void * dataOut) const {
+
+            // make sure that we have a valid chunk
+            // TODO
 
             // read the data
             std::vector<T> dataTmp;
@@ -143,6 +155,9 @@ namespace zarr {
         //
         // member variables
         //
+
+        // our handle
+        handle::Array handle_;
 
         // unique ptr to hold child classes of compressor
         std::unique_ptr<compression::CompressorBase<T>> compressor_;

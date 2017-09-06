@@ -96,7 +96,6 @@ namespace zarr {
         j["shape"] = metadata.shape;
         j["zarr_format"] = metadata.zarrFormat;
 
-
     }
 
 

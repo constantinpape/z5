@@ -69,7 +69,7 @@ namespace zarr {
         nlohmann::json jInt_;
         nlohmann::json jFloat_;
 
-        const static size_t size_ = 100*100*100;
+        const static size_t size_ = 10*10*10;
         int dataInt_[size_];
         float dataFloat_[size_];
 
@@ -80,6 +80,18 @@ namespace zarr {
 
         ZarrArrayTyped<int> array(intHandle_);
 
+        // write a chunk
+        types::ShapeType chunkId({0, 0, 0});
+        array.writeChunk(chunkId, dataInt_);
+
+        // read a chunk
+        int dataTmp[size_];
+        array.readChunk(chunkId, dataTmp);
+
+        // check
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataTmp[i], dataInt_[i]);
+        }
     }
 
 }
