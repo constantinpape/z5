@@ -25,7 +25,7 @@ namespace compression {
             int sizeCompressed = blosc_compress_ctx(
                 clevel_, shuffle_,
                 sizeof(T),
-                sizeIn * sizeof(int), dataIn,
+                sizeIn * sizeof(T), dataIn,
                 &dataOut[0], sizeOut,
                 compressor_.c_str(),
                 0, // blosc blocksize, 0 means automatic value

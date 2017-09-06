@@ -29,6 +29,10 @@ namespace handle {
             return pathOnFilesystem_;
         }
 
+        virtual bool createDir() const {
+            return fs::create_directory(pathOnFilesystem_);
+        }
+
     private:
         fs::path pathOnFilesystem_;
 

@@ -58,7 +58,7 @@ namespace io {
 
     TEST_F(IoTest, ReadFile) {
         handle::Chunk chunkHandle("chunk0.zr");
-        ChunkIo<int> io(size2_, 0);
+        ChunkIo<int> io;
 
         std::vector<int> tmpData;
         ASSERT_TRUE(io.read(chunkHandle, tmpData));
@@ -70,6 +70,8 @@ namespace io {
     }
 
 
+    // this functionality has been moved to the array itself
+    /*
     TEST_F(IoTest, ReadEmptyFile) {
         handle::Chunk chunkHandle("chunk2.zr");
 
@@ -87,11 +89,12 @@ namespace io {
             }
         }
     }
+    */
 
 
     TEST_F(IoTest, WriteFile) {
         handle::Chunk chunkHandle("chunk1.zr");
-        ChunkIo<int> io(size2_, 0);
+        ChunkIo<int> io;
 
         std::vector<int> tmpData(size2_, 0);
         io.write(chunkHandle, tmpData);
@@ -101,7 +104,7 @@ namespace io {
 
     TEST_F(IoTest, WriteReadFile) {
         handle::Chunk chunkHandle("chunk1.zr");
-        ChunkIo<int> io(size2_, 0);
+        ChunkIo<int> io;
 
         std::vector<int> tmpData1(size2_);
         std::copy(data_, data_ + size2_, tmpData1.begin());

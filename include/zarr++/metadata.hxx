@@ -70,8 +70,9 @@ namespace zarr {
         const std::nullptr_t filters = nullptr;
     };
 
+
     void writeMetadata(
-        const handle::Array & handle, const ArrayMetadata & metadata
+        nlohmann::json & j, const ArrayMetadata & metadata
     ) {
 
         nlohmann::json compressor;
@@ -80,7 +81,6 @@ namespace zarr {
         compressor["id"] = metadata.compressorId;
         compressor["shuffle"] = metadata.compressorShuffle;
 
-        nlohmann::json j;
         j["chunks"] = metadata.chunkShape;
         j["compressor"] = compressor;
         j["dtype"] = metadata.dtype;
@@ -96,26 +96,23 @@ namespace zarr {
         j["shape"] = metadata.shape;
         j["zarr_format"] = metadata.zarrFormat;
 
+
+    }
+
+
+    void writeMetadata(
+        const handle::Array & handle, const ArrayMetadata & metadata
+    ) {
+        nlohmann::json j;
+        writeMetadata(j, metadata);
         fs::path metaFile = handle.path();
         metaFile /= ".zarray";
         fs::ofstream file(metaFile);
         file << std::setw(4) << j << std::endl;
     }
 
-    void readMetadata(
-        const handle::Array & handle, ArrayMetadata & metadata
-    ) {
 
-        fs::path metaFile = handle.path();
-        metaFile /= ".zarray";
-        if(!fs::exists(metaFile)) {
-            throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
-        }
-
-        fs::ifstream file(metaFile);
-        nlohmann::json j;
-        file >> j;
-
+    void readMetadata(const nlohmann::json & j, ArrayMetadata & metadata) {
         // make sure that fixed metadata values agree
         std::string order = j["order"];
         if(order != "C") {
@@ -164,6 +161,25 @@ namespace zarr {
         //    : (types::isUnsignedType(metadata.dtype) ? static_cast<uint64_t>(fillVal)
         //        : static_cast<int64_t>(fillVal));
         metadata.fillValue = j["fill_value"];
+
+    }
+
+
+    void readMetadata(
+        const handle::Array & handle, ArrayMetadata & metadata
+    ) {
+
+        fs::path metaFile = handle.path();
+        metaFile /= ".zarray";
+        if(!fs::exists(metaFile)) {
+            throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
+        }
+
+        fs::ifstream file(metaFile);
+        nlohmann::json j;
+        file >> j;
+
+        readMetadata(j, metadata);
     }
 
 } // namespace::zarr

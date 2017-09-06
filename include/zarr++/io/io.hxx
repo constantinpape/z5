@@ -21,11 +21,10 @@ namespace io {
 
     public:
 
-        ChunkIo(const size_t chunkSize, const T fillValue)
-            : chunkSize_(chunkSize), fillValue_(fillValue) {
+        ChunkIo() {
         }
 
-        inline bool read(const handle::Chunk & chunk, std::vector<T> & data) {
+        inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
 
             // if the chunk exists, we read it,
             // otherwise, we write the fill value
@@ -48,25 +47,18 @@ namespace io {
                 return true;
 
             } else {
-
-                // return chunk-size filled with zeros and return false,
-                // because we have read a non-existent chunk
-                data.clear();
-                data.resize(chunkSize_, fillValue_);
+                // return false, because the chunk does not exist
                 return false;
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) {
+        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) const {
             //std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
             file.write((char*) &data[0], data.size() * sizeof(T));
             file.close();
         }
 
-    private:
-        size_t chunkSize_;
-        T fillValue_;
     };
 
 }

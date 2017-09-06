@@ -65,21 +65,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metadata;
-        metadata.dtype = types::parseDtype(j["dtype"]);
-        types::ShapeType shape(j["shape"].begin(), j["shape"].end());
-        metadata.shape = shape;
-        types::ShapeType chunkShape(j["chunks"].begin(), j["chunks"].end());
-        metadata.chunkShape = chunkShape;
-        const auto & compressor = j["compressor"];
-        metadata.compressorLevel = compressor["clevel"];
-        metadata.compressorName = compressor["cname"];
-        metadata.compressorId = compressor["id"];
-        metadata.compressorShuffle = compressor["shuffle"];
-
-        auto fillVal = j["fill_value"];
-        metadata.fillValue = types::isRealType(metadata.dtype) ? static_cast<float>(fillVal)
-            : (types::isUnsignedType(metadata.dtype) ? static_cast<uint64_t>(fillVal)
-                : static_cast<int64_t>(fillVal));
+        readMetadata(j, metadata);
 
         handle::Array h(".");
         writeMetadata(h, metadata);
@@ -92,21 +78,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metaWrite;
-        metaWrite.dtype = types::parseDtype(j["dtype"]);
-        types::ShapeType shape(j["shape"].begin(), j["shape"].end());
-        metaWrite.shape = shape;
-        types::ShapeType chunkShape(j["chunks"].begin(), j["chunks"].end());
-        metaWrite.chunkShape = chunkShape;
-        const auto & compressor = j["compressor"];
-        metaWrite.compressorLevel = compressor["clevel"];
-        metaWrite.compressorName = compressor["cname"];
-        metaWrite.compressorId = compressor["id"];
-        metaWrite.compressorShuffle = compressor["shuffle"];
-
-        // FIXME boost any doesn't do what it's supposed to
-        //metaWrite.fillValue = types::isRealType(metaWrite.dtype) ? fillVal.get<float>()
-        //    : (types::isUnsignedType(metaWrite.dtype) ? fillVal.get<uint64_t>() : fillVal.get<int64_t>());
-        metaWrite.fillValue = j["fill_value"];
+        readMetadata(j, metaWrite);
 
         handle::Array h(".");
         writeMetadata(h, metaWrite);

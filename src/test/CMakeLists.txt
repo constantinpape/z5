@@ -17,5 +17,9 @@ add_executable(test_blosc test_blosc.cxx )
 target_link_libraries(test_blosc ${TEST_LIBS} ${BLOSC_LIBRARIES})
 
 # add metadata test
-add_executable(test_metadata test_metadata.cxx )
+add_executable(test_metadata test_metadata.cxx)
 target_link_libraries(test_metadata ${TEST_LIBS})
+
+# add zarray test
+add_executable(test_zarray test_zarray.cxx)
+target_link_libraries(test_zarray ${TEST_LIBS} ${BLOSC_LIBRARIES})
