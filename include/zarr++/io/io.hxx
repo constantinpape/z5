@@ -1,7 +1,10 @@
 #pragma once
 
 #include <ios>
+
+#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
+#endif
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 

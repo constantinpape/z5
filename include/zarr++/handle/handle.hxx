@@ -3,7 +3,9 @@
 #include <string>
 #include <sys/stat.h>
 
+#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
+#endif
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
@@ -33,7 +35,7 @@ namespace handle {
     };
 
     class Array : public Handle {
-    
+
     public:
         Array(const std::string & pathOnFilesystem_)
             : Handle(pathOnFilesystem_) {
@@ -42,7 +44,7 @@ namespace handle {
     };
 
     class Group : public Handle {
-    
+
     public:
         Group(const std::string & pathOnFilesystem_)
             : Handle(pathOnFilesystem_) {

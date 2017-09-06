@@ -51,6 +51,10 @@ add_subdirectory(external/googletest/googletest)
 include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
 
 
+# include json external library
+include_directories(${CMAKE_SOURCE_DIR}/external/json/src)
+
+
 # add subdirectories
 add_subdirectory(src)
 
