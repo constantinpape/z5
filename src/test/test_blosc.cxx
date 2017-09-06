@@ -49,6 +49,25 @@ namespace compression {
     };
 
 
+    /*
+    TEST_F(BloscTest, PureBlosc) {
+        int dataOut[size_];
+        int dataDest[size_];
+        auto csize = blosc_compress(
+            5, 1, sizeof(int), size_ * sizeof(int), dataInt_, dataOut, size_ * sizeof(int) + BLOSC_MAX_OVERHEAD
+        );
+        std::cout << csize / sizeof(int) << " / " << size_ << std::endl;
+        ASSERT_TRUE((csize / sizeof(int)) < size_);
+        auto dsize = blosc_decompress(
+            dataOut, dataDest, size_ * sizeof(int)
+        );
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataDest[i], dataInt_[i]);
+        }
+    }
+    */
+
+
     TEST_F(BloscTest, CompressInt) {
 
         // Test compression with default values
@@ -63,6 +82,7 @@ namespace compression {
         compressor.compress(dataInt_, dataOut, size_);
 
         ASSERT_TRUE(dataOut.size() < size_);
+        std::cout << "Compression Int: " << dataOut.size() << " / " << size_ << std::endl;
 
     }
 
@@ -81,6 +101,7 @@ namespace compression {
         compressor.compress(dataFloat_, dataOut, size_);
 
         ASSERT_TRUE(dataOut.size() < size_);
+        std::cout << "Compression Float: " << dataOut.size() << " / " << size_ << std::endl;
 
     }
 

@@ -17,15 +17,15 @@ namespace compression {
 
         void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
 
-            size_t sizeOut = sizeIn + BLOSC_MAX_OVERHEAD;
+            size_t sizeOut = sizeIn * sizeof(T) + BLOSC_MAX_OVERHEAD;
             dataOut.clear();
-            dataOut.resize(sizeOut);
+            dataOut.resize(sizeOut / sizeof(T));
 
             // compress the data
             int sizeCompressed = blosc_compress_ctx(
                 clevel_, shuffle_,
                 sizeof(T),
-                sizeIn, dataIn,
+                sizeIn * sizeof(int), dataIn,
                 &dataOut[0], sizeOut,
                 compressor_.c_str(),
                 0, // blosc blocksize, 0 means automatic value
@@ -38,7 +38,7 @@ namespace compression {
             }
 
             // resize the out data
-            dataOut.resize(sizeCompressed);
+            dataOut.resize(sizeCompressed / sizeof(T));
         }
 
         void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {
@@ -46,7 +46,7 @@ namespace compression {
             // decompress the data
             int sizeDecompressed = blosc_decompress_ctx(
                 &dataIn[0], dataOut,
-                sizeOut, 1 // number of internal threads
+                sizeOut * sizeof(T), 1 // number of internal threads
             );
 
             // check for errors
