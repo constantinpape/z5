@@ -38,7 +38,7 @@ namespace zarr {
             ) : dtype(types::parseDtype(dtype)),
                 shape(shape),
                 chunkShape(chunkShape),
-                fillValue(fillValue),
+                fillValue(static_cast<double>(fillValue)),
                 compressorLevel(compressorLevel),
                 compressorName(compressorName),
                 compressorId(compressorId),
@@ -53,7 +53,12 @@ namespace zarr {
         std::string dtype;
         types::ShapeType shape;
         types::ShapeType chunkShape;
-        boost::any fillValue;
+
+        // FIXME boost::any isn't doing what it's supposed to :(
+        // for now we just store the fill value as double as a hacky workaround
+        //boost::any fillValue;
+        double fillValue;
+
         int compressorLevel;
         std::string compressorName;
         std::string compressorId;
@@ -79,9 +84,13 @@ namespace zarr {
         j["chunks"] = metadata.chunkShape;
         j["compressor"] = compressor;
         j["dtype"] = metadata.dtype;
-        // need to cast to correct dtype
-        j["fill_value"] = types::isRealType(metadata.dtype) ? boost::any_cast<float>(metadata.fillValue) 
-            : boost::any_cast<int>(metadata.fillValue);
+
+        // FIXME boost::any isn't doing what it's supposed to :(
+        //j["fill_value"] = types::isRealType(metadata.dtype) ? boost::any_cast<float>(metadata.fillValue)
+        //    : (types::isUnsignedType(metadata.dtype) ? boost::any_cast<uint64_t>(metadata.fillValue)
+        //        : boost::any_cast<int64_t>(metadata.fillValue));
+        j["fill_value"] = metadata.fillValue;
+
         j["filters"] = metadata.filters;
         j["order"] = metadata.order;
         j["shape"] = metadata.shape;
@@ -99,6 +108,10 @@ namespace zarr {
 
         fs::path metaFile = handle.path();
         metaFile /= ".zarray";
+        if(!fs::exists(metaFile)) {
+            throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
+        }
+
         fs::ifstream file(metaFile);
         nlohmann::json j;
         file >> j;
@@ -130,7 +143,7 @@ namespace zarr {
         // set shapes
         types::ShapeType shape(j["shape"].begin(), j["shape"].end());
         metadata.shape = shape;
-        types::ShapeType chunkShape(j["chunkShape"].begin(), j["chunkShape"].end());
+        types::ShapeType chunkShape(j["chunks"].begin(), j["chunks"].end());
         metadata.chunkShape = chunkShape;
 
         // set compression options
@@ -145,6 +158,11 @@ namespace zarr {
         if(j["fill_value"].is_null()) {
             throw std::runtime_error("Invalid fill_value: Zarr++ does not support null");
         }
+
+        // FIXME boost::any isn't doing what it's supposed to :(
+        //metadata.fillValue = types::isRealType(metadata.dtype) ? static_cast<float>(fillVal)
+        //    : (types::isUnsignedType(metadata.dtype) ? static_cast<uint64_t>(fillVal)
+        //        : static_cast<int64_t>(fillVal));
         metadata.fillValue = j["fill_value"];
     }
 

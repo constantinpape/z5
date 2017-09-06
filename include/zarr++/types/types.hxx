@@ -68,5 +68,9 @@ namespace types {
         return dtype[1] == 'f';
     }
 
+    bool isUnsignedType(const std::string & dtype) {
+        return dtype[1] == 'u';
+    }
+
 } // namespace::types
 } // namespace::zarr
