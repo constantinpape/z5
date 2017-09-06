@@ -5,16 +5,21 @@
 #include "zarr++/metadata.hxx"
 
 namespace zarr {
+namespace compression {
 
-    class BloscCompressor : public CompressorBase {
+    template<typename T>
+    class BloscCompressor : public CompressorBase<T> {
 
     public:
-        BloscCompressor(const Metadata & metadata) {
+        BloscCompressor(const ArrayMetadata & metadata) {
             init(metadata);
         }
 
-        template<typename T>
-        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn, size_t sizeOut) const {
+        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
+
+            size_t sizeOut = sizeIn + BLOSC_MAX_OVERHEAD;
+            dataOut.clear();
+            dataOut.resize(sizeOut);
 
             // compress the data
             int sizeCompressed = blosc_compress_ctx(
@@ -22,7 +27,7 @@ namespace zarr {
                 sizeof(T),
                 sizeIn, dataIn,
                 &dataOut[0], sizeOut,
-                compressor_,
+                compressor_.c_str(),
                 0, // blosc blocksize, 0 means automatic value
                 1  // number of internal threads -> we set this to 1 for now
             );
@@ -36,7 +41,6 @@ namespace zarr {
             dataOut.resize(sizeCompressed);
         }
 
-        template<typename T>
         void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {
 
             // decompress the data
@@ -52,16 +56,20 @@ namespace zarr {
         }
 
     private:
-        void init(const Metadata & metadata) {
-            // TODO set the compression parameters from metadata
-
+        // set the compression parameters from metadata
+        void init(const ArrayMetadata & metadata) {
+            clevel_ = metadata.compressorLevel;
+            shuffle_ = metadata.compressorShuffle;
+            compressor_ = metadata.compressorName;
         }
 
         // the blosc compressor
-        const char * compressor_;
+        std::string compressor_;
         // compression level
         int clevel_;
         // blsoc shuffle
         int shuffle_;
     };
-}
+
+} // namespace compression
+} // namespace zarr

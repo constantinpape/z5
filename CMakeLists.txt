@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-# TODO we need this if we have custom cmake modules
-#set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 project(zarr++)
 
@@ -38,6 +37,11 @@ include_directories(${Boost_INCLUDE_DIRS})
 MESSAGE(STATUS ${Boost_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIR})
 MESSAGE(STATUS ${Boost_LIBRARIES})
+
+
+# find libraries - blosc
+find_package(BLOSC REQUIRED)
+include_directories(${BLOSC_INCLUDE_DIR})
 
 
 # find global headers
