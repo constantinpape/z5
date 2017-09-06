@@ -35,7 +35,7 @@ namespace zarr {
             const std::string & compressorName="lz4",
             const std::string & compressorId="blosc",
             int compressorShuffle=1
-            ) : dtype(dtype), // TODO parse dtype properly
+            ) : dtype(types::parseDtype(dtype)),
                 shape(shape),
                 chunkShape(chunkShape),
                 fillValue(fillValue),
@@ -65,7 +65,7 @@ namespace zarr {
         const std::nullptr_t filters = nullptr;
     };
 
-    void writeMetaData(
+    void writeMetadata(
         const handle::Array & handle, const ArrayMetadata & metadata
     ) {
 
@@ -79,22 +79,27 @@ namespace zarr {
         j["chunks"] = metadata.chunkShape;
         j["compressor"] = compressor;
         j["dtype"] = metadata.dtype;
-        // TODO get the actual datatype and cast properly
-        //j["fill_value"] = ;
+        // need to cast to correct dtype
+        j["fill_value"] = types::isRealType(metadata.dtype) ? boost::any_cast<float>(metadata.fillValue) 
+            : boost::any_cast<int>(metadata.fillValue);
         j["filters"] = metadata.filters;
         j["order"] = metadata.order;
         j["shape"] = metadata.shape;
         j["zarr_format"] = metadata.zarrFormat;
 
-        fs::ofstream file(handle.path());
+        fs::path metaFile = handle.path();
+        metaFile /= ".zarray";
+        fs::ofstream file(metaFile);
         file << std::setw(4) << j << std::endl;
     }
 
-    void readMetaData(
+    void readMetadata(
         const handle::Array & handle, ArrayMetadata & metadata
     ) {
 
-        fs::ifstream file(handle.path());
+        fs::path metaFile = handle.path();
+        metaFile /= ".zarray";
+        fs::ifstream file(metaFile);
         nlohmann::json j;
         file >> j;
 
@@ -119,9 +124,8 @@ namespace zarr {
             );
         }
 
-        std::string dtype = j["dtype"];
-        // TODO parse dtype
-        metadata.dtype = dtype;
+        // dtype
+        metadata.dtype = types::parseDtype(j["dtype"]);
 
         // set shapes
         types::ShapeType shape(j["shape"].begin(), j["shape"].end());
@@ -136,8 +140,12 @@ namespace zarr {
         metadata.compressorId = compressor["id"];
         metadata.compressorShuffle = compressor["shuffle"];
 
+        // TODO support undefined fill-values (encoded by 'null')
         // set fill value
-        metadata.fillValue = j["dtype"];
+        if(j["fill_value"].is_null()) {
+            throw std::runtime_error("Invalid fill_value: Zarr++ does not support null");
+        }
+        metadata.fillValue = j["fill_value"];
     }
 
 } // namespace::zarr
