@@ -30,6 +30,16 @@ namespace zarr {
         virtual inline void readChunk(const handle::Chunk &, void *) const = 0;
         virtual inline void readChunk(const types::ShapeType &, void *) const = 0;
 
+        // shapes and dimension
+        virtual unsigned dimension() const = 0;
+        virtual const types::ShapeType & shape() const = 0;
+        virtual size_t shape(const unsigned) const = 0;
+        virtual const types::ShapeType & chunkShape() const = 0;
+        virtual size_t chunkShape(const unsigned) const = 0;
+
+        virtual size_t numberOfChunks() const = 0;
+        virtual const types::ShapeType & chunksPerDimension() const = 0;
+        virtual size_t chunksPerDimension(const unsigned) const = 0;
     };
 
 
@@ -41,7 +51,7 @@ namespace zarr {
         // create a new array with metadata
         ZarrArrayTyped(
             const handle::Array & handle,
-            const ArrayMetadata & metadata) : handle_(handle), io_() {
+            const ArrayMetadata & metadata) : handle_(handle) {
 
             // make sure that the file does not exist already
             if(handle.exists()) {
@@ -77,7 +87,7 @@ namespace zarr {
         virtual inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) {
 
             // make sure that we have a valid chunk
-            // TODO
+            checkChunk(chunk);
 
             // compress the data
             std::vector<T> dataOut;
@@ -98,7 +108,7 @@ namespace zarr {
         virtual inline void readChunk(const handle::Chunk & chunk, void * dataOut) const {
 
             // make sure that we have a valid chunk
-            // TODO
+            checkChunk(chunk);
 
             // read the data
             std::vector<T> dataTmp;
@@ -114,6 +124,17 @@ namespace zarr {
 
         }
 
+        // shapes and dimension
+        virtual unsigned dimension() const {return shape_.size();}
+        virtual const types::ShapeType & shape() const {return shape_;}
+        virtual size_t shape(const unsigned d) const {return shape_[d];}
+        virtual const types::ShapeType & chunkShape() const {return chunkShape_;}
+        virtual size_t chunkShape(const unsigned d) const {return chunkShape_[d];}
+
+        virtual size_t numberOfChunks() const {return numberOfChunks_;}
+        virtual const types::ShapeType & chunksPerDimension() const {return chunksPerDimension_;}
+        virtual size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik
@@ -123,6 +144,7 @@ namespace zarr {
         ZarrArrayTyped & operator=(const ZarrArrayTyped & that) = delete;
 
     private:
+
         //
         // member functions
         //
@@ -150,6 +172,31 @@ namespace zarr {
                 new compression::BloscCompressor<T>(metadata)
             );
 
+            // get chunk specifications
+            for(size_t d = 0; d < shape_.size(); ++d) {
+                chunksPerDimension_.push_back(
+                    shape_[d] / chunkShape_[d] + (shape_[d] % chunkShape_[d] == 0 ? 0 : 1)
+                );
+            }
+            numberOfChunks_ = std::accumulate(
+                chunksPerDimension_.begin(), chunksPerDimension_.end(), 1, std::multiplies<size_t>()
+            );
+        }
+
+        // check that the chunk handle is valid
+        void checkChunk(const handle::Chunk & chunk) const {
+            // check dimension
+            const auto & chunkIndices = chunk.chunkIndices();
+            if(chunkIndices.size() != shape_.size()) {
+                throw std::runtime_error("Invalid chunk dimension");
+            }
+
+            // check chunk dimensions
+            for(int d = 0; d < shape_.size(); ++d) {
+                if(chunkIndices[d] >= shape_[d] || chunkIndices[d] % chunkShape_[d] != 0) {
+                    throw std::runtime_error("Invalid chunk index");
+                }
+            }
         }
 
         //
@@ -173,6 +220,9 @@ namespace zarr {
         size_t chunkSize_;
         // the fill value
         T fillValue_;
+        // the number of chunks and chunks per dimension
+        size_t numberOfChunks_;
+        types::ShapeType chunksPerDimension_;
     };
 
 } // namespace::zarr

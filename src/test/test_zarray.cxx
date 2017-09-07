@@ -81,18 +81,61 @@ namespace zarr {
     TEST_F(ArrayTest, OpenIntArray) {
 
         ZarrArrayTyped<int> array(intHandle_);
+        const auto & chunksPerDim = array.chunksPerDimension();
+        const auto & chunkShape = array.chunkShape();
 
-        // write a chunk
-        types::ShapeType chunkId({0, 0, 0});
-        array.writeChunk(chunkId, dataInt_);
+        std::default_random_engine generator;
 
-        // read a chunk
-        int dataTmp[size_];
-        array.readChunk(chunkId, dataTmp);
+        // test for 10 random chuks
+        for(unsigned _ = 0; _ < 10; ++_) {
+            // get a random chunk
+            types::ShapeType chunkId(array.dimension());
+            for(unsigned d = 0; d < array.dimension(); ++d) {
+                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = chunkShape[d] * distr(generator);
+            }
 
-        // check
-        for(size_t i = 0; i < size_; ++i) {
-            ASSERT_EQ(dataTmp[i], dataInt_[i]);
+            array.writeChunk(chunkId, dataInt_);
+
+            // read a chunk
+            int dataTmp[size_];
+            array.readChunk(chunkId, dataTmp);
+
+            // check
+            for(size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataInt_[i]);
+            }
+        }
+    }
+
+
+    TEST_F(ArrayTest, OpenFloatArray) {
+
+        ZarrArrayTyped<float> array(floatHandle_);
+        const auto & chunksPerDim = array.chunksPerDimension();
+        const auto & chunkShape = array.chunkShape();
+
+        std::default_random_engine generator;
+
+        // test for 10 random chunks
+        for(unsigned _ = 0; _ < 10; ++_) {
+            // get a random chunk
+            types::ShapeType chunkId(array.dimension());
+            for(unsigned d = 0; d < array.dimension(); ++d) {
+                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = chunkShape[d] * distr(generator);
+            }
+
+            array.writeChunk(chunkId, dataFloat_);
+
+            // read a chunk
+            float dataTmp[size_];
+            array.readChunk(chunkId, dataTmp);
+
+            // check
+            for(size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataFloat_[i]);
+            }
         }
     }
 
