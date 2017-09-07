@@ -31,19 +31,19 @@ namespace io {
             for(size_t i = 0; i < size_; ++i) {
                 data_[i] = draw();
             }
+
+            // make array
+            fs::path arr("array.zr");
+            fs::create_directory(arr);
+
             // write to file
-            fs::fstream file("chunk0.zr", std::ios::out | std::ios::binary);
+            fs::fstream file("array.zr/0", std::ios::out | std::ios::binary);
             file.write((char*) data_, size_*sizeof(int));
         }
 
         virtual void TearDown() {
-            fs::path chunk0("chunk0.zr");
-            fs::remove(chunk0);
-
-            fs::path chunk1("chunk1.zr");
-            if(fs::exists(chunk1)) {
-                fs::remove(chunk1);
-            }
+            fs::path file("array.zr");
+            fs::remove_all(file);
         }
 
         const static size_t size_ = 100*100*100;
@@ -57,7 +57,7 @@ namespace io {
 
 
     TEST_F(IoTest, ReadFile) {
-        handle::Chunk chunkHandle("chunk0.zr");
+        handle::Chunk chunkHandle("array.zr/0");
         ChunkIo<int> io;
 
         std::vector<int> tmpData;
@@ -70,30 +70,8 @@ namespace io {
     }
 
 
-    // this functionality has been moved to the array itself
-    /*
-    TEST_F(IoTest, ReadEmptyFile) {
-        handle::Chunk chunkHandle("chunk2.zr");
-
-        std::vector<int> fillValues({-100, -1, 0, 1, 100});
-
-        for(auto fillVal : fillValues) {
-            ChunkIo<int> io(size2_, fillVal);
-
-            std::vector<int> tmpData;
-            ASSERT_FALSE(io.read(chunkHandle, tmpData));
-            ASSERT_EQ(tmpData.size(), size2_);
-
-            for(size_t i = 0; i < size2_; ++ i) {
-                ASSERT_EQ(tmpData[i], fillVal);
-            }
-        }
-    }
-    */
-
-
     TEST_F(IoTest, WriteFile) {
-        handle::Chunk chunkHandle("chunk1.zr");
+        handle::Chunk chunkHandle("array.zr/1");
         ChunkIo<int> io;
 
         std::vector<int> tmpData(size2_, 0);
@@ -103,7 +81,7 @@ namespace io {
 
 
     TEST_F(IoTest, WriteReadFile) {
-        handle::Chunk chunkHandle("chunk1.zr");
+        handle::Chunk chunkHandle("array.zr/1");
         ChunkIo<int> io;
 
         std::vector<int> tmpData1(size2_);

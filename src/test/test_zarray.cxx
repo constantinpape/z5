@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include <random>
+
 #include "zarr++/metadata.hxx"
 #include "zarr++/array.hxx"
 

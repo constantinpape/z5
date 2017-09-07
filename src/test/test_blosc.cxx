@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include <random>
+
 #include "zarr++/compression/blosc_compressor.hxx"
 #include "zarr++/metadata.hxx"
 
