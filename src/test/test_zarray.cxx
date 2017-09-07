@@ -15,8 +15,8 @@ namespace zarr {
     protected:
         ArrayTest() : floatHandle_("array_float.zr"), intHandle_("array_int.zr") {
             // int zarray metadata
-            jInt_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 0, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
-            jFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 0, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
+            jInt_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
+            jFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
 
         }
 
@@ -63,6 +63,14 @@ namespace zarr {
             // remove stuff
             fs::remove_all(floatHandle_.path());
             fs::remove_all(intHandle_.path());
+            handle::Array hi("array_int1.zr");
+            if(hi.exists()) {
+                fs::remove_all(hi.path());
+            }
+            handle::Array hf("array_float1.zr");
+            if(hf.exists()) {
+                fs::remove_all(hf.path());
+            }
         }
 
         handle::Array floatHandle_;
@@ -85,6 +93,57 @@ namespace zarr {
         const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
+
+        // test uninitialized chunk
+        int dataTmp[size_];
+        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
+        // check
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataTmp[i], 42);
+        }
+
+        // test for 10 random chuks
+        for(unsigned _ = 0; _ < 10; ++_) {
+            // get a random chunk
+            types::ShapeType chunkId(array.dimension());
+            for(unsigned d = 0; d < array.dimension(); ++d) {
+                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = chunkShape[d] * distr(generator);
+            }
+
+            array.writeChunk(chunkId, dataInt_);
+
+            // read a chunk
+            int dataTmp[size_];
+            array.readChunk(chunkId, dataTmp);
+
+            // check
+            for(size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataInt_[i]);
+            }
+        }
+    }
+
+
+    TEST_F(ArrayTest, CreateIntArray) {
+
+        handle::Array h("array_int1.zr");
+        ArrayMetadata intMeta;
+        readMetadata(jInt_, intMeta);
+
+        ZarrArrayTyped<int> array(h, intMeta);
+        const auto & chunksPerDim = array.chunksPerDimension();
+        const auto & chunkShape = array.chunkShape();
+
+        std::default_random_engine generator;
+
+        // test uninitialized chunk
+        int dataTmp[size_];
+        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
+        // check
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataTmp[i], 42);
+        }
 
         // test for 10 random chuks
         for(unsigned _ = 0; _ < 10; ++_) {
@@ -116,6 +175,58 @@ namespace zarr {
         const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
+
+        // test uninitialized chunk
+        float dataTmp[size_];
+        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
+        // check
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataTmp[i], 42.);
+        }
+
+        // test for 10 random chunks
+        for(unsigned t = 0; t < 10; ++t) {
+
+            // get a random chunk
+            types::ShapeType chunkId(array.dimension());
+            for(unsigned d = 0; d < array.dimension(); ++d) {
+                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = chunkShape[d] * distr(generator);
+            }
+
+            array.writeChunk(chunkId, dataFloat_);
+
+            // read a chunk
+            float dataTmp[size_];
+            array.readChunk(chunkId, dataTmp);
+
+            // check
+            for(size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataFloat_[i]);
+            }
+        }
+    }
+
+
+    TEST_F(ArrayTest, CreateFloatArray) {
+
+        handle::Array h("array_float1.zr");
+        ArrayMetadata floatMeta;
+        readMetadata(jFloat_, floatMeta);
+
+        ZarrArrayTyped<float> array(h, floatMeta);
+        const auto & chunksPerDim = array.chunksPerDimension();
+        const auto & chunkShape = array.chunkShape();
+
+        std::default_random_engine generator;
+
+        // test uninitialized chunk
+        float dataTmp[size_];
+        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
+        // check
+        for(size_t i = 0; i < size_; ++i) {
+            ASSERT_EQ(dataTmp[i], 42.);
+        }
 
         // test for 10 random chunks
         for(unsigned t = 0; t < 10; ++t) {
