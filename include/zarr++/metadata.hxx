@@ -25,16 +25,16 @@ namespace zarr {
 
     struct ArrayMetadata : public Metadata {
 
-        template<typename T>
+        //template<typename T>
         ArrayMetadata(
             const std::string & dtype,
             const types::ShapeType & shape,
             const types::ShapeType & chunkShape,
-            T fillValue=0,
-            int compressorLevel=5,
+            const double fillValue=0, // FIXME this should be a template if we use boost::any
+            const int compressorLevel=5,
             const std::string & compressorName="lz4",
             const std::string & compressorId="blosc",
-            int compressorShuffle=1
+            const int compressorShuffle=1
             ) : dtype(types::parseDtype(dtype)),
                 shape(shape),
                 chunkShape(chunkShape),
@@ -71,6 +71,7 @@ namespace zarr {
     };
 
 
+    // TODO refactor this
     void writeMetadata(
         nlohmann::json & j, const ArrayMetadata & metadata
     ) {
@@ -111,6 +112,7 @@ namespace zarr {
     }
 
 
+    // TODO refactor this
     void readMetadata(const nlohmann::json & j, ArrayMetadata & metadata) {
         // make sure that fixed metadata values agree
         std::string order = j["order"];
@@ -141,6 +143,10 @@ namespace zarr {
         metadata.shape = shape;
         types::ShapeType chunkShape(j["chunks"].begin(), j["chunks"].end());
         metadata.chunkShape = chunkShape;
+
+        if(shape.size() != chunkShape.size()) {
+            throw std::runtime_error("Invalid shapes: dimension of shape and chunks does not agree.");
+        }
 
         // set compression options
         const auto & compressor = j["compressor"];
@@ -179,6 +185,22 @@ namespace zarr {
         file >> j;
 
         readMetadata(j, metadata);
+    }
+
+
+    std::string readDatatype(const handle::Array & handle) {
+        fs::path filePath(handle.path());
+        filePath /= ".zarray";
+        
+        if(!fs::exists(filePath)) {
+            throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
+        }
+
+        fs::ifstream file(filePath);
+        nlohmann::json j;
+        file >> j;
+        
+        return j["dtype"];
     }
 
 } // namespace::zarr

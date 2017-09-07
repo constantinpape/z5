@@ -153,7 +153,7 @@ namespace zarr {
             shape_ = metadata.shape;
             chunkShape_ = metadata.chunkShape;
             chunkSize_ = std::accumulate(
-                    chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<T>()
+                chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
 

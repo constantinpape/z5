@@ -23,3 +23,7 @@ target_link_libraries(test_metadata ${TEST_LIBS})
 # add zarray test
 add_executable(test_zarray test_zarray.cxx)
 target_link_libraries(test_zarray ${TEST_LIBS} ${BLOSC_LIBRARIES})
+
+# add factory test
+add_executable(test_factories test_factories.cxx)
+target_link_libraries(test_factories ${TEST_LIBS} ${BLOSC_LIBRARIES})
