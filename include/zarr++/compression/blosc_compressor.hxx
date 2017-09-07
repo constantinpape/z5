@@ -38,7 +38,7 @@ namespace compression {
             }
 
             // resize the out data
-            dataOut.resize(sizeCompressed / sizeof(T));
+            dataOut.resize(sizeCompressed / sizeof(T) + BLOSC_MAX_OVERHEAD);
         }
 
         void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {

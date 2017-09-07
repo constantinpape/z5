@@ -121,7 +121,6 @@ namespace zarr {
             } else {
                 std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
             }
-
         }
 
         // shapes and dimension

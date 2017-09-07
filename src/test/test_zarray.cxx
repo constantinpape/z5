@@ -118,7 +118,8 @@ namespace zarr {
         std::default_random_engine generator;
 
         // test for 10 random chunks
-        for(unsigned _ = 0; _ < 10; ++_) {
+        for(unsigned t = 0; t < 10; ++t) {
+
             // get a random chunk
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
