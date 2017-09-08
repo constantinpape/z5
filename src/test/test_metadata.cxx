@@ -38,25 +38,25 @@ namespace zarr {
     TEST_F(MetadataTest, ReadMetadata) {
         handle::Array h(".");
 
-        ArrayMetadata meta;
-        readMetadata(h, meta);
+        ArrayMetadata metadata;
+        readMetadata(h, metadata);
 
-        ASSERT_EQ(meta.shape.size(), meta.chunkShape.size());
-        ASSERT_EQ(meta.shape.size(), j["shape"].size());
-        ASSERT_EQ(meta.chunkShape.size(), j["chunks"].size());
-        for(int i = 0; i < meta.shape.size(); ++i) {
-            ASSERT_EQ(meta.chunkShape[i], j["chunks"][i]);
-            ASSERT_EQ(meta.shape[i], j["shape"][i]);
+        ASSERT_EQ(metadata.shape.size(), metadata.chunkShape.size());
+        ASSERT_EQ(metadata.shape.size(), j["shape"].size());
+        ASSERT_EQ(metadata.chunkShape.size(), j["chunks"].size());
+        for(int i = 0; i < metadata.shape.size(); ++i) {
+            ASSERT_EQ(metadata.chunkShape[i], j["chunks"][i]);
+            ASSERT_EQ(metadata.shape[i], j["shape"][i]);
         }
         const auto & compressor = j["compressor"];
-        ASSERT_EQ(meta.compressorLevel, compressor["clevel"]);
-        ASSERT_EQ(meta.compressorName, compressor["cname"]);
-        ASSERT_EQ(meta.compressorId, compressor["id"]);
-        ASSERT_EQ(meta.compressorShuffle, compressor["shuffle"]);
-        ASSERT_EQ(meta.dtype, j["dtype"]);
+        ASSERT_EQ(metadata.compressorLevel, compressor["clevel"]);
+        ASSERT_EQ(metadata.compressorName, compressor["cname"]);
+        ASSERT_EQ(metadata.compressorId, compressor["id"]);
+        ASSERT_EQ(metadata.compressorShuffle, compressor["shuffle"]);
+        ASSERT_EQ(metadata.dtype, j["dtype"]);
         // FIXME boost any is a bit tricky here
-        ASSERT_EQ(meta.fillValue, j["fill_value"]);
-        ASSERT_EQ(meta.order, j["order"]);
+        ASSERT_EQ(metadata.fillValue, j["fill_value"]);
+        ASSERT_EQ(metadata.order, j["order"]);
     }
 
 
@@ -65,7 +65,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metadata;
-        readMetadata(j, metadata);
+        metadata.fromJson(j);
 
         handle::Array h(".");
         writeMetadata(h, metadata);
@@ -78,7 +78,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metaWrite;
-        readMetadata(j, metaWrite);
+        metaWrite.fromJson(j);
 
         handle::Array h(".");
         writeMetadata(h, metaWrite);

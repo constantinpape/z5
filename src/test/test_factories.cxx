@@ -15,7 +15,7 @@ namespace zarr {
     void getMetadata(const std::string & dtype, ArrayMetadata & meta) {
         nlohmann::json j = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
         j["dtype"] = dtype;
-        readMetadata(j, meta);
+        meta.fromJson(j);
     }
 
 

@@ -51,11 +51,11 @@ namespace zarr {
             intHandle_.createDir();
 
             ArrayMetadata floatMeta;
-            readMetadata(jFloat_, floatMeta);
+            floatMeta.fromJson(jFloat_);
             writeMetadata(floatHandle_, floatMeta);
 
             ArrayMetadata intMeta;
-            readMetadata(jInt_, intMeta);
+            intMeta.fromJson(jInt_);
             writeMetadata(intHandle_, intMeta);
         }
 
@@ -128,7 +128,7 @@ namespace zarr {
 
         handle::Array h("array_int1.zr");
         ArrayMetadata intMeta;
-        readMetadata(jInt_, intMeta);
+        intMeta.fromJson(jInt_);
 
         ZarrArrayTyped<int> array(h, intMeta);
         const auto & chunksPerDim = array.chunksPerDimension();
@@ -209,7 +209,7 @@ namespace zarr {
 
         handle::Array h("array_float1.zr");
         ArrayMetadata floatMeta;
-        readMetadata(jFloat_, floatMeta);
+        floatMeta.fromJson(jFloat_);
 
         ZarrArrayTyped<float> array(h, floatMeta);
         const auto & chunksPerDim = array.chunksPerDimension();

@@ -38,16 +38,63 @@ namespace zarr {
             ) : dtype(types::parseDtype(dtype)),
                 shape(shape),
                 chunkShape(chunkShape),
-                fillValue(static_cast<double>(fillValue)),
+                fillValue(static_cast<double>(fillValue)), // FIXME boost::any
                 compressorLevel(compressorLevel),
                 compressorName(compressorName),
                 compressorId(compressorId),
                 compressorShuffle(compressorShuffle)
-        {}
+        {
+            checkShapes();
+        }
+
 
         // empty constructur
         ArrayMetadata()
         {}
+
+
+        // TODO the proper way would be to make 'ArrayMetadata' natively
+        // json serializable
+        void toJson(nlohmann::json & j) const {
+
+            nlohmann::json compressor;
+            compressor["clevel"] = compressorLevel;
+            compressor["cname"] = compressorName;
+            compressor["id"] = compressorId;
+            compressor["shuffle"] = compressorShuffle;
+            j["compressor"] = compressor;
+
+            j["chunks"] = chunkShape;
+            j["dtype"] = dtype;
+
+            // FIXME boost::any isn't doing what it's supposed to :(
+            //j["fill_value"] = types::isRealType(.dtype) ? boost::any_cast<float>(.fillValue)
+            //    : (types::isUnsignedType(.dtype) ? boost::any_cast<uint64_t>(.fillValue)
+            //        : boost::any_cast<int64_t>(.fillValue));
+            j["fill_value"] = fillValue;
+
+            j["filters"] = filters;
+            j["order"] = order;
+            j["shape"] = shape;
+            j["zarr_format"] = zarrFormat;
+
+        }
+
+
+        void fromJson(const nlohmann::json & j) {
+            checkJson(j);
+            dtype = types::parseDtype(j["dtype"]);
+            shape = std::vector<size_t>(j["shape"].begin(), j["shape"].end());
+            chunkShape = std::vector<size_t>(j["chunks"].begin(), j["chunks"].end());
+            fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
+            const auto & compressor = j["compressor"];
+            compressorLevel   = compressor["clevel"];
+            compressorName    = compressor["cname"];
+            compressorId      = compressor["id"];
+            compressorShuffle = compressor["shuffle"];
+            checkShapes();
+        }
+
 
         // metadata values that can be set
         std::string dtype;
@@ -68,138 +115,91 @@ namespace zarr {
         // zarr format is fixed to 2
         const std::string order = "C";
         const std::nullptr_t filters = nullptr;
+
+    private:
+
+        // make sure that shapes agree
+        void checkShapes() {
+            if(shape.size() != chunkShape.size()) {
+                throw std::runtime_error("Dimension of shape and chunks does not agree");
+            }
+            for(unsigned d = 0; d < shape.size(); ++d) {
+                if(chunkShape[d] > shape[d]) {
+                    throw std::runtime_error("Chunkshape cannot be bigger than shape");
+                }
+            }
+        }
+
+
+        // make sure that fixed metadata values agree
+        void checkJson(const nlohmann::json & j) {
+
+            // check if order exists and check for the correct value
+            auto jIt = j.find("order");
+            if(jIt != j.end()) {
+                if(*jIt != order) {
+                    throw std::runtime_error(
+                        "Invalid Order: Zarr++ only supports C order"
+                    );
+                }
+            }
+
+            jIt = j.find("zarr_format");
+            if(jIt != j.end()) {
+                if(*jIt != zarrFormat) {
+                    throw std::runtime_error(
+                        "Invalid Zarr format: Zarr++ only supports zarr format 2"
+                    );
+                }
+            }
+
+            jIt = j.find("filters");
+            if(jIt != j.end()) {
+                if(!j["filters"].is_null()) {
+                    throw std::runtime_error(
+                        "Invalid Filters: Zarr++ does not support filters"
+                    );
+                }
+            }
+        }
     };
 
 
-    // TODO refactor this
-    void writeMetadata(
-        nlohmann::json & j, const ArrayMetadata & metadata
-    ) {
-
-        nlohmann::json compressor;
-        compressor["clevel"] = metadata.compressorLevel;
-        compressor["cname"] = metadata.compressorName;
-        compressor["id"] = metadata.compressorId;
-        compressor["shuffle"] = metadata.compressorShuffle;
-
-        j["chunks"] = metadata.chunkShape;
-        j["compressor"] = compressor;
-        j["dtype"] = metadata.dtype;
-
-        // FIXME boost::any isn't doing what it's supposed to :(
-        //j["fill_value"] = types::isRealType(metadata.dtype) ? boost::any_cast<float>(metadata.fillValue)
-        //    : (types::isUnsignedType(metadata.dtype) ? boost::any_cast<uint64_t>(metadata.fillValue)
-        //        : boost::any_cast<int64_t>(metadata.fillValue));
-        j["fill_value"] = metadata.fillValue;
-
-        j["filters"] = metadata.filters;
-        j["order"] = metadata.order;
-        j["shape"] = metadata.shape;
-        j["zarr_format"] = metadata.zarrFormat;
-
-    }
+    //
+    // helper functions
+    //
 
 
-    void writeMetadata(
-        const handle::Array & handle, const ArrayMetadata & metadata
-    ) {
+    void writeMetadata(const handle::Array & handle, const ArrayMetadata & metadata) {
         nlohmann::json j;
-        writeMetadata(j, metadata);
-        fs::path metaFile = handle.path();
-        metaFile /= ".zarray";
-        fs::ofstream file(metaFile);
+        metadata.toJson(j);
+        fs::path filePath = handle.path();
+        filePath /= ".zarray";
+        fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
     }
 
-
-    // TODO refactor this
-    void readMetadata(const nlohmann::json & j, ArrayMetadata & metadata) {
-        // make sure that fixed metadata values agree
-        std::string order = j["order"];
-        if(order != "C") {
-            throw std::runtime_error(
-                "Invalid Order: Zarr++ only supports C order"
-            );
-        }
-
-        int zarrFormat = j["zarr_format"];
-        if(zarrFormat != 2) {
-            throw std::runtime_error(
-                "Invalid Zarr format: Zarr++ only supports zarr format 2"
-            );
-        }
-
-        if(!j["filters"].is_null()) {
-            throw std::runtime_error(
-                "Invalid Filters: Zarr++ does not support filters"
-            );
-        }
-
-        // dtype
-        metadata.dtype = types::parseDtype(j["dtype"]);
-
-        // set shapes
-        types::ShapeType shape(j["shape"].begin(), j["shape"].end());
-        metadata.shape = shape;
-        types::ShapeType chunkShape(j["chunks"].begin(), j["chunks"].end());
-        metadata.chunkShape = chunkShape;
-
-        if(shape.size() != chunkShape.size()) {
-            throw std::runtime_error("Invalid shapes: dimension of shape and chunks does not agree.");
-        }
-
-        // set compression options
-        const auto & compressor = j["compressor"];
-        metadata.compressorLevel = compressor["clevel"];
-        metadata.compressorName = compressor["cname"];
-        metadata.compressorId = compressor["id"];
-        metadata.compressorShuffle = compressor["shuffle"];
-
-        // TODO support undefined fill-values (encoded by 'null')
-        // set fill value
-        if(j["fill_value"].is_null()) {
-            throw std::runtime_error("Invalid fill_value: Zarr++ does not support null");
-        }
-
-        // FIXME boost::any isn't doing what it's supposed to :(
-        //metadata.fillValue = types::isRealType(metadata.dtype) ? static_cast<float>(fillVal)
-        //    : (types::isUnsignedType(metadata.dtype) ? static_cast<uint64_t>(fillVal)
-        //        : static_cast<int64_t>(fillVal));
-        metadata.fillValue = j["fill_value"];
-
-    }
-
-
-    void readMetadata(
-        const handle::Array & handle, ArrayMetadata & metadata
-    ) {
-
-        fs::path metaFile = handle.path();
-        metaFile /= ".zarray";
-        if(!fs::exists(metaFile)) {
+    void readMetadata(const handle::Array & handle, ArrayMetadata & metadata) {
+        nlohmann::json j;
+        fs::path filePath = handle.path();
+        filePath /= ".zarray";
+        if(!fs::exists(filePath)) {
             throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
         }
-
-        fs::ifstream file(metaFile);
-        nlohmann::json j;
+        fs::ifstream file(filePath);
         file >> j;
-
-        readMetadata(j, metadata);
+        metadata.fromJson(j);
     }
-
 
     std::string readDatatype(const handle::Array & handle) {
         fs::path filePath(handle.path());
         filePath /= ".zarray";
-        
         if(!fs::exists(filePath)) {
             throw std::runtime_error("Invalid path in readMetadata: Does not have a .zarray");
         }
-
         fs::ifstream file(filePath);
         nlohmann::json j;
         file >> j;
-        
         return j["dtype"];
     }
 
