@@ -12,6 +12,10 @@
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
 
+#include <boost/iostreams/filter/bzip2.hpp>
+
+namespace ios = boost::iostreams;
+
 namespace zarr {
 
     // Abstract basis class for the zarr-arrays
@@ -93,7 +97,7 @@ namespace zarr {
 
             // compress the data
             std::vector<T> dataOut;
-            compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
+            //compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
 
             // write the data
             io_->write(chunk, dataOut);
@@ -118,9 +122,7 @@ namespace zarr {
 
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
-            if(chunkExists) {
-                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
-            } else {
+            if(!chunkExists) {
                 std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
             }
         }
@@ -168,12 +170,12 @@ namespace zarr {
                 throw std::runtime_error("Invalid compressor: Zarr++ only supports blosc (for now)");
             }
 
-            compressor_ = std::unique_ptr<compression::CompressorBase<T>>(
-                new compression::BloscCompressor<T>(metadata)
-            );
+            //compressor_ = std::unique_ptr<compression::CompressorBase<T>>(
+            //    new compression::BloscCompressor<T>(metadata)
+            //);
 
             // chunk writer TODO enable N5 writer
-            io_ = std::unique_ptr<io::ChunkIoBase<T>>(new io::ChunkIoZarr<T>());
+            io_ = std::unique_ptr<io::ChunkIoBase<T, ios::bzip2_compressor, ios::bzip2_decompressor>>(new io::ChunkIoZarr<T, ios::bzip2_compressor, ios::bzip2_decompressor>());
 
             // get chunk specifications
             for(size_t d = 0; d < shape_.size(); ++d) {
@@ -210,10 +212,10 @@ namespace zarr {
         handle::Array handle_;
 
         // unique ptr to hold child classes of compressor
-        std::unique_ptr<compression::CompressorBase<T>> compressor_;
+        //std::unique_ptr<compression::CompressorBase<T>> compressor_;
 
         // unique prtr chunk writer
-        std::unique_ptr<io::ChunkIoBase<T>> io_;
+        std::unique_ptr<io::ChunkIoBase<T, ios::bzip2_compressor, ios::bzip2_decompressor>> io_;
 
         // the shape of the array
         types::ShapeType shape_;

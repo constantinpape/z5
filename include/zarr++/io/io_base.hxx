@@ -5,7 +5,7 @@
 namespace zarr {
 namespace io {
 
-    template<typename T>
+    template<typename T, typename COMPRESSOR, typename DECOMPRESSOR>
     class ChunkIoBase {
 
     public:
