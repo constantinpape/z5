@@ -37,7 +37,7 @@ namespace io {
                 file.seekg(0, std::ios::beg);
 
                 // resize the data vector
-                size_t vectorSize = fileSize / sizeof(T);
+                size_t vectorSize = fileSize / sizeof(T) + (fileSize % sizeof(T) == 0 ? 0 : sizeof(T));
                 data.resize(vectorSize);
 
                 // read the file

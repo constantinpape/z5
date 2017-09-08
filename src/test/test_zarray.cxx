@@ -90,7 +90,6 @@ namespace zarr {
 
         ZarrArrayTyped<int> array(intHandle_);
         const auto & chunksPerDim = array.chunksPerDimension();
-        const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
 
@@ -108,7 +107,7 @@ namespace zarr {
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
                 std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
-                chunkId[d] = chunkShape[d] * distr(generator);
+                chunkId[d] = distr(generator);
             }
 
             array.writeChunk(chunkId, dataInt_);
@@ -133,7 +132,6 @@ namespace zarr {
 
         ZarrArrayTyped<int> array(h, intMeta);
         const auto & chunksPerDim = array.chunksPerDimension();
-        const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
 
@@ -151,7 +149,7 @@ namespace zarr {
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
                 std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
-                chunkId[d] = chunkShape[d] * distr(generator);
+                chunkId[d] = distr(generator);
             }
 
             array.writeChunk(chunkId, dataInt_);
@@ -172,7 +170,6 @@ namespace zarr {
 
         ZarrArrayTyped<float> array(floatHandle_);
         const auto & chunksPerDim = array.chunksPerDimension();
-        const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
 
@@ -191,7 +188,7 @@ namespace zarr {
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
                 std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
-                chunkId[d] = chunkShape[d] * distr(generator);
+                chunkId[d] = distr(generator);
             }
 
             array.writeChunk(chunkId, dataFloat_);
@@ -216,7 +213,6 @@ namespace zarr {
 
         ZarrArrayTyped<float> array(h, floatMeta);
         const auto & chunksPerDim = array.chunksPerDimension();
-        const auto & chunkShape = array.chunkShape();
 
         std::default_random_engine generator;
 
@@ -235,7 +231,7 @@ namespace zarr {
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
                 std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
-                chunkId[d] = chunkShape[d] * distr(generator);
+                chunkId[d] = distr(generator);
             }
 
             array.writeChunk(chunkId, dataFloat_);

@@ -40,7 +40,7 @@ namespace zarr {
         virtual size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
         virtual size_t chunksPerDimension(const unsigned) const = 0;
-        virtual size_t chunkSize() const = 0;
+        virtual size_t maxChunkSize() const = 0;
     };
 
 
@@ -118,7 +118,7 @@ namespace zarr {
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
             if(chunkExists) {
-               compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
+                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
             } else {
                 std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
             }
@@ -134,7 +134,7 @@ namespace zarr {
         virtual size_t numberOfChunks() const {return numberOfChunks_;}
         virtual const types::ShapeType & chunksPerDimension() const {return chunksPerDimension_;}
         virtual size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
-        virtual size_t chunkSize() const {return chunkSize_;}
+        virtual size_t maxChunkSize() const {return chunkSize_;}
 
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
@@ -194,7 +194,7 @@ namespace zarr {
 
             // check chunk dimensions
             for(int d = 0; d < shape_.size(); ++d) {
-                if(chunkIndices[d] >= shape_[d] || chunkIndices[d] % chunkShape_[d] != 0) {
+                if(chunkIndices[d] >= chunksPerDimension_[d]) {
                     throw std::runtime_error("Invalid chunk index");
                 }
             }
