@@ -40,6 +40,7 @@ namespace zarr {
         virtual size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
         virtual size_t chunksPerDimension(const unsigned) const = 0;
+        virtual size_t chunkSize() const = 0;
     };
 
 
@@ -133,6 +134,7 @@ namespace zarr {
         virtual size_t numberOfChunks() const {return numberOfChunks_;}
         virtual const types::ShapeType & chunksPerDimension() const {return chunksPerDimension_;}
         virtual size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
+        virtual size_t chunkSize() const {return chunkSize_;}
 
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default

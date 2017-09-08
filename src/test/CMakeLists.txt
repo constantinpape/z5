@@ -27,3 +27,6 @@ target_link_libraries(test_zarray ${TEST_LIBS} ${BLOSC_LIBRARIES})
 # add factory test
 add_executable(test_factories test_factories.cxx)
 target_link_libraries(test_factories ${TEST_LIBS} ${BLOSC_LIBRARIES})
+
+add_subdirectory(test_zarr_python)
+#add_subdirectory(test_n5)
