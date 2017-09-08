@@ -29,6 +29,8 @@ namespace io {
             // otherwise, we write the fill value
             if(chunk.exists()) {
 
+                // this might speed up the I/O by decoupling C++ buffers from C buffers
+                std::ios_base::sync_with_stdio(false);
                 // open input stream and read the filesize
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 file.seekg(0, std::ios::end);
@@ -52,7 +54,8 @@ namespace io {
         }
 
         inline void write(const handle::Chunk & chunk, const std::vector<T> & data) const {
-            //std::ios_base::sync_with_stdio(false);
+            // this might speed up the I/O by decoupling C++ buffers from C buffers
+            std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
             file.write((char*) &data[0], data.size() * sizeof(T));
             file.close();

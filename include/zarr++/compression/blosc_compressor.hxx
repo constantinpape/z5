@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef WITH_BLOSC
+
 #include <blosc.h>
 #include "zarr++/compression/compressor_base.hxx"
 #include "zarr++/metadata.hxx"
@@ -73,3 +75,5 @@ namespace compression {
 
 } // namespace compression
 } // namespace zarr
+
+#endif

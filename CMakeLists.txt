@@ -25,6 +25,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
+option(WITH_BLOSC ON)
+option(WITH_GZIP ON)
+
 
 # find libraries - pthread
 find_package(Threads)
@@ -39,9 +42,23 @@ include_directories(${Boost_INCLUDE_DIR})
 MESSAGE(STATUS ${Boost_LIBRARIES})
 
 
+SET(COMPRESSION_LIBRARIES "")
+
 # find libraries - blosc
-find_package(BLOSC REQUIRED)
-include_directories(${BLOSC_INCLUDE_DIR})
+if(WITH_BLOSC)
+    find_package(BLOSC REQUIRED)
+    include_directories(${BLOSC_INCLUDE_DIR})
+    add_definitions(-DWITH_BLOSC)
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BLOSC_LIBRARIES}")
+endif()
+
+
+if(WITH_GZIP)
+    find_package(ZLIB REQUIRED)
+    include_directories(ZLIB_INCLUDE_DIRS)
+    add_definitions(-DWITH_GZIP)
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
+endif()
 
 
 # find global headers

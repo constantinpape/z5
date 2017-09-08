@@ -8,6 +8,7 @@
 
 // different compression backends
 #include "zarr++/compression/blosc_compressor.hxx"
+#include "zarr++/compression/gzip_compressor.hxx"
 
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
@@ -162,15 +163,17 @@ namespace zarr {
 
             // get compressor and initialize the compressor pointer
             auto compressorId = metadata.compressorId;
-            // TODO we want to support different compression libraries based on the compressor id
-            // but for now, we only have blosc
-            if(compressorId != "blosc") {
-                throw std::runtime_error("Invalid compressor: Zarr++ only supports blosc (for now)");
-            }
 
-            compressor_ = std::unique_ptr<compression::CompressorBase<T>>(
-                new compression::BloscCompressor<T>(metadata)
-            );
+			// TODO switch case in types (same construction as dtypes)
+			if(compressorId == "blosc") {
+            	compressor_.reset(new compression::BloscCompressor<T>(metadata));
+            }
+            else if(compressorId == "gzip") {
+            	compressor_.reset(new compression::GzipCompressor<T>(metadata));
+            }
+            else {
+                throw std::runtime_error("Temp");
+            }
 
             // chunk writer TODO enable N5 writer
             io_ = std::unique_ptr<io::ChunkIoBase<T>>(new io::ChunkIoZarr<T>());
