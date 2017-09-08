@@ -4,7 +4,7 @@
 
 #include "gtest/gtest.h"
 
-#include "zarr++/io/io.hxx"
+#include "zarr++/io/io_zarr.hxx"
 
 namespace fs = boost::filesystem;
 
@@ -58,7 +58,7 @@ namespace io {
 
     TEST_F(IoTest, ReadFile) {
         handle::Chunk chunkHandle("array.zr/0");
-        ChunkIo<int> io;
+        ChunkIoZarr<int> io;
 
         std::vector<int> tmpData;
         ASSERT_TRUE(io.read(chunkHandle, tmpData));
@@ -72,7 +72,7 @@ namespace io {
 
     TEST_F(IoTest, WriteFile) {
         handle::Chunk chunkHandle("array.zr/1");
-        ChunkIo<int> io;
+        ChunkIoZarr<int> io;
 
         std::vector<int> tmpData(size2_, 0);
         io.write(chunkHandle, tmpData);
@@ -82,7 +82,7 @@ namespace io {
 
     TEST_F(IoTest, WriteReadFile) {
         handle::Chunk chunkHandle("array.zr/1");
-        ChunkIo<int> io;
+        ChunkIoZarr<int> io;
 
         std::vector<int> tmpData1(size2_);
         std::copy(data_, data_ + size2_, tmpData1.begin());

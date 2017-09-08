@@ -6,15 +6,6 @@ SET(TEST_LIBS
     gtest_main
     pthread
 )
-#message(STATUS ${TEST_LIBS})
-
-# add io test
-add_executable(test_io test_io.cxx )
-target_link_libraries(test_io ${TEST_LIBS})
-
-# add blosc test
-add_executable(test_blosc test_blosc.cxx )
-target_link_libraries(test_blosc ${TEST_LIBS} ${BLOSC_LIBRARIES})
 
 # add metadata test
 add_executable(test_metadata test_metadata.cxx)
@@ -28,5 +19,7 @@ target_link_libraries(test_zarray ${TEST_LIBS} ${BLOSC_LIBRARIES})
 add_executable(test_factories test_factories.cxx)
 target_link_libraries(test_factories ${TEST_LIBS} ${BLOSC_LIBRARIES})
 
+add_subdirectory(compression)
+add_subdirectory(io)
 add_subdirectory(test_zarr_python)
 #add_subdirectory(test_n5)

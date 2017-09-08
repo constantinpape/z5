@@ -5,11 +5,12 @@
 #include "zarr++/metadata.hxx"
 #include "zarr++/handle/handle.hxx"
 #include "zarr++/types/types.hxx"
-#include "zarr++/io/io.hxx"
 
 // different compression backends
-#include "zarr++/compression/compressor_base.hxx"
 #include "zarr++/compression/blosc_compressor.hxx"
+
+// different io backends
+#include "zarr++/io/io_zarr.hxx"
 
 namespace zarr {
 
@@ -25,10 +26,10 @@ namespace zarr {
         // we need to use void pointer here to have a generic API
         // write a chunk
         virtual inline void writeChunk(const handle::Chunk &, const void *) = 0;
-        virtual inline void writeChunk(const types::ShapeType &, const void *) = 0;
+        virtual void writeChunk(const types::ShapeType &, const void *) = 0;
         // read a chunk
         virtual inline void readChunk(const handle::Chunk &, void *) const = 0;
-        virtual inline void readChunk(const types::ShapeType &, void *) const = 0;
+        virtual void readChunk(const types::ShapeType &, void *) const = 0;
 
         // shapes and dimension
         virtual unsigned dimension() const = 0;
@@ -66,7 +67,7 @@ namespace zarr {
         }
 
         // open existing array
-        ZarrArrayTyped(const handle::Array & handle) : handle_(handle), io_() {
+        ZarrArrayTyped(const handle::Array & handle) : handle_(handle) {
 
             // make sure that the file exists
             if(!handle.exists()) {
@@ -95,7 +96,7 @@ namespace zarr {
             compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
 
             // write the data
-            io_.write(chunk, dataOut);
+            io_->write(chunk, dataOut);
 
         }
 
@@ -113,7 +114,7 @@ namespace zarr {
 
             // read the data
             std::vector<T> dataTmp;
-            auto chunkExists = io_.read(chunk, dataTmp);
+            auto chunkExists = io_->read(chunk, dataTmp);
 
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
@@ -167,11 +168,12 @@ namespace zarr {
                 throw std::runtime_error("Invalid compressor: Zarr++ only supports blosc (for now)");
             }
 
-            // would be nice to have make_unique, but this is C++14
-            // TODO write emulator that falls back if compiler only supports 11
             compressor_ = std::unique_ptr<compression::CompressorBase<T>>(
                 new compression::BloscCompressor<T>(metadata)
             );
+
+            // chunk writer TODO enable N5 writer
+            io_ = std::unique_ptr<io::ChunkIoBase<T>>(new io::ChunkIoZarr<T>());
 
             // get chunk specifications
             for(size_t d = 0; d < shape_.size(); ++d) {
@@ -210,8 +212,8 @@ namespace zarr {
         // unique ptr to hold child classes of compressor
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 
-        // chunk writer
-        io::ChunkIo<T> io_;
+        // unique prtr chunk writer
+        std::unique_ptr<io::ChunkIoBase<T>> io_;
 
         // the shape of the array
         types::ShapeType shape_;

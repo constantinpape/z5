@@ -8,8 +8,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
-#include "zarr++/handle/handle.hxx"
-#include "zarr++/types/types.hxx"
+#include "zarr++/io/io_base.hxx"
 
 namespace fs = boost::filesystem;
 
@@ -17,11 +16,11 @@ namespace zarr {
 namespace io {
 
     template<typename T>
-    class ChunkIo {
+    class ChunkIoZarr : public ChunkIoBase<T> {
 
     public:
 
-        ChunkIo() {
+        ChunkIoZarr() {
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
