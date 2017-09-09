@@ -50,13 +50,13 @@ namespace compression {
                 ret = deflate(&zs, Z_FINISH);
 
                 if(currentPosition < zs.total_out) { // TODO outsize in bytes
-                    
+
                     // append the data to the output
                     currentLength = (zs.total_out - currentPosition);
-                    
+
                     std::cout << currentPosition << " " << currentLength << std::endl;
                     std::cout << zs.total_out << " " << dataOut.size() << std::endl;
-                    
+
                     //dataOut.insert(dataOut.begin() + currentPosition, outbuffer, outbuffer + currentLength); // TODO bytesize?
                     std::cout << "Here" << std::endl;
                     std::copy(dataOut.begin() + currentPosition, dataOut.begin() + currentPosition + currentLength, outbuffer);

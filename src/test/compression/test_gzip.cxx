@@ -21,10 +21,10 @@ namespace compression {
         GzipCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
-        compressor.compress(dataInt_, dataOut, size_);
+        compressor.compress(dataInt_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < size_);
-        std::cout << "Compression Int: " << dataOut.size() << " / " << size_ << std::endl;
+        ASSERT_TRUE(dataOut.size() < SIZE);
+        std::cout << "Compression Int: " << dataOut.size() << " / " << SIZE << std::endl;
 
     }
 

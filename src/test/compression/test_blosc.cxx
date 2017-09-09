@@ -23,10 +23,10 @@ namespace compression {
         BloscCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
-        compressor.compress(dataInt_, dataOut, size_);
+        compressor.compress(dataInt_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < size_);
-        std::cout << "Compression Int: " << dataOut.size() << " / " << size_ << std::endl;
+        ASSERT_TRUE(dataOut.size() < SIZE);
+        std::cout << "Compression Int: " << dataOut.size() << " / " << SIZE << std::endl;
 
     }
 
@@ -42,10 +42,10 @@ namespace compression {
         BloscCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
-        compressor.compress(dataFloat_, dataOut, size_);
+        compressor.compress(dataFloat_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < size_);
-        std::cout << "Compression Float: " << dataOut.size() << " / " << size_ << std::endl;
+        ASSERT_TRUE(dataOut.size() < SIZE);
+        std::cout << "Compression Float: " << dataOut.size() << " / " << SIZE << std::endl;
 
     }
 
@@ -61,12 +61,12 @@ namespace compression {
         BloscCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
-        compressor.compress(dataInt_, dataOut, size_);
-        ASSERT_TRUE(dataOut.size() < size_);
+        compressor.compress(dataInt_, dataOut, SIZE);
+        ASSERT_TRUE(dataOut.size() < SIZE);
 
-        int dataTmp[size_];
-        compressor.decompress(dataOut, dataTmp, size_);
-        for(size_t i = 0; i < size_; ++i) {
+        int dataTmp[SIZE];
+        compressor.decompress(dataOut, dataTmp, SIZE);
+        for(size_t i = 0; i < SIZE; ++i) {
             ASSERT_EQ(dataTmp[i], dataInt_[i]);
         }
     }
@@ -83,12 +83,12 @@ namespace compression {
         BloscCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
-        compressor.compress(dataFloat_, dataOut, size_);
-        ASSERT_TRUE(dataOut.size() < size_);
+        compressor.compress(dataFloat_, dataOut, SIZE);
+        ASSERT_TRUE(dataOut.size() < SIZE);
 
-        float dataTmp[size_];
-        compressor.decompress(dataOut, dataTmp, size_);
-        for(size_t i = 0; i < size_; ++i) {
+        float dataTmp[SIZE];
+        compressor.decompress(dataOut, dataTmp, SIZE);
+        for(size_t i = 0; i < SIZE; ++i) {
             ASSERT_EQ(dataTmp[i], dataFloat_[i]);
         }
 
