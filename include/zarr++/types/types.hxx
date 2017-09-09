@@ -7,14 +7,19 @@
 namespace zarr {
 namespace types {
 
+    //
+    // Coordinates
+    //
+
     // TODO implement class that inherits froms std::vector and overloads useful operators (+, -, etc.)
     // TODO rename to coordinate type
     // type for array shapes
     typedef std::vector<size_t> ShapeType;
 
-    // TODO consider alternative:
-    // datatypes via X-macros
-    // cf. https://stackoverflow.com/questions/147267/easy-way-to-use-variables-of-enum-types-as-string-in-%20%20%20c#202511
+
+    //
+    // Datatypes
+    //
 
     // TODO add bool ?
     // dtype enum and map
@@ -90,6 +95,50 @@ namespace types {
     bool isUnsignedType(const std::string & dtype) {
         return dtype[1] == 'u';
     }
+
+
+    //
+    // Compressors
+    //
+
+    enum Compressor {
+        raw,
+        #ifdef WITH_BLOSC
+        blosc,
+        #endif
+        #ifdef WITH_GZIP
+        gzip,
+        #endif
+        // TODO
+        #ifdef WITH_BZIP2
+        bzip2,
+        #endif
+        #ifdef WITH_LZ4
+        lz4,
+        #endif
+        #ifdef WITH_XY
+        xz
+        #endif
+    };
+
+    std::map<std::string, Compressor> stringToCompressor({{
+        {"raw", raw},
+        #ifdef WITH_BLOSC
+        {"blosc", blosc},
+        #endif
+        #ifdef WITH_GZIP
+        {"gzip", gzip},
+        #endif
+        #ifdef WITH_BZIP2
+        {"bzip2", bzip2},
+        #endif
+        #ifdef WITH_LZ4
+        {"lz4", lz4},
+        #endif
+        #ifdef WITH_XZ
+        {"xz", xz}
+        #endif
+    }});
 
 } // namespace::types
 } // namespace::zarr

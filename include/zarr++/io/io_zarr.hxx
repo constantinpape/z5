@@ -43,6 +43,7 @@ namespace io {
 
                 // read the file
                 file.read((char*) &data[0], fileSize);
+                file.close();
 
                 // return true, because we have read an existing chunk
                 return true;

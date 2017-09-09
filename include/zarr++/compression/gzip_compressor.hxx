@@ -22,8 +22,13 @@ namespace compression {
         }
 
         void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
+
+            // open the zlib stream
             z_stream zs;
             memset(&zs, 0, sizeof(zs));
+
+            // TODO bytesize ?
+            dataOut.resize(sizeIn);
 
             if(deflateInit(&zs, clevel_) != Z_OK) {
                 throw(std::runtime_error("Initializing zLib deflate failed"));
@@ -35,6 +40,7 @@ namespace compression {
             int ret;
             T outbuffer[32768];
             size_t currentLength;
+            size_t currentPosition = 0;
 
             // compress bytes blockwise
             do {
@@ -43,11 +49,19 @@ namespace compression {
 
                 ret = deflate(&zs, Z_FINISH);
 
-                if(dataOut.size() < zs.total_out) { // TODO outsize in bytes
+                if(currentPosition < zs.total_out) { // TODO outsize in bytes
+                    
                     // append the data to the output
-                    currentLength = (zs.total_out - dataOut.size());
-                    dataOut.reserve(dataOut.size() + currentLength);
-                    dataOut.insert(dataOut.end(), outbuffer, outbuffer + currentLength); // TODO bytesize?
+                    currentLength = (zs.total_out - currentPosition);
+                    
+                    std::cout << currentPosition << " " << currentLength << std::endl;
+                    std::cout << zs.total_out << " " << dataOut.size() << std::endl;
+                    
+                    //dataOut.insert(dataOut.begin() + currentPosition, outbuffer, outbuffer + currentLength); // TODO bytesize?
+                    std::cout << "Here" << std::endl;
+                    std::copy(dataOut.begin() + currentPosition, dataOut.begin() + currentPosition + currentLength, outbuffer);
+                    std::cout << "There" << std::endl;
+                    currentPosition += currentLength;
                 }
 
             } while(ret == Z_OK);
@@ -59,6 +73,8 @@ namespace compression {
     		    oss << "Exception during zlib compression: (" << ret << ") " << zs.msg;
     		    throw(std::runtime_error(oss.str()));
     		}
+
+            dataOut.resize(currentPosition);
 
         }
 

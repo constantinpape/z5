@@ -7,6 +7,7 @@
 #include "zarr++/types/types.hxx"
 
 // different compression backends
+#include "zarr++/compression/raw_compressor.hxx"
 #include "zarr++/compression/blosc_compressor.hxx"
 #include "zarr++/compression/gzip_compressor.hxx"
 
@@ -161,18 +162,23 @@ namespace zarr {
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
 
-            // get compressor and initialize the compressor pointer
-            auto compressorId = metadata.compressorId;
 
-			// TODO switch case in types (same construction as dtypes)
-			if(compressorId == "blosc") {
-            	compressor_.reset(new compression::BloscCompressor<T>(metadata));
+            types::Compressor compressor;
+            try {
+                compressor = types::stringToCompressor.at(metadata.compressorId);
             }
-            else if(compressorId == "gzip") {
-            	compressor_.reset(new compression::GzipCompressor<T>(metadata));
+            catch(std::out_of_range) {
+                throw std::runtime_error("Compressor is not supported / installed");
             }
-            else {
-                throw std::runtime_error("Temp");
+
+            // TODO add more compressors
+            switch(compressor) {
+                case types::raw:
+            	    compressor_.reset(new compression::RawCompressor<T>()); break;
+                case types::blosc:
+            	    compressor_.reset(new compression::BloscCompressor<T>(metadata)); break;
+                case types::gzip:
+            	    compressor_.reset(new compression::GzipCompressor<T>(metadata)); break;
             }
 
             // chunk writer TODO enable N5 writer

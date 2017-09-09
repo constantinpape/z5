@@ -3,26 +3,26 @@
 #include "zarr++/compression/compressor_base.hxx"
 
 namespace zarr {
+namespace compression {
 
-    // dummy compressor if we don't have any compressin activated
-    class RawCompressor : public CompressorBase {
+    // dummy compressor if no compression is activated
+    template<typename T>
+    class RawCompressor : public CompressorBase<T> {
 
     public:
         RawCompressor() {
         }
 
-        template<typename T>
-        int compress(const T * dataIn, T * dataOut, size_t sizeIn, size_t) const {
-            dataOut = dataIn;
-            return sizeIn;
+        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
+            // TODO FIXME don't copy data - swap pointers?
+            dataOut.assign(dataIn, dataIn + sizeIn);
         }
 
-        template<typename T>
-        int decompress(const T * dataIn, T * dataOut, size_t sizeIn) const {
-            dataOut = dataIn;
-            return sizeIn;
+        void decompress(const std::vector<T> & dataIn, T * dataOut, size_t) const {
+            // TODO FIXME don't copy data - swap pointers?
+            std::copy(dataIn.begin(), dataIn.end(), dataOut);
         }
     };
 
-
+}
 }
