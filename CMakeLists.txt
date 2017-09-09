@@ -26,7 +26,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
 option(WITH_BLOSC ON)
-option(WITH_GZIP ON)
+option(WITH_ZLIB ON)
 
 
 # find libraries - pthread
@@ -53,10 +53,10 @@ if(WITH_BLOSC)
 endif()
 
 
-if(WITH_GZIP)
+if(WITH_ZLIB)
     find_package(ZLIB REQUIRED)
     include_directories(ZLIB_INCLUDE_DIRS)
-    add_definitions(-DWITH_GZIP)
+    add_definitions(-DWITH_ZLIB)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
 endif()
 

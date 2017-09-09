@@ -106,8 +106,9 @@ namespace types {
         #ifdef WITH_BLOSC
         blosc,
         #endif
-        #ifdef WITH_GZIP
+        #ifdef WITH_ZLIB
         gzip,
+        zlib,
         #endif
         // TODO
         #ifdef WITH_BZIP2
@@ -126,8 +127,9 @@ namespace types {
         #ifdef WITH_BLOSC
         {"blosc", blosc},
         #endif
-        #ifdef WITH_GZIP
+        #ifdef WITH_ZLIB
         {"gzip", gzip},
+        {"zlib", zlib},
         #endif
         #ifdef WITH_BZIP2
         {"bzip2", bzip2},

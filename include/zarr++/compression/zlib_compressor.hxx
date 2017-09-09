@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef WITH_GZIP
+#ifdef WITH_ZLIB
 
 #include <zlib.h>
 
@@ -16,11 +16,12 @@
 namespace zarr {
 namespace compression {
 
+    // TODO gzip encoding
     template<typename T>
-    class GzipCompressor : public CompressorBase<T> {
+    class ZlibCompressor : public CompressorBase<T> {
 
     public:
-        GzipCompressor(const ArrayMetadata & metadata) {
+        ZlibCompressor(const ArrayMetadata & metadata) {
             init(metadata);
         }
 
@@ -122,10 +123,14 @@ namespace compression {
         void init(const ArrayMetadata & metadata) {
             // TODO clevel = compressorLevel -1 ???
             clevel_ = metadata.compressorLevel;
+            useZlibEncoding_ = (metadata.compressorName == "zlib") ? true : false;
+
         }
 
        // compression level
        int clevel_;
+       // use zlib or gzip encoding
+       bool useZlibEncoding_;
 
     };
 

@@ -53,14 +53,14 @@ namespace zarr {
         {}
 
 
-        // TODO the proper way would be to make 'ArrayMetadata' natively
+        // TODO need "toJsonZarr" and "toJsonN5"
         // json serializable
         void toJson(nlohmann::json & j) const {
 
             nlohmann::json compressor;
             compressor["clevel"] = compressorLevel;
             compressor["cname"] = compressorName;
-            compressor["id"] = compressorId;
+            compressor["id"] = (compressorId == "raw") ? nullptr : compressorId;
             compressor["shuffle"] = compressorShuffle;
             j["compressor"] = compressor;
 
@@ -81,6 +81,7 @@ namespace zarr {
         }
 
 
+        // TODO need "fromJsonZarr" and "fromJsonN5"
         void fromJson(const nlohmann::json & j) {
             checkJson(j);
             dtype = types::parseDtype(j["dtype"]);
@@ -90,7 +91,7 @@ namespace zarr {
             const auto & compressor = j["compressor"];
             compressorLevel   = compressor["clevel"];
             compressorName    = compressor["cname"];
-            compressorId      = compressor["id"];
+            compressorId      = compressor["id"].is_null() ? "raw" : compressor["id"];
             compressorShuffle = compressor["shuffle"];
             checkShapes();
         }

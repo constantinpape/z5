@@ -9,7 +9,7 @@
 // different compression backends
 #include "zarr++/compression/raw_compressor.hxx"
 #include "zarr++/compression/blosc_compressor.hxx"
-#include "zarr++/compression/gzip_compressor.hxx"
+#include "zarr++/compression/zlib_compressor.hxx"
 
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
@@ -178,7 +178,9 @@ namespace zarr {
                 case types::blosc:
             	    compressor_.reset(new compression::BloscCompressor<T>(metadata)); break;
                 case types::gzip:
-            	    compressor_.reset(new compression::GzipCompressor<T>(metadata)); break;
+            	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
+                case types::zlib:
+            	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
             }
 
             // chunk writer TODO enable N5 writer

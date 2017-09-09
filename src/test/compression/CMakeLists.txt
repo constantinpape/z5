@@ -9,7 +9,7 @@ if(WITH_BLOSC)
 endif()
 
 # add gzip tests
-if(WITH_GZIP)
-    add_executable(test_gzip test_gzip.cxx)
-    target_link_libraries(test_gzip ${TEST_LIBS} ${ZLIB_LIBRARIES})
+if(WITH_ZLIB)
+    add_executable(test_zlib test_zlib.cxx)
+    target_link_libraries(test_zlib ${TEST_LIBS} ${ZLIB_LIBRARIES})
 endif()

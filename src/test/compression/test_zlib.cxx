@@ -2,7 +2,7 @@
 
 #include <random>
 
-#include "zarr++/compression/gzip_compressor.hxx"
+#include "zarr++/compression/zlib_compressor.hxx"
 #include "zarr++/metadata.hxx"
 
 #include "test_helper.hxx"
@@ -11,14 +11,13 @@ namespace zarr {
 namespace compression {
 
 
-    TEST_F(CompressionTest, GzipCompressInt) {
+    TEST_F(CompressionTest, ZlibCompressInt) {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "gzip";
-        metadata.compressorName = "gzip";
+        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        GzipCompressor<int> compressor(metadata);
+        ZlibCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -29,13 +28,13 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, GzipCompressFloat) {
+    TEST_F(CompressionTest, ZlibCompressFloat) {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "gzip";
+        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        GzipCompressor<float> compressor(metadata);
+        ZlibCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
@@ -46,13 +45,13 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, GzipDecompressInt) {
+    TEST_F(CompressionTest, ZlibDecompressInt) {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "gzip";
+        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        GzipCompressor<int> compressor(metadata);
+        ZlibCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -66,13 +65,13 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, GzipDecompressFloat) {
+    TEST_F(CompressionTest, ZlibDecompressFloat) {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "gzip";
+        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        GzipCompressor<float> compressor(metadata);
+        ZlibCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
