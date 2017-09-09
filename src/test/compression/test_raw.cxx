@@ -48,7 +48,7 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, RawCompressDecompressFloat) {
+    TEST_F(CompressionTest, RawDecompressFloat) {
 
         RawCompressor<float> compressor;
 

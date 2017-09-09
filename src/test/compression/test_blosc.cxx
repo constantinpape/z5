@@ -72,7 +72,7 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, BloscCompressDecompressFloat) {
+    TEST_F(CompressionTest, BloscDecompressFloat) {
 
         // Test compression with default values
         ArrayMetadata metadata;
