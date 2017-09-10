@@ -11,7 +11,7 @@
 // https://zlib.net/manual.html
 
 // calls to ZLIB interface following
-// https://panthema.net/2007/0328-ZLibString.html
+// https://blog.cppse.nl/deflate-and-gzip-compress-and-decompress-functions
 
 namespace zarr {
 namespace compression {
@@ -35,9 +35,13 @@ namespace compression {
             dataOut.clear();
             dataOut.resize(sizeIn);
 
-            // init the zlib strea,
-            if(deflateInit(&zs, clevel_) != Z_OK) {
-                throw(std::runtime_error("Initializing zLib deflate failed"));
+            // init the zlib stream
+            if(useZlibEncoding_) {
+                if(deflateInit(&zs, clevel_) != Z_OK){throw(std::runtime_error("Initializing zLib deflate failed"));}
+            } else {
+                if(deflateInit2(&zs, clevel_, Z_DEFLATED, gzipWindowsize + 16, gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
+                    throw(std::runtime_error("Initializing zLib deflate failed"));
+                }
             }
 
             // set the stream in-pointer to the input data and the input size
@@ -82,8 +86,10 @@ namespace compression {
             memset(&zs, 0, sizeof(zs));
 
             // init the zlib stream
-            if(inflateInit(&zs) != Z_OK) {
-                throw(std::runtime_error("Initializing zLib inflate failed"));
+            if(useZlibEncoding_) {
+                if(inflateInit(&zs) != Z_OK){throw(std::runtime_error("Initializing zLib inflate failed"));}
+            } else {
+                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){throw(std::runtime_error("Initializing zLib inflate failed"));}
             }
 
             // set the stream input to the beginning of the input data
@@ -124,14 +130,16 @@ namespace compression {
             // TODO clevel = compressorLevel -1 ???
             clevel_ = metadata.compressorLevel;
             useZlibEncoding_ = (metadata.compressorName == "zlib") ? true : false;
-
         }
 
-       // compression level
-       int clevel_;
-       // use zlib or gzip encoding
-       bool useZlibEncoding_;
+        // compression level
+        int clevel_;
+        // use zlib or gzip encoding
+        bool useZlibEncoding_;
 
+        const static int gzipWindowsize = 15;
+        //static int gzipBsize = 8096;
+        const static int gzipCFactor = 9;
     };
 
 } // namespace compression

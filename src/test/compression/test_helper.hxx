@@ -14,7 +14,7 @@ namespace compression {
 
     protected:
         CompressionTest() {
-
+            zlibCompressors = std::vector<std::string>({"zlib", "gzip"});
         }
 
         virtual ~CompressionTest() {
@@ -46,7 +46,9 @@ namespace compression {
 
         int dataInt_[SIZE];
         float dataFloat_[SIZE];
-
+        std::vector<std::string> zlibCompressors;
+        // TODO
+        std::vector<std::string> bloscCompressors;
     };
 
 }

@@ -15,16 +15,17 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        ZlibCompressor<int> compressor(metadata);
+        for(const auto & name : zlibCompressors) {
+            metadata.compressorName = name;
+            ZlibCompressor<int> compressor(metadata);
 
-        std::vector<int> dataOut;
-        compressor.compress(dataInt_, dataOut, SIZE);
+            std::vector<int> dataOut;
+            compressor.compress(dataInt_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < SIZE);
-        std::cout << "Compression Int: " << dataOut.size() << " / " << SIZE << std::endl;
-
+            ASSERT_TRUE(dataOut.size() < SIZE);
+            std::cout << "Compression " << name << " - Int: " << dataOut.size() << " / " << SIZE << std::endl;
+        }
     }
 
 
@@ -32,16 +33,17 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        ZlibCompressor<float> compressor(metadata);
+        for(const auto & name : zlibCompressors) {
+            metadata.compressorName = name;
+            ZlibCompressor<float> compressor(metadata);
 
-        std::vector<float> dataOut;
-        compressor.compress(dataFloat_, dataOut, SIZE);
+            std::vector<float> dataOut;
+            compressor.compress(dataFloat_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < SIZE);
-        std::cout << "Compression Float: " << dataOut.size() << " / " << SIZE << std::endl;
-
+            ASSERT_TRUE(dataOut.size() < SIZE);
+            std::cout << "Compression " << name << " - Float: " << dataOut.size() << " / " << SIZE << std::endl;
+        }
     }
 
 
@@ -49,18 +51,20 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        ZlibCompressor<int> compressor(metadata);
+        for(const auto & name : zlibCompressors) {
+            metadata.compressorName = name;
+            ZlibCompressor<int> compressor(metadata);
 
-        std::vector<int> dataOut;
-        compressor.compress(dataInt_, dataOut, SIZE);
-        ASSERT_TRUE(dataOut.size() < SIZE);
+            std::vector<int> dataOut;
+            compressor.compress(dataInt_, dataOut, SIZE);
+            ASSERT_TRUE(dataOut.size() < SIZE);
 
-        int dataTmp[SIZE];
-        compressor.decompress(dataOut, dataTmp, SIZE);
-        for(size_t i = 0; i < SIZE; ++i) {
-            ASSERT_EQ(dataTmp[i], dataInt_[i]);
+            int dataTmp[SIZE];
+            compressor.decompress(dataOut, dataTmp, SIZE);
+            for(size_t i = 0; i < SIZE; ++i) {
+                ASSERT_EQ(dataTmp[i], dataInt_[i]);
+            }
         }
     }
 
@@ -69,20 +73,21 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorName = "zlib";
         metadata.compressorLevel = 5;
-        ZlibCompressor<float> compressor(metadata);
+        for(const auto & name : zlibCompressors) {
+            metadata.compressorName = name;
+            ZlibCompressor<float> compressor(metadata);
 
-        std::vector<float> dataOut;
-        compressor.compress(dataFloat_, dataOut, SIZE);
-        ASSERT_TRUE(dataOut.size() < SIZE);
+            std::vector<float> dataOut;
+            compressor.compress(dataFloat_, dataOut, SIZE);
+            ASSERT_TRUE(dataOut.size() < SIZE);
 
-        float dataTmp[SIZE];
-        compressor.decompress(dataOut, dataTmp, SIZE);
-        for(size_t i = 0; i < SIZE; ++i) {
-            ASSERT_EQ(dataTmp[i], dataFloat_[i]);
+            float dataTmp[SIZE];
+            compressor.decompress(dataOut, dataTmp, SIZE);
+            for(size_t i = 0; i < SIZE; ++i) {
+                ASSERT_EQ(dataTmp[i], dataFloat_[i]);
+            }
         }
-
     }
 
 }
