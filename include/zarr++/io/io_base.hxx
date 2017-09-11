@@ -9,9 +9,9 @@ namespace io {
     class ChunkIoBase {
 
     public:
-
         virtual bool read(const handle::Chunk &, std::vector<T> &) const = 0;
         virtual void write(const handle::Chunk &, const std::vector<T> &) const = 0;
+        virtual void getChunkShape(const handle::Chunk &, types::ShapeType &) {}
     };
 
 

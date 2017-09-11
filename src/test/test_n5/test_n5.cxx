@@ -15,7 +15,7 @@ namespace zarr {
         ASSERT_EQ(array->dimension(), 3);
         for(unsigned d = 0; d < array->dimension(); ++d) {
             ASSERT_EQ(array->shape(d), 100);
-            ASSERT_EQ(array->chunkShape(d), 10);
+            ASSERT_EQ(array->maxChunkShape(d), 10);
         }
 
         for(size_t z = 0; z < chunks[0]; ++z) {
@@ -45,7 +45,7 @@ namespace zarr {
         ASSERT_EQ(array->dimension(), 3);
         for(unsigned d = 0; d < array->dimension(); ++d) {
             ASSERT_EQ(array->shape(d), 100);
-            ASSERT_EQ(array->chunkShape(d), 10);
+            ASSERT_EQ(array->maxChunkShape(d), 10);
         }
 
         for(size_t z = 0; z < chunks[0]; ++z) {

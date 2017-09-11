@@ -69,6 +69,10 @@ namespace io {
             file.close();
         }
 
+
+        // TODO read the shape of this chunk
+        inline void getChunkShape(const handle::Chunk &, types::ShapeType &) {};
+
     private:
 
         void readHeader(const handle::Chunk & chunk) const {
