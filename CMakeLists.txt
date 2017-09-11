@@ -25,8 +25,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
+
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
+option(WITH_BZIP ON)
 
 
 # find libraries - pthread
@@ -58,6 +60,14 @@ if(WITH_ZLIB)
     include_directories(ZLIB_INCLUDE_DIRS)
     add_definitions(-DWITH_ZLIB)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
+endif()
+
+
+if(WITH_BZIP)
+    find_package(BZip2 REQUIRED)
+    include_directories(BZIP2_INCLUDE_DIRS)
+    add_definitions(-DWITH_BZIP)
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BZIP2_LIBRARIES}")
 endif()
 
 

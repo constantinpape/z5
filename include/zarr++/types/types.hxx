@@ -111,8 +111,8 @@ namespace types {
         zlib,
         #endif
         // TODO
-        #ifdef WITH_BZIP2
-        bzip2,
+        #ifdef WITH_BZIP
+        bzip,
         #endif
         #ifdef WITH_LZ4
         lz4,
@@ -131,8 +131,8 @@ namespace types {
         {"gzip", gzip},
         {"zlib", zlib},
         #endif
-        #ifdef WITH_BZIP2
-        {"bzip2", bzip2},
+        #ifdef WITH_BZIP
+        {"bzip", bzip},
         #endif
         #ifdef WITH_LZ4
         {"lz4", lz4},

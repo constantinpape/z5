@@ -10,6 +10,7 @@
 #include "zarr++/compression/raw_compressor.hxx"
 #include "zarr++/compression/blosc_compressor.hxx"
 #include "zarr++/compression/zlib_compressor.hxx"
+#include "zarr++/compression/bzip_compressor.hxx"
 
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
@@ -181,6 +182,8 @@ namespace zarr {
             	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
                 case types::zlib:
             	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
+                case types::bzip:
+            	    compressor_.reset(new compression::BzipCompressor<T>(metadata)); break;
             }
 
             // chunk writer TODO enable N5 writer
