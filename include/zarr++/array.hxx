@@ -38,7 +38,7 @@ namespace zarr {
 
         // helper functions for multiarray API
         virtual void checkRequestShape(const types::ShapeType &, const types::ShapeType &) const = 0;
-        // TODO checkRequestType
+        virtual void checkRequestType(const std::type_info &) const = 0;
         virtual void getChunkRequests(
             const types::ShapeType &,
             const types::ShapeType &,
@@ -161,6 +161,12 @@ namespace zarr {
                 if(offset[d] + shape[d] >= shape_[d]) {
                     throw std::runtime_error("Request is out of range");
                 }
+            }
+        }
+
+        virtual void checkRequestType(const std::type_info & type) const {
+            if(type != typeid(T)) {
+                throw std::runtime_error("Request has wrong type");
             }
         }
 

@@ -17,7 +17,7 @@ namespace zarr {
         types::ShapeType offset(roiBeginIter, roiBeginIter+out.dimension());
         types::ShapeType shape(out.shapeBegin(), out.shapeEnd());
         array.checkRequestShape(offset, shape);
-        // TODO checkRequestType
+        array.checkRequestType(typeid(T));
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
@@ -62,7 +62,7 @@ namespace zarr {
         types::ShapeType offset(roiBeginIter, roiBeginIter+out.dimension());
         types::ShapeType shape(out.shapeBegin(), out.shapeEnd());
         array.checkRequest(offset, shape);
-        // TODO checkRequestType
+        array.checkRequestType(typeid(T));
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
