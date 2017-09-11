@@ -22,7 +22,7 @@ namespace zarr {
         }
 
         // make the ptr to the ZarrArrayTyped of appropriate dtype
-        std::unique_ptr<ZarrArray> ptr; 
+        std::unique_ptr<ZarrArray> ptr;
         switch(dtype) {
             case types::int8:
                 ptr.reset(new ZarrArrayTyped<int8_t>(h)); break;
@@ -59,14 +59,15 @@ namespace zarr {
         const int compressorLevel=5,
         const std::string & compressorName="lz4",
         const std::string & compressorId="blosc",
-        const int compressorShuffle=1
+        const int compressorShuffle=1,
+        const bool createAsZarr=true
     ) {
-        
+
         // make metadata
         ArrayMetadata metadata(
-            dtype, shape, chunkShape, fillValue, compressorLevel, compressorName, compressorId, compressorShuffle
+            dtype, shape, chunkShape, fillValue, compressorLevel, compressorName, compressorId, compressorShuffle, createAsZarr
         );
-        
+
         types::Datatypes internalDtype;
         try {
             internalDtype = types::stringToDtype.at(metadata.dtype);
@@ -78,7 +79,7 @@ namespace zarr {
         handle::Array h(path);
 
         // make the ptr to the ZarrArrayTyped of appropriate dtype
-        std::unique_ptr<ZarrArray> ptr; 
+        std::unique_ptr<ZarrArray> ptr;
         switch(internalDtype) {
             case types::int8:
                 ptr.reset(new ZarrArrayTyped<int8_t>(h, metadata)); break;
