@@ -14,6 +14,7 @@
 
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
+#include "zarr++/io/io_n5.hxx"
 
 namespace zarr {
 
@@ -155,6 +156,9 @@ namespace zarr {
         //
         void init(const ArrayMetadata & metadata) {
 
+            // zarr or n5 array?
+            isZarr_ = metadata.isZarr;
+
             // get shapes and fillvalue
             shape_ = metadata.shape;
             chunkShape_ = metadata.chunkShape;
@@ -162,7 +166,6 @@ namespace zarr {
                 chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
-
 
             types::Compressor compressor;
             try {
@@ -187,7 +190,11 @@ namespace zarr {
             }
 
             // chunk writer TODO enable N5 writer
-            io_ = std::unique_ptr<io::ChunkIoBase<T>>(new io::ChunkIoZarr<T>());
+            if(isZarr_) {
+                io_.reset(new io::ChunkIoZarr<T>());
+            } else {
+                io_.reset(new io::ChunkIoN5<T>());
+            }
 
             // get chunk specifications
             for(size_t d = 0; d < shape_.size(); ++d) {
@@ -228,6 +235,9 @@ namespace zarr {
 
         // unique prtr chunk writer
         std::unique_ptr<io::ChunkIoBase<T>> io_;
+
+        // flag to store whether the chunks are in zarr or n5 encoding
+        bool isZarr_;
 
         // the shape of the array
         types::ShapeType shape_;

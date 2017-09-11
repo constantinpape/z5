@@ -25,8 +25,7 @@ namespace io {
 
         inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
 
-            // if the chunk exists, we read it,
-            // otherwise, we write the fill value
+            // if the chunk exists, we read it
             if(chunk.exists()) {
 
                 // this might speed up the I/O by decoupling C++ buffers from C buffers

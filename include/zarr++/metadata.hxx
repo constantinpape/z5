@@ -83,14 +83,31 @@ namespace zarr {
 
 
             void toJsonN5(nlohmann::json & j) const {
+                j["dimensions"] = shape;
+                j["blockSize"] = chunkShape;
+                j["dataType"] = types::zarrTypeToN5[dtype];
+                std::string compressionType;
+                if(compressorId == "bzip") {
+                    compressionType = "bzip2";
+                }
+                if(compressorId == "zlib") {
+                    if(compressorName != "gzip") {
+                        throw std::runtime_error("Compression type is not supported by N5");
+                    }
+                    compressionType = "gzip";
+                }
+                else {
+                    throw std::runtime_error("Compression type is not supported by N5");
+                }
+                j["compressionType"] = compressionType;
             }
 
 
             void fromJson(const nlohmann::json & j) {
                 checkJson(j);
                 dtype = types::parseDtype(j["dtype"]);
-                shape = std::vector<size_t>(j["shape"].begin(), j["shape"].end());
-                chunkShape = std::vector<size_t>(j["chunks"].begin(), j["chunks"].end());
+                shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
+                chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
                 fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
                 const auto & compressor = j["compressor"];
                 compressorLevel   = compressor["clevel"];
@@ -103,6 +120,23 @@ namespace zarr {
 
 
             void fromJsonN5(const nlohmann::json & j) {
+                dtype = types::n5TypeToZarr[j["dataType"]];
+                shape = types::ShapeType(j["dimensions"].begin(), j["dimensions"].end());
+                chunkShape = types::ShapeType(j["blockSize"].begin(), j["blockSize"].end());
+                const auto & compressionType = j["compressionType"];
+                if(compressionType == "gzip") {
+                    compressorId = "zlib";
+                    compressorName = "gzip";
+                }
+                else if(compressionType == "bzip2") {
+                    compressorId = "bzip";
+                    compressorName = "bzip";
+                } else {
+                   throw std::runtime_error("Unknow compression type");
+                }
+                isZarr = false;
+                fillValue = 0; // TODO is this correct ?
+                checkShapes();
             }
 
 
@@ -193,9 +227,10 @@ namespace zarr {
         }
         fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
+        file.close();
     }
 
-    fs::path getMetadataPath(const handle::Array & handle) {
+    bool getMetadataPath(const handle::Array & handle, fs::path & path) {
         fs::path zarrPath = handle.path();
         fs::path n5Path = handle.path();
         zarrPath /= ".zarray";
@@ -206,23 +241,33 @@ namespace zarr {
         if(!fs::exists(zarrPath) && !fs::exists(n5Path)){
             throw std::runtime_error("Invalid path: no metadata existing");
         }
-        return fs::exists(zarrPath) ? zarrPath : n5Path;
+        bool isZarr = fs::exists(zarrPath);
+        path = isZarr ? zarrPath : n5Path;
+        return isZarr;
     }
 
     void readMetadata(const handle::Array & handle, ArrayMetadata & metadata) {
         nlohmann::json j;
-        auto filePath = getMetadataPath(handle);
+        fs::path filePath;
+        auto isZarr = getMetadataPath(handle, filePath);
         fs::ifstream file(filePath);
         file >> j;
-        metadata.fromJson(j);
+        if(isZarr) {
+            metadata.fromJson(j);
+        } else {
+            metadata.fromJsonN5(j);
+        }
+        file.close();
     }
 
     std::string readDatatype(const handle::Array & handle) {
-        auto filePath = getMetadataPath(handle);
+        fs::path filePath;
+        bool isZarr = getMetadataPath(handle, filePath);
         fs::ifstream file(filePath);
         nlohmann::json j;
         file >> j;
-        return j["dtype"];
+        file.close();
+        return isZarr ? j["dtype"] : j["dataType"];
     }
 
 } // namespace::zarr
