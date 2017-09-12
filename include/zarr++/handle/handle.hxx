@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <sys/stat.h>
 
 #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
@@ -38,6 +37,28 @@ namespace handle {
 
         virtual bool createDir() const {
             return fs::create_directory(pathOnFilesystem_);
+        }
+
+        virtual bool isZarrArray() const {
+            fs::path tmp(pathOnFilesystem_);
+            tmp /= ".zarray";
+            return fs::exists(tmp);
+        }
+
+        virtual bool isZarrGroup() const {
+            fs::path tmp(pathOnFilesystem_);
+            tmp /= ".zgroup";
+            return fs::exists(tmp);
+        }
+
+        virtual bool isZarr() const {
+            return isZarrArray() || isZarrGroup();
+        }
+
+        virtual bool isN5() const {
+            fs::path tmp(pathOnFilesystem_);
+            tmp /= "attributes.json";
+            return fs::exists(tmp);
         }
 
     private:

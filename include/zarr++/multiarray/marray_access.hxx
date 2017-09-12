@@ -45,8 +45,7 @@ namespace multiarray {
             // get the current chunk-shape and resize the buffer if necessary
             array.getChunkShape(chunkId, chunkShape);
             if(bufferShape != chunkShape) {
-                // TODO skip initialisation
-                buffer.resize(chunkShape.begin(), chunkShape.end());
+                buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
                 bufferShape = chunkShape;
             }
 
@@ -101,8 +100,7 @@ namespace multiarray {
             // resize buffer if necessary
             array.getChunkShape(chunkId, chunkShape);
             if(bufferShape != chunkShape) {
-                // TODO skip initialisation
-                buffer.resize(chunkShape.begin(), chunkShape.end());
+                buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
                 bufferShape = chunkShape;
             }
 

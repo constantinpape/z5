@@ -19,6 +19,10 @@ target_link_libraries(test_zarray ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 add_executable(test_factories test_factories.cxx)
 target_link_libraries(test_factories ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
+# add attributes test
+add_executable(test_attributes test_attributes.cxx)
+target_link_libraries(test_attributes ${TEST_LIBS})
+
 add_subdirectory(compression)
 add_subdirectory(io)
 add_subdirectory(multiarray)
