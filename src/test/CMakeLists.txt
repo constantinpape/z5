@@ -21,5 +21,6 @@ target_link_libraries(test_factories ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 add_subdirectory(compression)
 add_subdirectory(io)
+add_subdirectory(multiarray)
 add_subdirectory(test_zarr_python)
 add_subdirectory(test_n5)

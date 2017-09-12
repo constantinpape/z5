@@ -4,3 +4,6 @@
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest
+[submodule "marray"]
+	path = external/marray
+	url = https://github.com/bjoern-andres/marray.git

@@ -85,6 +85,9 @@ include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
 # include json external library
 include_directories(${CMAKE_SOURCE_DIR}/external/json/src)
 
+# include marray
+include_directories(${CMAKE_SOURCE_DIR}/external/marray/include)
+
 
 # add subdirectories
 add_subdirectory(src)
