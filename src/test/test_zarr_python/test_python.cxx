@@ -37,7 +37,7 @@ namespace zarr {
 
     TEST(testPython, testReadFillvalue) {
         auto array = openZarrArray("array_fv.zr");
-        auto chunks = array->chunksPerDimension();
+        const auto & chunks = array->chunksPerDimension();
         std::vector<double> dataOut(array->maxChunkSize());
 
         ASSERT_EQ(array->dimension(), 3);

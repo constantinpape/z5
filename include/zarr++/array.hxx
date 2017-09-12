@@ -30,8 +30,8 @@ namespace zarr {
 
         // we need to use void pointer here to have a generic API
         // write a chunk
-        virtual inline void writeChunk(const handle::Chunk &, const void *) = 0;
-        virtual void writeChunk(const types::ShapeType &, const void *) = 0;
+        virtual inline void writeChunk(const handle::Chunk &, const void *) const = 0;
+        virtual void writeChunk(const types::ShapeType &, const void *) const = 0;
         // read a chunk
         virtual inline void readChunk(const handle::Chunk &, void *) const = 0;
         virtual void readChunk(const types::ShapeType &, void *) const = 0;
@@ -57,7 +57,7 @@ namespace zarr {
         virtual unsigned dimension() const = 0;
         virtual const types::ShapeType & shape() const = 0;
         virtual size_t shape(const unsigned) const = 0;
-        virtual const types::ShapeType & chunkShape() const = 0;
+        virtual const types::ShapeType & maxChunkShape() const = 0;
         virtual size_t maxChunkShape(const unsigned) const = 0;
 
         virtual size_t numberOfChunks() const = 0;
@@ -105,14 +105,14 @@ namespace zarr {
         }
 
 
-        virtual inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) {
+        virtual inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) const {
             handle::Chunk chunk(handle_, chunkIndices);
             writeChunk(chunk, dataIn);
         }
 
 
         // write a chunk
-        virtual inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) {
+        virtual inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) const {
 
             // make sure that we have a valid chunk
             checkChunk(chunk);
@@ -154,12 +154,15 @@ namespace zarr {
         }
 
         virtual void checkRequestShape(const types::ShapeType & offset, const types::ShapeType & shape) const {
-            if(offset.size() != shape_.size()) {
+            if(offset.size() != shape_.size() || shape.size() != shape_.size()) {
                 throw std::runtime_error("Request has wrong dimension");
             }
             for(int d = 0; d < shape_.size(); ++d) {
-                if(offset[d] + shape[d] >= shape_[d]) {
+                if(offset[d] + shape[d] > shape_[d]) {
                     throw std::runtime_error("Request is out of range");
+                }
+                if(shape[d] == 0) {
+                    throw std::runtime_error("Request shape has a zero entry");
                 }
             }
         }
@@ -179,11 +182,14 @@ namespace zarr {
             // iterate over the dimension and find the min and max chunk ids
             types::ShapeType minChunkIds(nDim);
             types::ShapeType maxChunkIds(nDim);
+            size_t endCoordinate, endId;
             for(int d = 0; d < nDim; ++d) {
                 // integer division is ok for both min and max-id, because
                 // the chunk is labeled by it's lowest coordinate
                 minChunkIds[d] = offset[d] / chunkShape_[d];
-                maxChunkIds[d] = (offset[d] + shape[d]) / chunkShape_[d];
+                endCoordinate = (offset[d] + shape[d]);
+                endId = endCoordinate / chunkShape_[d];
+                maxChunkIds[d] = (endCoordinate % chunkShape_[d] == 0) ? endId - 1 : endId;
             }
 
             util::makeRegularGrid(minChunkIds, maxChunkIds, chunkRequests);
@@ -205,40 +211,50 @@ namespace zarr {
             getChunkShape(chunkId, chunkShape);
 
             bool completeOvlp = true;
-            size_t chunkBegin, chunkEnd;
+            size_t chunkBegin, chunkEnd, requestEnd;
             int offDiff, endDiff;
             for(int d = 0; d < offset.size(); ++d) {
 
-                // calculate the offset in the request block
-                // first we need the begin coordinate of the chunk
+                // first we calculate the chunk begin and end coordinates
                 chunkBegin = chunkId[d] * chunkShape_[d];
-                // then we calculate the difference between the chunk begin
-                // and the request offset
+                chunkEnd = chunkBegin + chunkShape[d];
+                // next the request end
+                requestEnd = offset[d] + shape[d];
+                // then we calculate the difference between the chunk begin / end
+                // and the request begin / end
                 offDiff = chunkBegin - offset[d];
-                // if the chunk begin is smaller, we are not completely overlapping
-                // otherwise we save the offset difference
-                localOffset[d] = (offDiff >= 0) ? offDiff : 0;
+                endDiff = requestEnd - chunkEnd;
+
+                // if the offset difference is negative, we are at a starting chunk
+                // that is not completely overlapping
+                // -> set all values accordingly
                 if(offDiff < 0) {
-                    completeOvlp = false;
+                    localOffset[d] = 0; // start chunk -> no local offset
                     inChunkOffset[d] = -offDiff;
+                    completeOvlp = false;
+                    // if this chunk is the beginning chunk as well as the end chunk,
+                    // we need to adjust the local shape accordingly
+                    localShape[d] = (chunkEnd <= requestEnd) ? chunkEnd - offset[d] : requestEnd - offset[d];
                 }
 
-                // calculate the local shape in the request block
-                // first we need the end coordinate off the chunk
-                chunkEnd = chunkBegin + chunkShape[d];
-                // then we calculate the difference between the request end and
-                // the chunk end
-                endDiff = offset[d] + shape[d] - chunkEnd;
-                // if the chunk end is bigger, we are not completely overlapping and substract the difference
-                // from the chunkShape. otherwise we return the chunk shape
-                localShape[d] = (endDiff >= 0) ? chunkShape[d] : chunkShape[d] + endDiff;
-                if(endDiff < 0) {
+                // if the end difference is negative, we are at a last chunk
+                // that is not completely overlapping
+                // -> set all values accordingly
+                else if(endDiff < 0) {
+                    localOffset[d] = chunkBegin - offset[d];
+                    inChunkOffset[d] = 0;
                     completeOvlp = false;
+                    localShape[d] = requestEnd - chunkBegin;
+
                 }
-                // if the offset difference was smaller than 0, we need to substract it from the shape
-                if(offDiff < 0) {
-                    localShape[d] += offDiff;
+
+                // otherwise we are at a completely overlapping chunk
+                else {
+                    localOffset[d] = chunkBegin - offset[d];
+                    inChunkOffset[d] = 0;
+                    localShape[d] = chunkShape[d];
                 }
+
             }
             return completeOvlp;
         }
@@ -262,7 +278,7 @@ namespace zarr {
         virtual unsigned dimension() const {return shape_.size();}
         virtual const types::ShapeType & shape() const {return shape_;}
         virtual size_t shape(const unsigned d) const {return shape_[d];}
-        virtual const types::ShapeType & chunkShape() const {return chunkShape_;}
+        virtual const types::ShapeType & maxChunkShape() const {return chunkShape_;}
         virtual size_t maxChunkShape(const unsigned d) const {return chunkShape_[d];}
 
         virtual size_t numberOfChunks() const {return numberOfChunks_;}

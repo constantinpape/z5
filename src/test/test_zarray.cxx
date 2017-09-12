@@ -143,7 +143,7 @@ namespace zarr {
             ASSERT_EQ(dataTmp[i], 42);
         }
 
-        // test for 10 random chuks
+        // test for 10 random chunks
         for(unsigned _ = 0; _ < 10; ++_) {
             // get a random chunk
             types::ShapeType chunkId(array.dimension());

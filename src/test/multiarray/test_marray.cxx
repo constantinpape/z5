@@ -26,12 +26,56 @@ namespace multiarray {
 
         virtual void SetUp() {
             // create arrays
-            createZarrArray(pathIntRegular_, "<i4", shape_, chunkShapeRegular_);
-            createZarrArray(pathIntIrregular_, "<i4", shape_, chunkShapeIrregular_);
-            createZarrArray(pathFloatRegular_, "<f4", shape_, chunkShapeRegular_);
-            createZarrArray(pathFloatIrregular_, "<f4", shape_, chunkShapeIrregular_);
+            auto intReg = createZarrArray(pathIntRegular_, "<i4", shape_, chunkShapeRegular_);
+            auto intIrreg = createZarrArray(pathIntIrregular_, "<i4", shape_, chunkShapeIrregular_);
+            auto floatReg = createZarrArray(pathFloatRegular_, "<f4", shape_, chunkShapeRegular_);
+            auto floatIrreg = createZarrArray(pathFloatIrregular_, "<f4", shape_, chunkShapeIrregular_);
 
-            // write test data
+            // write regular test data
+            {
+                const auto & chunks = intReg->chunksPerDimension();
+                const auto & chunkShape = intReg->maxChunkShape();
+                std::vector<int32_t> dataInt(intReg->maxChunkSize(), 42);
+                for(size_t x = 0; x < chunks[0]; ++x) {
+                    for(size_t y = 0; y < chunks[1]; ++y) {
+                        for(size_t z = 0; z < chunks[2]; ++z) {
+                            intReg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
+                        }
+                    }
+                }
+
+                std::vector<float> dataFloat(floatReg->maxChunkSize(), 42.);
+                for(size_t x = 0; x < chunks[0]; ++x) {
+                    for(size_t y = 0; y < chunks[1]; ++y) {
+                        for(size_t z = 0; z < chunks[2]; ++z) {
+                            floatReg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
+                        }
+                    }
+                }
+            }
+
+            // write irregular test data
+            {
+                const auto & chunks = intIrreg->chunksPerDimension();
+                const auto & chunkShape = intIrreg->maxChunkShape();
+                std::vector<int32_t> dataInt(intIrreg->maxChunkSize(), 42);
+                for(size_t x = 0; x < chunks[0]; ++x) {
+                    for(size_t y = 0; y < chunks[1]; ++y) {
+                        for(size_t z = 0; z < chunks[2]; ++z) {
+                            intIrreg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
+                        }
+                    }
+                }
+
+                std::vector<float> dataFloat(floatIrreg->maxChunkSize(), 42.);
+                for(size_t x = 0; x < chunks[0]; ++x) {
+                    for(size_t y = 0; y < chunks[1]; ++y) {
+                        for(size_t z = 0; z < chunks[2]; ++z) {
+                            floatIrreg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
+                        }
+                    }
+                }
+            }
         }
 
         virtual void TearDown() {
@@ -45,6 +89,191 @@ namespace multiarray {
             fs::remove_all(freg);
             fs::path firreg(pathFloatIrregular_);
             fs::remove_all(firreg);
+        }
+
+        template<typename T>
+        void testArrayRead(std::unique_ptr<ZarrArray> & array) {
+            const auto & shape = array->shape();
+
+            // load a completely overlapping array consisting of 8 chunks
+            {
+                types::ShapeType offset({0, 0, 0});
+                types::ShapeType subShape({20, 20, 20});
+                andres::Marray<T> data(subShape.begin(), subShape.end());
+                readSubarray(array, data, offset.begin());
+
+                for(int i = 0; i < subShape[0]; ++i) {
+                    for(int j = 0; j < subShape[1]; ++j) {
+                        for(int k = 0; k < subShape[2]; ++k) {
+                            ASSERT_EQ(data(i, j, k), 42);
+                        }
+                    }
+                }
+            }
+
+            // load the complete array
+            {
+                types::ShapeType offset({0, 0, 0});
+                andres::Marray<T> data(shape.begin(), shape.end());
+                readSubarray(array, data, offset.begin());
+
+                for(int i = 0; i < shape[0]; ++i) {
+                    for(int j = 0; j < shape[1]; ++j) {
+                        for(int k = 0; k < shape[2]; ++k) {
+                            ASSERT_EQ(data(i, j, k), 42);
+                        }
+                    }
+                }
+            }
+
+            // load 25 random valid chunks and make sure that they
+            // contain the correct data
+            std::default_random_engine gen;
+            std::uniform_int_distribution<size_t> xx(0, shape[0] - 2);
+            std::uniform_int_distribution<size_t> yy(0, shape[1] - 2);
+            std::uniform_int_distribution<size_t> zz(0, shape[2] - 2);
+            size_t N = 25;
+            size_t x, y, z;
+            size_t sx, sy, sz;
+            for(int t = 0; t < N; ++t) {
+
+                // draw the offset coordinates
+                x = xx(gen);
+                y = yy(gen);
+                z = zz(gen);
+                types::ShapeType offset({x, y, z});
+
+                // draw the shape coordinates
+                std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
+                std::uniform_int_distribution<size_t> shape_yy(1, shape[1] - y);
+                std::uniform_int_distribution<size_t> shape_zz(1, shape[2] - z);
+                sx = shape_xx(gen);
+                sy = shape_yy(gen);
+                sz = shape_zz(gen);
+                types::ShapeType shape({sx, sy, sz});
+
+                //std::cout << "Offset:" << std::endl;
+                //std::cout << x << " " << y << " " << z << std::endl;
+                //std::cout << "Shape:" << std::endl;
+                //std::cout << sx << " " << sy << " " << sz << std::endl;
+
+                andres::Marray<T> data(shape.begin(), shape.end());
+                readSubarray(array, data, offset.begin());
+
+                for(int i = 0; i < shape[0]; ++i) {
+                    for(int j = 0; j < shape[1]; ++j) {
+                        for(int k = 0; k < shape[2]; ++k) {
+                            ASSERT_EQ(data(i, j, k), 42);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        template<typename T, typename DISTR>
+        void testArrayWriteRead(std::unique_ptr<ZarrArray> & array, DISTR & distr) {
+
+            const auto & shape = array->shape();
+            std::default_random_engine gen;
+            auto draw = std::bind(distr, gen);
+
+            // write and read a completely overlapping array consisting of 8 chunks
+            {
+                types::ShapeType offset({0, 0, 0});
+                types::ShapeType subShape({20, 20, 20});
+
+                // generate random in data
+                andres::Marray<T> dataIn(subShape.begin(), subShape.end());
+                for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
+                    *it = draw();
+                }
+                writeSubarray(array, dataIn, offset.begin());
+
+                // read the out data
+                andres::Marray<T> dataOut(subShape.begin(), subShape.end());
+                readSubarray(array, dataOut, offset.begin());
+                for(int i = 0; i < subShape[0]; ++i) {
+                    for(int j = 0; j < subShape[1]; ++j) {
+                        for(int k = 0; k < subShape[2]; ++k) {
+                            ASSERT_EQ(dataIn(i, j, k), dataOut(i, j, k));
+                        }
+                    }
+                }
+            }
+
+            // load the complete array
+            {
+                types::ShapeType offset({0, 0, 0});
+
+                // generate random in data
+                andres::Marray<T> dataIn(shape.begin(), shape.end());
+                for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
+                    *it = draw();
+                }
+                writeSubarray(array, dataIn, offset.begin());
+
+                // read the out data
+                andres::Marray<T> dataOut(shape.begin(), shape.end());
+                readSubarray(array, dataOut, offset.begin());
+
+                for(int i = 0; i < shape[0]; ++i) {
+                    for(int j = 0; j < shape[1]; ++j) {
+                        for(int k = 0; k < shape[2]; ++k) {
+                            ASSERT_EQ(dataIn(i, j, k), dataOut(i, j, k));
+                        }
+                    }
+                }
+            }
+
+            // load 25 random valid chunks and make sure that they
+            // contain the correct data
+            std::uniform_int_distribution<size_t> xx(0, shape[0] - 2);
+            std::uniform_int_distribution<size_t> yy(0, shape[1] - 2);
+            std::uniform_int_distribution<size_t> zz(0, shape[2] - 2);
+            size_t N = 25;
+            size_t x, y, z;
+            size_t sx, sy, sz;
+            for(int t = 0; t < N; ++t) {
+
+                // draw the offset coordinates
+                x = xx(gen);
+                y = yy(gen);
+                z = zz(gen);
+                types::ShapeType offset({x, y, z});
+
+                // draw the shape coordinates
+                std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
+                std::uniform_int_distribution<size_t> shape_yy(1, shape[1] - y);
+                std::uniform_int_distribution<size_t> shape_zz(1, shape[2] - z);
+                sx = shape_xx(gen);
+                sy = shape_yy(gen);
+                sz = shape_zz(gen);
+                types::ShapeType shape({sx, sy, sz});
+
+                //std::cout << "Offset:" << std::endl;
+                //std::cout << x << " " << y << " " << z << std::endl;
+                //std::cout << "Shape:" << std::endl;
+                //std::cout << sx << " " << sy << " " << sz << std::endl;
+                // generate random in data
+                andres::Marray<T> dataIn(shape.begin(), shape.end());
+                for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
+                    *it = draw();
+                }
+                writeSubarray(array, dataIn, offset.begin());
+
+                // read the out data
+                andres::Marray<T> dataOut(shape.begin(), shape.end());
+                readSubarray(array, dataOut, offset.begin());
+
+                for(int i = 0; i < shape[0]; ++i) {
+                    for(int j = 0; j < shape[1]; ++j) {
+                        for(int k = 0; k < shape[2]; ++k) {
+                            ASSERT_EQ(dataIn(i, j, k), dataOut(i, j, k));
+                        }
+                    }
+                }
+            }
         }
 
         std::string pathIntRegular_;
@@ -73,6 +302,12 @@ namespace multiarray {
         andres::Marray<int32_t> sub1(shape1.begin(), shape1.end());
         ASSERT_THROW(readSubarray(array, sub1, offset1.begin()), std::runtime_error);
 
+        // check for shape throws #2
+        types::ShapeType shape2({80, 80, 0});
+        types::ShapeType offset2({0, 0, 0});
+        andres::Marray<int32_t> sub2(shape2.begin(), shape2.end());
+        ASSERT_THROW(readSubarray(array, sub2, offset2.begin()), std::runtime_error);
+
         types::ShapeType shape({80, 80, 80});
         types::ShapeType offset({0, 0, 0});
         // check for dtype throws #0
@@ -90,7 +325,58 @@ namespace multiarray {
 
 
     TEST_F(MarrayTest, TestReadIntRegular) {
+        // load the regular array and run the test
+        auto array = openZarrArray(pathIntRegular_);
+        testArrayRead<int32_t>(array);
+    }
 
+
+    TEST_F(MarrayTest, TestReadFloatRegular) {
+        // load the regular array and run the test
+        auto array = openZarrArray(pathFloatRegular_);
+        testArrayRead<float>(array);
+    }
+
+
+    TEST_F(MarrayTest, TestReadIntIrregular) {
+        // load the regular array and run the test
+        auto array = openZarrArray(pathIntIrregular_);
+        testArrayRead<int32_t>(array);
+    }
+
+
+    TEST_F(MarrayTest, TestReadFloatIrregular) {
+        // load the regular array and run the test
+        auto array = openZarrArray(pathFloatIrregular_);
+        testArrayRead<float>(array);
+    }
+
+
+    TEST_F(MarrayTest, TestWriteReadIntRegular) {
+        auto array = openZarrArray(pathIntRegular_);
+        std::uniform_int_distribution<int32_t> distr(-100, 100);
+        testArrayWriteRead<int32_t>(array, distr);
+    }
+
+
+    TEST_F(MarrayTest, TestWriteReadFloatRegular) {
+        auto array = openZarrArray(pathFloatRegular_);
+        std::uniform_real_distribution<float> distr(0., 1.);
+        testArrayWriteRead<float>(array, distr);
+    }
+
+
+    TEST_F(MarrayTest, TestWriteReadIntIrregular) {
+        auto array = openZarrArray(pathIntIrregular_);
+        std::uniform_int_distribution<int32_t> distr(-100, 100);
+        testArrayWriteRead<int32_t>(array, distr);
+    }
+
+
+    TEST_F(MarrayTest, TestWriteReadFloatIrregular) {
+        auto array = openZarrArray(pathFloatIrregular_);
+        std::uniform_real_distribution<float> distr(0., 1.);
+        testArrayWriteRead<float>(array, distr);
     }
 }
 }
