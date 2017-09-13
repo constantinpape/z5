@@ -25,76 +25,59 @@ namespace attrs_detail {
         return isZarr;
     }
 
-    // N5 only supports attributes for arrays ?!
-    // TODO implement
-    template<typename T>
-    void readAttributeN5(fs::path & path, const std::string & key, T & outVal) {
-    }
 
-    // N5 only supports attributes for arrays ?!
-    // TODO implement
-    template<typename T>
-    void writeAttributeN5(fs::path & path, const std::string & key, const T & inVal) {
-    }
-
-
-    // Zarr supports attributes for arrays and groups
-    template<typename T>
-    void readAttributeZarr(fs::path & path, const std::string & key, T & outVal) {
-        path /= ".zattrs";
-        if(!fs::exists(path)) {
-            throw std::runtime_error("Cannot read attribute: Array does not have any attributes");
-        }
-        nlohmann::json j;
+    void readAttributes(fs::path & path, const std::vector<std::string> & keys, nlohmann::json & j) {
+        nlohmann::json jTmp;
         fs::ifstream file(path);
-        file >> j;
+        file >> jTmp;
         file.close();
-        try {
-            outVal = j[key];
-        }
-        catch(std::out_of_range) {
-            throw std::runtime_error("Cannot read attribute: Key does not exist");
+        for(const auto & key : keys) {
+            try {
+                j[key] = jTmp[key];
+            }
+            catch(std::out_of_range) {
+                throw std::runtime_error("Cannot read attribute: Key does not exist");
+            }
         }
     }
 
-    // Zarr supports attributes for arrays and groups
-    template<typename T>
-    void writeAttributeZarr(fs::path & path, const std::string & key, const T & inVal) {
-        path /= ".zattrs";
-        nlohmann::json j;
+
+    void writeAttributes(const fs::path & path, const nlohmann::json & j) {
+        nlohmann::json jOut;
         // if we already have attributes, read them
         if(fs::exists(path)) {
             fs::ifstream file(path);
-            file >> j;
+            file >> jOut;
             file.close();
         }
-        j[key] = inVal;
+        for(auto jIt = j.begin(); jIt != j.end(); ++jIt) {
+            jOut[jIt.key()] = jIt.value();
+        }
         fs::ofstream file(path);
-        file << j;
+        file << jOut;
         file.close();
     }
 }
 
-    // TODO if I figure out boost::any, could use it instead of templates
-    template<typename T>
-    void readAttribute(const handle::Handle & handle, const std::string & key, T & outVal) {
+    void readAttributes(
+        const handle::Handle & handle,
+        const std::vector<std::string> & keys,
+        nlohmann::json & j
+    ) {
         bool isZarr = attrs_detail::checkHandle(handle);
-        if(isZarr) {
-            attrs_detail::readAttributeZarr(handle.path(), key, outVal);
-        } else {
-            attrs_detail::readAttributeN5(handle.path(), key, outVal);
+        auto path = handle.path();
+        path /= isZarr ? ".zattrs" : "attributes.json";
+        if(!fs::exists(path)) {
+            throw std::runtime_error("Cannot read attributes: no attributes exist");
         }
+        attrs_detail::readAttributes(path, keys, j);
     }
 
-    // TODO if I figure out boost::any, could use it instead of templates
-    template<typename T>
-    void writeAttribute(const handle::Handle & handle, const std::string & key, const T & inVal) {
-        bool isZarr = attrs_detail::checkHandle(handle);
-        if(isZarr) {
-            attrs_detail::writeAttributeZarr(handle.path(), key, inVal);
-        } else {
-            attrs_detail::writeAttributeN5(handle.path(), key, inVal);
-        }
-    }
 
+    void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {      
+        bool isZarr = attrs_detail::checkHandle(handle);
+        auto path = handle.path();
+        path /= isZarr ? ".zattrs" : "attributes.json";
+        attrs_detail::writeAttributes(path, j);
+    }
 }

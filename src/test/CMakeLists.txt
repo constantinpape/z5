@@ -21,7 +21,7 @@ target_link_libraries(test_factories ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 # add attributes test
 add_executable(test_attributes test_attributes.cxx)
-target_link_libraries(test_attributes ${TEST_LIBS})
+target_link_libraries(test_attributes ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 add_subdirectory(compression)
 add_subdirectory(io)
