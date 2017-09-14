@@ -12,16 +12,13 @@ namespace fs = boost::filesystem;
 namespace zarr {
 
 
-    void getMetadata(const std::string & dtype, ArrayMetadata & meta) {
-        nlohmann::json j = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
-        j["dtype"] = dtype;
-        meta.fromJson(j);
-    }
-
-
     void writeMetadata(const handle::Array & h, const std::string & dtype) {
-        ArrayMetadata meta;
-        getMetadata(dtype, meta);
+        ArrayMetadata meta(
+            types::n5ToDtype[dtype],
+            types::ShapeType({100, 100, 100}),
+            types::ShapeType({10, 10, 10}),
+            true
+        );
         writeMetadata(h, meta);
     }
 
@@ -44,6 +41,7 @@ namespace zarr {
         void checkArray(std::unique_ptr<ZarrArray> & array) {
             T data[SIZE];
             std::fill(data, data + SIZE, static_cast<T>(42));
+            array->checkRequestType(typeid(T));
             array->writeChunk(types::ShapeType({0, 0, 0}), data);
             T dataOut[SIZE];
             array->readChunk(types::ShapeType({0, 0, 0}), dataOut);
@@ -60,9 +58,9 @@ namespace zarr {
 
     TEST_F(FactoryTest, OpenAllDtypes) {
         std::vector<std::string> dtypes({
-            "<i1", "<i2", "<i4", "<i8",
-            "<u1", "<u2", "<u4", "<u8",
-            "<f4", "<f8"
+            "int8", "int16", "int32", "int64",
+            "uint8", "uint16", "uint32", "uint64",
+            "float32", "float64"
         });
 
         for(const auto & dtype : dtypes) {
@@ -70,7 +68,7 @@ namespace zarr {
             writeMetadata(handle_, dtype);
             auto array = openZarrArray(handle_.path().string());
 
-            switch(types::stringToDtype[dtype]) {
+            switch(types::n5ToDtype[dtype]) {
 
                 case types::int8:
                     checkArray<int8_t>(array);
@@ -108,15 +106,14 @@ namespace zarr {
 
             fs::remove_all(handle_.path());
         }
-
     }
 
 
     TEST_F(FactoryTest, CreateAllDtypes) {
         std::vector<std::string> dtypes({
-            "<i1", "<i2", "<i4", "<i8",
-            "<u1", "<u2", "<u4", "<u8",
-            "<f4", "<f8"
+            "int8", "int16", "int32", "int64",
+            "uint8", "uint16", "uint32", "uint64",
+            "float32", "float64"
         });
 
         for(const auto & dtype : dtypes) {
@@ -124,9 +121,10 @@ namespace zarr {
                 handle_.path().string(),
                 dtype,
                 types::ShapeType({100, 100, 100}),
-                types::ShapeType({10, 10, 10})
+                types::ShapeType({10, 10, 10}),
+                true
             );
-            switch(types::stringToDtype[dtype]) {
+            switch(types::n5ToDtype.at(dtype)) {
 
                 case types::int8:
                     checkArray<int8_t>(array);

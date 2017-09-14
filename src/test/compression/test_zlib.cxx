@@ -16,8 +16,9 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
+        metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
-            metadata.compressorName = name;
+            metadata.codec = name;
             ZlibCompressor<int> compressor(metadata);
 
             std::vector<int> dataOut;
@@ -34,8 +35,9 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
+        metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
-            metadata.compressorName = name;
+            metadata.codec = name;
             ZlibCompressor<float> compressor(metadata);
 
             std::vector<float> dataOut;
@@ -52,8 +54,9 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
+        metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
-            metadata.compressorName = name;
+            metadata.codec = name;
             ZlibCompressor<int> compressor(metadata);
 
             std::vector<int> dataOut;
@@ -74,8 +77,9 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
+        metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
-            metadata.compressorName = name;
+            metadata.codec = name;
             ZlibCompressor<float> compressor(metadata);
 
             std::vector<float> dataOut;

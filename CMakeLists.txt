@@ -29,7 +29,7 @@ option(BUILD_PYTON OFF)
 
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
-option(WITH_BZIP ON)
+option(WITH_BZIP2 ON)
 
 
 # find libraries - pthread
@@ -64,10 +64,10 @@ if(WITH_ZLIB)
 endif()
 
 
-if(WITH_BZIP)
+if(WITH_BZIP2)
     find_package(BZip2 REQUIRED)
     include_directories(BZIP2_INCLUDE_DIRS)
-    add_definitions(-DWITH_BZIP)
+    add_definitions(-DWITH_BZIP2)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BZIP2_LIBRARIES}")
 endif()
 

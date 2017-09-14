@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef WITH_BZIP
+#ifdef WITH_BZIP2
 
 #include <bzlib.h>
 
@@ -12,10 +12,10 @@ namespace compression {
 
     // TODO gzip encoding
     template<typename T>
-    class BzipCompressor : public CompressorBase<T> {
+    class Bzip2Compressor : public CompressorBase<T> {
 
     public:
-        BzipCompressor(const ArrayMetadata & metadata) {
+        Bzip2Compressor(const ArrayMetadata & metadata) {
             init(metadata);
         }
 

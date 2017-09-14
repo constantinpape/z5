@@ -19,7 +19,7 @@ namespace fs = boost::filesystem;
 namespace zarr {
 
     struct Metadata {
-        const static int zarrFormat = 2;
+        const int zarrFormat = 2;
     };
 
 
@@ -27,46 +27,63 @@ namespace zarr {
 
         //template<typename T>
         ArrayMetadata(
-            const std::string & dtype,
+            const types::Datatype dtype,
             const types::ShapeType & shape,
             const types::ShapeType & chunkShape,
+            const bool isZarr,
             const double fillValue=0, // FIXME this should be a template if we use boost::any
+            const types::Compressor compressor=types::blosc,
+            const std::string & codec="lz4",
             const int compressorLevel=5,
-            const std::string & compressorName="lz4",
-            const std::string & compressorId="blosc",
-            const int compressorShuffle=1,
-            const bool isZarr=true
-            ) : dtype(types::parseDtype(dtype)),
+            const int compressorShuffle=1
+            ) : dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
-                fillValue(static_cast<double>(fillValue)), // FIXME boost::any
+                isZarr(isZarr),
+                fillValue(fillValue), // FIXME boost::any
+                compressor(compressor),
+                codec(codec),
                 compressorLevel(compressorLevel),
-                compressorName(compressorName),
-                compressorId(compressorId),
-                compressorShuffle(compressorShuffle),
-                isZarr(isZarr)
+                compressorShuffle(compressorShuffle)
         {
             checkShapes();
         }
 
 
         // empty constructur
-        ArrayMetadata() : isZarr(true)
+        ArrayMetadata()
         {}
 
 
-        // json serializable
+        //
         void toJson(nlohmann::json & j) const {
+            if(isZarr) {
+                toJsonZarr(j);
+            } else {
+                toJsonN5(j);
+            }
+        }
 
-            nlohmann::json compressor;
-            compressor["clevel"] = compressorLevel;
-            compressor["cname"] = compressorName;
-            compressor["id"] = (compressorId == "raw") ? nullptr : compressorId;
-            compressor["shuffle"] = compressorShuffle;
-            j["compressor"] = compressor;
 
+        //
+        void fromJson(nlohmann::json & j, const bool isZarrArray) {
+            isZarr = isZarrArray;
+            isZarr ? fromJsonZarr(j) : fromJsonN5(j);
+            checkShapes();
+        }
+
+    private:
+        void toJsonZarr(nlohmann:: json & j) const {
+            nlohmann::json compressionOpts;
+            compressionOpts["id"] = (compressor == types::raw) ? nullptr : types::compressorToZarr.at(compressor);
+            compressionOpts["cname"] = codec;
+            compressionOpts["clevel"] = compressorLevel;
+            compressionOpts["shuffle"] = compressorShuffle;
+            j["compressor"] = compressionOpts;
+
+            j["dtype"] = types::dtypeToZarr.at(dtype);
+            j["shape"] = shape;
             j["chunks"] = chunkShape;
-            j["dtype"] = dtype;
 
             // FIXME boost::any isn't doing what it's supposed to :(
             //j["fill_value"] = types::isRealType(.dtype) ? boost::any_cast<float>(.fillValue)
@@ -76,74 +93,45 @@ namespace zarr {
 
             j["filters"] = filters;
             j["order"] = order;
-            j["shape"] = shape;
             j["zarr_format"] = zarrFormat;
-
         }
-
 
         void toJsonN5(nlohmann::json & j) const {
             j["dimensions"] = shape;
             j["blockSize"] = chunkShape;
-            j["dataType"] = types::zarrTypeToN5[dtype];
-            std::string compressionType;
-            if(compressorId == "bzip") {
-                compressionType = "bzip2";
-            } else if(compressorId == "zlib") {
-                if(compressorName != "gzip") {
-                    throw std::runtime_error("Compression type is not supported by N5");
-                }
-                compressionType = "gzip";
-            } else if(compressorId == "raw") {
-                compressionType = "raw";
-            } else {
-                throw std::runtime_error("Compression type is not supported by N5");
-            }
-            j["compressionType"] = compressionType;
+            j["dataType"] = types::dtypeToN5.at(dtype);
+            j["compressionType"] = types::compressorToN5.at(compressor);
         }
 
 
-        void fromJson(const nlohmann::json & j) {
+        void fromJsonZarr(const nlohmann::json & j) {
             checkJson(j);
-            dtype = types::parseDtype(j["dtype"]);
+            dtype = types::zarrToDtype.at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
             fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
-            const auto & compressor = j["compressor"];
-            compressorLevel   = compressor["clevel"];
-            compressorName    = compressor["cname"];
-            compressorId      = compressor["id"].is_null() ? "raw" : compressor["id"];
-            compressorShuffle = compressor["shuffle"];
-            isZarr = true;
-            checkShapes();
+            const auto & compressionOpts = j["compressor"];
+            compressor = compressionOpts["id"].is_null() ?
+                types::raw : types::zarrToCompressor.at(compressionOpts["id"]);
+            codec    = compressionOpts["cname"];
+            compressorLevel   = compressionOpts["clevel"];
+            compressorShuffle = compressionOpts["shuffle"];
         }
 
 
         void fromJsonN5(const nlohmann::json & j) {
-            dtype = types::n5TypeToZarr[j["dataType"]];
+            dtype = types::n5ToDtype.at(j["dataType"]);
             shape = types::ShapeType(j["dimensions"].begin(), j["dimensions"].end());
             chunkShape = types::ShapeType(j["blockSize"].begin(), j["blockSize"].end());
-            const auto & compressionType = j["compressionType"];
-            if(compressionType == "gzip") {
-                compressorId = "zlib";
-                compressorName = "gzip";
-            }
-            else if(compressionType == "bzip2") {
-                compressorId = "bzip";
-                compressorName = "bzip";
-            } else if(compressionType == "raw") {
-                compressorId = "raw";
-            } else {
-               throw std::runtime_error("Unknow compression type");
-            }
-            isZarr = false;
+            compressor = types::n5ToCompressor.at(j["compressionType"]);
+            codec = (compressor == types::zlib) ? "gzip" : "";
+            compressorLevel = 5; // TODO is this correcy ?
             fillValue = 0; // TODO is this correct ?
-            checkShapes();
         }
 
-
+    public:
         // metadata values that can be set
-        std::string dtype;
+        types::Datatype dtype;
         types::ShapeType shape;
         types::ShapeType chunkShape;
 
@@ -153,8 +141,8 @@ namespace zarr {
         double fillValue;
 
         int compressorLevel;
-        std::string compressorName;
-        std::string compressorId;
+        types::Compressor compressor;
+        std::string codec;
         int compressorShuffle;
         bool isZarr; // flag to specify whether we have a zarr or n5 array
 
@@ -219,18 +207,13 @@ namespace zarr {
     void writeMetadata(const handle::Array & handle, const ArrayMetadata & metadata) {
         fs::path filePath = handle.path();
         nlohmann::json j;
-        if(metadata.isZarr) {
-            filePath /= ".zarray";
-            metadata.toJson(j);
-        }
-        else {
-            filePath /= "attributes.json";
-            metadata.toJsonN5(j);
-        }
+        metadata.toJson(j);
+        filePath /= metadata.isZarr ? ".zarray" : "attributes.json";
         fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
         file.close();
     }
+
 
     bool getMetadataPath(const handle::Array & handle, fs::path & path) {
         fs::path zarrPath = handle.path();
@@ -248,28 +231,26 @@ namespace zarr {
         return isZarr;
     }
 
+
     void readMetadata(const handle::Array & handle, ArrayMetadata & metadata) {
         nlohmann::json j;
         fs::path filePath;
         auto isZarr = getMetadataPath(handle, filePath);
         fs::ifstream file(filePath);
         file >> j;
-        if(isZarr) {
-            metadata.fromJson(j);
-        } else {
-            metadata.fromJsonN5(j);
-        }
+        metadata.fromJson(j, isZarr);
         file.close();
     }
 
-    std::string readDatatype(const handle::Array & handle) {
+
+    types::Datatype readDatatype(const handle::Array & handle) {
         fs::path filePath;
         bool isZarr = getMetadataPath(handle, filePath);
         fs::ifstream file(filePath);
         nlohmann::json j;
         file >> j;
         file.close();
-        return isZarr ? j["dtype"] : j["dataType"];
+        return isZarr ? types::zarrToDtype.at(j["dtype"]) : types::n5ToDtype.at(j["dataType"]);
     }
 
 } // namespace::zarr

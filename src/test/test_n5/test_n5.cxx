@@ -65,7 +65,7 @@ namespace zarr {
 
     TEST(testN5, testWrite) {
         auto array = createZarrArray(
-            "array1.n5", "<f8", types::ShapeType({100, 100, 100}), types::ShapeType({10, 10, 10})
+            "array1.n5", "float64", types::ShapeType({100, 100, 100}), types::ShapeType({10, 10, 10}), false
         );
         auto chunks = array->chunksPerDimension();
         std::vector<double> data(array->maxChunkSize(), 42.);

@@ -74,7 +74,7 @@ namespace attrs_detail {
     }
 
 
-    void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {      
+    void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {
         bool isZarr = attrs_detail::checkHandle(handle);
         auto path = handle.path();
         path /= isZarr ? ".zattrs" : "attributes.json";

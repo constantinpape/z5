@@ -11,7 +11,7 @@
 #include "zarr++/compression/raw_compressor.hxx"
 #include "zarr++/compression/blosc_compressor.hxx"
 #include "zarr++/compression/zlib_compressor.hxx"
-#include "zarr++/compression/bzip_compressor.hxx"
+#include "zarr++/compression/bzip2_compressor.hxx"
 
 // different io backends
 #include "zarr++/io/io_zarr.hxx"
@@ -119,6 +119,7 @@ namespace zarr {
 
             // compress the data
             std::vector<T> dataOut;
+            // FIXME for N5 we have to get the actual chunk size here
             compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
 
             // write the data
@@ -147,6 +148,7 @@ namespace zarr {
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
             if(chunkExists) {
+                // FIXME for N5 we have to get the actual chunk size here
                 compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
             } else {
                 std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
@@ -169,6 +171,7 @@ namespace zarr {
 
         virtual void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
+                std::cout << "Mytype: " << typeid(T).name() << " your type: " << type.name() << std::endl;
                 throw std::runtime_error("Request has wrong type");
             }
         }
@@ -312,26 +315,22 @@ namespace zarr {
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
 
-            types::Compressor compressor;
-            try {
-                compressor = types::stringToCompressor.at(metadata.compressorId);
-            }
-            catch(std::out_of_range) {
-                throw std::runtime_error("Compressor is not supported / installed");
-            }
-
             // TODO add more compressors
-            switch(compressor) {
+            switch(metadata.compressor) {
                 case types::raw:
             	    compressor_.reset(new compression::RawCompressor<T>()); break;
+                #ifdef WITH_BLOSC
                 case types::blosc:
             	    compressor_.reset(new compression::BloscCompressor<T>(metadata)); break;
-                case types::gzip:
-            	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_ZLIB
                 case types::zlib:
             	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
-                case types::bzip:
-            	    compressor_.reset(new compression::BzipCompressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_BZIP2
+                case types::bzip2:
+            	    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
+                #endif
             }
 
             // chunk writer TODO enable N5 writer

@@ -62,7 +62,7 @@ namespace compression {
         void init(const ArrayMetadata & metadata) {
             clevel_ = metadata.compressorLevel;
             shuffle_ = metadata.compressorShuffle;
-            compressor_ = metadata.compressorName;
+            compressor_ = metadata.codec;
         }
 
         // the blosc compressor

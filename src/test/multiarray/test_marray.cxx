@@ -26,10 +26,10 @@ namespace multiarray {
 
         virtual void SetUp() {
             // create arrays
-            auto intReg = createZarrArray(pathIntRegular_, "<i4", shape_, chunkShapeRegular_);
-            auto intIrreg = createZarrArray(pathIntIrregular_, "<i4", shape_, chunkShapeIrregular_);
-            auto floatReg = createZarrArray(pathFloatRegular_, "<f4", shape_, chunkShapeRegular_);
-            auto floatIrreg = createZarrArray(pathFloatIrregular_, "<f4", shape_, chunkShapeIrregular_);
+            auto intReg = createZarrArray(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true);
+            auto intIrreg = createZarrArray(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true);
+            auto floatReg = createZarrArray(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true);
+            auto floatIrreg = createZarrArray(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true);
 
             // write regular test data
             {
