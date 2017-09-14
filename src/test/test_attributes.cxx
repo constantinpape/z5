@@ -26,23 +26,22 @@ namespace zarr {
             types::ShapeType shape({100, 100, 100});
             types::ShapeType chunks({10, 10, 10});
             createZarrArray(
-                hZarr.path().string(), "<i4", shape,
-                chunks, 0, 5,
-                "lz4", "blosc", 1,
-                true
+                hZarr.path().string(), "int32", 
+                shape, chunks, true,
+                0, "blosc",
+                "lz4", 5, 1
             );
-            // TODO fix array creation for n5
-            //createZarrArray(
-            //    hN5.path().string(), "<i4", shape,
-            //    chunks, 0, 5,
-            //    "zlib", "gzip", 1,
-            //    false
-            //);
+            createZarrArray(
+                hN5.path().string(), "int32",
+                shape, chunks, false,
+                0, "zlib",
+                "gzip", 5, 0
+            );
         }
 
         void TearDown() {
             fs::remove_all(hZarr.path());
-            //fs::remove_all(hN5.path());
+            fs::remove_all(hN5.path());
         }
 
         handle::Array hZarr;
@@ -64,4 +63,15 @@ namespace zarr {
     }
 
 
+    TEST_F(AttributesTest, TestWriteReadN5) {
+        writeAttributes(hN5, j);
+        nlohmann::json jOut;
+        std::vector<std::string> keys({"a", "b", "c", "d"});
+        readAttributes(hN5, keys, jOut);
+
+        ASSERT_EQ(jOut["a"], 42);
+        ASSERT_EQ(jOut["b"], 3.14);
+        ASSERT_EQ(jOut["c"], std::vector<int>({1, 2, 3}));
+        ASSERT_EQ(jOut["d"], "blub");
+    }
 }

@@ -2,7 +2,7 @@
 
 #include <random>
 
-#include "zarr++/compression/bzip_compressor.hxx"
+#include "zarr++/compression/bzip2_compressor.hxx"
 #include "zarr++/metadata.hxx"
 
 #include "test_helper.hxx"
@@ -17,7 +17,7 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
-        BzipCompressor<int> compressor(metadata);
+        Bzip2Compressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -33,7 +33,7 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
-        BzipCompressor<float> compressor(metadata);
+        Bzip2Compressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
@@ -49,7 +49,7 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
-        BzipCompressor<int> compressor(metadata);
+        Bzip2Compressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -68,7 +68,7 @@ namespace compression {
         // Test compression with default values
         ArrayMetadata metadata;
         metadata.compressorLevel = 5;
-        BzipCompressor<float> compressor(metadata);
+        Bzip2Compressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);

@@ -16,8 +16,8 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "blosc";
-        metadata.compressorName = "lz4";
+        metadata.compressor = types::blosc;
+        metadata.codec = "lz4";
         metadata.compressorLevel = 5;
         metadata.compressorShuffle = 1;
         BloscCompressor<int> compressor(metadata);
@@ -35,8 +35,8 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "blosc";
-        metadata.compressorName = "lz4";
+        metadata.compressor = types::blosc;
+        metadata.codec = "lz4";
         metadata.compressorLevel = 5;
         metadata.compressorShuffle = 1;
         BloscCompressor<float> compressor(metadata);
@@ -54,8 +54,8 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "blosc";
-        metadata.compressorName = "lz4";
+        metadata.compressor = types::blosc;
+        metadata.codec = "lz4";
         metadata.compressorLevel = 5;
         metadata.compressorShuffle = 1;
         BloscCompressor<int> compressor(metadata);
@@ -76,8 +76,8 @@ namespace compression {
 
         // Test compression with default values
         ArrayMetadata metadata;
-        metadata.compressorId = "blosc";
-        metadata.compressorName = "lz4";
+        metadata.compressor = types::blosc;
+        metadata.codec = "lz4";
         metadata.compressorLevel = 5;
         metadata.compressorShuffle = 1;
         BloscCompressor<float> compressor(metadata);

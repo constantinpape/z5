@@ -15,7 +15,7 @@ if(WITH_ZLIB)
 endif()
 
 # add bzip tests
-if(WITH_BZIP)
-    add_executable(test_bzip test_bzip.cxx)
-    target_link_libraries(test_bzip ${TEST_LIBS} ${BZIP2_LIBRARIES})
+if(WITH_BZIP2)
+    add_executable(test_bzip2 test_bzip2.cxx)
+    target_link_libraries(test_bzip2 ${TEST_LIBS} ${BZIP2_LIBRARIES})
 endif()

@@ -13,20 +13,15 @@ namespace zarr {
         handle::Array h(path);
         ArrayMetadata metadata;
         readMetadata(h, metadata);
-        types::Datatypes dtype;
-
-        try {
-            dtype = types::stringToDtype.at(metadata.dtype);
-        } catch(const std::out_of_range & e) {
-            throw std::runtime_error("Invalid dtype for zarr array");
-        }
 
         // make the ptr to the ZarrArrayTyped of appropriate dtype
         std::unique_ptr<ZarrArray> ptr;
-        switch(dtype) {
+        switch(metadata.dtype) {
             case types::int8:
+                std::cout << "opening int8" << std::endl;
                 ptr.reset(new ZarrArrayTyped<int8_t>(h)); break;
             case types::int16:
+                std::cout << "opening int16" << std::endl;
                 ptr.reset(new ZarrArrayTyped<int16_t>(h)); break;
             case types::int32:
                 ptr.reset(new ZarrArrayTyped<int32_t>(h)); break;
@@ -55,25 +50,30 @@ namespace zarr {
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
+        const bool createAsZarr=true,
         const double fillValue=0,
+        const std::string & compressor="blosc",
+        const std::string & codec="lz4",
         const int compressorLevel=5,
-        const std::string & compressorName="lz4",
-        const std::string & compressorId="blosc",
-        const int compressorShuffle=1,
-        const bool createAsZarr=true
+        const int compressorShuffle=1
     ) {
 
-        // make metadata
-        ArrayMetadata metadata(
-            dtype, shape, chunkShape, fillValue, compressorLevel, compressorName, compressorId, compressorShuffle, createAsZarr
-        );
-
-        types::Datatypes internalDtype;
+        // get the internal data type
+        types::Datatype internalDtype;
         try {
-            internalDtype = types::stringToDtype.at(metadata.dtype);
+            internalDtype = types::n5ToDtype.at(dtype);
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("Invalid dtype for zarr array");
         }
+
+        types::Compressor internalCompressor = types::stringToCompressor.at(compressor);
+        // make metadata
+        ArrayMetadata metadata(
+            internalDtype, shape,
+            chunkShape, createAsZarr,
+            fillValue, internalCompressor,
+            codec, compressorLevel, compressorShuffle
+        );
 
         // make array handle
         handle::Array h(path);

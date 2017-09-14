@@ -68,10 +68,10 @@ namespace zarr {
         }
         const auto & compressor = jZarr["compressor"];
         ASSERT_EQ(metadata.compressorLevel, compressor["clevel"]);
-        ASSERT_EQ(metadata.compressorName, compressor["cname"]);
-        ASSERT_EQ(metadata.compressorId, compressor["id"]);
+        ASSERT_EQ(metadata.codec, compressor["cname"]);
+        ASSERT_EQ(metadata.compressor, types::zarrToCompressor[compressor["id"]]);
         ASSERT_EQ(metadata.compressorShuffle, compressor["shuffle"]);
-        ASSERT_EQ(metadata.dtype, jZarr["dtype"]);
+        ASSERT_EQ(metadata.dtype, types::zarrToDtype[jZarr["dtype"]]);
         // FIXME boost any is a bit tricky here
         ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);
         ASSERT_EQ(metadata.order, jZarr["order"]);
@@ -91,9 +91,9 @@ namespace zarr {
             ASSERT_EQ(metadata.chunkShape[i], jN5["blockSize"][i]);
             ASSERT_EQ(metadata.shape[i], jN5["dimensions"][i]);
         }
-        ASSERT_EQ(metadata.compressorId, "zlib");
-        ASSERT_EQ(metadata.compressorName, jN5["compressionType"]);
-        ASSERT_EQ(metadata.dtype, types::n5TypeToZarr[jN5["dataType"]]);
+        ASSERT_EQ(metadata.compressor, types::zlib);
+        ASSERT_EQ(metadata.codec, jN5["compressionType"]);
+        ASSERT_EQ(metadata.dtype, types::n5ToDtype[jN5["dataType"]]);
     }
 
 
@@ -102,7 +102,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metadata;
-        metadata.fromJson(jZarr);
+        metadata.fromJson(jZarr, true);
 
         handle::Array h("array.zr");
         writeMetadata(h, metadata);
@@ -115,7 +115,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metadata;
-        metadata.fromJsonN5(jN5);
+        metadata.fromJson(jN5, false);
 
         handle::Array h("array.n5");
         writeMetadata(h, metadata);
@@ -128,7 +128,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metaWrite;
-        metaWrite.fromJson(jZarr);
+        metaWrite.fromJson(jZarr, true);
 
         handle::Array h("array.zr");
         writeMetadata(h, metaWrite);
@@ -145,8 +145,8 @@ namespace zarr {
             ASSERT_EQ(metaRead.shape[i],      metaWrite.shape[i]);
         }
         ASSERT_EQ(metaRead.compressorLevel,   metaWrite.compressorLevel);
-        ASSERT_EQ(metaRead.compressorName,    metaWrite.compressorName);
-        ASSERT_EQ(metaRead.compressorId,      metaWrite.compressorId);
+        ASSERT_EQ(metaRead.codec,    metaWrite.codec);
+        ASSERT_EQ(metaRead.compressor,      metaWrite.compressor);
         ASSERT_EQ(metaRead.compressorShuffle, metaWrite.compressorShuffle);
         ASSERT_EQ(metaRead.dtype,             metaWrite.dtype);
         // FIXME boost any is a bit tricky here
@@ -160,7 +160,7 @@ namespace zarr {
         fs::remove(mdata);
 
         ArrayMetadata metaWrite;
-        metaWrite.fromJsonN5(jN5);
+        metaWrite.fromJson(jN5, false);
 
         handle::Array h("array.n5");
         writeMetadata(h, metaWrite);
@@ -176,9 +176,9 @@ namespace zarr {
             ASSERT_EQ(metaRead.chunkShape[i], jN5["blockSize"][i]);
             ASSERT_EQ(metaRead.shape[i], jN5["dimensions"][i]);
         }
-        ASSERT_EQ(metaRead.compressorId, "zlib");
-        ASSERT_EQ(metaRead.compressorName, jN5["compressionType"]);
-        ASSERT_EQ(metaRead.dtype, types::n5TypeToZarr[jN5["dataType"]]);
+        ASSERT_EQ(metaRead.compressor, types::zlib);
+        ASSERT_EQ(metaRead.codec, "gzip");
+        ASSERT_EQ(metaRead.dtype, types::n5ToDtype[jN5["dataType"]]);
     }
 
 }

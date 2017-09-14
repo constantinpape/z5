@@ -129,7 +129,7 @@ namespace compression {
         void init(const ArrayMetadata & metadata) {
             // TODO clevel = compressorLevel -1 ???
             clevel_ = metadata.compressorLevel;
-            useZlibEncoding_ = (metadata.compressorName == "zlib") ? true : false;
+            useZlibEncoding_ = (metadata.codec == "zlib") ? true : false;
         }
 
         // compression level
