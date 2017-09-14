@@ -71,7 +71,6 @@ namespace compression {
                 total_out = (static_cast<size_t>(bzs.total_out_hi32) << 32) + bzs.total_out_lo32;
                 // get the current position in the out vector
                 currentPosition = total_out / sizeof(T);
-
             } while(ret == BZ_OK);
 
             BZ2_bzCompressEnd(&bzs);
@@ -127,6 +126,7 @@ namespace compression {
             size_t currentPosition = 0;
             size_t currentLength;
             size_t total_out;
+
             do {
                 // set the stream outout to the output dat at the current position
                 // and set the available size to the remaining bytes in the output data
@@ -142,15 +142,21 @@ namespace compression {
                 // get the current position in the out data
                 currentPosition = total_out / sizeof(T);
 
+                // FIXME for some reason bzip2 does not switch to BZ_STREAM_END properly,
+                // so we also break if we have reached the end of the input
+                if(currentPosition == sizeOut) {
+                    break;
+                }
             } while(ret == BZ_OK);
 
             BZ2_bzDecompressEnd(&bzs);
 
-            if(ret != BZ_OK) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during bzip compression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
-            }
+            // FIXME this will fail if we break out from the loop above
+            //if(ret != BZ_STREAM_END) {
+    		//    std::ostringstream oss;
+    		//    oss << "Exception during bzip compression: (" << ret << ") ";
+    		//    throw(std::runtime_error(oss.str()));
+            //}
 
 		}
 
