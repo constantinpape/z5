@@ -1,0 +1,9 @@
+addPythonModule(
+    NESTED_NAME
+        zarr_pp
+    SOURCES
+        zarr_pp.cxx
+        zarr_array.cxx
+    LIBRRARIES
+        ${COMPRESSION_LIBRARIES}
+)

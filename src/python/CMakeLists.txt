@@ -80,12 +80,4 @@ macro(addPythonModule)
     add_dependencies(python-module _${MODULE_NAME})
 endmacro()
 
-
-addPythonModule(
-    NESTED_NAME
-        zarr_pp
-    SOURCES
-        zarr_pp.cxx
-    LIBRRARIES
-        ${COMPRESSION_LIBRARIES}
-)
+add_subdirectory(lib)
