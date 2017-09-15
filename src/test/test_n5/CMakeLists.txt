@@ -9,16 +9,16 @@ add_custom_command(
                 ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-#add_custom_command(
-#        TARGET test_python POST_BUILD
-#        COMMAND ${CMAKE_COMMAND} -E copy
-#                ${CMAKE_SOURCE_DIR}/src/test/test_zarr_python/test_read_python.py
-#                ${CMAKE_CURRENT_BINARY_DIR}
-#)
-
 add_custom_command(
         TARGET test_n5 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${CMAKE_SOURCE_DIR}/src/test/test_n5/run_test.bash
                 ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+add_custom_command(
+    TARGET test_n5 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/src/test/test_n5/n5_java
+            ${CMAKE_CURRENT_BINARY_DIR}/n5_java
 )
