@@ -2,18 +2,18 @@
 
 #include <random>
 
-#include "zarr++/metadata.hxx"
-#include "zarr++/array_factory.hxx"
+#include "z5/metadata.hxx"
+#include "z5/dataset_factory.hxx"
 
 namespace fs = boost::filesystem;
 
 #define SIZE 10*10*10
 
-namespace zarr {
+namespace z5 {
 
 
-    void writeMetadata(const handle::Array & h, const std::string & dtype) {
-        ArrayMetadata meta(
+    void writeMetadata(const handle::Dataset & h, const std::string & dtype) {
+        DatasetMetadata meta(
             types::n5ToDtype[dtype],
             types::ShapeType({100, 100, 100}),
             types::ShapeType({10, 10, 10}),
@@ -38,7 +38,7 @@ namespace zarr {
 
 
         template<typename T>
-        void checkArray(std::unique_ptr<ZarrArray> & array) {
+        void checkDataset(std::unique_ptr<Dataset> & array) {
             T data[SIZE];
             std::fill(data, data + SIZE, static_cast<T>(42));
             array->checkRequestType(typeid(T));
@@ -51,7 +51,7 @@ namespace zarr {
         }
 
 
-        handle::Array handle_;
+        handle::Dataset handle_;
 
     };
 
@@ -66,39 +66,39 @@ namespace zarr {
         for(const auto & dtype : dtypes) {
             handle_.createDir();
             writeMetadata(handle_, dtype);
-            auto array = openZarrArray(handle_.path().string());
+            auto array = openDataset(handle_.path().string());
 
             switch(types::n5ToDtype[dtype]) {
 
                 case types::int8:
-                    checkArray<int8_t>(array);
+                    checkDataset<int8_t>(array);
                     break;
                 case types::int16:
-                    checkArray<int16_t>(array);
+                    checkDataset<int16_t>(array);
                     break;
                 case types::int32:
-                    checkArray<int32_t>(array);
+                    checkDataset<int32_t>(array);
                     break;
                 case types::int64:
-                    checkArray<int64_t>(array);
+                    checkDataset<int64_t>(array);
                     break;
                 case types::uint8:
-                    checkArray<uint8_t>(array);
+                    checkDataset<uint8_t>(array);
                     break;
                 case types::uint16:
-                    checkArray<uint16_t>(array);
+                    checkDataset<uint16_t>(array);
                     break;
                 case types::uint32:
-                    checkArray<uint32_t>(array);
+                    checkDataset<uint32_t>(array);
                     break;
                 case types::uint64:
-                    checkArray<uint64_t>(array);
+                    checkDataset<uint64_t>(array);
                     break;
                 case types::float32:
-                    checkArray<float>(array);
+                    checkDataset<float>(array);
                     break;
                 case types::float64:
-                    checkArray<double>(array);
+                    checkDataset<double>(array);
                     break;
                 default:
                     break;
@@ -117,7 +117,7 @@ namespace zarr {
         });
 
         for(const auto & dtype : dtypes) {
-            auto array = createZarrArray(
+            auto array = createDataset(
                 handle_.path().string(),
                 dtype,
                 types::ShapeType({100, 100, 100}),
@@ -127,34 +127,34 @@ namespace zarr {
             switch(types::n5ToDtype.at(dtype)) {
 
                 case types::int8:
-                    checkArray<int8_t>(array);
+                    checkDataset<int8_t>(array);
                     break;
                 case types::int16:
-                    checkArray<int16_t>(array);
+                    checkDataset<int16_t>(array);
                     break;
                 case types::int32:
-                    checkArray<int32_t>(array);
+                    checkDataset<int32_t>(array);
                     break;
                 case types::int64:
-                    checkArray<int64_t>(array);
+                    checkDataset<int64_t>(array);
                     break;
                 case types::uint8:
-                    checkArray<uint8_t>(array);
+                    checkDataset<uint8_t>(array);
                     break;
                 case types::uint16:
-                    checkArray<uint16_t>(array);
+                    checkDataset<uint16_t>(array);
                     break;
                 case types::uint32:
-                    checkArray<uint32_t>(array);
+                    checkDataset<uint32_t>(array);
                     break;
                 case types::uint64:
-                    checkArray<uint64_t>(array);
+                    checkDataset<uint64_t>(array);
                     break;
                 case types::float32:
-                    checkArray<float>(array);
+                    checkDataset<float>(array);
                     break;
                 case types::float64:
-                    checkArray<double>(array);
+                    checkDataset<double>(array);
                     break;
                 default:
                     break;
@@ -164,8 +164,5 @@ namespace zarr {
         }
 
     }
-
-
-
 
 }

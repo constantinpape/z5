@@ -1,9 +1,9 @@
 addPythonModule(
     NESTED_NAME
-        zarr_pp
+        z5py
     SOURCES
-        zarr_pp.cxx
-        zarr_array.cxx
+        z5py.cxx
+        dataset.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES}
 )

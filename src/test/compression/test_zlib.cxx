@@ -2,19 +2,19 @@
 
 #include <random>
 
-#include "zarr++/compression/zlib_compressor.hxx"
-#include "zarr++/metadata.hxx"
+#include "z5/compression/zlib_compressor.hxx"
+#include "z5/metadata.hxx"
 
 #include "test_helper.hxx"
 
-namespace zarr {
+namespace z5 {
 namespace compression {
 
 
     TEST_F(CompressionTest, ZlibCompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
@@ -33,7 +33,7 @@ namespace compression {
     TEST_F(CompressionTest, ZlibCompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
@@ -52,7 +52,7 @@ namespace compression {
     TEST_F(CompressionTest, ZlibDecompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {
@@ -75,7 +75,7 @@ namespace compression {
     TEST_F(CompressionTest, ZlibDecompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
         for(const auto & name : zlibCompressors) {

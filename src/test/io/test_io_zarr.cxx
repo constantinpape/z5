@@ -4,11 +4,11 @@
 
 #include "gtest/gtest.h"
 
-#include "zarr++/io/io_zarr.hxx"
+#include "z5/io/io_zarr.hxx"
 
 namespace fs = boost::filesystem;
 
-namespace zarr {
+namespace z5 {
 namespace io {
 
     // fixture for the chunk io

@@ -12,8 +12,8 @@ add_executable(test_metadata test_metadata.cxx)
 target_link_libraries(test_metadata ${TEST_LIBS})
 
 # add zarray test
-add_executable(test_zarray test_zarray.cxx)
-target_link_libraries(test_zarray ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
+add_executable(test_dataset test_dataset.cxx)
+target_link_libraries(test_dataset ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 # add factory test
 add_executable(test_factories test_factories.cxx)
@@ -26,5 +26,5 @@ target_link_libraries(test_attributes ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 add_subdirectory(compression)
 add_subdirectory(io)
 add_subdirectory(multiarray)
-add_subdirectory(test_zarr_python)
+add_subdirectory(test_zarr)
 add_subdirectory(test_n5)

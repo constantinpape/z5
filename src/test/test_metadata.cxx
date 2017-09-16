@@ -1,11 +1,11 @@
 #include "gtest/gtest.h"
 #include "json.hpp"
 
-#include "zarr++/metadata.hxx"
+#include "z5/metadata.hxx"
 
 namespace fs = boost::filesystem;
 
-namespace zarr {
+namespace z5 {
 
     // fixture for the metadata
     class MetadataTest : public ::testing::Test {
@@ -54,9 +54,9 @@ namespace zarr {
 
 
     TEST_F(MetadataTest, ReadMetadata) {
-        handle::Array h("array.zr");
+        handle::Dataset h("array.zr");
 
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         readMetadata(h, metadata);
 
         ASSERT_EQ(metadata.shape.size(), metadata.chunkShape.size());
@@ -79,9 +79,9 @@ namespace zarr {
 
 
     TEST_F(MetadataTest, ReadMetadataN5) {
-        handle::Array h("array.n5");
+        handle::Dataset h("array.n5");
 
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         readMetadata(h, metadata);
 
         ASSERT_EQ(metadata.shape.size(), metadata.chunkShape.size());
@@ -101,10 +101,10 @@ namespace zarr {
         fs::path mdata("array.zr/.zarray");
         fs::remove(mdata);
 
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.fromJson(jZarr, true);
 
-        handle::Array h("array.zr");
+        handle::Dataset h("array.zr");
         writeMetadata(h, metadata);
         ASSERT_TRUE(fs::exists(mdata));
     }
@@ -114,10 +114,10 @@ namespace zarr {
         fs::path mdata("array.n5/attributes.json");
         fs::remove(mdata);
 
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.fromJson(jN5, false);
 
-        handle::Array h("array.n5");
+        handle::Dataset h("array.n5");
         writeMetadata(h, metadata);
         ASSERT_TRUE(fs::exists(mdata));
     }
@@ -127,14 +127,14 @@ namespace zarr {
         fs::path mdata("array.zr/.zarray");
         fs::remove(mdata);
 
-        ArrayMetadata metaWrite;
+        DatasetMetadata metaWrite;
         metaWrite.fromJson(jZarr, true);
 
-        handle::Array h("array.zr");
+        handle::Dataset h("array.zr");
         writeMetadata(h, metaWrite);
         ASSERT_TRUE(fs::exists(mdata));
 
-        ArrayMetadata metaRead;
+        DatasetMetadata metaRead;
         readMetadata(h, metaRead);
 
         ASSERT_EQ(metaRead.shape.size(), metaRead.chunkShape.size());
@@ -159,14 +159,14 @@ namespace zarr {
         fs::path mdata("array.n5/attributes.json");
         fs::remove(mdata);
 
-        ArrayMetadata metaWrite;
+        DatasetMetadata metaWrite;
         metaWrite.fromJson(jN5, false);
 
-        handle::Array h("array.n5");
+        handle::Dataset h("array.n5");
         writeMetadata(h, metaWrite);
         ASSERT_TRUE(fs::exists(mdata));
 
-        ArrayMetadata metaRead;
+        DatasetMetadata metaRead;
         readMetadata(h, metaRead);
 
         ASSERT_EQ(metaRead.shape.size(), metaRead.chunkShape.size());

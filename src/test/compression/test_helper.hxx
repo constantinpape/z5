@@ -6,7 +6,7 @@
 
 #define SIZE 100*100*100
 
-namespace zarr {
+namespace z5 {
 namespace compression {
 
     // fixture for the compression tests

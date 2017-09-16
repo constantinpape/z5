@@ -11,7 +11,7 @@ add_custom_target(python-module)
 #   /blddir/python/
 ###########################################################################
 file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
-    "${CMAKE_SOURCE_DIR}/src/python/module/zarr_pp/*.py"
+    "${CMAKE_SOURCE_DIR}/src/python/module/z5py/*.py"
 )
 FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/module/" ""
