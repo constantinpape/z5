@@ -204,6 +204,16 @@ namespace z5 {
     // helper functions
     //
 
+    void writeMetadata(const handle::Group & handle, const Metadata & metadata) {
+        auto filePath = handle.path();
+        filePath /= ".zgroup";
+        nlohmann::json j;
+        j["zarr_format"] = metadata.zarrFormat;
+        fs::ofstream file(filePath);
+        file << std::setw(4) << j << std::endl;
+        file.close();
+    }
+
     void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
         fs::path filePath = handle.path();
         nlohmann::json j;
