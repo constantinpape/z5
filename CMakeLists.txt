@@ -25,7 +25,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
-option(BUILD_PYTON OFF)
+option(BUILD_Z5_PYTHON OFF)
 
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
@@ -89,10 +89,14 @@ include_directories(${CMAKE_SOURCE_DIR}/external/json/src)
 # include marray
 include_directories(${CMAKE_SOURCE_DIR}/external/marray/include)
 
+# add pybind
+if(BUILD_Z5_PYTHON)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11/include)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11)
+endif()
 
 # add subdirectories
 add_subdirectory(src)
-
 
 # install the headers
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/zarr++"

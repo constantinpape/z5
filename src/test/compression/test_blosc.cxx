@@ -2,20 +2,20 @@
 
 #include <random>
 
-#include "zarr++/compression/blosc_compressor.hxx"
-#include "zarr++/metadata.hxx"
+#include "z5/compression/blosc_compressor.hxx"
+#include "z5/metadata.hxx"
 
 #include "test_helper.hxx"
 
 
-namespace zarr {
+namespace z5 {
 namespace compression {
 
 
     TEST_F(CompressionTest, BloscCompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressor = types::blosc;
         metadata.codec = "lz4";
         metadata.compressorLevel = 5;
@@ -34,7 +34,7 @@ namespace compression {
     TEST_F(CompressionTest, BloscCompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressor = types::blosc;
         metadata.codec = "lz4";
         metadata.compressorLevel = 5;
@@ -53,7 +53,7 @@ namespace compression {
     TEST_F(CompressionTest, BloscDecompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressor = types::blosc;
         metadata.codec = "lz4";
         metadata.compressorLevel = 5;
@@ -75,7 +75,7 @@ namespace compression {
     TEST_F(CompressionTest, BloscDecompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressor = types::blosc;
         metadata.codec = "lz4";
         metadata.compressorLevel = 5;

@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
 
-#include "zarr++/compression/raw_compressor.hxx"
-#include "zarr++/metadata.hxx"
+#include "z5/compression/raw_compressor.hxx"
+#include "z5/metadata.hxx"
 
 #include "test_helper.hxx"
 
 
-namespace zarr {
+namespace z5 {
 namespace compression {
 
 

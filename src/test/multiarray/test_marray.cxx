@@ -2,12 +2,12 @@
 
 #include <random>
 
-#include "zarr++/array_factory.hxx"
-#include "zarr++/multiarray/marray_access.hxx"
+#include "z5/dataset_factory.hxx"
+#include "z5/multiarray/marray_access.hxx"
 
 namespace fs = boost::filesystem;
 
-namespace zarr {
+namespace z5 {
 namespace multiarray {
 
     // fixture for the zarr array test
@@ -26,10 +26,10 @@ namespace multiarray {
 
         virtual void SetUp() {
             // create arrays
-            auto intReg = createZarrArray(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true);
-            auto intIrreg = createZarrArray(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true);
-            auto floatReg = createZarrArray(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true);
-            auto floatIrreg = createZarrArray(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true);
+            auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true);
+            auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true);
+            auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true);
+            auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true);
 
             // write regular test data
             {
@@ -92,7 +92,7 @@ namespace multiarray {
         }
 
         template<typename T>
-        void testArrayRead(std::unique_ptr<ZarrArray> & array) {
+        void testArrayRead(std::unique_ptr<Dataset> & array) {
             const auto & shape = array->shape();
 
             // load a completely overlapping array consisting of 8 chunks
@@ -172,7 +172,7 @@ namespace multiarray {
 
 
         template<typename T, typename DISTR>
-        void testArrayWriteRead(std::unique_ptr<ZarrArray> & array, DISTR & distr) {
+        void testArrayWriteRead(std::unique_ptr<Dataset> & array, DISTR & distr) {
 
             const auto & shape = array->shape();
             std::default_random_engine gen;
@@ -288,7 +288,7 @@ namespace multiarray {
 
 
     TEST_F(MarrayTest, TestThrow) {
-        auto array = openZarrArray(pathIntRegular_);
+        auto array = openDataset(pathIntRegular_);
 
         // check for shape throws #0
         types::ShapeType shape0({120, 120, 120});
@@ -326,55 +326,55 @@ namespace multiarray {
 
     TEST_F(MarrayTest, TestReadIntRegular) {
         // load the regular array and run the test
-        auto array = openZarrArray(pathIntRegular_);
+        auto array = openDataset(pathIntRegular_);
         testArrayRead<int32_t>(array);
     }
 
 
     TEST_F(MarrayTest, TestReadFloatRegular) {
         // load the regular array and run the test
-        auto array = openZarrArray(pathFloatRegular_);
+        auto array = openDataset(pathFloatRegular_);
         testArrayRead<float>(array);
     }
 
 
     TEST_F(MarrayTest, TestReadIntIrregular) {
         // load the regular array and run the test
-        auto array = openZarrArray(pathIntIrregular_);
+        auto array = openDataset(pathIntIrregular_);
         testArrayRead<int32_t>(array);
     }
 
 
     TEST_F(MarrayTest, TestReadFloatIrregular) {
         // load the regular array and run the test
-        auto array = openZarrArray(pathFloatIrregular_);
+        auto array = openDataset(pathFloatIrregular_);
         testArrayRead<float>(array);
     }
 
 
     TEST_F(MarrayTest, TestWriteReadIntRegular) {
-        auto array = openZarrArray(pathIntRegular_);
+        auto array = openDataset(pathIntRegular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
     }
 
 
     TEST_F(MarrayTest, TestWriteReadFloatRegular) {
-        auto array = openZarrArray(pathFloatRegular_);
+        auto array = openDataset(pathFloatRegular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
     }
 
 
     TEST_F(MarrayTest, TestWriteReadIntIrregular) {
-        auto array = openZarrArray(pathIntIrregular_);
+        auto array = openDataset(pathIntIrregular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
     }
 
 
     TEST_F(MarrayTest, TestWriteReadFloatIrregular) {
-        auto array = openZarrArray(pathFloatIrregular_);
+        auto array = openDataset(pathFloatIrregular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
     }

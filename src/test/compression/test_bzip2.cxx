@@ -2,20 +2,20 @@
 
 #include <random>
 
-#include "zarr++/compression/bzip2_compressor.hxx"
-#include "zarr++/metadata.hxx"
+#include "z5/compression/bzip2_compressor.hxx"
+#include "z5/metadata.hxx"
 
 #include "test_helper.hxx"
 
 
-namespace zarr {
+namespace z5 {
 namespace compression {
 
 
     TEST_F(CompressionTest, BzipCompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         Bzip2Compressor<int> compressor(metadata);
 
@@ -31,7 +31,7 @@ namespace compression {
     TEST_F(CompressionTest, BzipCompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         Bzip2Compressor<float> compressor(metadata);
 
@@ -47,7 +47,7 @@ namespace compression {
     TEST_F(CompressionTest, BzipDecompressInt) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         Bzip2Compressor<int> compressor(metadata);
 
@@ -66,7 +66,7 @@ namespace compression {
     TEST_F(CompressionTest, BzipDecompressFloat) {
 
         // Test compression with default values
-        ArrayMetadata metadata;
+        DatasetMetadata metadata;
         metadata.compressorLevel = 5;
         Bzip2Compressor<float> compressor(metadata);
 

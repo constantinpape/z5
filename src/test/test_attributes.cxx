@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
 #include "json.hpp"
 
-#include "zarr++/attributes.hxx"
-#include "zarr++/array_factory.hxx"
+#include "z5/attributes.hxx"
+#include "z5/dataset_factory.hxx"
 
 namespace fs = boost::filesystem;
 
-namespace zarr {
+namespace z5 {
 
     // fixture for the metadata
     class AttributesTest : public ::testing::Test {
@@ -25,13 +25,13 @@ namespace zarr {
         void SetUp() {
             types::ShapeType shape({100, 100, 100});
             types::ShapeType chunks({10, 10, 10});
-            createZarrArray(
-                hZarr.path().string(), "int32", 
+            createDataset(
+                hZarr.path().string(), "int32",
                 shape, chunks, true,
                 0, "blosc",
                 "lz4", 5, 1
             );
-            createZarrArray(
+            createDataset(
                 hN5.path().string(), "int32",
                 shape, chunks, false,
                 0, "zlib",
@@ -44,8 +44,8 @@ namespace zarr {
             fs::remove_all(hN5.path());
         }
 
-        handle::Array hZarr;
-        handle::Array hN5;
+        handle::Dataset hZarr;
+        handle::Dataset hN5;
         nlohmann::json j;
     };
 

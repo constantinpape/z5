@@ -4,11 +4,10 @@
 
 namespace z5 {
 
-    TEST(testN5, testRead) {
-        auto array = openDataset("array.n5");
+    TEST(testPython, testRead) {
+        auto array = openDataset("array.zr");
         auto chunks = array->chunksPerDimension();
 
-        // TODO unsymmetric shapes
         ASSERT_EQ(array->maxChunkSize(), 1000);
         std::vector<double> dataOut(array->maxChunkSize());
 
@@ -36,10 +35,9 @@ namespace z5 {
     }
 
 
-    /*
-    TEST(testN5, testReadFillvalue) {
-        auto array = openZarrArray("array_fv.n5");
-        auto chunks = array->chunksPerDimension();
+    TEST(testPython, testReadFillvalue) {
+        auto array = openDataset("array_fv.zr");
+        const auto & chunks = array->chunksPerDimension();
         std::vector<double> dataOut(array->maxChunkSize());
 
         ASSERT_EQ(array->dimension(), 3);
@@ -63,9 +61,9 @@ namespace z5 {
     }
 
 
-    TEST(testN5, testWrite) {
-        auto array = createZarrArray(
-            "array1.n5", "float64", types::ShapeType({100, 100, 100}), types::ShapeType({10, 10, 10}), false
+    TEST(testPython, testWrite) {
+        auto array = createDataset(
+            "array1.zr", "float64", types::ShapeType({100, 100, 100}), types::ShapeType({10, 10, 10}), true
         );
         auto chunks = array->chunksPerDimension();
         std::vector<double> data(array->maxChunkSize(), 42.);
@@ -78,5 +76,4 @@ namespace z5 {
             }
         }
     }
-    */
 }
