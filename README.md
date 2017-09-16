@@ -1,4 +1,4 @@
-# Zarr++
+# z5
 
 Lightweight C++ and python wrapper for reading and writing zarr 
 (https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) arrays to / from disc.
