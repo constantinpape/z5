@@ -16,7 +16,7 @@ namespace z5 {
     void createGroup(const handle::Group & group, const std::string & key, const bool isZarr=true) {
        auto path = group.path();
        path /= key;
-       handle::Group subGroup(path);
+       handle::Group subGroup(path.string());
        createGroup(subGroup, isZarr);
     }
 

@@ -4,6 +4,10 @@ addPythonModule(
     SOURCES
         z5py.cxx
         dataset.cxx
+        #groups.cxx
     LIBRRARIES
-        ${COMPRESSION_LIBRARIES}
+        ${COMPRESSION_LIBRARIES} 
+        ${Boost_FILESYSTEM_LIBRARY}    
+        ${Boost_SYSTEM_LIBRARY}    
+        pthread
 )

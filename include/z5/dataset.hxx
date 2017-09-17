@@ -68,6 +68,7 @@ namespace z5 {
 
         // dtype
         virtual types::Datatype getDtype() const = 0;
+        virtual bool isZarr() const = 0;
     };
 
 
@@ -298,6 +299,7 @@ namespace z5 {
 
         // dtype
         virtual types::Datatype getDtype() const {return dtype_;}
+        virtual bool isZarr() const {return isZarr_;}
 
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
