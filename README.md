@@ -35,7 +35,7 @@ Some differences are:
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
 - `File` does not support different read/write modes.
-- There is no need to close `File`, hence the `with` block isn't necessary/ 
+- There is no need to close `File`, hence the `with` block isn't necessary.
 
 ```
 import z5py
@@ -74,7 +74,7 @@ baz = attributes['foo']
 The library is intended to be used with a multiarray, that holds data in memory.
 An interface to `marray` (https://github.com/bjoern-andres/marray) is implemented in 
 https://github.com/constantinpape/zarr_pp/blob/master/include/zarr%2B%2B/multiarray/marray_access.hxx.
-To interface with other multiarray implementation, reimplements `readSubarray` and `writeSubarray`.
+To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
 
 ## When to use this library?
