@@ -7,6 +7,7 @@
 #include "z5/multiarray/marray_access.hxx"
 #include "z5/python/converter.hxx"
 #include "z5/groups.hxx"
+#include "z5/broadcast.hxx"
 
 
 namespace z5 {
@@ -19,7 +20,7 @@ namespace z5 {
         // do the dtype inference at runtime
         // TODO export chunk access ?
         dsClass
-            
+
             //
             // writers
             //
@@ -208,7 +209,32 @@ namespace z5 {
                 multiarray::readSubarray(ds, out, roiBegin.begin());
             })
 
+            //
+            // scalar broadcsting
+            //
+            // TODO which ones do we have to define here?
+            .def("write_scalar", [](
+                const Dataset & ds,
+                const std::vector<size_t> & roiBegin,
+                const std::vector<size_t> & roiShape,
+                int val
+            ){
+                py::gil_scoped_release allowThreads;
+                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+            })
+            .def("write_scalar", [](
+                const Dataset & ds,
+                const std::vector<size_t> & roiBegin,
+                const std::vector<size_t> & roiShape,
+                double val
+            ){
+                py::gil_scoped_release allowThreads;
+                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+            })
+
+            //
             // shapes and stuff
+            //
             .def_property_readonly("shape", [](const Dataset & ds){return ds.shape();})
             .def_property_readonly("len", [](const Dataset & ds){return ds.shape(0);})
             .def_property_readonly("chunks", [](const Dataset & ds){return ds.maxChunkShape();})

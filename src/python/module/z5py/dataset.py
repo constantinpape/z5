@@ -1,4 +1,5 @@
 import numpy as np
+import numbers
 from ._z5py import DatasetImpl, open_dataset, create_dataset
 from .attribute_manager import AttributeManager
 
@@ -99,10 +100,17 @@ class Dataset(object):
         self._impl.read_subarray(out, roi_begin)
         return out
 
-    # TODO implement scalar broadcasting !
     # most checks are done in c++
-    def __setitem__(self, index, array):
-        assert array.ndim == self.ndim, \
-            "z5py.Dataset: broadcasting is not supported"
+    def __setitem__(self, index, item):
+        assert isinstance(item, (numbers.Number, np.ndarray))
         roi_begin, shape = self.index_to_roi(index)
-        self._impl.write_subarray(array, roi_begin)
+
+        # write the complete array
+        if isinstance(item, np.ndarray):
+            assert item.ndim == self.ndim, \
+                "z5py.Dataset: complicated broadcasting is not supported"
+            self._impl.write_subarray(item, roi_begin)
+
+        # broadcast scalar
+        else:
+            self._impl.write_scalar(roi_begin, list(shape), item)

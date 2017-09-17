@@ -27,7 +27,6 @@ namespace multiarray {
         types::ShapeType inChunkOffset;
 
         // create mds to have a buffer for non-overlapping overlaps
-        //andres::Mds<T> buffer;
 
         // TODO writing directly to a view does not work, probably because it is not continuous in memory (?!)
         // that's why we use the buffer for now.

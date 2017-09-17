@@ -12,11 +12,11 @@ class Group(Base):
     @classmethod
     def make_group(cls, path, is_zarr):
         create_group(path, is_zarr)
-        return cls.__init(path, is_zarr)
+        return cls.(path, is_zarr)
 
     @classmethod
     def open_group(cls, path, is_zarr):
-        return cls.__init__(path, is_zarr)
+        return cls.(path, is_zarr)
 
     def create_group(self, key):
         assert key not in self.keys(), "Group is already existing"

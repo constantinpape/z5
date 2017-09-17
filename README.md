@@ -39,6 +39,28 @@ Pull requests for additional multiarray support are welcome.
 
 ## Examples / Usage
 
+The python APIis very similar to h5py.
+
+
+```
+import z5py
+import numpy as np
+
+# create a file and a dataset
+f = z5py.File('array.zr', use_zarr_format=True)
+ds = f.create_dataset('data', shape=(1000, 1000), chunks=(100, 100), dtype='float32')
+
+# write array to a roi
+x = np.random.random_sample(size=(50, 50)).astype('float32')
+ds[:50, :50] = x
+
+# broadcast a scalar to a roi
+ds[50:, 50:] = 42.
+
+# read array from a roi
+y = ds[25:75, 25:75]
+```
+
 ## Limitations
 
 - No thread / process synchonization -> writing (reading?) to the same chunk wiill lead to undefined behavior.
