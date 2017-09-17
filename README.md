@@ -1,6 +1,6 @@
 # z5
 
-Lightweight C++ and python wrapper for reading and writing zarr 
+Lightweight C++ and Python wrapper for reading and writing zarr 
 (https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) arrays to / from disc.
 
 Read and write compressed chunked arrays on filesystem.
@@ -30,7 +30,7 @@ TODO CMake build.
 
 ### Python
 
-The python API is very similar to h5py.
+The Python API is very similar to h5py.
 Some differences are: 
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
@@ -46,14 +46,14 @@ f = z5py.File('array.zr', use_zarr_format=True)
 ds = f.create_dataset('data', shape=(1000, 1000), chunks=(100, 100), dtype='float32')
 
 # write array to a roi
-x = np.random.random_sample(size=(50, 50)).astype('float32')
-ds[:50, :50] = x
+x = np.random.random_sample(size=(500, 500)).astype('float32')
+ds[:500, :500] = x
 
 # broadcast a scalar to a roi
-ds[50:, 50:] = 42.
+ds[500:, 500:] = 42.
 
 # read array from a roi
-y = ds[25:75, 25:75]
+y = ds[250:750, 250:750]
 
 # create a group and create a dataset in the group
 g = f.create_group('local_group')
