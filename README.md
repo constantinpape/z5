@@ -10,13 +10,6 @@ Offers support for the following compression codecs:
 - Bzip2 (http://www.bzip.org/)
 - TODO: XY, LZ4, LZMA
 
-## When to use this library
-
-This library offers access to zarr arrays from C++ and access to
-N5 arrays from C++ and python.
-If you only need to access zarr / N5 arrays from python / Java,
-I recommend to use the native implementations, which are more thoroughly tested.
-
 ## Installation
 
 ### Python
@@ -32,16 +25,17 @@ conda install -c cpape z5py
 The library itself is header-only, however you need to link against the relevant compression codecs.
 TODO CMake build.
 
-An interface to the marray (https://github.com/bjoern-andres/marray) multiarray is implemented in 
-https://github.com/constantinpape/zarr_pp/blob/master/include/zarr%2B%2B/multiarray/marray_access.hxx.
-To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
-Pull requests for additional multiarray support are welcome.
 
 ## Examples / Usage
 
+### Python
+
 The python API is very similar to h5py.
-The `File` class-constructor takes the boolean argument `use_zarr_format`, which determines whether
+Some differences are: 
+- The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
+- `File` does not support different read/write modes.
+- There is no need to close `File`, hence the `with` block isn't necessary/ 
 
 ```
 import z5py
@@ -75,7 +69,25 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-## Limitations
+### C++
+
+The library is intended to be used with a multiarray, that holds data in memory.
+An interface to `marray` (https://github.com/bjoern-andres/marray) is implemented in 
+https://github.com/constantinpape/zarr_pp/blob/master/include/zarr%2B%2B/multiarray/marray_access.hxx.
+To interface with other multiarray implementation, reimplements `readSubarray` and `writeSubarray`.
+Pull requests for additional multiarray support are welcome.
+
+## When to use this library?
+
+This library implements the zarr and N5 data specification in C++ and Python.
+Use it, if you need access to these formats from these languages.
+Zarr / N5 have native implementations in Python / Java.
+If you only need access in the respective native language,
+I recommend to use these implementations, which are more thoroughly tested.
+
+
+## Current Limitations / TODOs
 
 - No thread / process synchonization -> writing (reading?) to the same chunk will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
+- Supports only little endianness for the zarr format.
