@@ -89,11 +89,11 @@ namespace handle {
     class Chunk : public Handle {
 
     public:
-        Chunk(const fs::path & pathOnFilesystem, const bool zarrFormat=true)
+        Chunk(const fs::path & pathOnFilesystem, const bool zarrFormat)
             : Handle(pathOnFilesystem), chunkIndices_(indicesFromPath(pathOnFilesystem, zarrFormat))  , zarrFormat_(zarrFormat) {
         }
 
-        Chunk(const Dataset & handle, const types::ShapeType & chunkIndices, const bool zarrFormat=true)
+        Chunk(const Dataset & handle, const types::ShapeType & chunkIndices, const bool zarrFormat)
             : Handle(pathFromDatasetAndIndices(handle, chunkIndices, zarrFormat)), chunkIndices_(chunkIndices), zarrFormat_(zarrFormat){
 
         }

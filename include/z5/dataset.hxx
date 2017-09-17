@@ -30,10 +30,8 @@ namespace z5 {
 
         // we need to use void pointer here to have a generic API
         // write a chunk
-        virtual inline void writeChunk(const handle::Chunk &, const void *) const = 0;
         virtual void writeChunk(const types::ShapeType &, const void *) const = 0;
         // read a chunk
-        virtual inline void readChunk(const handle::Chunk &, void *) const = 0;
         virtual void readChunk(const types::ShapeType &, void *) const = 0;
 
         // helper functions for multiarray API
@@ -50,7 +48,6 @@ namespace z5 {
             types::ShapeType &,
             types::ShapeType &,
             types::ShapeType &) const = 0;
-        virtual void getChunkShape(const handle::Chunk &, types::ShapeType &) const = 0;
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
 
         // shapes and dimension
@@ -111,54 +108,18 @@ namespace z5 {
 
 
         virtual inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) const {
-            handle::Chunk chunk(handle_, chunkIndices);
+            handle::Chunk chunk(handle_, chunkIndices, isZarr_);
             writeChunk(chunk, dataIn);
         }
 
 
-        // write a chunk
-        virtual inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) const {
-
-            // make sure that we have a valid chunk
-            checkChunk(chunk);
-
-            // compress the data
-            std::vector<T> dataOut;
-            // FIXME for N5 we have to get the actual chunk size here
-            compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
-
-            // write the data
-            io_->write(chunk, dataOut);
-
-        }
-
-
         // read a chunk
+        // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
         virtual inline void readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
-            handle::Chunk chunk(handle_, chunkIndices);
+            handle::Chunk chunk(handle_, chunkIndices, isZarr_);
             readChunk(chunk, dataOut);
         }
 
-
-        // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
-        virtual inline void readChunk(const handle::Chunk & chunk, void * dataOut) const {
-
-            // make sure that we have a valid chunk
-            checkChunk(chunk);
-
-            // read the data
-            std::vector<T> dataTmp;
-            auto chunkExists = io_->read(chunk, dataTmp);
-
-            // if the chunk exists, decompress it
-            // otherwise we return the chunk with fill value
-            if(chunkExists) {
-                // FIXME for N5 we have to get the actual chunk size here
-                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
-            } else {
-                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
-            }
-        }
 
         virtual void checkRequestShape(const types::ShapeType & offset, const types::ShapeType & shape) const {
             if(offset.size() != shape_.size() || shape.size() != shape_.size()) {
@@ -174,12 +135,14 @@ namespace z5 {
             }
         }
 
+
         virtual void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
                 std::cout << "Mytype: " << typeid(T).name() << " your type: " << type.name() << std::endl;
                 throw std::runtime_error("Request has wrong type");
             }
         }
+
 
         virtual void getChunkRequests(
             const types::ShapeType & offset,
@@ -268,18 +231,8 @@ namespace z5 {
         }
 
         virtual void getChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
-            handle::Chunk chunk(handle_, chunkId);
+            handle::Chunk chunk(handle_, chunkId, isZarr_);
             getChunkShape(chunk, chunkShape);
-        }
-
-        virtual void getChunkShape(const handle::Chunk & chunk, types::ShapeType & chunkShape) const {
-            chunkShape.resize(shape_.size());
-            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
-            if(isZarr_) {
-                std::copy(chunkShape_.begin(), chunkShape_.end(), chunkShape.begin());
-            } else {
-                io_->getChunkShape(chunk, chunkShape);
-            }
         }
 
         // shapes and dimension
@@ -365,8 +318,45 @@ namespace z5 {
             );
         }
 
+        // write a chunk
+        inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) const {
+
+            // make sure that we have a valid chunk
+            checkChunk(chunk);
+
+            // compress the data
+            std::vector<T> dataOut;
+            // FIXME for N5 we have to get the actual chunk size here
+            compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize_);
+
+            // write the data
+            io_->write(chunk, dataOut);
+
+        }
+
+
+        inline void readChunk(const handle::Chunk & chunk, void * dataOut) const {
+
+            // make sure that we have a valid chunk
+            checkChunk(chunk);
+
+            // read the data
+            std::vector<T> dataTmp;
+            auto chunkExists = io_->read(chunk, dataTmp);
+
+            // if the chunk exists, decompress it
+            // otherwise we return the chunk with fill value
+            if(chunkExists) {
+                // FIXME for N5 we have to get the actual chunk size here
+                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize_);
+            } else {
+                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
+            }
+        }
+
+
         // check that the chunk handle is valid
-        void checkChunk(const handle::Chunk & chunk) const {
+        inline void checkChunk(const handle::Chunk & chunk) const {
             // check dimension
             const auto & chunkIndices = chunk.chunkIndices();
             if(chunkIndices.size() != shape_.size()) {
@@ -380,6 +370,18 @@ namespace z5 {
                 }
             }
         }
+
+
+        inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & chunkShape) const {
+            chunkShape.resize(shape_.size());
+            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
+            if(isZarr_) {
+                std::copy(chunkShape_.begin(), chunkShape_.end(), chunkShape.begin());
+            } else {
+                io_->getChunkShape(chunk, chunkShape);
+            }
+        }
+
 
         //
         // member variables

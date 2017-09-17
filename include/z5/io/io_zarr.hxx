@@ -61,6 +61,8 @@ namespace io {
             file.close();
         }
 
+        inline void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
+
     };
 
 }

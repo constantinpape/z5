@@ -10,6 +10,7 @@
 
 #include "z5/io/io_base.hxx"
 #include "z5/types/types.hxx"
+#include "z5/util/util.hxx"
 
 namespace fs = boost::filesystem;
 
@@ -18,6 +19,8 @@ namespace io {
 
     // TODO TODO TODO
     // endianess mess
+    // the best way would be to handle this
+    // in a streambuffer for boost::iostreams
     //
 
     template<typename T>
@@ -48,6 +51,15 @@ namespace io {
                 file.read((char*) &data[0], fileSize);
                 file.close();
 
+                // reverse the endianness
+                // TODO actually check that the file endianness is different than the system endianness
+                if(sizeof(T) > 1) { // we don't need to convert single bit numbers
+                    std::cout << data[0] << std::endl;
+                    std::cout << "Reversing endianness" << std::endl;
+                    util::reverseEndiannessInplace(data);
+                    std::cout << data[0] << std::endl;
+                }
+
                 // return true, because we have read an existing chunk
                 return true;
 
@@ -64,26 +76,34 @@ namespace io {
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file);
-            // write the data
-            file.write((char*) &data[0], data.size() * sizeof(T));
+            // reverse the endiannessif necessary
+            if(sizeof(T) > 1) {
+                std::vector<T> dataTmp(data);
+                util::reverseEndiannessInplace(dataTmp);
+                file.write((char*) &dataTmp[0], dataTmp.size() * sizeof(T));
+            } else {
+                // write the data
+                file.write((char*) &data[0], data.size() * sizeof(T));
+            }
             file.close();
         }
 
 
-        // TODO read the shape of this chunk
-        inline void getChunkShape(const handle::Chunk &, types::ShapeType &) {};
+        inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & shape) const {
+            std::ios_base::sync_with_stdio(false);
+            fs::ifstream file(chunk.path(), std::ios::binary);
+            readHeader(file, shape);
+            file.close();
+        }
 
     private:
-
-        void readHeader(const handle::Chunk & chunk) const {
-            // TODO call the other readHeader with proper file stream
-        }
 
         // TODO allow for reading the mode
         size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
             // read the mode
             uint16_t mode;
             file.read((char *) &mode, 2);
+            util::reverseEndiannessInplace(mode);
             // TODO support varlength mode
             if(mode != 0) {
                 throw std::runtime_error("Zarr++ only supports reading N5 chunks in default mode");
@@ -92,12 +112,18 @@ namespace io {
             // read the number of dimensions
             uint16_t nDims;
             file.read((char *) &nDims, 2);
+            util::reverseEndiannessInplace(nDims);
 
-            // read the shape
-            shape.resize(nDims);
+            // read tempory shape with uint32 entries
+            std::vector<uint32_t> shapeTmp(nDims);
             for(int d = 0; d < nDims; ++d) {
-                file.read((char *) &shape[d], 4);
+                file.read((char *) &shapeTmp[d], 4);
             }
+            util::reverseEndiannessInplace(shapeTmp);
+
+            // copy the tempory shape to out shape
+            shape.resize(nDims);
+            std::copy(shapeTmp.begin(), shapeTmp.end(), shape.begin());
 
             // TODO need to read the actual size if we allow for varlength mode
 
@@ -109,6 +135,7 @@ namespace io {
         void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {
             // write the mode
             uint16_t mode = 0; // TODO support the varlength mode as well
+            util::reverseEndiannessInplace(mode);
             file.write((char*) &mode, 2);
             // TODO need to get the number of dims
             // write the number of dimensions

@@ -8,7 +8,7 @@ namespace z5 {
         auto array = openDataset("array.n5");
         auto chunks = array->chunksPerDimension();
 
-        // TODO unsymmetric shapes
+        // TODO asymmetric shapes
         ASSERT_EQ(array->maxChunkSize(), 1000);
         std::vector<double> dataOut(array->maxChunkSize());
 
@@ -24,6 +24,17 @@ namespace z5 {
 
                     std::fill(dataOut.begin(), dataOut.end(), 0);
                     types::ShapeType chunk({z, y, x});
+
+                    // read chunk shape and make sure it agrees
+                    types::ShapeType cShape;
+                    array->getChunkShape(chunk, cShape);
+                    ASSERT_EQ(cShape.size(), 3);
+                    for(int i = 0; i < 3; ++i) {
+                        std::cout << cShape[i] << std::endl;
+                        ASSERT_EQ(cShape[i], 10);
+                    }
+
+                    // read values and make sure they agree
                     array->readChunk(chunk, &dataOut[0]);
                     ASSERT_EQ(dataOut.size(), array->maxChunkSize());
                     for(size_t i = 0; i < dataOut.size(); i++) {

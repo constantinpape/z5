@@ -57,7 +57,8 @@ namespace io {
 
 
     TEST_F(IoTest, ReadFile) {
-        handle::Chunk chunkHandle("array.zr/0");
+        fs::path file("array.zr/0");
+        handle::Chunk chunkHandle(file, true);
         ChunkIoZarr<int> io;
 
         std::vector<int> tmpData;
@@ -71,7 +72,8 @@ namespace io {
 
 
     TEST_F(IoTest, WriteFile) {
-        handle::Chunk chunkHandle("array.zr/1");
+        fs::path file("array.zr/1");
+        handle::Chunk chunkHandle(file, true);
         ChunkIoZarr<int> io;
 
         std::vector<int> tmpData(size2_, 0);
@@ -81,7 +83,8 @@ namespace io {
 
 
     TEST_F(IoTest, WriteReadFile) {
-        handle::Chunk chunkHandle("array.zr/1");
+        fs::path file("array.zr/1");
+        handle::Chunk chunkHandle(file, true);
         ChunkIoZarr<int> io;
 
         std::vector<int> tmpData1(size2_);

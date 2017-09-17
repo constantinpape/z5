@@ -90,8 +90,56 @@ namespace util {
         else {
             throw std::runtime_error("More than 5D currently not supported");
         }
-
     }
 
+
+    // reverse endianness for all values in the vector
+    // boost endian would be nice, but it doesn't support floats...
+    template<typename T>
+    inline void reverseEndiannessInplace(std::vector<T> & values) {
+        int typeLen = sizeof(T);
+        int typeMax = typeLen - 1;
+        T ret;
+        char * valP;
+        char * retP = (char *) & ret;
+        for(auto & val : values) {
+            valP = (char*) &val;
+            for(int ii = 0; ii < typeLen; ++ii) {
+                retP[ii] = valP[typeMax - ii];
+            }
+            val = ret;
+        }
+    }
+
+    // reverse endianness for as single value
+    template<typename T>
+    inline void reverseEndiannessInplace(T & val) {
+        int typeLen = sizeof(T);
+        int typeMax = typeLen - 1;
+        T ret;
+        char * valP = (char *) &val;
+        char * retP = (char *) &ret;
+        for(int ii = 0; ii < typeLen; ++ii) {
+            retP[ii] = valP[typeMax - ii];
+        }
+        val = ret;
+    }
+
+    // reverse endianness for all values in the vector
+    // boost endian would be nice, but it doesn't support floats...
+    //template<typename T>
+    //inline void reverseEndianness(const std::vector<T> & values, std::vector<T> valuesOut) {
+    //    int typeLen = sizeof(T);
+    //    int typeMax = typeLen - 1;
+    //    char * valP;
+    //    char * retP;
+    //    for(size_t i = 0; i < values.size(); ++i) {
+    //        valP = (char*) values[i];
+    //        retP = (char*) valuesOut[i];
+    //        for(int ii = 0; ii < typeLen; ++ii) {
+    //            retP[ii] = valP[typeMax - ii];
+    //        }
+    //    }
+    //}
 }
 }
