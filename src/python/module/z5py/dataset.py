@@ -6,6 +6,14 @@ from .attribute_manager import AttributeManager
 
 class Dataset(object):
 
+    # FIXME for now we hardcode all compressors
+    # but we should instead check which ones are present
+    # (similar to nifty WITH_CPLEX, etc.)
+    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2']
+    compressors_n5 = ['raw', 'gzip', 'bzip2']
+    zarr_default_compressor = 'blosc'
+    n5_default_compressor = 'gzip'
+
     def __init__(self, path, dset_impl):
         assert isinstance(dset_impl, DatasetImpl)
         self._impl = dset_impl
@@ -15,7 +23,13 @@ class Dataset(object):
     def create_dataset(
         cls, path, dtype, shape, chunks, is_zarr, fill_value, compressor, codec, level, shuffle
     ):
-        return cls(path,
+        if is_zarr and compressor not in cls.compressors_zarr:
+            compressor = zarr_default_compressor
+        elif not is_zarr and compressor not in cls.compressors_n5:
+            compressor = n5_default_compressor
+
+        return cls(
+            path,
             create_dataset(
                 path,
                 dtype,
@@ -61,6 +75,7 @@ class Dataset(object):
     def __len__(self):
         return self._impl.len
 
+    # TODO support ellipsis
     def index_to_roi(self, index):
 
         # check index types of index and normalize the index
