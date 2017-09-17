@@ -39,8 +39,9 @@ Pull requests for additional multiarray support are welcome.
 
 ## Examples / Usage
 
-The python APIis very similar to h5py.
-
+The python API is very similar to h5py.
+The `File` class-constructor takes the boolean argument `use_zarr_format`, which determines whether
+the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
 
 ```
 import z5py
@@ -59,9 +60,22 @@ ds[50:, 50:] = 42.
 
 # read array from a roi
 y = ds[25:75, 25:75]
+
+# create a group and create a dataset in the group
+g = f.create_group('local_group')
+g.create_dataset('local_data', shape=(100, 100), chunks=(10, 10), dtype='uint32')
+
+# open dataset from group or file
+ds_local1 = f['local_group/local_data']
+ds_local2 = g['local_data']
+
+# read and write attributes
+attributes = ds.attrs
+attributes['foo'] = 'bar'
+baz = attributes['foo']
 ```
 
 ## Limitations
 
-- No thread / process synchonization -> writing (reading?) to the same chunk wiill lead to undefined behavior.
+- No thread / process synchonization -> writing (reading?) to the same chunk will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
