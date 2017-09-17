@@ -57,6 +57,14 @@ namespace compression {
             }
         }
 
+        virtual types::Compressor type() const {
+            return types::blosc;
+        }
+
+        virtual void getCodec(std::string & codec) const {
+            codec = compressor_;
+        }
+
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {

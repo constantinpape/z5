@@ -2,92 +2,193 @@
 
 #include "z5/dataset_factory.hxx"
 
+namespace fs = boost::filesystem;
 namespace z5 {
 
-    TEST(testN5, testRead) {
-        auto array = openDataset("array.n5");
-        auto chunks = array->chunksPerDimension();
+    // fixture for the zarr array test
+    class N5Test : public ::testing::Test {
 
-        // TODO asymmetric shapes
-        ASSERT_EQ(array->maxChunkSize(), 1000);
-        std::vector<double> dataOut(array->maxChunkSize());
+    protected:
 
-        ASSERT_EQ(array->dimension(), 3);
-        for(unsigned d = 0; d < array->dimension(); ++d) {
-            ASSERT_EQ(array->shape(d), 100);
-            ASSERT_EQ(array->maxChunkShape(d), 10);
-        }
+        template<typename T>
+        void testRead(
+            const std::string & ds_path,
+            types::Compressor expectedCompressor,
+            const std::string & expectedCodec,
+            const T expectedValue
+        ) {
+            auto ds = openDataset(ds_path);
+            ASSERT_EQ(ds->getCompressor(), expectedCompressor);
+            std::string codec;
+            ds->getCodec(codec);
+            ASSERT_EQ(codec, expectedCodec);
 
-        for(size_t z = 0; z < chunks[0]; ++z) {
-            for(size_t y = 0; y < chunks[1]; ++y) {
-                for(size_t x = 0; x < chunks[2]; ++x) {
+            // TODO asymmetric shapes
+            auto chunks = ds->chunksPerDimension();
+            ASSERT_EQ(ds->maxChunkSize(), 1000);
+            std::vector<T> dataOut(ds->maxChunkSize());
 
-                    std::fill(dataOut.begin(), dataOut.end(), 0);
-                    types::ShapeType chunk({z, y, x});
-
-                    // read chunk shape and make sure it agrees
-                    types::ShapeType cShape;
-                    array->getChunkShape(chunk, cShape);
-                    ASSERT_EQ(cShape.size(), 3);
-                    for(int i = 0; i < 3; ++i) {
-                        std::cout << cShape[i] << std::endl;
-                        ASSERT_EQ(cShape[i], 10);
-                    }
-
-                    // read values and make sure they agree
-                    array->readChunk(chunk, &dataOut[0]);
-                    ASSERT_EQ(dataOut.size(), array->maxChunkSize());
-                    for(size_t i = 0; i < dataOut.size(); i++) {
-                        ASSERT_EQ(dataOut[i], 42);
-                    }
-
-                }
+            ASSERT_EQ(ds->dimension(), 3);
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
+                ASSERT_EQ(ds->shape(d), 100);
+                ASSERT_EQ(ds->maxChunkShape(d), 10);
             }
-        }
-    }
 
+            for(size_t z = 0; z < chunks[0]; ++z) {
+                for(size_t y = 0; y < chunks[1]; ++y) {
+                    for(size_t x = 0; x < chunks[2]; ++x) {
 
-    /*
-    TEST(testN5, testReadFillvalue) {
-        auto array = openZarrArray("array_fv.n5");
-        auto chunks = array->chunksPerDimension();
-        std::vector<double> dataOut(array->maxChunkSize());
+                        std::fill(dataOut.begin(), dataOut.end(), 0);
+                        types::ShapeType chunk({z, y, x});
 
-        ASSERT_EQ(array->dimension(), 3);
-        for(unsigned d = 0; d < array->dimension(); ++d) {
-            ASSERT_EQ(array->shape(d), 100);
-            ASSERT_EQ(array->maxChunkShape(d), 10);
-        }
+                        // read chunk shape and make sure it agrees
+                        types::ShapeType cShape;
+                        ds->getChunkShape(chunk, cShape);
+                        ASSERT_EQ(cShape.size(), 3);
+                        for(int i = 0; i < 3; ++i) {
+                            ASSERT_EQ(cShape[i], 10);
+                        }
 
-        for(size_t z = 0; z < chunks[0]; ++z) {
-            for(size_t y = 0; y < chunks[1]; ++y) {
-                for(size_t x = 0; x < chunks[2]; ++x) {
-                    std::fill(dataOut.begin(), dataOut.end(), 0);
-                    array->readChunk(types::ShapeType({z, y, x}), &dataOut[0]);
-                    ASSERT_EQ(dataOut.size(), array->maxChunkSize());
-                    for(size_t i = 0; i < dataOut.size(); i++) {
-                        ASSERT_EQ(dataOut[i], 42);
+                        // read values and make sure they agree
+                        ds->readChunk(chunk, &dataOut[0]);
+                        ASSERT_EQ(dataOut.size(), ds->maxChunkSize());
+                        for(size_t i = 0; i < dataOut.size(); i++) {
+                            ASSERT_EQ(dataOut[i], expectedValue);
+                        }
+
                     }
                 }
             }
         }
-    }
 
 
-    TEST(testN5, testWrite) {
-        auto array = createZarrArray(
-            "array1.n5", "float64", types::ShapeType({100, 100, 100}), types::ShapeType({10, 10, 10}), false
-        );
-        auto chunks = array->chunksPerDimension();
-        std::vector<double> data(array->maxChunkSize(), 42.);
+        template<typename T>
+        void testWrite(
+            const std::string & ds_path,
+            const std::string & dtype,
+            const std::string & n5Compressor,
+            const T value
+        ) {
 
-        for(size_t z = 0; z < chunks[0]; ++z) {
-            for(size_t y = 0; y < chunks[1]; ++y) {
-                for(size_t x = 0; x < chunks[2]; ++x) {
-                    array->writeChunk(types::ShapeType({z, y, x}),&data[0]);
+            // TODO asymmetric, overhanging chunk shapes
+            types::ShapeType shape = {100, 100, 100};
+            types::ShapeType chunkShape = {10, 10, 10};
+            // we can hardcode the codec to gzip here, because it is neither read for raw nor for 
+            // bzip2 compression
+            auto ds = createDataset(ds_path, dtype, shape, chunkShape, false, 0, n5Compressor, "gzip");
+
+            auto chunks = ds->chunksPerDimension();
+            std::vector<T> data(ds->maxChunkSize(), value);
+
+            for(size_t z = 0; z < chunks[0]; ++z) {
+                for(size_t y = 0; y < chunks[1]; ++y) {
+                    for(size_t x = 0; x < chunks[2]; ++x) {
+                        types::ShapeType chunk({z, y, x});
+                        ds->writeChunk(chunk, &data[0]);
+                    }
                 }
             }
         }
+
+    };
+
+    //
+    // Read integer types with raw compression
+    //
+    TEST_F(N5Test, testReadRawInt8) {
+        testRead<int8_t>("n5_test_data/array_byte_raw.n5", types::raw, "raw", 42);
     }
-    */
+
+    TEST_F(N5Test, testReadRawInt16) {
+        testRead<int16_t>("n5_test_data/array_short_raw.n5", types::raw, "raw", 42);
+    }
+
+    TEST_F(N5Test, testReadRawInt32) {
+        testRead<int32_t>("n5_test_data/array_int_raw.n5", types::raw, "raw", 42);
+    }
+
+    TEST_F(N5Test, testReadRawInt64) {
+        testRead<int64_t>("n5_test_data/array_long_raw.n5", types::raw, "raw", 42);
+    }
+
+    //
+    // Read float types with raw compression
+    //
+    TEST_F(N5Test, testReadRawFloat32) {
+        testRead<float>("n5_test_data/array_float_raw.n5", types::raw, "raw", 42);
+    }
+
+    TEST_F(N5Test, testReadRawFloat64) {
+        testRead<double>("n5_test_data/array_double_raw.n5", types::raw, "raw", 42);
+    }
+
+    //
+    // Read integer types with gzip compression
+    //
+    TEST_F(N5Test, testReadGzipInt8) {
+        testRead<int8_t>("n5_test_data/array_byte_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+    TEST_F(N5Test, testReadGzipInt16) {
+        testRead<int16_t>("n5_test_data/array_short_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+    TEST_F(N5Test, testReadGzipInt32) {
+        testRead<int32_t>("n5_test_data/array_int_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+    TEST_F(N5Test, testReadGzipInt64) {
+        testRead<int64_t>("n5_test_data/array_long_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+    //
+    // Read float types with gzip compression
+    //
+    TEST_F(N5Test, testReadGzipFloat32) {
+        testRead<float>("n5_test_data/array_float_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+    TEST_F(N5Test, testReadGzipFloat64) {
+        testRead<double>("n5_test_data/array_double_gzip.n5", types::zlib, "gzip", 42);
+    }
+
+
+    // test the fill value
+    TEST_F(N5Test, testReadFillvalue) {
+        testRead<int32_t>("n5_test_data/array_fv.n5", types::zlib, "gzip", 0);
+    }
+
+
+    //
+    // Write all types with raw compression
+    //
+
+    TEST_F(N5Test, writeTestDataRaw) {
+        fs::path folder("n5_test_data_out");
+        if(!fs::exists(folder)) {
+            fs::create_directory(folder);
+        }
+
+        testWrite<int8_t>("n5_test_data_out/array_byte_raw.n5", "int8", "raw", 42);
+        testWrite<int16_t>("n5_test_data_out/array_short_raw.n5", "int16", "raw", 42);
+        testWrite<int32_t>("n5_test_data_out/array_int_raw.n5", "int32", "raw", 42);
+        testWrite<int64_t>("n5_test_data_out/array_long_raw.n5", "int64", "raw", 42);
+        testWrite<float>("n5_test_data_out/array_float_raw.n5", "float32", "raw", 42);
+        testWrite<double>("n5_test_data_out/array_double_raw.n5", "float64", "raw", 42);
+    }
+
+    TEST_F(N5Test, writeTestDataGzip) {
+        fs::path folder("n5_test_data_out");
+        if(!fs::exists(folder)) {
+            fs::create_directory(folder);
+        }
+
+        testWrite<int8_t>("n5_test_data_out/array_byte_gzip.n5", "int8", "zlib", 42);
+        testWrite<int16_t>("n5_test_data_out/array_short_gzip.n5", "int16", "zlib", 42);
+        testWrite<int32_t>("n5_test_data_out/array_int_gzip.n5", "int32", "zlib", 42);
+        testWrite<int64_t>("n5_test_data_out/array_long_gzip.n5", "int64", "zlib", 42);
+        testWrite<float>("n5_test_data_out/array_float_gzip.n5", "float32", "zlib", 42);
+        testWrite<double>("n5_test_data_out/array_double_gzip.n5", "float64", "zlib", 42);
+    }
+
 }

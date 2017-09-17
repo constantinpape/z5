@@ -19,10 +19,8 @@ namespace z5 {
         std::unique_ptr<Dataset> ptr;
         switch(metadata.dtype) {
             case types::int8:
-                std::cout << "opening int8" << std::endl;
                 ptr.reset(new DatasetTyped<int8_t>(h)); break;
             case types::int16:
-                std::cout << "opening int16" << std::endl;
                 ptr.reset(new DatasetTyped<int16_t>(h)); break;
             case types::int32:
                 ptr.reset(new DatasetTyped<int32_t>(h)); break;
@@ -43,7 +41,7 @@ namespace z5 {
         }
         return ptr;
     }
-    
+
 
     std::unique_ptr<Dataset> openDataset(
         const handle::Group & group,

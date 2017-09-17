@@ -98,12 +98,29 @@ namespace handle {
 
         }
 
-        const types::ShapeType & chunkIndices() const {
+        inline const types::ShapeType & chunkIndices() const {
             return chunkIndices_;
         }
 
-        fs::path pathFromDataset(const Dataset & handle) const {
+        inline fs::path pathFromDataset(const Dataset & handle) const {
             return pathFromDatasetAndIndices(handle, chunkIndices_, zarrFormat_);
+        }
+
+        // compute the chunk shape, clipped if overhanging the boundary
+        template<typename T> // need to template this to work with arbitrary index out vectors
+        inline void boundedChunkShape(
+            const types::ShapeType & shape, const types::ShapeType & chunkShape, std::vector<T> & shapeOut
+        ) const {
+            int nDim = shape.size();
+            // we trust that all other dimensions are correct
+            if(nDim != chunkIndices_.size()) {
+                throw std::runtime_error("z5.Chunk.boundedChunkShape: invalid dimension in request");
+            }
+            shapeOut.resize(nDim);
+            for(int d = 0; d < nDim; ++d) {
+                shapeOut[d] = ((chunkIndices_[d] + 1) * chunkShape[d] <= shape[d]) ? chunkShape[d] :
+                    shape[d] - chunkIndices_[d] * chunkShape[d];
+            }
         }
 
     private:

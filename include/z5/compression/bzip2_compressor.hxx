@@ -160,6 +160,14 @@ namespace compression {
 
 		}
 
+        virtual types::Compressor type() const {
+            return types::bzip2;
+        }
+
+        virtual void getCodec(std::string & codec) const {
+            codec = "bzip2";
+        }
+
     private:
         void init(const DatasetMetadata & metadata) {
             // TODO clevel = compressorLevel -1 ???

@@ -150,6 +150,7 @@ namespace types {
     };
 
     std::map<std::string, Compressor> stringToCompressor({{
+        {"raw", raw},
         #ifdef WITH_BLOSC
         {"blosc", blosc},
         #endif

@@ -28,7 +28,8 @@ namespace io {
 
     public:
 
-        ChunkIoN5(/*const ArrayMetadata & metadata*/) {
+        ChunkIoN5(const types::ShapeType & shape, const types::ShapeType & chunkShape) :
+            shape_(shape), chunkShape_(chunkShape){
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
@@ -51,15 +52,6 @@ namespace io {
                 file.read((char*) &data[0], fileSize);
                 file.close();
 
-                // reverse the endianness
-                // TODO actually check that the file endianness is different than the system endianness
-                if(sizeof(T) > 1) { // we don't need to convert single bit numbers
-                    std::cout << data[0] << std::endl;
-                    std::cout << "Reversing endianness" << std::endl;
-                    util::reverseEndiannessInplace(data);
-                    std::cout << data[0] << std::endl;
-                }
-
                 // return true, because we have read an existing chunk
                 return true;
 
@@ -76,24 +68,28 @@ namespace io {
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file);
-            // reverse the endiannessif necessary
-            if(sizeof(T) > 1) {
-                std::vector<T> dataTmp(data);
-                util::reverseEndiannessInplace(dataTmp);
-                file.write((char*) &dataTmp[0], dataTmp.size() * sizeof(T));
-            } else {
-                // write the data
-                file.write((char*) &data[0], data.size() * sizeof(T));
-            }
+            file.write((char*) &data[0], data.size() * sizeof(T));
             file.close();
         }
 
 
         inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & shape) const {
-            std::ios_base::sync_with_stdio(false);
-            fs::ifstream file(chunk.path(), std::ios::binary);
-            readHeader(file, shape);
-            file.close();
+            if(chunk.exists()) {
+                std::ios_base::sync_with_stdio(false);
+                fs::ifstream file(chunk.path(), std::ios::binary);
+                readHeader(file, shape);
+                file.close();
+            }
+            else {
+                chunk.boundedChunkShape(shape_, chunkShape_, shape);
+            }
+        }
+
+
+        inline size_t getChunkSize(const handle::Chunk & chunk) const {
+            types::ShapeType shape;
+            getChunkShape(chunk, shape);
+            return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
         }
 
     private:
@@ -119,7 +115,7 @@ namespace io {
             for(int d = 0; d < nDims; ++d) {
                 file.read((char *) &shapeTmp[d], 4);
             }
-            util::reverseEndiannessInplace(shapeTmp);
+            util::reverseEndiannessInplace<uint32_t>(shapeTmp.begin(), shapeTmp.end());
 
             // copy the tempory shape to out shape
             shape.resize(nDims);
@@ -137,16 +133,26 @@ namespace io {
             uint16_t mode = 0; // TODO support the varlength mode as well
             util::reverseEndiannessInplace(mode);
             file.write((char*) &mode, 2);
-            // TODO need to get the number of dims
+
             // write the number of dimensions
-            //uint16_t nDims = numberOfDimensions_;
-            //file.write((char*) &nDims, 2);
-            //// TODO write chunk shape
-            //for(int d = 0; d < nDims; ++d) {
-            //    
-            //}
-            // TODO if we allow mode, need to be able to read another block here
+            uint16_t nDimsOut = shape_.size();
+            util::reverseEndiannessInplace(nDimsOut);
+            file.write((char *) &nDimsOut, 2);
+
+            // get the bounded chunk shape and write it to file
+            std::vector<uint32_t> shapeOut(shape_.size());
+            chunk.boundedChunkShape(shape_, chunkShape_, shapeOut);
+            util::reverseEndiannessInplace<uint32_t>(shapeOut.begin(), shapeOut.end());
+            for(int d = 0; d < shape_.size(); ++d) {
+                file.write((char *) &shapeOut[d], 4);
+            }
+
+            // TODO need to write the actual size if we allow for varlength mode
         }
+
+        // members
+        const types::ShapeType & shape_;
+        const types::ShapeType & chunkShape_;
 
     };
 

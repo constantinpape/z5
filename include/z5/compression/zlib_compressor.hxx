@@ -125,6 +125,14 @@ namespace compression {
     		//}
 		}
 
+        virtual types::Compressor type() const {
+            return types::zlib;
+        }
+
+        virtual void getCodec(std::string & codec) const {
+            codec = useZlibEncoding_ ? "zlib" : "gzip";
+        }
+
     private:
         void init(const DatasetMetadata & metadata) {
             // TODO clevel = compressorLevel -1 ???

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include "z5/types/types.hxx"
 
 namespace z5 {
 namespace compression {
@@ -15,8 +16,9 @@ namespace compression {
         //
 
         virtual void compress(const T *, std::vector<T> &, size_t) const = 0;
-
         virtual void decompress(const std::vector<T> &, T *, size_t) const = 0;
+        virtual types::Compressor type() const = 0;
+        virtual void getCodec(std::string &) const = 0;
 
     };
 

@@ -62,6 +62,7 @@ namespace io {
         }
 
         inline void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
+        inline size_t getChunkSize(const handle::Chunk &) const {}
 
     };
 

@@ -22,6 +22,14 @@ namespace compression {
             // TODO FIXME don't copy data - swap pointers?
             std::copy(dataIn.begin(), dataIn.end(), dataOut);
         }
+
+        virtual types::Compressor type() const {
+            return types::raw;
+        }
+
+        virtual void getCodec(std::string & codec) const {
+            codec = "raw";
+        }
     };
 
 }

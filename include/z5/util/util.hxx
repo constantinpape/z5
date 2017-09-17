@@ -93,21 +93,22 @@ namespace util {
     }
 
 
-    // reverse endianness for all values in the vector
+    // TODO in the long run this should be implemented as a filter for iostreams
+    // reverse endianness for all values in the iterator range
     // boost endian would be nice, but it doesn't support floats...
-    template<typename T>
-    inline void reverseEndiannessInplace(std::vector<T> & values) {
+    template<typename T, typename ITER>
+    inline void reverseEndiannessInplace(ITER begin, ITER end) {
         int typeLen = sizeof(T);
         int typeMax = typeLen - 1;
         T ret;
         char * valP;
         char * retP = (char *) & ret;
-        for(auto & val : values) {
-            valP = (char*) &val;
+        for(ITER it = begin; it != end; ++it) {
+            valP = (char*) &(*it);
             for(int ii = 0; ii < typeLen; ++ii) {
                 retP[ii] = valP[typeMax - ii];
             }
-            val = ret;
+            *it = ret;
         }
     }
 
@@ -124,22 +125,5 @@ namespace util {
         }
         val = ret;
     }
-
-    // reverse endianness for all values in the vector
-    // boost endian would be nice, but it doesn't support floats...
-    //template<typename T>
-    //inline void reverseEndianness(const std::vector<T> & values, std::vector<T> valuesOut) {
-    //    int typeLen = sizeof(T);
-    //    int typeMax = typeLen - 1;
-    //    char * valP;
-    //    char * retP;
-    //    for(size_t i = 0; i < values.size(); ++i) {
-    //        valP = (char*) values[i];
-    //        retP = (char*) valuesOut[i];
-    //        for(int ii = 0; ii < typeLen; ++ii) {
-    //            retP[ii] = valP[typeMax - ii];
-    //        }
-    //    }
-    //}
 }
 }
