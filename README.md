@@ -24,7 +24,7 @@ I recommend to use the native implementations, which are more thoroughly tested.
 You can install the package via conda:
 
 ```
-conda install -c cpape zarr_pp
+conda install -c cpape z5py
 ```
 
 ### C++

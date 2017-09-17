@@ -81,3 +81,16 @@ macro(addPythonModule)
 endmacro()
 
 add_subdirectory(lib)
+
+
+###################################################################
+# copy the python tests
+###################################################################
+
+# FIXME why doesn't this copy?
+add_custom_command(
+    TARGET python-module POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/src/python/test
+    ${CMAKE_BINARY_DIR}/python/test
+)

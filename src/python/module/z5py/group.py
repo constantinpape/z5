@@ -1,6 +1,6 @@
 import os
 from .base import Base
-from ._z5py import createGroup
+from ._z5py import create_group
 from .dataset import Dataset
 
 
@@ -11,7 +11,7 @@ class Group(Base):
 
     @classmethod
     def make_group(cls, path, is_zarr):
-        createGroup(path, is_zarr)
+        create_group(path, is_zarr)
         return cls.__init(path, is_zarr)
 
     @classmethod

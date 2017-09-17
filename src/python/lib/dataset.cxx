@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <iostream>
 
 #include "z5/dataset.hxx"
@@ -18,14 +19,191 @@ namespace z5 {
         // do the dtype inference at runtime
         // TODO export chunk access ?
         dsClass
+            
+            //
             // writers
-            .def("write_subarry", [](const Dataset & ds, const andres::PyView<int8_t> in, const std::vector<size_t> & roiBegin){
+            //
+            // int8
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<int8_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // int16
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<int16_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // int32
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<int32_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // int64
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<int64_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // uint8
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<uint8_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // uint16
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<uint16_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // uint32
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<uint32_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // uint64
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<uint64_t> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // float32
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<float> in,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            })
+            // float64
+            .def("write_subarray", [](
+                const Dataset & ds,
+                const andres::PyView<double> in,
+                const std::vector<size_t> & roiBegin
+            ){
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray(ds, in, roiBegin.begin());
             })
 
+            //
             // readers
-            .def("read_subarry", [](const Dataset & ds, andres::PyView<int8_t> out, const std::vector<size_t> & roiBegin){
+            //
+            // int 8
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<int8_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // int 16
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<int16_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // int 32
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<int32_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // int 64
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<int64_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // uint 8
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<uint8_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // uint 16
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<uint16_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // uint 32
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<uint32_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // uint 64
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<uint64_t> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // float 32
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<float> out,
+                const std::vector<size_t> & roiBegin
+            ){
+                py::gil_scoped_release allowThreads;
+                multiarray::readSubarray(ds, out, roiBegin.begin());
+            })
+            // flat 64
+            .def("read_subarray", [](
+                const Dataset & ds,
+                andres::PyView<double> out,
+                const std::vector<size_t> & roiBegin
+            ){
                 py::gil_scoped_release allowThreads;
                 multiarray::readSubarray(ds, out, roiBegin.begin());
             })
