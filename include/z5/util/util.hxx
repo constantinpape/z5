@@ -18,21 +18,6 @@ namespace util {
     }
 
 
-    // FIXME this is broken !!!
-    //void split(const std::string & in, const std::string & delimiter, std::vector<size_t> & out) {
-    //    auto start = 0U;
-    //    auto end = in.find(delimiter);
-    //    while(end != std::string::npos) {
-    //        out.push_back(
-    //            static_cast<size_t>( std::stoul(in.substr(start, end - start)) )
-    //        );
-    //    }
-    //    out.push_back(
-    //        static_cast<size_t>( std::stoul(in.substr(start, end - start)) )
-    //    );
-    //}
-
-
     // FIXME this is relatively ugly...
     // would be nicer to do this in a dimension independent way
     void makeRegularGrid(const types::ShapeType & minCoords, const types::ShapeType & maxCoords, std::vector<types::ShapeType> & grid) {
