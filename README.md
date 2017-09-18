@@ -14,7 +14,7 @@ Offers support for the following compression codecs:
 
 ### Python
 
-You can install the package via conda:
+You can install the package via conda (only Linux for now):
 
 ```
 conda install -c cpape z5py
