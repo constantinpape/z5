@@ -60,7 +60,7 @@ namespace z5 {
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
-        const bool createAsZarr=true,
+        const bool createAsZarr,
         const double fillValue=0,
         const std::string & compressor="blosc",
         const std::string & codec="lz4",
@@ -73,10 +73,16 @@ namespace z5 {
         try {
             internalDtype = types::n5ToDtype.at(dtype);
         } catch(const std::out_of_range & e) {
-            throw std::runtime_error("Invalid dtype for zarr array");
+            throw std::runtime_error("z5py.createDataset: Invalid dtype for dataset");
         }
 
-        types::Compressor internalCompressor = types::stringToCompressor.at(compressor);
+        types::Compressor internalCompressor;
+        try {
+            internalCompressor = types::stringToCompressor.at(compressor);
+        } catch(const std::out_of_range & e) {
+            throw std::runtime_error("z5py.createDataset: Invalid compressor for dataset");
+        }
+
         // make metadata
         DatasetMetadata metadata(
             internalDtype, shape,
@@ -114,7 +120,7 @@ namespace z5 {
         }
         return ptr;
     }
-    
+
 
     std::unique_ptr<Dataset> createDataset(
         const handle::Group & group,
@@ -122,7 +128,7 @@ namespace z5 {
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
-        const bool createAsZarr=true,
+        const bool createAsZarr,
         const double fillValue=0,
         const std::string & compressor="blosc",
         const std::string & codec="lz4",

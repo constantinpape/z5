@@ -13,10 +13,18 @@ class TestGroup(unittest.TestCase):
 
     def setUp(self):
         self.shape = (100, 100, 100)
+
         self.ff_zarr = z5py.File('array.zr', True)
         g = self.ff_zarr.create_group('test')
-        g.create_dataset('test', dtype='float32' self.shape, chunks=(10, 10, 10))
+        g.create_dataset(
+            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
+        )
+
         self.ff_n5 = z5py.File('array.n5', False)
+        g5 = self.ff_n5.create_group('test')
+        g5.create_dataset(
+            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
+        )
 
     def tearDown(self):
         if(os.path.exists('array.zr')):
@@ -24,15 +32,28 @@ class TestGroup(unittest.TestCase):
         if(os.path.exists('array.n5')):
             rmtree('array.n5')
 
-    def test_open_empty_group(self):
+    def test_open_empty_group_zarr(self):
         g = self.ff_zarr['test']
         ds = g['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())
 
-    def test_open_empty_dataset(self):
-        ds = g['test/test']
+    def test_open_empty_dataset_zarr(self):
+        ds = self.ff_zarr['test/test']
+        out = ds[:]
+        self.assertEqual(out.shape, self.shape)
+        self.assertTrue((out == 0).all())
+
+    def test_open_empty_group_n5(self):
+        g = self.ff_n5['test']
+        ds = g['test']
+        out = ds[:]
+        self.assertEqual(out.shape, self.shape)
+        self.assertTrue((out == 0).all())
+
+    def test_open_empty_dataset_n5(self):
+        ds = self.ff_n5['test/test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())

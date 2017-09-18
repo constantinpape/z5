@@ -7,16 +7,18 @@ from .dataset import Dataset
 class Group(Base):
 
     def __init__(self, path, is_zarr=True):
-        super(Base, self).__init__(path, is_zarr)
+        super(Group, self).__init__(path, is_zarr)
 
     @classmethod
     def make_group(cls, path, is_zarr):
         create_group(path, is_zarr)
-        return cls.(path, is_zarr)
+        # create empty attributes file
+        open(os.path.join(path, 'attributes.json'), 'w').close()
+        return cls(path, is_zarr)
 
     @classmethod
     def open_group(cls, path, is_zarr):
-        return cls.(path, is_zarr)
+        return cls(path, is_zarr)
 
     def create_group(self, key):
         assert key not in self.keys(), "Group is already existing"

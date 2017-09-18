@@ -18,7 +18,7 @@ class Base(object):
     def keys(self):
         return os.listdir(self.path)
 
-    # TODO aloow creating with data ?!
+    # TODO allow creating with data ?!
     def create_dataset(
         self,
         key,
@@ -44,5 +44,9 @@ class Base(object):
             )
         else:
             with open(os.path.join(path, 'attributes.json'), 'r') as f:
-                attributes = json.load(f)
-            return 'dimensions' in attributes
+                # attributes for n5 file can be empty which cannot be parsed by json
+                try:
+                    attributes = json.load(f)
+                except ValueError:
+                    attributes = {}
+            return 'dimensions' not in attributes

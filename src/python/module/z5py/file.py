@@ -40,16 +40,18 @@ class File(Base):
         super(File, self).__init__(path, use_zarr_format)
 
     def create_group(self, key):
-        assert key not in self.keys(), "Group is already existing"
+        assert key not in self.keys(), \
+            "z5py.File.create_group: Group is already existing"
         path = os.path.join(self.path, key)
         return Group.make_group(path, self.is_zarr)
 
     def __getitem__(self, key):
         path = os.path.join(self.path, key)
-        assert os.path.exists(path), "Key is not existing"
+        assert os.path.exists(path), \
+            "z5py.File.__getitem__: key is already existing"
         if self.is_group(path):
             return Group.open_group(path, self.is_zarr)
         else:
             return Dataset.open_dataset(path)
 
-    # TODO setitem ?
+    # TODO setitem, delete datasets ?

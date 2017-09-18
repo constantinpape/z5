@@ -156,6 +156,7 @@ namespace types {
         #endif
         #ifdef WITH_ZLIB
         {"zlib", zlib},
+        {"gzip", zlib},
         #endif
         #ifdef WITH_BZIP2
         {"bzip2", bzip2},

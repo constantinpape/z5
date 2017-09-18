@@ -24,9 +24,9 @@ class Dataset(object):
         cls, path, dtype, shape, chunks, is_zarr, fill_value, compressor, codec, level, shuffle
     ):
         if is_zarr and compressor not in cls.compressors_zarr:
-            compressor = zarr_default_compressor
+            compressor = cls.zarr_default_compressor
         elif not is_zarr and compressor not in cls.compressors_n5:
-            compressor = n5_default_compressor
+            compressor = cls.n5_default_compressor
 
         return cls(
             path,
