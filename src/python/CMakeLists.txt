@@ -7,8 +7,10 @@ add_custom_target(python-module)
 ###########################################################################
 # copy all python files from:
 #    src/python/module
+#    src/python/test
 # recursively into
 #   /blddir/python/
+#   /blddir/python/test
 ###########################################################################
 file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
     "${CMAKE_SOURCE_DIR}/src/python/module/z5py/*.py"
@@ -27,6 +29,26 @@ FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
         COMMAND cmake -E copy_if_different
         ${PYTHON_FILENAME}
         ${CMAKE_BINARY_DIR}/python/${RELATIVE_FILENAME})
+    add_dependencies(python-module copy_${RELATIVE_FILENAME_TARGET_NAME})
+ENDFOREACH()
+
+file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
+    "${CMAKE_SOURCE_DIR}/src/python/test/*.py"
+)
+FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
+    string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/test/" ""
+        RELATIVE_FILENAME
+        ${PYTHON_FILENAME})
+    string(REPLACE "/" "_"
+        RELATIVE_FILENAME_TARGET_NAME
+        ${RELATIVE_FILENAME})
+    get_filename_component(FILE_DIR  ${CMAKE_BINARY_DIR}/${RELATIVE_FILENAME} DIRECTORY)
+    file(MAKE_DIRECTORY ${FILE_DIR})
+
+    add_custom_target(copy_${RELATIVE_FILENAME_TARGET_NAME} ALL
+        COMMAND cmake -E copy_if_different
+        ${PYTHON_FILENAME}
+        ${CMAKE_BINARY_DIR}/python/test/${RELATIVE_FILENAME})
     add_dependencies(python-module copy_${RELATIVE_FILENAME_TARGET_NAME})
 ENDFOREACH()
 
@@ -51,12 +73,12 @@ macro(addPythonModule)
     pybind11_add_module(_${MODULE_NAME}
         ${ADD_PY_MOD_SOURCES}
     )
-    #if (APPLE AND NOT ${CMAKE_BUILD_TYPE} MATCHES Debug)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-      target_compile_options(_${MODULE_NAME} PRIVATE "-fvisibility=default")
-    endif()
-
+    
+    # TODO Dunno if this is important, it produces a very ugly warning...
+    #if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    #  target_compile_options(_${MODULE_NAME} PRIVATE "-fvisibility=default")
     #endif()
+
     set_target_properties(_${MODULE_NAME}  PROPERTIES PREFIX "")
 
     # link additional libraries
@@ -81,16 +103,3 @@ macro(addPythonModule)
 endmacro()
 
 add_subdirectory(lib)
-
-
-###################################################################
-# copy the python tests
-###################################################################
-
-# FIXME why doesn't this copy?
-add_custom_command(
-    TARGET python-module POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/src/python/test
-    ${CMAKE_BINARY_DIR}/python/test
-)

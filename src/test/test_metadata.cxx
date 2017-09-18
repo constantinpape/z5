@@ -26,7 +26,7 @@ namespace z5 {
             fs::create_directory(mdata);
             mdata /= ".zarray";
             fs::ofstream file(mdata);
-            jZarr >> file;
+            file << jZarr;
             file.close();
 
             // write N5 metadata
@@ -34,7 +34,7 @@ namespace z5 {
             fs::create_directory(mdataN5);
             mdataN5 /= "attributes.json";
             fs::ofstream fileN5(mdataN5);
-            jN5 >> fileN5;
+            fileN5 << jN5;
             fileN5.close();
         }
 

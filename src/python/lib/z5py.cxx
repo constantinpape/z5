@@ -10,14 +10,12 @@ namespace z5 {
 }
 
 
-PYBIND11_PLUGIN(_z5py) {
+PYBIND11_MODULE(_z5py, module) {
 
-    py::options options;
-    py::module module("_z5py", "z5 pythonbindings");
+    module.doc() = "z5 pythonbindings";
 
     using namespace z5;
     exportDataset(module);
     exportGroups(module);
-    return module.ptr();
 }
 
