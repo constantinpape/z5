@@ -68,6 +68,7 @@ namespace z5 {
         virtual bool isZarr() const = 0;
         virtual types::Compressor getCompressor() const = 0;
         virtual void getCodec(std::string &) const = 0;
+        virtual const handle::Dataset & handle() const = 0;
     };
 
 
@@ -252,13 +253,14 @@ namespace z5 {
             return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<size_t>());
         }
 
-        // dtype
+        // stuff
         virtual types::Datatype getDtype() const {return dtype_;}
         virtual bool isZarr() const {return isZarr_;}
         virtual types::Compressor getCompressor() const {return compressor_->type();}
         virtual void getCodec(std::string & codec) const {
             compressor_->getCodec(codec);
         };
+        virtual const handle::Dataset & handle() const {return handle_;}
 
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
@@ -330,26 +332,26 @@ namespace z5 {
 
             // make sure that we have a valid chunk
             checkChunk(chunk);
-            
+
             // get the correct chunk size and declare the out data
             size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
             std::vector<T> dataOut;
-            
+
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
-                
+
                 // copy the data and reverse endianness
                 std::vector<T> dataTmp(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
-                
+
                 // compress the data
                 compressor_->compress(&dataTmp[0], dataOut, chunkSize);
-            
+
             } else {
-                
+
                 // compress the data
                 compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
-            
+
             }
 
             // write the data
@@ -372,7 +374,7 @@ namespace z5 {
 
                 size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
                 compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
-                
+
                 // reverse the endianness for N5 data
                 // TODO actually check that the file endianness is different than the system endianness
                 if(sizeof(T) > 1 && !isZarr_) { // we don't need to convert single bit numbers
@@ -380,8 +382,8 @@ namespace z5 {
                         static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize);
                 }
 
-            } 
-            
+            }
+
             else {
                 std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
             }
