@@ -37,6 +37,8 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - `File` does not support different read/write modes.
 - There is no need to close `File`, hence the `with` block isn't necessary.
 
+Some examples:
+
 ```
 import z5py
 import numpy as np
@@ -73,9 +75,47 @@ baz = attributes['foo']
 
 The library is intended to be used with a multiarray, that holds data in memory.
 An interface to `marray` (https://github.com/bjoern-andres/marray) is implemented in 
-https://github.com/constantinpape/zarr_pp/blob/master/include/zarr%2B%2B/multiarray/marray_access.hxx.
+https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
+
+Some examples:
+
+```
+#include "andres/marray.hxx"
+#include "z5/dataset_factory.hxx"
+#include "z5/multiarray/marray_access.hxx"
+#include "json.hpp"
+
+int main() {
+  // create a new zarr dataset
+  std::vector<size_t> shape = {1000, 1000, 1000};
+  std::vector<size_t> chunks = {100, 100, 100};
+  bool asZarr = true;
+  auto ds = z5::createDataset("ds.zr", "float32", shape, chunks, asZarr);
+  
+  // write marray to roi
+  std::vector<size_t> offset1 = {50, 100, 150};
+  std::vector<size_t> shape1 = {150, 200, 100};
+  andres::Marray<float> array1(shape1.begin(), shape1.end(), 42.);
+  z5::multiarray::writeSubarray(ds, array1, offset1.begin());
+
+  // read marray from roi (values that were not written before are filled with a fill-value)
+  std::vector<size_t> offset2 = {100, 100, 100};
+  std::vector<size_t> shape2 = {300, 200, 75};
+  andres::Marray<float> array2(shape2.begin(), shape2.end());
+  z5::multiarray::readSubarray(ds, array2, offset2.begin());
+
+  // read and write json attributes
+  nlohmann::json attributesIn;
+  attributesIn["bar"] = "foo";
+  attributesIn["pi"] = 3.141593
+  z5::writeAttributes(ds->handle(), attributesIn);
+  
+  nlohmann::json attributesOut;
+  z5::readAttributes(ds->handle(), attributesOut);
+}
+```
 
 ## When to use this library?
 
