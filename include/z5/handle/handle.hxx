@@ -89,9 +89,13 @@ namespace handle {
     class Chunk : public Handle {
 
     public:
+
+        // this does not work reliably for zarr format, because util::split is broken
+        /*
         Chunk(const fs::path & pathOnFilesystem, const bool zarrFormat)
-            : Handle(pathOnFilesystem), chunkIndices_(indicesFromPath(pathOnFilesystem, zarrFormat))  , zarrFormat_(zarrFormat) {
+            : Handle(pathOnFilesystem), chunkIndices_(indicesFromPath(pathOnFilesystem, zarrFormat)), zarrFormat_(zarrFormat) {
         }
+        */
 
         Chunk(const Dataset & handle, const types::ShapeType & chunkIndices, const bool zarrFormat)
             : Handle(pathFromDatasetAndIndices(handle, chunkIndices, zarrFormat)), chunkIndices_(chunkIndices), zarrFormat_(zarrFormat){
@@ -120,6 +124,19 @@ namespace handle {
             for(int d = 0; d < nDim; ++d) {
                 shapeOut[d] = ((chunkIndices_[d] + 1) * chunkShape[d] <= shape[d]) ? chunkShape[d] :
                     shape[d] - chunkIndices_[d] * chunkShape[d];
+            }
+        }
+
+        // make the top level directories for a n5 chunk
+        inline void createTopDir() const {
+            // don't need to do anything for zarr format
+            if(zarrFormat_) {
+                return;
+            }
+
+            fs::path topDir = path().parent_path();
+            if(!fs::exists(topDir)) {
+                fs::create_directories(topDir);
             }
         }
 
@@ -154,6 +171,8 @@ namespace handle {
         }
 
 
+        // this does not work reliably for zarr format, because util::split is broken
+        /*
         // static method to get the chunk indices from the path on fs
         static types::ShapeType indicesFromPath(const fs::path & path, const bool zarrFormat) {
 
@@ -184,6 +203,7 @@ namespace handle {
 
             return ret;
         }
+        */
 
 
         types::ShapeType chunkIndices_;

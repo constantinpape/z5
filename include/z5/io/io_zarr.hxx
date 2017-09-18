@@ -27,6 +27,7 @@ namespace io {
 
             // if the chunk exists, we read it
             if(chunk.exists()) {
+                
 
                 // this might speed up the I/O by decoupling C++ buffers from C buffers
                 std::ios_base::sync_with_stdio(false);
@@ -35,6 +36,7 @@ namespace io {
                 file.seekg(0, std::ios::end);
                 size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
+                
 
                 // resize the data vector
                 size_t vectorSize = fileSize / sizeof(T) + (fileSize % sizeof(T) == 0 ? 0 : sizeof(T));

@@ -1,14 +1,20 @@
 #include "test_helper.hxx"
-#include "z5/io/io_zarr.hxx"
+#include "z5/io/io_n5.hxx"
 
 namespace fs = boost::filesystem;
 
 namespace z5 {
 namespace io {
 
-    TEST_F(IoTest, ReadFileZarr) {
-        handle::Chunk chunkHandle(ds_zarr, chunk0Id, true);
-        ChunkIoZarr<int> io;
+    // TODO TODO TODO
+    // Tests to check for correct irregular chunk shapes
+    // TODO TODO TODO
+
+    TEST_F(IoTest, ReadFileN5) {
+        handle::Chunk chunkHandle(ds_n5, chunk0Id, false);
+
+        types::ShapeType shape({1000, 1000, 1000});
+        ChunkIoN5<int> io(shape, chunkShape);
 
         std::vector<int> tmpData;
         ASSERT_TRUE(io.read(chunkHandle, tmpData));
@@ -20,9 +26,11 @@ namespace io {
     }
 
 
-    TEST_F(IoTest, WriteFileZarr) {
-        handle::Chunk chunkHandle(ds_zarr, chunk1Id, true);
-        ChunkIoZarr<int> io;
+    TEST_F(IoTest, WriteFileN5) {
+        handle::Chunk chunkHandle(ds_n5, chunk1Id, false);
+
+        types::ShapeType shape({1000, 1000, 1000});
+        ChunkIoN5<int> io(shape, chunkShape);
 
         std::vector<int> tmpData(SIZE, 0);
         io.write(chunkHandle, tmpData);
@@ -30,9 +38,11 @@ namespace io {
     }
 
 
-    TEST_F(IoTest, WriteReadFileZarr) {
-        handle::Chunk chunkHandle(ds_zarr, chunk1Id, true);
-        ChunkIoZarr<int> io;
+    TEST_F(IoTest, WriteReadFileN5) {
+        handle::Chunk chunkHandle(ds_n5, chunk1Id, false);
+
+        types::ShapeType shape({1000, 1000, 1000});
+        ChunkIoN5<int> io(shape, chunkShape);
 
         std::vector<int> tmpData1(SIZE);
         std::copy(data_, data_ + SIZE, tmpData1.begin());
