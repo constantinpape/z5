@@ -74,8 +74,13 @@ namespace z5 {
 
     private:
         void toJsonZarr(nlohmann:: json & j) const {
+
             nlohmann::json compressionOpts;
-            compressionOpts["id"] = (compressor == types::raw) ? nullptr : types::compressorToZarr.at(compressor);
+            try {
+                compressionOpts["id"] = (compressor == types::raw) ? nullptr : types::compressorToZarr.at(compressor);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("z5.DatasetMetadata.toJsonZarr: wrong compressor for zarr format");
+            }
             compressionOpts["cname"] = codec;
             compressionOpts["clevel"] = compressorLevel;
             compressionOpts["shuffle"] = compressorShuffle;
@@ -100,7 +105,12 @@ namespace z5 {
             j["dimensions"] = shape;
             j["blockSize"] = chunkShape;
             j["dataType"] = types::dtypeToN5.at(dtype);
-            j["compressionType"] = types::compressorToN5.at(compressor);
+
+            try {
+                j["compressionType"] = types::compressorToN5.at(compressor);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("z5.DatasetMetadata.toJsonN5: wrong compressor for N5 format");
+            }
         }
 
 
@@ -111,8 +121,14 @@ namespace z5 {
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
             fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
             const auto & compressionOpts = j["compressor"];
-            compressor = compressionOpts["id"].is_null() ?
-                types::raw : types::zarrToCompressor.at(compressionOpts["id"]);
+
+            try {
+                compressor = compressionOpts["id"].is_null() ?
+                    types::raw : types::zarrToCompressor.at(compressionOpts["id"]);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
+            }
+
             codec    = compressionOpts["cname"];
             compressorLevel   = compressionOpts["clevel"];
             compressorShuffle = compressionOpts["shuffle"];
@@ -120,10 +136,17 @@ namespace z5 {
 
 
         void fromJsonN5(const nlohmann::json & j) {
+
             dtype = types::n5ToDtype.at(j["dataType"]);
             shape = types::ShapeType(j["dimensions"].begin(), j["dimensions"].end());
             chunkShape = types::ShapeType(j["blockSize"].begin(), j["blockSize"].end());
-            compressor = types::n5ToCompressor.at(j["compressionType"]);
+
+            try {
+                compressor = types::n5ToCompressor.at(j["compressionType"]);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for N5 format");
+            }
+
             codec = (compressor == types::zlib) ? "gzip" : "";
             compressorLevel = 5; // TODO is this correcy ?
             fillValue = 0; // TODO is this correct ?

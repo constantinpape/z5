@@ -16,7 +16,6 @@
 namespace z5 {
 namespace compression {
 
-    // TODO gzip encoding
     template<typename T>
     class ZlibCompressor : public CompressorBase<T> {
 

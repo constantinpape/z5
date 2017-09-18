@@ -72,6 +72,10 @@ namespace io {
             fs::remove_all(file_zr);
             fs::path file_n5("array.n5");
             fs::remove_all(file_n5);
+            fs::path file_irr("array_irregular");
+            if(fs::exists(file_irr)) {
+                fs::remove_all(file_irr);
+            }
         }
 
         int data_[SIZE];
