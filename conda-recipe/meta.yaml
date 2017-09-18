@@ -22,12 +22,16 @@ requirements:
   build:
     - python {{PY_VER}}*
     - boost 1.63.0
-    # TODO zlib, bzip2, blosc
+    - c-blosc
+    - zlib
+    - bzip2
   run:
     - python {{PY_VER}}*
     - boost 1.63.0
     - numpy # do not need to constrain np version
-    # TODO zlib, bzip2, blosc
+    - c-blosc
+    - zlib
+    - bzip2
 
 
 test:
