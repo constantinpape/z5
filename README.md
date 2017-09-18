@@ -114,6 +114,8 @@ int main() {
   
   nlohmann::json attributesOut;
   z5::readAttributes(ds->handle(), attributesOut);
+  
+  return 0;
 }
 ```
 
