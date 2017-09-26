@@ -5,8 +5,8 @@ import os
 from shutil import rmtree
 
 # hacky import
-import sys
-sys.path.append('..')
+#import sys
+#sys.path.append('..')
 import z5py
 
 
