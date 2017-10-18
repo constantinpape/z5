@@ -23,35 +23,28 @@ namespace z5 {
             ds->getCodec(codec);
             ASSERT_EQ(codec, expectedCodec);
 
-            // TODO asymmetric shapes
+            // check for the correct shapes, chunk size and shapes
+            ASSERT_EQ(ds->size(), 111*121*113);
+            ASSERT_EQ(ds->shape(0), 111);
+            ASSERT_EQ(ds->shape(1), 121);
+            ASSERT_EQ(ds->shape(2), 113);
+            // check for the correct shapes, chunk size and shapes
+            ASSERT_EQ(ds->maxChunkSize(), 17*25*14);
+            ASSERT_EQ(ds->maxChunkShape(0), 17);
+            ASSERT_EQ(ds->maxChunkShape(1), 25);
+            ASSERT_EQ(ds->maxChunkShape(2), 14);
+
             auto chunks = ds->chunksPerDimension();
-            ASSERT_EQ(ds->maxChunkSize(), 1000);
-            std::vector<T> dataOut(ds->maxChunkSize());
-
-            ASSERT_EQ(ds->dimension(), 3);
-            for(unsigned d = 0; d < ds->dimension(); ++d) {
-                ASSERT_EQ(ds->shape(d), 100);
-                ASSERT_EQ(ds->maxChunkShape(d), 10);
-            }
-
             for(size_t z = 0; z < chunks[0]; ++z) {
                 for(size_t y = 0; y < chunks[1]; ++y) {
                     for(size_t x = 0; x < chunks[2]; ++x) {
 
-                        std::fill(dataOut.begin(), dataOut.end(), 0);
+                        size_t chunkSize = ds->getChunkSize({z, y, x});
+                        std::vector<T> dataOut(chunkSize);
+
+                        // read chunk and make sure it agrees
                         types::ShapeType chunk({z, y, x});
-
-                        // read chunk shape and make sure it agrees
-                        types::ShapeType cShape;
-                        ds->getChunkShape(chunk, cShape);
-                        ASSERT_EQ(cShape.size(), 3);
-                        for(int i = 0; i < 3; ++i) {
-                            ASSERT_EQ(cShape[i], 10);
-                        }
-
-                        // read values and make sure they agree
                         ds->readChunk(chunk, &dataOut[0]);
-                        ASSERT_EQ(dataOut.size(), ds->maxChunkSize());
                         for(size_t i = 0; i < dataOut.size(); i++) {
                             ASSERT_EQ(dataOut[i], expectedValue);
                         }

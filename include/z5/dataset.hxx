@@ -48,20 +48,26 @@ namespace z5 {
             types::ShapeType &,
             types::ShapeType &,
             types::ShapeType &) const = 0;
+
+        // size and shape of an actual chunk
+        virtual size_t getChunkSize(const types::ShapeType &) const = 0;
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
+        virtual size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
+
+        // maximal chunk size and shape
+        virtual size_t maxChunkSize() const = 0;
+        virtual const types::ShapeType & maxChunkShape() const = 0;
+        virtual size_t maxChunkShape(const unsigned) const = 0;
 
         // shapes and dimension
         virtual unsigned dimension() const = 0;
         virtual const types::ShapeType & shape() const = 0;
         virtual size_t shape(const unsigned) const = 0;
-        virtual const types::ShapeType & maxChunkShape() const = 0;
-        virtual size_t maxChunkShape(const unsigned) const = 0;
         virtual size_t size() const = 0;
 
         virtual size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
         virtual size_t chunksPerDimension(const unsigned) const = 0;
-        virtual size_t maxChunkSize() const = 0;
 
         // dtype
         virtual types::Datatype getDtype() const = 0;
@@ -237,6 +243,16 @@ namespace z5 {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             getChunkShape(chunk, chunkShape);
         }
+        
+        virtual size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+            handle::Chunk chunk(handle_, chunkId, isZarr_);
+            return getChunkShape(chunk, dim);
+        }
+        
+        virtual size_t getChunkSize(const types::ShapeType & chunkId) const {
+            handle::Chunk chunk(handle_, chunkId, isZarr_);
+            return getChunkSize(chunk);
+        }
 
         // shapes and dimension
         virtual unsigned dimension() const {return shape_.size();}
@@ -385,7 +401,8 @@ namespace z5 {
             }
 
             else {
-                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize_, fillValue_);
+                size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize, fillValue_);
             }
         }
 
@@ -414,6 +431,28 @@ namespace z5 {
                 std::copy(chunkShape_.begin(), chunkShape_.end(), chunkShape.begin());
             } else {
                 io_->getChunkShape(chunk, chunkShape);
+            }
+        }
+
+        inline size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
+            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
+            if(isZarr_) {
+                return maxChunkShape(dim);
+            } else {
+                std::vector<size_t> tmpShape;
+                getChunkShape(chunk, tmpShape);
+                return tmpShape[dim];
+            }
+        }
+
+        inline size_t getChunkSize(const handle::Chunk & chunk) const {
+            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
+            if(isZarr_) {
+                return maxChunkSize();
+            } else {
+                std::vector<size_t> tmpShape;
+                getChunkShape(chunk, tmpShape);
+                return std::accumulate(tmpShape.begin(), tmpShape.end(), 1, std::multiplies<size_t>());
             }
         }
 
