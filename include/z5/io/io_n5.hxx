@@ -112,6 +112,7 @@ namespace io {
             file.read((char *) &nDims, 2);
             util::reverseEndiannessInplace(nDims);
 
+            // TODO need to invert the dimensions here
             // read tempory shape with uint32 entries
             std::vector<uint32_t> shapeTmp(nDims);
             for(int d = 0; d < nDims; ++d) {
@@ -141,6 +142,7 @@ namespace io {
             util::reverseEndiannessInplace(nDimsOut);
             file.write((char *) &nDimsOut, 2);
 
+            // TODO need to invert the dimensions here
             // get the bounded chunk shape and write it to file
             std::vector<uint32_t> shapeOut(shape_.size());
             chunk.boundedChunkShape(shape_, chunkShape_, shapeOut);

@@ -155,9 +155,10 @@ namespace handle {
 
             // otherwise (n5-format), each chunk index has
             // its own directory
+            // also, the ordering of chunk indices is inverted
             else {
-                for(auto idx : chunkIndices) {
-                    ret /= std::to_string(idx);
+                for(auto it = chunkIndices.rbegin(); it != chunkIndices.rend(); ++it) {
+                    ret /= std::to_string(*it);
                 }
             }
             return ret;

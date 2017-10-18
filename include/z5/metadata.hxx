@@ -139,6 +139,9 @@ namespace z5 {
 
             dtype = types::n5ToDtype.at(j["dataType"]);
             shape = types::ShapeType(j["dimensions"].begin(), j["dimensions"].end());
+            //for(auto ss : shape) {
+            //    std::cout << "shape: " << ss << std::endl;
+            //}
             chunkShape = types::ShapeType(j["blockSize"].begin(), j["blockSize"].end());
 
             try {
