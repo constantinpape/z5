@@ -1,6 +1,7 @@
 #pragma once
 
 #include "z5/dataset.hxx"
+#include "z5/types/types.hxx"
 #include "andres/marray.hxx"
 
 // free functions to read and write from multiarrays
@@ -60,7 +61,6 @@ namespace multiarray {
                 // copy the data from the buffer into the view
                 view = buffer;
             }
-
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
             else {

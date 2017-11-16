@@ -16,7 +16,6 @@ namespace types {
     // type for array shapes
     typedef std::vector<size_t> ShapeType;
 
-
     //
     // Datatypes
     //
@@ -164,4 +163,13 @@ namespace types {
     }});
 
 } // namespace::types
+    // overload ostream operator for ShapeType (a.k.a) vector for convinience
+    inline std::ostream & operator << (std::ostream & os, const types::ShapeType & coord) {
+        os << "Coordinates(";
+        for(const auto & cc: coord) {
+            os << " " << cc;
+        }
+        os << " )";
+        return os;
+    }
 } // namespace::z5
