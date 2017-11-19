@@ -1,6 +1,6 @@
-python make_data.py
+python3 make_data.py
 ./test_python
-python test_read_python.py
+python3 test_read_python.py
 
 rm -r array.zr
 rm -r array1.zr

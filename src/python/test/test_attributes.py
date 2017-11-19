@@ -4,10 +4,12 @@ import unittest
 import os
 from shutil import rmtree
 
-# hacky import
-#import sys
-#sys.path.append('..')
-import z5py
+import sys
+try:
+    import z5py
+except ImportError:
+    sys.path.append('..')
+    import z5py
 
 
 class TestAttributes(unittest.TestCase):

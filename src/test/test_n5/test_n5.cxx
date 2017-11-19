@@ -25,14 +25,14 @@ namespace z5 {
 
             // check for the correct shapes, chunk size and shapes
             ASSERT_EQ(ds->size(), 111*121*113);
-            ASSERT_EQ(ds->shape(0), 111);
+            ASSERT_EQ(ds->shape(0), 113);
             ASSERT_EQ(ds->shape(1), 121);
-            ASSERT_EQ(ds->shape(2), 113);
+            ASSERT_EQ(ds->shape(2), 111);
             // check for the correct shapes, chunk size and shapes
             ASSERT_EQ(ds->maxChunkSize(), 17*25*14);
-            ASSERT_EQ(ds->maxChunkShape(0), 17);
+            ASSERT_EQ(ds->maxChunkShape(0), 14);
             ASSERT_EQ(ds->maxChunkShape(1), 25);
-            ASSERT_EQ(ds->maxChunkShape(2), 14);
+            ASSERT_EQ(ds->maxChunkShape(2), 17);
 
             auto chunks = ds->chunksPerDimension();
             for(size_t z = 0; z < chunks[0]; ++z) {

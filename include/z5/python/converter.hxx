@@ -37,17 +37,18 @@ namespace andres {
         typedef VALUE_TYPE DataType;
 
         template <class ShapeIterator>
-        PyView(pybind11::array_t<VALUE_TYPE> array, VALUE_TYPE *data, ShapeIterator begin, ShapeIterator end)
-            : View<VALUE_TYPE, false>(begin, end, data, FirstMajorOrder, FirstMajorOrder), py_array(array)
+        PyView(pybind11::array_t<DataType> array, DataType *data, ShapeIterator begin, ShapeIterator end)
+            : View<DataType, false>(begin, end, data, FirstMajorOrder, FirstMajorOrder), py_array(array)
         {
+            //std::cout << "It's a me mario" << std::endl;
             auto info = py_array.request();
-            VALUE_TYPE *ptr = (VALUE_TYPE *)info.ptr;
+            DataType *ptr = (DataType *) info.ptr;
 
-            std::vector<size_t> strides(info.strides.begin(),info.strides.end());
+            std::vector<size_t> strides(info.strides.begin(), info.strides.end());
             for(size_t i=0; i<strides.size(); ++i){
-                strides[i] /= sizeof(VALUE_TYPE);
+                strides[i] /= sizeof(DataType);
             }
-            this->assign( info.shape.begin(), info.shape.end(), strides.begin(), ptr, FirstMajorOrder);
+            this->assign(info.shape.begin(), info.shape.end(), strides.begin(), ptr, FirstMajorOrder);
 
         }
 

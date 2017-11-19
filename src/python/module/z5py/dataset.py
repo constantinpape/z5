@@ -20,33 +20,35 @@ class Dataset(object):
         self._attrs = AttributeManager(path, self._impl.is_zarr)
 
     @classmethod
-    def create_dataset(
-        cls, path, dtype, shape, chunks, is_zarr, fill_value, compressor, codec, level, shuffle
-    ):
+    def create_dataset(cls,
+                       path,
+                       dtype,
+                       shape,
+                       chunks,
+                       is_zarr,
+                       fill_value,
+                       compressor,
+                       codec,
+                       level,
+                       shuffle):
         if is_zarr and compressor not in cls.compressors_zarr:
             compressor = cls.zarr_default_compressor
         elif not is_zarr and compressor not in cls.compressors_n5:
             compressor = cls.n5_default_compressor
 
-        return cls(
-            path,
-            create_dataset(
-                path,
-                dtype,
-                list(shape),
-                list(chunks),
-                is_zarr,
-                fill_value,
-                compressor,
-                codec,
-                level,
-                shuffle
-            )
-        )
+        return cls(path, create_dataset(path, dtype,
+                                        shape, chunks,
+                                        is_zarr, fill_value,
+                                        compressor, codec,
+                                        level, shuffle))
 
     @classmethod
     def open_dataset(cls, path):
         return cls(path, open_dataset(path))
+
+    @property
+    def is_zarr(self):
+        return self._impl.is_zarr
 
     @property
     def attrs(self):
@@ -81,30 +83,24 @@ class Dataset(object):
         # check index types of index and normalize the index
         assert isinstance(index, (slice, tuple)), \
             "z5py.Dataset: index must be slice or tuple of slices"
-        if isinstance(index, slice):
-            index = (index,)
+        index_ = (index,) if isinstance(index, slice) else index
 
         # check lengths of index
-        shape = self.shape
-        ndim = len(shape)
-        assert len(index) <= ndim, \
-            "z5py.Dataset: index is longer than dimension"
+        assert len(index_) <= self.ndim, "z5py.Dataset: index is longer than dimension"
 
-        # checl the individual slices
-        for ii in index:
-            assert isinstance(ii, slice), \
+        # check the individual slices
+        assert all(isinstance(ii, slice) for ii in index_), \
                 "z5py.Dataset: index must be slice or tuple of slices"
-            assert ii.step is None, \
-                "z5py.Dataset: fancy indexig is not supported"
-
+        assert all(ii.step is None for ii in index_), \
+                "z5py.Dataset: slice with non-trivial step is not supported"
         # get the roi begin and shape from the slicing
         roi_begin = [
-            (0 if index[d].start is None else index[d].start)
-            if d < len(index) else 0 for d in range(ndim)
+            (0 if index_[d].start is None else index_[d].start)
+            if d < len(index_) else 0 for d in range(self.ndim)
         ]
         roi_shape = tuple(
-            ((shape[d] if index[d].stop is None else index[d].stop)
-             if d < len(index) else shape[d]) - roi_begin[d] for d in range(ndim)
+            ((self.shape[d] if index_[d].stop is None else index_[d].stop)
+             if d < len(index_) else self.shape[d]) - roi_begin[d] for d in range(self.ndim)
         )
         return roi_begin, roi_shape
 
@@ -120,6 +116,7 @@ class Dataset(object):
         assert isinstance(item, (numbers.Number, np.ndarray))
         roi_begin, shape = self.index_to_roi(index)
 
+        # n5 input must be transpsed due to different axis convention
         # write the complete array
         if isinstance(item, np.ndarray):
             assert item.ndim == self.ndim, \

@@ -136,6 +136,7 @@ namespace z5 {
             }
             for(int d = 0; d < shape_.size(); ++d) {
                 if(offset[d] + shape[d] > shape_[d]) {
+                    std::cout << offset << " " << shape << std::endl;
                     throw std::runtime_error("Request is out of range");
                 }
                 if(shape[d] == 0) {
@@ -179,13 +180,13 @@ namespace z5 {
             const types::ShapeType & chunkId,
             const types::ShapeType & offset,
             const types::ShapeType & shape,
-            types::ShapeType & localOffset,
-            types::ShapeType & localShape,
-            types::ShapeType & inChunkOffset) const {
+            types::ShapeType & offsetInRequest,
+            types::ShapeType & shapeInRequest,
+            types::ShapeType & offsetInChunk) const {
 
-            localOffset.resize(offset.size());
-            localShape.resize(offset.size());
-            inChunkOffset.resize(offset.size());
+            offsetInRequest.resize(offset.size());
+            shapeInRequest.resize(offset.size());
+            offsetInChunk.resize(offset.size());
 
             types::ShapeType chunkShape;
             getChunkShape(chunkId, chunkShape);
@@ -209,46 +210,72 @@ namespace z5 {
                 // that is not completely overlapping
                 // -> set all values accordingly
                 if(offDiff < 0) {
-                    localOffset[d] = 0; // start chunk -> no local offset
-                    inChunkOffset[d] = -offDiff;
+                    offsetInRequest[d] = 0; // start chunk -> no local offset
+                    offsetInChunk[d] = -offDiff;
                     completeOvlp = false;
                     // if this chunk is the beginning chunk as well as the end chunk,
                     // we need to adjust the local shape accordingly
-                    localShape[d] = (chunkEnd <= requestEnd) ? chunkEnd - offset[d] : requestEnd - offset[d];
+                    shapeInRequest[d] = (chunkEnd <= requestEnd) ? chunkEnd - offset[d] : requestEnd - offset[d];
                 }
 
                 // if the end difference is negative, we are at a last chunk
                 // that is not completely overlapping
                 // -> set all values accordingly
                 else if(endDiff < 0) {
-                    localOffset[d] = chunkBegin - offset[d];
-                    inChunkOffset[d] = 0;
+                    offsetInRequest[d] = chunkBegin - offset[d];
+                    offsetInChunk[d] = 0;
                     completeOvlp = false;
-                    localShape[d] = requestEnd - chunkBegin;
+                    shapeInRequest[d] = requestEnd - chunkBegin;
 
                 }
 
                 // otherwise we are at a completely overlapping chunk
                 else {
-                    localOffset[d] = chunkBegin - offset[d];
-                    inChunkOffset[d] = 0;
-                    localShape[d] = chunkShape[d];
+                    offsetInRequest[d] = chunkBegin - offset[d];
+                    offsetInChunk[d] = 0;
+                    shapeInRequest[d] = chunkShape[d];
                 }
 
             }
             return completeOvlp;
         }
 
+        // get full chunk shape from indices
         virtual void getChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             getChunkShape(chunk, chunkShape);
         }
-        
+
+        // get individual chunk shape from indices
         virtual size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkShape(chunk, dim);
         }
-        
+
+        // get full chunk shape from handle
+        inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & chunkShape) const {
+            chunkShape.resize(shape_.size());
+            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
+            if(isZarr_) {
+                std::copy(chunkShape_.begin(), chunkShape_.end(), chunkShape.begin());
+            } else {
+                io_->getChunkShape(chunk, chunkShape);
+            }
+        }
+
+        // get individual chunk shape from handle
+        inline size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
+            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
+            if(isZarr_) {
+                return maxChunkShape(dim);
+            } else {
+                std::vector<size_t> tmpShape;
+                getChunkShape(chunk, tmpShape);
+                return tmpShape[dim];
+            }
+        }
+
+
         virtual size_t getChunkSize(const types::ShapeType & chunkId) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkSize(chunk);
@@ -301,6 +328,7 @@ namespace z5 {
             // get shapes and fillvalue
             shape_ = metadata.shape;
             chunkShape_ = metadata.chunkShape;
+            
             chunkSize_ = std::accumulate(
                 chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
             );
@@ -423,27 +451,6 @@ namespace z5 {
             }
         }
 
-
-        inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & chunkShape) const {
-            chunkShape.resize(shape_.size());
-            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
-            if(isZarr_) {
-                std::copy(chunkShape_.begin(), chunkShape_.end(), chunkShape.begin());
-            } else {
-                io_->getChunkShape(chunk, chunkShape);
-            }
-        }
-
-        inline size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
-            // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
-            if(isZarr_) {
-                return maxChunkShape(dim);
-            } else {
-                std::vector<size_t> tmpShape;
-                getChunkShape(chunk, tmpShape);
-                return tmpShape[dim];
-            }
-        }
 
         inline size_t getChunkSize(const handle::Chunk & chunk) const {
             // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape

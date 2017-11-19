@@ -156,7 +156,8 @@ namespace handle {
             // otherwise (n5-format), each chunk index has
             // its own directory
             else {
-                for(auto it = chunkIndices.begin(); it != chunkIndices.end(); ++it) {
+                // N5-Axis order: we need to read the chunks in reverse order
+                for(auto it = chunkIndices.rbegin(); it != chunkIndices.rend(); ++it) {
                     ret /= std::to_string(*it);
                 }
             }

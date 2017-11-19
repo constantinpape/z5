@@ -17,7 +17,7 @@ namespace fs = boost::filesystem;
 namespace z5 {
 namespace io {
 
-    // TODO TODO TODO
+    // TODO 
     // endianess mess
     // the best way would be to handle this
     // in a streambuffer for boost::iostreams
@@ -81,6 +81,7 @@ namespace io {
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 readHeader(file, shape);
                 file.close();
+
             }
             else {
                 chunk.boundedChunkShape(shape_, chunkShape_, shape);
@@ -98,10 +99,12 @@ namespace io {
 
         // TODO allow for reading the mode
         size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
+
             // read the mode
             uint16_t mode;
             file.read((char *) &mode, 2);
             util::reverseEndiannessInplace(mode);
+
             // TODO support varlength mode
             if(mode != 0) {
                 throw std::runtime_error("Zarr++ only supports reading N5 chunks in default mode");
@@ -112,7 +115,6 @@ namespace io {
             file.read((char *) &nDims, 2);
             util::reverseEndiannessInplace(nDims);
 
-            // TODO need to invert the dimensions here
             // read tempory shape with uint32 entries
             std::vector<uint32_t> shapeTmp(nDims);
             for(int d = 0; d < nDims; ++d) {
@@ -120,18 +122,21 @@ namespace io {
             }
             util::reverseEndiannessInplace<uint32_t>(shapeTmp.begin(), shapeTmp.end());
 
+            // N5-Axis order: we need to reverse the chunk shape read from the header
+            std::reverse(shapeTmp.begin(), shapeTmp.end());
+
             // copy the tempory shape to out shape
             shape.resize(nDims);
             std::copy(shapeTmp.begin(), shapeTmp.end(), shape.begin());
 
             // TODO need to read the actual size if we allow for varlength mode
-
             // calculate the file size
             size_t fileSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
             return fileSize * sizeof(T);
         }
 
         void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {
+
             // write the mode
             uint16_t mode = 0; // TODO support the varlength mode as well
             util::reverseEndiannessInplace(mode);
@@ -147,6 +152,10 @@ namespace io {
             std::vector<uint32_t> shapeOut(shape_.size());
             chunk.boundedChunkShape(shape_, chunkShape_, shapeOut);
             util::reverseEndiannessInplace<uint32_t>(shapeOut.begin(), shapeOut.end());
+
+            // N5-Axis order: we need to reverse the chunk shape written to the header
+            std::reverse(shapeOut.begin(), shapeOut.end());
+            // write chunk shape to header
             for(int d = 0; d < shape_.size(); ++d) {
                 file.write((char *) &shapeOut[d], 4);
             }

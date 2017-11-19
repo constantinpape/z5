@@ -39,7 +39,7 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 
 Some examples:
 
-```
+```python
 import z5py
 import numpy as np
 
@@ -133,3 +133,18 @@ I recommend to use these implementations, which are more thoroughly tested.
 - No thread / process synchonization -> writing (reading?) to the same chunk will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
 - Supports only little endianness for the zarr format.
+
+
+## A note on axis ordering
+
+Internally, n5 uses column-major (i.e. x, y, z) axis ordering, while z5 does row-major (i.e. z, y,x) axis ordering.
+While this is mostly handled internally, it means that the metadata does not transfer
+1 to 1, but needs to be reversed for most shapes. Concretely:
+
+|           |n5                      |z5              |
+|----------:|-----------------------:|---------------:|  
+|Shape      | (s_x, s_y, s_z)        |(s_z, s_y, s_x) |
+|Chunk-Shape| (c_x, c_y, c_z)        |(c_z, c_y, c_x) | 
+|Chunk-Ids  | (i_x, i_y, i_z)        |(i_z, i_y, i_x) |
+
+

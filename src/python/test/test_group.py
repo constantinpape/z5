@@ -3,10 +3,12 @@ import numpy as np
 import os
 from shutil import rmtree
 
-# hacky import
 import sys
-sys.path.append('..')
-import z5py
+try:
+    import z5py
+except ImportError:
+    sys.path.append('..')
+    import z5py
 
 
 class TestGroup(unittest.TestCase):

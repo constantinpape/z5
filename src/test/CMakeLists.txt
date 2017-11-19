@@ -28,3 +28,10 @@ add_subdirectory(io)
 add_subdirectory(multiarray)
 add_subdirectory(test_zarr)
 add_subdirectory(test_n5)
+
+add_custom_command(
+        TARGET test_attributes POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_SOURCE_DIR}/src/test/run_all_tests.sh
+                ${CMAKE_CURRENT_BINARY_DIR}
+)

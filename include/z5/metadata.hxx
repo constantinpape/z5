@@ -102,8 +102,15 @@ namespace z5 {
         }
 
         void toJsonN5(nlohmann::json & j) const {
-            j["dimensions"] = shape;
-            j["blockSize"] = chunkShape;
+
+            // N5-Axis order: we need to reverse the shape when writing to metadata
+            types::ShapeType rshape(shape.rbegin(), shape.rend());
+            j["dimensions"] = rshape;
+
+            // N5-Axis order: we need to reverse the block-size when writing to metadata
+            types::ShapeType rchunks(chunkShape.rbegin(), chunkShape.rend());
+            j["blockSize"] = rchunks;
+
             j["dataType"] = types::dtypeToN5.at(dtype);
 
             try {
@@ -138,11 +145,12 @@ namespace z5 {
         void fromJsonN5(const nlohmann::json & j) {
 
             dtype = types::n5ToDtype.at(j["dataType"]);
-            shape = types::ShapeType(j["dimensions"].begin(), j["dimensions"].end());
-            //for(auto ss : shape) {
-            //    std::cout << "shape: " << ss << std::endl;
-            //}
-            chunkShape = types::ShapeType(j["blockSize"].begin(), j["blockSize"].end());
+
+            // N5-Axis order: we need to reverse the shape when reading from metadata
+            shape = types::ShapeType(j["dimensions"].rbegin(), j["dimensions"].rend());
+
+            // N5-Axis order: we need to reverse the chunk shape when reading from metadata
+            chunkShape = types::ShapeType(j["blockSize"].rbegin(), j["blockSize"].rend());
 
             try {
                 compressor = types::n5ToCompressor.at(j["compressionType"]);
@@ -151,8 +159,9 @@ namespace z5 {
             }
 
             codec = (compressor == types::zlib) ? "gzip" : "";
-            compressorLevel = 5; // TODO is this correcy ?
-            fillValue = 0; // TODO is this correct ?
+            // TODO these should become parameters in N5
+            compressorLevel = 5;
+            fillValue = 0;
         }
 
     public:
