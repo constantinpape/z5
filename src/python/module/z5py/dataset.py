@@ -42,6 +42,7 @@ class Dataset(object):
                                         compressor, codec,
                                         level, shuffle))
 
+
     @classmethod
     def open_dataset(cls, path):
         return cls(path, open_dataset(path))
@@ -56,7 +57,8 @@ class Dataset(object):
 
     @property
     def shape(self):
-        return tuple(self._impl.shape)
+        return tuple(self._impl.shape) if self.is_zarr else \
+            tuple(self._impl.shape[::-1])
 
     @property
     def ndim(self):
@@ -77,6 +79,25 @@ class Dataset(object):
     def __len__(self):
         return self._impl.len
 
+    # compute the roi for zarr (straighforward)
+    def _index_to_roi_zarr(self, index):
+        # get the roi begin and shape from the slicing
+        roi_begin = [
+            (0 if index[d].start is None else index[d].start)
+            if d < len(index) else 0 for d in range(self.ndim)
+        ]
+        roi_shape = tuple(
+            ((self.shape[d] if index[d].stop is None else index[d].stop)
+             if d < len(index) else self.shape[d]) - roi_begin[d] for d in range(self.ndim)
+        )
+        return roi_begin, roi_shape
+
+    # compute the roi for n5
+    # ranges must be reversed due to different axis convention
+    def _index_to_roi_n5(self, index):
+        roi_begin, roi_shape = self._index_to_roi_zarr(index)
+        return roi_begin[::-1], roi_shape[::-1]
+
     # TODO support ellipsis
     def index_to_roi(self, index):
 
@@ -92,7 +113,7 @@ class Dataset(object):
         assert all(isinstance(ii, slice) for ii in index_), \
                 "z5py.Dataset: index must be slice or tuple of slices"
         assert all(ii.step is None for ii in index_), \
-                "z5py.Dataset: slice with non-trivial step is not supported"
+                "z5py.Dataset: slice with non-trivial step is not supported
         # get the roi begin and shape from the slicing
         roi_begin = [
             (0 if index_[d].start is None else index_[d].start)
@@ -104,12 +125,14 @@ class Dataset(object):
         )
         return roi_begin, roi_shape
 
+
     # most checks are done in c++
     def __getitem__(self, index):
         roi_begin, shape = self.index_to_roi(index)
         out = np.zeros(shape, dtype=self.dtype)
         self._impl.read_subarray(out, roi_begin)
-        return out
+        # n5 output must be transposed due to different axis convention
+        return out if self.is_zarr else out.transpose()
 
     # most checks are done in c++
     def __setitem__(self, index, item):
@@ -121,7 +144,7 @@ class Dataset(object):
         if isinstance(item, np.ndarray):
             assert item.ndim == self.ndim, \
                 "z5py.Dataset: complicated broadcasting is not supported"
-            self._impl.write_subarray(item, roi_begin)
+            self._impl.write_subarray(item if self.is_zarr else item.transpose(), roi_begin)
 
         # broadcast scalar
         else:
