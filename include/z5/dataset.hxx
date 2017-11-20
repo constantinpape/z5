@@ -75,6 +75,12 @@ namespace z5 {
         virtual types::Compressor getCompressor() const = 0;
         virtual void getCodec(std::string &) const = 0;
         virtual const handle::Dataset & handle() const = 0;
+
+        // TODO we need to properly define what we want here
+        // find minimum / maximum existing coordinates
+        // corresponding to the coordinates of the min / max chunk that was written
+        //virtual void findMinimumCoordinate(types::ShapeType &);
+        //virtual void findMaximumCoordinate(types::ShapeType &);
     };
 
 
@@ -305,6 +311,25 @@ namespace z5 {
         };
         virtual const handle::Dataset & handle() const {return handle_;}
 
+        // TODO we need to properly define what we want here !!!
+        // TODO need to handle the case if no chunks are existing
+        // find minimum / maximum existing coordinates
+        // corresponding to the coordinates of the min / max chunk that was written
+        //virtual inline void findMinimumCoordinate(types::ShapeType & minOut) {
+        //    io_->findMinumumChunk(minOut, handle_.path(), numberOfChunks_);
+        //    // multiply with chunk shape
+        //    for(int d = 0; d < chunkShape_.size(); ++d) {
+        //        minOut[d] *= chunkShape_[d];
+        //    }
+        //}
+        //virtual inline void findMaximumCoordinate(types::ShapeType & maxOut) {
+        //    io_->findMaximumChunk(maxOut, handle_.path());
+        //    // multiply with chunk shape and check if it exceeds the maximum chunk shape
+        //    for(int d = 0; d < chunkShape_.size(); ++d) {
+        //        minOut[d] *= chunkShape_[d];
+        //    }
+        //}
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik
@@ -328,7 +353,7 @@ namespace z5 {
             // get shapes and fillvalue
             shape_ = metadata.shape;
             chunkShape_ = metadata.chunkShape;
-            
+
             chunkSize_ = std::accumulate(
                 chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
             );

@@ -95,10 +95,46 @@ namespace io {
             return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
         }
 
+
+        inline void findMinimumChunk(types::ShapeType & minOut, const fs::path & dsDir, const size_t nChunksTotal) {
+            minOut.clear();
+            fs::path chunkDir(dsDir);
+            while(true) {
+                // we need to pass something that is definetely bigger than any chunk id
+                // as initial value here
+                size_t chunkId = iterateChunks(chunkDir, nChunksTotal, std::min);
+                minOut.push_back(chunkId);
+                chunkDir /= std::to_string(chunkId);
+                // we need to check if the next chunkDir is still a directory
+                // or already a chunk file (and break)
+                if(fs::is_regular_file(chunkDir)) {
+                    break;
+                }
+            }
+            // need to reverse due to n5 axis ordering
+            std::reverse(minOut.begin(), minOut.end());
+        }
+
+
+        inline void findMaximumChunk(types::ShapeType & maxOut, const fs::path & dsDir) {
+            
+        }
+
+
     private:
 
+        // go through all chunks in this directory and return the chunk that is optimal w.r.t compare (max or min)
+        inline size_t iterateChunks(const fs::path & chunkDir, const size_t init, std::function<size_t (size_t, size_t)> compare) {
+            fs::directory_iterator it(chunkDir);
+            size_t ret = init;
+            for(; it != fs::directory_iterator(); ++it) {
+               ret = compare(ret, std::stoull(it->path().filename().string()));
+            }
+            return ret;
+        }
+
         // TODO allow for reading the mode
-        size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
+        inline size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
 
             // read the mode
             uint16_t mode;
@@ -135,7 +171,7 @@ namespace io {
             return fileSize * sizeof(T);
         }
 
-        void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {
+        inline void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {
 
             // write the mode
             uint16_t mode = 0; // TODO support the varlength mode as well
