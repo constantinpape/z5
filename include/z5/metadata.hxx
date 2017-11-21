@@ -34,7 +34,7 @@ namespace z5 {
             const double fillValue=0, // FIXME this should be a template if we use boost::any
             const types::Compressor compressor=types::blosc,
             const std::string & codec="lz4",
-            const int compressorLevel=5,
+            const int compressorLevel=4,
             const int compressorShuffle=1
             ) : dtype(dtype),
                 shape(shape),
@@ -160,7 +160,7 @@ namespace z5 {
 
             codec = (compressor == types::zlib) ? "gzip" : "";
             // TODO these should become parameters in N5
-            compressorLevel = 5;
+            compressorLevel = 4;
             fillValue = 0;
         }
 

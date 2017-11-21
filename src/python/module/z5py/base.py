@@ -28,14 +28,15 @@ class Base(object):
         fill_value=0,
         compressor='blosc',  # TODO change default value depending on zarr / n5
         codec='lz4',  # TODO change default value depending on zarr / n5
-        level=5,
+        level=4,
         shuffle=1
     ):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
-        return Dataset.create_dataset(
-            path, dtype, shape, chunks, self.is_zarr, fill_value, compressor, codec, level, shuffle
-        )
+        return Dataset.create_dataset(path, dtype, shape,
+                                      chunks, self.is_zarr,
+                                      fill_value, compressor,
+                                      codec, level, shuffle)
 
     def is_group(self, path):
         if self.is_zarr:
