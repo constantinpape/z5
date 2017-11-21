@@ -47,6 +47,7 @@ def time_write_n5(data):
     times = {}
     for chunk in chunks:
         for compression in compressors_n5:
+            print("Write", chunk, compression)
             key, t_write, size = single_write(data, chunk, compression)
             times[key] = (t_write, size)
     with open('./results/reswrite_n5.json', 'w') as f:
@@ -54,7 +55,8 @@ def time_write_n5(data):
 
 
 if __name__ == '__main__':
-    path = '/home/consti/sampleA+_raw_automatically_realigned.h5'
+    # path = '/home/consti/sampleA+_raw_automatically_realigned.h5'
+    path = '/home/papec/Work/playground/z5_tests/sampleA+_raw_automatically_realigned.h5'
 
     save_folder = './tmp_files'
     if not os.path.exists(save_folder):

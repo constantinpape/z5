@@ -20,17 +20,10 @@ class Dataset(object):
         self._attrs = AttributeManager(path, self._impl.is_zarr)
 
     @classmethod
-    def create_dataset(cls,
-                       path,
-                       dtype,
-                       shape,
-                       chunks,
-                       is_zarr,
-                       fill_value,
-                       compressor,
-                       codec,
-                       level,
-                       shuffle):
+    def create_dataset(cls, path, dtype,
+                       shape, chunks, is_zarr,
+                       fill_value, compressor,
+                       codec, level, shuffle):
         if is_zarr and compressor not in cls.compressors_zarr:
             compressor = cls.zarr_default_compressor
         elif not is_zarr and compressor not in cls.compressors_n5:

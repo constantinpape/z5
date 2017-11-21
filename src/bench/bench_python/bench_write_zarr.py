@@ -71,14 +71,15 @@ def time_write_zarr(data):
     # iterate over `normal` compressors
     for chunk in chunks:
         for compression in compressors_zarr:
+            print("Writing", chunk, compression)
             key, t_write, size = single_write(data, chunk, compression)
             times[key] = (t_write, size)
 
     # iterate over blosc codecs
     for chunk in chunks:
-        for compression in compressors_zarr:
-            for codec in blosc_codecs:
-                for shuffle in (0, 1, 2):
+        for codec in blosc_codecs:
+            for shuffle in (0, 1, 2):
+                    print("Writing blosc", chunk, codec, shuffle)
                     key, t_write, size = single_write_blosc(data, chunk, codec, shuffle)
                     times[key] = (t_write, size)
     with open('./results/reswrite_zarr.json', 'w') as f:
@@ -86,7 +87,8 @@ def time_write_zarr(data):
 
 
 if __name__ == '__main__':
-    path = '/home/consti/sampleA+_raw_automatically_realigned.h5'
+    # path = '/home/consti/samplea+_raw_automatically_realigned.h5'
+    path = '/home/papec/Work/playground/z5_tests/sampleA+_raw_automatically_realigned.h5'
 
     save_folder = './tmp_files'
     if not os.path.exists(save_folder):
