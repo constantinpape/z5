@@ -77,7 +77,11 @@ namespace z5 {
 
             nlohmann::json compressionOpts;
             try {
-                compressionOpts["id"] = (compressor == types::raw) ? nullptr : types::compressorToZarr.at(compressor);
+                if(compressor == types::raw) {
+                    compressionOpts["id"] = nullptr;
+                } else {
+                    compressionOpts["id"] = types::compressorToZarr.at(compressor);
+                }
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.toJsonZarr: wrong compressor for zarr format");
             }
