@@ -413,18 +413,34 @@ namespace z5 {
                 std::vector<T> dataTmp(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
 
-                // compress the data
-                compressor_->compress(&dataTmp[0], dataOut, chunkSize);
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
+                if(compressor_->type() == 0) {
+                    io_->write(chunk, &dataTmp[0], dataTmp.size());
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    compressor_->compress(&dataTmp[0], dataOut, chunkSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size());
+                }
 
             } else {
 
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
                 // compress the data
-                compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
+                if(compressor_->type() == 0) {
+                    io_->write(chunk, (const T*) dataIn, chunkSize);
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size());
+                }
 
             }
-
-            // write the data
-            io_->write(chunk, dataOut);
         }
 
 
@@ -442,7 +458,17 @@ namespace z5 {
             if(chunkExists) {
 
                 size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
+
+                // we don't need to decompress for raw compression
+                if(compressor_->type() == 0) {
+                    // FIXME for some reason, we need to copy here
+                    // however, it turns out that the memcopys are orders of 
+                    // magnitude faster than anything else anyway
+                    std::copy(dataTmp.begin(), dataTmp.end(), static_cast<T*>(dataOut));
+                    //dataOut = &dataTmp[0];
+                } else {
+                    compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
+                }
 
                 // reverse the endianness for N5 data
                 // TODO actually check that the file endianness is different than the system endianness

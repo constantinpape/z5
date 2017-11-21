@@ -84,7 +84,7 @@ namespace io {
         ChunkIoN5<int> io(shape, chunkShape);
 
         std::vector<int> tmpData(SIZE, 0);
-        io.write(chunkHandle, tmpData);
+        io.write(chunkHandle, &tmpData[0], tmpData.size());
         ASSERT_TRUE(chunkHandle.exists());
     }
 
@@ -97,7 +97,7 @@ namespace io {
 
         std::vector<int> tmpData1(SIZE);
         std::copy(data_, data_ + SIZE, tmpData1.begin());
-        io.write(chunkHandle, tmpData1);
+        io.write(chunkHandle, &tmpData1[0], tmpData1.size());
         ASSERT_TRUE(chunkHandle.exists());
 
         std::vector<int> tmpData2;

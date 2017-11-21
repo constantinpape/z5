@@ -13,14 +13,14 @@ namespace compression {
         RawCompressor() {
         }
 
-        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
-            // TODO FIXME don't copy data - swap pointers?
-            dataOut.assign(dataIn, dataIn + sizeIn);
+        // dummy implementation, this should never be called !
+        void compress(const T *, std::vector<T> &, size_t) const {
+            throw std::runtime_error("Raw compressor should never be called!");
         }
 
-        void decompress(const std::vector<T> & dataIn, T * dataOut, size_t) const {
-            // TODO FIXME don't copy data - swap pointers?
-            std::copy(dataIn.begin(), dataIn.end(), dataOut);
+        // dummy implementation, this should never be called !
+        void decompress(const std::vector<T> &, T *, size_t) const {
+            throw std::runtime_error("Raw compressor should never be called!");
         }
 
         virtual types::Compressor type() const {

@@ -11,7 +11,7 @@ namespace io {
 
     public:
         virtual bool read(const handle::Chunk &, std::vector<T> &) const = 0;
-        virtual void write(const handle::Chunk &, const std::vector<T> &) const = 0;
+        virtual void write(const handle::Chunk &, const T *, const size_t) const = 0;
         virtual void getChunkShape(const handle::Chunk &, types::ShapeType &) const = 0;
         virtual size_t getChunkSize(const handle::Chunk &) const = 0;
     };

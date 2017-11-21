@@ -65,7 +65,7 @@ def single_write_blosc(data, chunk, codec, shuffle):
 
 
 def time_write_zarr(data):
-    compressors_zarr = ['raw', 'zlib']
+    compressors_zarr = ['raw', 'zlib', 'bzip2']
     blosc_codecs = ['lz4', 'zlib']
     times = {}
     # iterate over `normal` compressors

@@ -62,7 +62,7 @@ namespace io {
         }
 
 
-        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) const {
+        inline void write(const handle::Chunk & chunk, const T * data, const size_t chunkSize) const {
             // create the parent folder
             chunk.createTopDir();
             // this might speed up the I/O by decoupling C++ buffers from C buffers
@@ -70,7 +70,7 @@ namespace io {
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file);
-            file.write((char*) &data[0], data.size() * sizeof(T));
+            file.write((char*) data, chunkSize * sizeof(T));
             file.close();
         }
 

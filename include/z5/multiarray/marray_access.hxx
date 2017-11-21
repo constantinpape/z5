@@ -109,7 +109,6 @@ namespace multiarray {
         if(ds.isZarr()) {
             bufferShape = types::ShapeType(ds.maxChunkShape().begin(), ds.maxChunkShape().end());
         } else {
-            std::cout << "Reverse for n5" << std::endl;
             bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
         andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
@@ -123,7 +122,6 @@ namespace multiarray {
             auto view = in.constView(localOffset.begin(), localShape.begin());
             // N5-Axis order: we need to reverse the chunk shape internally
             if(!ds.isZarr()) {
-                std::cout << "Reverse for n5" << std::endl;
                 std::reverse(chunkShape.begin(), chunkShape.end());
             }
 
