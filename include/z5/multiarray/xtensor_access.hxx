@@ -2,7 +2,11 @@
 
 #include "z5/dataset.hxx"
 #include "z5/types/types.hxx"
-#include "xtensor-python/pyarray.hpp"
+//#include "pybind11/pybind11.h"
+//#include "xtensor-python/pyarray.hpp"
+#include "xtensor/xarray.hpp"
+#include "xtensor/xview.hpp"
+#include "xtensor/xstridedview.hpp"
 
 // free functions to read and write from xtensor multiarrays
 // (it's hard to have these as members due to dynamic type inference)
@@ -11,9 +15,18 @@ namespace z5 {
 namespace multiarray {
 
 
-    //
+    // small helper function to convert a ROI given by (offset, shape) into
+    // a proper xtensor sliceing
+    inline void sliceFromRoi(xt::slice_vector & roiSlice, const types::ShapeType & offset, const types::ShapeType & shape) {
+        for(int d = 0; d < offset.size(); ++d) {
+            roiSlice.push_back(xt::range(offset[d], shape[d]));
+        }
+    }
+
+
+    // TODO ultimately, we want pyarrays here !
     template<typename T, typename ITER>
-    void readSubarray(const Dataset & ds, xt::pyarray<T> & out, ITER roiBeginIter) {
+    void readSubarray(const Dataset & ds, xt::xarray<T> & out, ITER roiBeginIter) {
 
         // get the offset and shape of the request and check if it is valid
         types::ShapeType offset(roiBeginIter, roiBeginIter+out.dimension());
@@ -39,7 +52,7 @@ namespace multiarray {
         } else {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        xt::zeros<T> buffer(bufferShape);
+        auto buffer = xt::zeros<T>(bufferShape);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -48,9 +61,7 @@ namespace multiarray {
 
             // get the view in our array
             xt::slice_vector offsetSlice(out);
-            for(int d = 0; d < out.dimension(); ++d) {
-                offsetSlice.push_back(xt::range(offsetInRequest[d], shapeInRequest[d]));
-            }
+            sliceFromRoi(offsetSlice, offsetInRequest, shapeInRequest);
             auto view = xt::dynamic_view(out, offsetSlice);
 
             // get the current chunk-shape and resize the buffer if necessary
@@ -59,17 +70,13 @@ namespace multiarray {
             // N5-Axis order: we need to transpose the view and reverse the
             // chunk shape internally
             if(!ds.isZarr()) {
-                view.transpose();
+                view.transpose();  // TODO does this work as expected ?
                 std::reverse(chunkShape.begin(), chunkShape.end());
             }
 
             // reshape buffer if necessary
             if(bufferShape != chunkShape) {
-                xt::slice_vector offsetSlice(buffer);
-                for(int d = 0; d < out.dimension(); ++d) {
-                    offsetSlice.push_back(xt::range(chunkShape[d], chunkShape[d]));
-                }
-                buffer.reshape(offsetSlice);
+                buffer.reshape(chunkShape);
                 bufferShape = chunkShape;
             }
 
@@ -93,6 +100,7 @@ namespace multiarray {
 
                 // how do we do this in xt ???
                 // copy the data from the correct buffer-view to the out view
+                // FIXME this compiles, but I have no idea what it does !!!
                 view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
             }
         }
@@ -100,7 +108,7 @@ namespace multiarray {
 
 
     template<typename T, typename ITER>
-    void writeSubarray(const Dataset & ds, const andres::View<T> & in, ITER roiBeginIter) {
+    void writeSubarray(const Dataset & ds, const xt::xarray<T> & in, ITER roiBeginIter) {
 
         // get the offset and shape of the request and check if it is valid
         types::ShapeType offset(roiBeginIter, roiBeginIter+in.dimension());
@@ -125,7 +133,7 @@ namespace multiarray {
         } else {
             bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
+        auto buffer = xt::zeros<T>(bufferShape);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -133,7 +141,11 @@ namespace multiarray {
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, localOffset, localShape, inChunkOffset);
             ds.getChunkShape(chunkId, chunkShape);
 
-            auto view = in.constView(localOffset.begin(), localShape.begin());
+            // get the view into the in-array
+            xt::slice_vector offsetSlice(in);
+            sliceFromRoi(offsetSlice, localOffset, localShape);
+            auto view = xt::dynamic_view(in, offsetSlice);
+
             // N5-Axis order: we need to reverse the chunk shape internally
             if(!ds.isZarr()) {
                 std::reverse(chunkShape.begin(), chunkShape.end());
@@ -141,7 +153,7 @@ namespace multiarray {
 
             // resize buffer if necessary
             if(bufferShape != chunkShape) {
-                buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
+                buffer.reshape(chunkShape);
                 bufferShape = chunkShape;
             }
 
@@ -173,6 +185,7 @@ namespace multiarray {
     }
 
 
+    /*
     // unique ptr API
     template<typename T, typename ITER>
     inline void readSubarray(std::unique_ptr<Dataset> & ds, andres::View<T> & out, ITER roiBeginIter) {
@@ -183,6 +196,7 @@ namespace multiarray {
     inline void writeSubarray(std::unique_ptr<Dataset> & ds, const andres::View<T> & in, ITER roiBeginIter) {
         writeSubarray(*ds, in, roiBeginIter);
     }
+    */
 
 }
 }

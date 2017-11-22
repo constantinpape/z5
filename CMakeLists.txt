@@ -13,7 +13,7 @@ CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_CPP11_FLAG)
 if(NOT HAS_CPP11_FLAG)
     message(FATAL_ERROR "Unsupported compiler -- zarr++ requires C++11 support!")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 
 # set default build type
@@ -94,6 +94,13 @@ if(BUILD_Z5_PYTHON)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11/include)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11)
 endif()
+
+# FIXME xtensor-python only works if pybind11 is included, so we need 
+# to make these includes depend on each other
+# include xtensor
+include_directories(${CMAKE_SOURCE_DIR}/external/xtensor/include)
+include_directories(${CMAKE_SOURCE_DIR}/external/xtensor-python/include)
+include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
 
 # add subdirectories
 add_subdirectory(src)

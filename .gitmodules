@@ -10,3 +10,12 @@
 [submodule "pybind11"]
 	path = external/pybind11
 	url = https://github.com/pybind/pybind11.git
+[submodule "external/xtensor"]
+	path = external/xtensor
+	url = https://github.com/QuantStack/xtensor
+[submodule "external/xtensor-python"]
+	path = external/xtensor-python
+	url = https://github.com/QuantStack/xtensor-python.git
+[submodule "external/xtl"]
+	path = external/xtl
+	url = https://github.com/QuantStack/xtl
