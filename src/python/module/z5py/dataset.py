@@ -119,3 +119,9 @@ class Dataset(object):
         # broadcast scalar
         else:
             self._impl.write_scalar(roi_begin, list(shape), item)
+
+    def find_minimum_coordinates(self, dim):
+        return self._impl.findMinimumCoordinates(dim)
+
+    def find_maximum_coordinates(self, dim):
+        return self._impl.findMaximumCoordinates(dim)

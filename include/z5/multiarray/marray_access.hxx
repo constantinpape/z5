@@ -53,10 +53,10 @@ namespace multiarray {
         } else {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        //andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
+        andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
         // buffer size
         auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<size_t>());
-        std::vector<T> buffer(bufferSize);
+        //std::vector<T> buffer(bufferSize);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -75,40 +75,41 @@ namespace multiarray {
             }
 
             // reshape buffer if necessary
-            //if(bufferShape != chunkShape) {
-            //    buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
-            //    bufferShape = chunkShape;
-            //    //buffer.resize
-            //}
+            if(bufferShape != chunkShape) {
+                buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
+                bufferShape = chunkShape;
+                //buffer.resize
+            }
 
             // read the current chunk into the buffer
+            ds.readChunk(chunkId, &buffer(0));
+
             // FIXME tmp exps
-            //ds.readChunk(chunkId, &buffer(0));
-            ds.readChunk(chunkId, &buffer[0]);
-            copy_to_view(buffer, view);
+            //ds.readChunk(chunkId, &buffer[0]);
+            //copy_to_view(buffer, view);
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
-            //if(completeOvlp) {
-            //    // without data copy: not working
-            //    //ds.readChunk(chunkId, &view(0));
+            if(completeOvlp) {
+                // without data copy: not working
+                //ds.readChunk(chunkId, &view(0));
 
-            //    // THIS IS SUPER-SLOW!
-            //    // copy the data from the buffer into the view
-            //    view = buffer;
+                // THIS IS SUPER-SLOW!
+                // copy the data from the buffer into the view
+                view = buffer;
 
-            //    // copy buffer into our view
-            //    //copy_to_view(buffer, view);
-            //}
-            //// request and chunk overlap only partially
-            //// -> we can read the chunk data only partially
-            //else {
+                // copy buffer into our view
+                //copy_to_view(buffer, view);
+            }
+            // request and chunk overlap only partially
+            // -> we can read the chunk data only partially
+            else {
 
-            //    // FIXME tmp exps
-            //    //ds.readChunk(chunkId, &buffer(0));
-            //    // copy the data from the correct buffer-view to the out view
-            //    view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
-            //}
+                // FIXME tmp exps
+                //ds.readChunk(chunkId, &buffer(0));
+                // copy the data from the correct buffer-view to the out view
+                view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
+            }
         }
     }
 

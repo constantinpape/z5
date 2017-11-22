@@ -233,6 +233,26 @@ namespace z5 {
             })
 
             //
+            // find min and max chunks along given dimension
+            //
+            .def("findMinimumCoordinates", [](const Dataset & ds, const unsigned dim){
+                types::ShapeType chunk;
+                {
+                    py::gil_scoped_release allowThreads;
+                    ds.findMinimumCoordinates(dim, chunk);
+                }
+                return chunk;
+            })
+            .def("findMaximumCoordinates", [](const Dataset & ds, const unsigned dim){
+                types::ShapeType chunk;
+                {
+                    py::gil_scoped_release allowThreads;
+                    ds.findMaximumCoordinates(dim, chunk);
+                }
+                return chunk;
+            })
+
+            //
             // shapes and stuff
             //
             .def_property_readonly("shape", [](const Dataset & ds){return ds.shape();})
