@@ -10,6 +10,21 @@
 namespace z5 {
 namespace multiarray {
 
+
+    // FIXME this segfaults if the size of the view is larger than the buffer
+    template<typename T>
+    void copy_to_view(const std::vector<T> & buffer, andres::View<T> & view) {
+        types::ShapeType shape(view.shapeBegin(), view.shapeEnd());
+        //types::ShapeType strides(view.stridesBegin(), view.stridesEnd());
+        size_t offset;
+        for(size_t index = 0; index < view.size(); ++index) {
+            // TODO if this does not work, use coordinate instead
+            view.indexToOffset(index, offset);
+            *(&view(0) + offset) = buffer[index];
+        }
+    }
+
+
     //
     template<typename T, typename ITER>
     void readSubarray(const Dataset & ds, andres::View<T> & out, ITER roiBeginIter) {
@@ -38,7 +53,10 @@ namespace multiarray {
         } else {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
+        //andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
+        // buffer size
+        auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<size_t>());
+        std::vector<T> buffer(bufferSize);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -57,30 +75,40 @@ namespace multiarray {
             }
 
             // reshape buffer if necessary
-            if(bufferShape != chunkShape) {
-                buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
-                bufferShape = chunkShape;
-            }
+            //if(bufferShape != chunkShape) {
+            //    buffer.resize(andres::SkipInitialization, chunkShape.begin(), chunkShape.end());
+            //    bufferShape = chunkShape;
+            //    //buffer.resize
+            //}
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, &buffer(0));
+            // FIXME tmp exps
+            //ds.readChunk(chunkId, &buffer(0));
+            ds.readChunk(chunkId, &buffer[0]);
+            copy_to_view(buffer, view);
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
-            if(completeOvlp) {
-                // without data copy: not working
-                //ds.readChunk(chunkId, &view(0));
+            //if(completeOvlp) {
+            //    // without data copy: not working
+            //    //ds.readChunk(chunkId, &view(0));
 
-                // copy the data from the buffer into the view
-                view = buffer;
+            //    // THIS IS SUPER-SLOW!
+            //    // copy the data from the buffer into the view
+            //    view = buffer;
 
-            }
-            // request and chunk overlap only partially
-            // -> we can read the chunk data only partially
-            else {
-                // copy the data from the correct buffer-view to the out view
-                view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
-            }
+            //    // copy buffer into our view
+            //    //copy_to_view(buffer, view);
+            //}
+            //// request and chunk overlap only partially
+            //// -> we can read the chunk data only partially
+            //else {
+
+            //    // FIXME tmp exps
+            //    //ds.readChunk(chunkId, &buffer(0));
+            //    // copy the data from the correct buffer-view to the out view
+            //    view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
+            //}
         }
     }
 
@@ -137,9 +165,9 @@ namespace multiarray {
 
                 // for now this does not work without copying,
                 // because views are not contiguous in memory (I think ?!)
-                // TODO would be nice to figure this out -> benchmark first !
                 //ds.writeChunk(chunkId, &view(0));
 
+                // THIS IS SUPER-SLOW!
                 buffer = view;
                 ds.writeChunk(chunkId, &buffer(0));
             }

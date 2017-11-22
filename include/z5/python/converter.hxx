@@ -38,7 +38,7 @@ namespace andres {
 
         template <class ShapeIterator>
         PyView(pybind11::array_t<DataType> array, DataType *data, ShapeIterator begin, ShapeIterator end)
-            : View<DataType, false>(begin, end, data, FirstMajorOrder, FirstMajorOrder), py_array(array)
+            : View<DataType, false>(begin, end, data, LastMajorOrder, LastMajorOrder), py_array(array)
         {
             //std::cout << "It's a me mario" << std::endl;
             auto info = py_array.request();
@@ -48,7 +48,7 @@ namespace andres {
             for(size_t i=0; i<strides.size(); ++i){
                 strides[i] /= sizeof(DataType);
             }
-            this->assign(info.shape.begin(), info.shape.end(), strides.begin(), ptr, FirstMajorOrder);
+            this->assign(info.shape.begin(), info.shape.end(), strides.begin(), ptr, LastMajorOrder);
 
         }
 
@@ -121,7 +121,7 @@ namespace andres {
             for (size_t i = 0; i < shape.size(); ++i) {
                 strides[i] /= sizeof(VALUE_TYPE);
             }
-            this->assign(begin, end, strides.begin(), ptr, FirstMajorOrder);
+            this->assign(begin, end, strides.begin(), ptr, LastMajorOrder);
         }
 
     public:
@@ -146,7 +146,7 @@ namespace andres {
             for (size_t i = 0; i < shape.size(); ++i) {
                 strides[i] /= sizeof(VALUE_TYPE);
             }
-            this->assign(shape.begin(), shape.end(), view.stridesBegin(), ptr, FirstMajorOrder);
+            this->assign(shape.begin(), shape.end(), view.stridesBegin(), ptr, LastMajorOrder);
         }
     };
 
