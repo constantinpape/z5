@@ -52,7 +52,8 @@ namespace multiarray {
         } else {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        auto buffer = xt::zeros<T>(bufferShape);
+        //auto buffer = xt::zeros<T>(bufferShape);
+        xt::xarray<T> buffer(bufferShape);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -70,7 +71,7 @@ namespace multiarray {
             // N5-Axis order: we need to transpose the view and reverse the
             // chunk shape internally
             if(!ds.isZarr()) {
-                view.transpose();  // TODO does this work as expected ?
+                view = xt::transpose(view);  // TODO does this work as expected ?
                 std::reverse(chunkShape.begin(), chunkShape.end());
             }
 
@@ -133,7 +134,8 @@ namespace multiarray {
         } else {
             bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        auto buffer = xt::zeros<T>(bufferShape);
+        //auto buffer = xt::zeros<T>(bufferShape);
+        xt::xtensor<T> buffer(bufferShape);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -185,18 +187,16 @@ namespace multiarray {
     }
 
 
-    /*
     // unique ptr API
     template<typename T, typename ITER>
-    inline void readSubarray(std::unique_ptr<Dataset> & ds, andres::View<T> & out, ITER roiBeginIter) {
+    inline void readSubarray(std::unique_ptr<Dataset> & ds, xt::xarray<T> & out, ITER roiBeginIter) {
        readSubarray(*ds, out, roiBeginIter);
     }
 
     template<typename T, typename ITER>
-    inline void writeSubarray(std::unique_ptr<Dataset> & ds, const andres::View<T> & in, ITER roiBeginIter) {
+    inline void writeSubarray(std::unique_ptr<Dataset> & ds, const xt::xarray<T> & in, ITER roiBeginIter) {
         writeSubarray(*ds, in, roiBeginIter);
     }
-    */
 
 }
 }
