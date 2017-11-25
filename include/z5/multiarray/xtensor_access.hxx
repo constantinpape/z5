@@ -2,8 +2,7 @@
 
 #include "z5/dataset.hxx"
 #include "z5/types/types.hxx"
-//#include "pybind11/pybind11.h"
-//#include "xtensor-python/pyarray.hpp"
+
 #include "xtensor/xarray.hpp"
 #include "xtensor/xview.hpp"
 #include "xtensor/xstridedview.hpp"
@@ -19,18 +18,20 @@ namespace multiarray {
     // a proper xtensor sliceing
     inline void sliceFromRoi(xt::slice_vector & roiSlice, const types::ShapeType & offset, const types::ShapeType & shape) {
         for(int d = 0; d < offset.size(); ++d) {
-            roiSlice.push_back(xt::range(offset[d], shape[d]));
+            roiSlice.push_back(xt::range(offset[d], offset[d] + shape[d]));
         }
     }
 
 
-    // TODO ultimately, we want pyarrays here !
-    template<typename T, typename ITER>
-    void readSubarray(const Dataset & ds, xt::xarray<T> & out, ITER roiBeginIter) {
+    template<typename T, typename ARRAY, typename ITER>
+    void readSubarray(const Dataset & ds, xt::xexpression<ARRAY> & outExpression, ITER roiBeginIter) {
+
+        // need to cast to the actual xtensor implementation
+        auto & out = outExpression.derived_cast();
 
         // get the offset and shape of the request and check if it is valid
         types::ShapeType offset(roiBeginIter, roiBeginIter+out.dimension());
-        types::ShapeType shape(out.shape());
+        types::ShapeType shape(out.shape().begin(), out.shape().end());
         ds.checkRequestShape(offset, shape);
         ds.checkRequestType(typeid(T));
 
@@ -82,7 +83,9 @@ namespace multiarray {
             }
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, &buffer(0));
+            //ds.readChunk(chunkId, &buffer(0));
+            const auto & bdata = buffer.raw_data();
+            ds.readChunk(chunkId, bdata);
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
@@ -93,27 +96,33 @@ namespace multiarray {
 
                 // copy the data from the buffer into the view
                 view = buffer;
+                //std::copy(buffer.begin(), buffer.end(), view.begin());
 
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
             else {
 
-                // how do we do this in xt ???
                 // copy the data from the correct buffer-view to the out view
-                // FIXME this compiles, but I have no idea what it does !!!
-                view = buffer.view(offsetInChunk.begin(), shapeInRequest.begin());
+                xt::slice_vector bufSlice(buffer);
+                sliceFromRoi(bufSlice, offsetInChunk, shapeInRequest);
+                auto bufView = xt::dynamic_view(buffer, bufSlice);
+                // TODO can't use assignment here, but copy compiles, why?
+                //view = bufView;
+                std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
 
 
-    template<typename T, typename ITER>
-    void writeSubarray(const Dataset & ds, const xt::xarray<T> & in, ITER roiBeginIter) {
+    template<typename T, typename ARRAY, typename ITER>
+    void writeSubarray(const Dataset & ds, const xt::xexpression<ARRAY> & inExpression, ITER roiBeginIter) {
+
+        const auto & in = inExpression.derived_cast();
 
         // get the offset and shape of the request and check if it is valid
         types::ShapeType offset(roiBeginIter, roiBeginIter+in.dimension());
-        types::ShapeType shape(in.shapeBegin(), in.shapeEnd());
+        types::ShapeType shape(in.shape().begin(), in.shape().end());
 
         ds.checkRequestShape(offset, shape);
         ds.checkRequestType(typeid(T));
@@ -122,8 +131,8 @@ namespace multiarray {
         std::vector<types::ShapeType> chunkRequests;
         ds.getChunkRequests(offset, shape, chunkRequests);
 
-        types::ShapeType localOffset, localShape, chunkShape;
-        types::ShapeType inChunkOffset;
+        types::ShapeType offsetInRequest, requestShape, chunkShape;
+        types::ShapeType offsetInChunk;
 
         // TODO try to figure out writing without memcopys for fully overlapping chunks
         // create marray buffer
@@ -135,17 +144,17 @@ namespace multiarray {
             bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
         //auto buffer = xt::zeros<T>(bufferShape);
-        xt::xtensor<T> buffer(bufferShape);
+        xt::xarray<T> buffer(bufferShape);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, localOffset, localShape, inChunkOffset);
+            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
 
             // get the view into the in-array
             xt::slice_vector offsetSlice(in);
-            sliceFromRoi(offsetSlice, localOffset, localShape);
+            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::dynamic_view(in, offsetSlice);
 
             // N5-Axis order: we need to reverse the chunk shape internally
@@ -176,11 +185,20 @@ namespace multiarray {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
+
                 // load the current data into the buffer
                 ds.readChunk(chunkId, &buffer(0));
+
                 // overwrite the data that is covered by the view
-                auto bufView = buffer.view(inChunkOffset.begin(), localShape.begin());
+                xt::slice_vector bufSlice(buffer);
+                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
+                auto bufView = xt::dynamic_view(buffer, bufSlice);
+
+                // TODO can't use copy here, but assignment compiles, why?
+                //std::copy(view.begin(), view.end(), bufView.begin());
                 bufView = view;
+
+                // wrte the chunk
                 ds.writeChunk(chunkId, &buffer(0));
             }
         }
@@ -188,14 +206,14 @@ namespace multiarray {
 
 
     // unique ptr API
-    template<typename T, typename ITER>
-    inline void readSubarray(std::unique_ptr<Dataset> & ds, xt::xarray<T> & out, ITER roiBeginIter) {
-       readSubarray(*ds, out, roiBeginIter);
+    template<typename T, typename ARRAY, typename ITER>
+    inline void readSubarray(std::unique_ptr<Dataset> & ds, xt::xexpression<ARRAY> & out, ITER roiBeginIter) {
+       readSubarray<T>(*ds, out, roiBeginIter);
     }
 
-    template<typename T, typename ITER>
-    inline void writeSubarray(std::unique_ptr<Dataset> & ds, const xt::xarray<T> & in, ITER roiBeginIter) {
-        writeSubarray(*ds, in, roiBeginIter);
+    template<typename T, typename ARRAY, typename ITER>
+    inline void writeSubarray(std::unique_ptr<Dataset> & ds, const xt::xexpression<ARRAY> & in, ITER roiBeginIter) {
+        writeSubarray<T>(*ds, in, roiBeginIter);
     }
 
 }

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include <random>
+#include "xtensor/xarray.hpp"
 
 #include "z5/dataset_factory.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
@@ -100,7 +101,7 @@ namespace multiarray {
                 types::ShapeType offset({0, 0, 0});
                 types::ShapeType subShape({20, 20, 20});
                 xt::xarray<T> data(subShape);
-                readSubarray(array, data, offset.begin());
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < subShape[0]; ++i) {
                     for(int j = 0; j < subShape[1]; ++j) {
@@ -115,7 +116,7 @@ namespace multiarray {
             {
                 types::ShapeType offset({0, 0, 0});
                 xt::xarray<T> data(shape);
-                readSubarray(array, data, offset.begin());
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -158,7 +159,7 @@ namespace multiarray {
                 //std::cout << sx << " " << sy << " " << sz << std::endl;
 
                 xt::xarray<T> data(shape);
-                readSubarray(array, data, offset.begin());
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -188,11 +189,11 @@ namespace multiarray {
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
                 xt::xarray<T> dataOut(subShape);
-                readSubarray(array, dataOut, offset.begin());
+                readSubarray<T>(array, dataOut, offset.begin());
                 for(int i = 0; i < subShape[0]; ++i) {
                     for(int j = 0; j < subShape[1]; ++j) {
                         for(int k = 0; k < subShape[2]; ++k) {
@@ -211,11 +212,11 @@ namespace multiarray {
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
                 xt::xarray<T> dataOut(shape);
-                readSubarray(array, dataOut, offset.begin());
+                readSubarray<T>(array, dataOut, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -260,11 +261,11 @@ namespace multiarray {
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
                 xt::xarray<T> dataOut(shape);
-                readSubarray(array, dataOut, offset.begin());
+                readSubarray<T>(array, dataOut, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -294,33 +295,33 @@ namespace multiarray {
         types::ShapeType shape0({120, 120, 120});
         types::ShapeType offset0({0, 0, 0});
         xt::xarray<int32_t> sub0(shape0);
-        ASSERT_THROW(readSubarray(array, sub0, offset0.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub0, offset0.begin()), std::runtime_error);
 
         // check for shape throws #1
         types::ShapeType shape1({80, 80, 80});
         types::ShapeType offset1({30, 30, 30});
         xt::xarray<int32_t> sub1(shape1);
-        ASSERT_THROW(readSubarray(array, sub1, offset1.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub1, offset1.begin()), std::runtime_error);
 
         // check for shape throws #2
         types::ShapeType shape2({80, 80, 0});
         types::ShapeType offset2({0, 0, 0});
         xt::xarray<int32_t> sub2(shape2);
-        ASSERT_THROW(readSubarray(array, sub2, offset2.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub2, offset2.begin()), std::runtime_error);
 
         types::ShapeType shape({80, 80, 80});
         types::ShapeType offset({0, 0, 0});
         // check for dtype throws #0
         xt::xarray<int64_t> sub64(shape);
-        ASSERT_THROW(readSubarray(array, sub64, offset.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<int64_t>(array, sub64, offset.begin()), std::runtime_error);
 
         // check for dtype throws #1
         xt::xarray<uint32_t> subu(shape);
-        ASSERT_THROW(readSubarray(array, subu, offset.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<uint32_t>(array, subu, offset.begin()), std::runtime_error);
 
         // check for dtype throws #2
         xt::xarray<float> subf(shape);
-        ASSERT_THROW(readSubarray(array, subf, offset.begin()), std::runtime_error);
+        ASSERT_THROW(readSubarray<float>(array, subf, offset.begin()), std::runtime_error);
     }
 
 
