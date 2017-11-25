@@ -53,7 +53,6 @@ namespace multiarray {
         } else {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        //auto buffer = xt::zeros<T>(bufferShape);
         xt::xarray<T> buffer(bufferShape);
 
         // iterate over the chunks
@@ -83,9 +82,8 @@ namespace multiarray {
             }
 
             // read the current chunk into the buffer
-            //ds.readChunk(chunkId, &buffer(0));
-            const auto & bdata = buffer.raw_data();
-            ds.readChunk(chunkId, bdata);
+            ds.readChunk(chunkId, &buffer(0));
+            //ds.readChunk(chunkId, bdata);
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
@@ -94,9 +92,11 @@ namespace multiarray {
                 // without data copy: not working
                 //ds.readChunk(chunkId, &view(0));
 
+                std::cout << "Buffer: " << buffer(0, 0, 0) << " " << buffer(0, 0, 1) << std::endl;
                 // copy the data from the buffer into the view
                 view = buffer;
                 //std::copy(buffer.begin(), buffer.end(), view.begin());
+                std::cout << "Read complete ovlp: " << view(0, 0, 0) << " " << view(0, 0, 1) << std::endl;
 
             }
             // request and chunk overlap only partially
@@ -143,7 +143,6 @@ namespace multiarray {
         } else {
             bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
-        //auto buffer = xt::zeros<T>(bufferShape);
         xt::xarray<T> buffer(bufferShape);
 
         // iterate over the chunks

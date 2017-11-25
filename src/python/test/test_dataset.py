@@ -30,13 +30,15 @@ class TestDataset(unittest.TestCase):
         if(os.path.exists('array.n5')):
             rmtree('array.n5')
 
-    def test_ds_open_empty_zarr(self):
+    def _test_ds_open_empty_zarr(self):
+        print("open empty zarr array")
         ds = self.ff_zarr['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())
 
-    def test_ds_open_empty_n5(self):
+    def _test_ds_open_empty_n5(self):
+        print("open empty n5 array")
         ds = self.ff_n5['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
@@ -69,8 +71,12 @@ class TestDataset(unittest.TestCase):
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
+            print("Writing ds...")
             ds[:] = in_array
+            print("...done")
+            print("Reading ds...")
             out_array = ds[:]
+            print("...done")
             self.assertEqual(out_array.shape, in_array.shape)
             self.assertTrue(np.allclose(out_array, in_array))
 

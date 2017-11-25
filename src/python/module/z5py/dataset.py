@@ -108,13 +108,18 @@ class Dataset(object):
     def __setitem__(self, index, item):
         assert isinstance(item, (numbers.Number, np.ndarray))
         roi_begin, shape = self.index_to_roi(index)
+        print("setitem called")
 
         # n5 input must be transpsed due to different axis convention
         # write the complete array
         if isinstance(item, np.ndarray):
             assert item.ndim == self.ndim, \
                 "z5py.Dataset: complicated broadcasting is not supported"
+            print("Here !!!")
+            self._impl.write_scalar(roi_begin, item.shape, np.int8(42))
+            print("Done !!!")
             self._impl.write_subarray(item, roi_begin)
+            print("There !!!")
 
         # broadcast scalar
         else:

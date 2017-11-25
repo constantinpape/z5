@@ -5,7 +5,7 @@
 #include "z5/dataset.hxx"
 #include "z5/dataset_factory.hxx"
 #include "z5/groups.hxx"
-#include "z5/broadcast.hxx"
+#include "z5/multiarray/broadcast.hxx"
 
 // for marray numpy bindings
 //#include "z5/multiarray/marray_access.hxx"
@@ -39,6 +39,7 @@ namespace z5 {
                 const xt::pyarray<int8_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write int8" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<int8_t>(ds, in, roiBegin.begin());
             })
@@ -48,6 +49,7 @@ namespace z5 {
                 const xt::pyarray<int16_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write int16" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<int16_t>(ds, in, roiBegin.begin());
             })
@@ -57,6 +59,7 @@ namespace z5 {
                 const xt::pyarray<int32_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write int32" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<int32_t>(ds, in, roiBegin.begin());
             })
@@ -66,6 +69,7 @@ namespace z5 {
                 const xt::pyarray<int64_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write int64" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<int64_t>(ds, in, roiBegin.begin());
             })
@@ -75,8 +79,10 @@ namespace z5 {
                 const xt::pyarray<uint8_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write uint8" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<uint8_t>(ds, in, roiBegin.begin());
+                std::cout << "TTTHHHHEEERRREEEEE!!!!" << std::endl;
             })
             // uint16
             .def("write_subarray", [](
@@ -84,6 +90,7 @@ namespace z5 {
                 const xt::pyarray<uint16_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write uint16" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<uint16_t>(ds, in, roiBegin.begin());
             })
@@ -93,6 +100,7 @@ namespace z5 {
                 const xt::pyarray<uint32_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write uint32" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<uint32_t>(ds, in, roiBegin.begin());
             })
@@ -102,6 +110,7 @@ namespace z5 {
                 const xt::pyarray<uint64_t> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write uint64" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<uint64_t>(ds, in, roiBegin.begin());
             })
@@ -111,6 +120,7 @@ namespace z5 {
                 const xt::pyarray<float> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write float" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<float>(ds, in, roiBegin.begin());
             })
@@ -120,6 +130,7 @@ namespace z5 {
                 const xt::pyarray<double> & in,
                 const std::vector<size_t> & roiBegin
             ){
+                std::cout << "Write double" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<double>(ds, in, roiBegin.begin());
             })
@@ -229,7 +240,7 @@ namespace z5 {
                 int val
             ){
                 py::gil_scoped_release allowThreads;
-                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+                multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
             })
             .def("write_scalar", [](
                 const Dataset & ds,
@@ -238,7 +249,7 @@ namespace z5 {
                 double val
             ){
                 py::gil_scoped_release allowThreads;
-                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+                multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
             })
 
             //

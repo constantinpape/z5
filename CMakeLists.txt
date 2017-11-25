@@ -102,8 +102,8 @@ include_directories(${CMAKE_SOURCE_DIR}/external/xtensor/include)
 include_directories(${CMAKE_SOURCE_DIR}/external/xtensor-python/include)
 include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
 
-find_package(NUMPY REQUIRED)
-include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
+# find_package(NUMPY REQUIRED)
+# include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
 
 # add subdirectories
 add_subdirectory(src)

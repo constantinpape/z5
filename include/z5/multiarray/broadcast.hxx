@@ -1,8 +1,9 @@
 #pragma once
 #include "z5/dataset.hxx"
-#include "andres/marray.hxx"
+#include "z5/multiarray/xtensor_access.hxx"
 
 namespace z5 {
+namespace multiarray {
 
     template<typename T, typename ITER>
     void writeScalar(const Dataset & ds, ITER roiBeginIter, ITER roiShapeIter, const T val) {
@@ -20,8 +21,14 @@ namespace z5 {
         types::ShapeType localOffset, localShape, chunkShape;
         types::ShapeType inChunkOffset;
         // out buffer holding data for a single chunk
-        andres::Marray<T> buffer(ds.maxChunkShape().begin(), ds.maxChunkShape().end(), val);
-        types::ShapeType bufferShape(buffer.shapeBegin(), buffer.shapeEnd());
+        types::ShapeType bufferShape;
+        // N5-Axis order: we need to reverse the max chunk shape
+        if(ds.isZarr()) {
+           bufferShape = types::ShapeType(ds.maxChunkShape().begin(), ds.maxChunkShape().end());
+        } else {
+           bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
+        }
+        xt::xarray<T> buffer(bufferShape, val);
 
         // iterate over the chunks and write the buffer
         for(const auto & chunkId : chunkRequests) {
@@ -30,16 +37,17 @@ namespace z5 {
                 chunkId, offset, shape, localOffset, localShape, inChunkOffset
             );
 
-            // resize buffer if necessary
-            ds.getChunkShape(chunkId, chunkShape);
+            // reshape buffer if necessary
             if(bufferShape != chunkShape) {
-                buffer.resize(chunkShape.begin(), chunkShape.end(), val);
+                buffer.reshape(chunkShape);
                 bufferShape = chunkShape;
+                buffer = val;
             }
 
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
+                std::cout << "Writing full buffer with val " << buffer(0, 0, 0) << " " << buffer(0, 0, 1) << std::endl;
                 ds.writeChunk(chunkId, &buffer(0));
             }
 
@@ -47,14 +55,24 @@ namespace z5 {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
+                std::cout << "Here I am !" << std::endl;
                 // load the current data into the buffer
                 ds.readChunk(chunkId, &buffer(0));
                 // overwrite the data that is covered by the view
-                auto bufView = buffer.view(inChunkOffset.begin(), localShape.begin());
+                xt::slice_vector bufSlice(buffer);
+                sliceFromRoi(bufSlice, inChunkOffset, localShape);
+                auto bufView = xt::dynamic_view(buffer, bufSlice);
                 bufView = val;
-                ds.writeChunk(chunkId, &buffer(0));
+                ds.writeChunk(chunkId, buffer.raw_data());
             }
         }
     }
 
+
+    // unique ptr API
+    template<typename T, typename ITER>
+    inline void writeScalar(std::unique_ptr<Dataset> & ds, ITER roiBeginIter, ITER roiShapeIter, const T val) {
+       writeScalar(*ds, roiBeginIter, roiShapeIter, val);
+    }
+}
 }
