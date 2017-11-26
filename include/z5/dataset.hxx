@@ -443,7 +443,6 @@ namespace z5 {
                     compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
                     io_->write(chunk, &dataOut[0], dataOut.size());
                 }
-
             }
         }
 

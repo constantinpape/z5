@@ -18,6 +18,8 @@ namespace multiarray {
         XtensorTest() :
             pathIntRegular_("int_regular.zr"), pathIntIrregular_("int_irregular.zr"),
             pathFloatRegular_("float_regular.zr"), pathFloatIrregular_("float_irregular.zr"),
+            pathIntRegularN5_("int_regular.n5"), pathIntIrregularN5_("int_irregular.n5"),
+            pathFloatRegularN5_("float_regular.n5"), pathFloatIrregularN5_("float_irregular.n5"),
             shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
         {
         }
@@ -25,71 +27,72 @@ namespace multiarray {
         ~XtensorTest() {
         }
 
-        virtual void SetUp() {
-            // create arrays
-            auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true);
-            auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true);
-            auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true);
-            auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true);
-
-            // write regular test data
-            {
-                const auto & chunks = intReg->chunksPerDimension();
-                const auto & chunkShape = intReg->maxChunkShape();
-                std::vector<int32_t> dataInt(intReg->maxChunkSize(), 42);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            intReg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
-                        }
-                    }
-                }
-
-                std::vector<float> dataFloat(floatReg->maxChunkSize(), 42.);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            floatReg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
-                        }
-                    }
-                }
-            }
-
-            // write irregular test data
-            {
-                const auto & chunks = intIrreg->chunksPerDimension();
-                const auto & chunkShape = intIrreg->maxChunkShape();
-                std::vector<int32_t> dataInt(intIrreg->maxChunkSize(), 42);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            intIrreg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
-                        }
-                    }
-                }
-
-                std::vector<float> dataFloat(floatIrreg->maxChunkSize(), 42.);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            floatIrreg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
-                        }
+        template<class T>
+        void writeData(const std::unique_ptr<Dataset> & ds) {
+            const auto & chunks = ds->chunksPerDimension();
+            const auto & chunkShape = ds->maxChunkShape();
+            std::vector<T> data(ds->maxChunkSize(), 42);
+            for(size_t z = 0; z < chunks[0]; ++z) {
+                for(size_t y = 0; y < chunks[1]; ++y) {
+                    for(size_t x = 0; x < chunks[2]; ++x) {
+                        ds->writeChunk(types::ShapeType({z, y, x}), &data[0]);
                     }
                 }
             }
         }
 
+        virtual void SetUp() {
+            {
+                // create arrays Zarr
+                auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, 0, "raw");
+                writeData<int>(intReg);
+                auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                writeData<int>(intIrreg);
+                auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, 0, "raw");
+                writeData<float>(floatReg);
+                auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                writeData<float>(floatIrreg);
+            }
+            {
+                // create arrays n5
+                auto intReg = createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, 0, "raw");
+                writeData<int>(intReg);
+                auto intIrreg = createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                writeData<int>(intIrreg);
+                auto floatReg = createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, 0, "raw");
+                writeData<float>(floatReg);
+                auto floatIrreg = createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                writeData<float>(floatIrreg);
+            }
+        }
+
         virtual void TearDown() {
-            // remove int arrays
-            fs::path ireg(pathIntRegular_);
-            fs::remove_all(ireg);
-            fs::path iirreg(pathIntIrregular_);
-            fs::remove_all(iirreg);
-            // remove float arrays
-            fs::path freg(pathFloatRegular_);
-            fs::remove_all(freg);
-            fs::path firreg(pathFloatIrregular_);
-            fs::remove_all(firreg);
+            // remove zarr paths
+            {
+                // remove int arrays
+                fs::path ireg(pathIntRegular_);
+                fs::remove_all(ireg);
+                fs::path iirreg(pathIntIrregular_);
+                fs::remove_all(iirreg);
+                // remove float arrays
+                fs::path freg(pathFloatRegular_);
+                fs::remove_all(freg);
+                fs::path firreg(pathFloatIrregular_);
+                fs::remove_all(firreg);
+            }
+            // remove n5 paths
+            {
+                // remove int arrays
+                fs::path ireg(pathIntRegularN5_);
+                fs::remove_all(ireg);
+                fs::path iirreg(pathIntIrregularN5_);
+                fs::remove_all(iirreg);
+                // remove float arrays
+                fs::path freg(pathFloatRegularN5_);
+                fs::remove_all(freg);
+                fs::path firreg(pathFloatIrregularN5_);
+                fs::remove_all(firreg);
+            }
         }
 
         template<typename T>
@@ -277,10 +280,16 @@ namespace multiarray {
             }
         }
 
+        // zarr paths
         std::string pathIntRegular_;
         std::string pathIntIrregular_;
         std::string pathFloatRegular_;
         std::string pathFloatIrregular_;
+        // N5 paths
+        std::string pathIntRegularN5_;
+        std::string pathIntIrregularN5_;
+        std::string pathFloatRegularN5_;
+        std::string pathFloatIrregularN5_;
 
         types::ShapeType shape_;
         types::ShapeType chunkShapeRegular_;
@@ -324,11 +333,14 @@ namespace multiarray {
         ASSERT_THROW(readSubarray<float>(array, subf, offset.begin()), std::runtime_error);
     }
 
-
+    /*
     TEST_F(XtensorTest, TestReadIntRegular) {
         // load the regular array and run the test
         auto array = openDataset(pathIntRegular_);
         testArrayRead<int32_t>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathIntRegularN5_);
+        testArrayRead<int32_t>(arrayN5);
     }
 
 
@@ -336,6 +348,9 @@ namespace multiarray {
         // load the regular array and run the test
         auto array = openDataset(pathFloatRegular_);
         testArrayRead<float>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        testArrayRead<float>(arrayN5);
     }
 
 
@@ -343,6 +358,9 @@ namespace multiarray {
         // load the regular array and run the test
         auto array = openDataset(pathIntIrregular_);
         testArrayRead<int32_t>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        testArrayRead<int32_t>(arrayN5);
     }
 
 
@@ -350,13 +368,20 @@ namespace multiarray {
         // load the regular array and run the test
         auto array = openDataset(pathFloatIrregular_);
         testArrayRead<float>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        testArrayRead<float>(arrayN5);
     }
+    */
 
 
     TEST_F(XtensorTest, TestWriteReadIntRegular) {
         auto array = openDataset(pathIntRegular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
+
+        auto arrayN5 = openDataset(pathIntRegularN5_);
+        testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
@@ -364,6 +389,9 @@ namespace multiarray {
         auto array = openDataset(pathFloatRegular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
+
+        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        testArrayWriteRead<float>(arrayN5, distr);
     }
 
 
@@ -371,6 +399,9 @@ namespace multiarray {
         auto array = openDataset(pathIntIrregular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
+
+        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
@@ -378,6 +409,9 @@ namespace multiarray {
         auto array = openDataset(pathFloatIrregular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
+
+        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        testArrayWriteRead<float>(arrayN5, distr);
     }
 }
 }

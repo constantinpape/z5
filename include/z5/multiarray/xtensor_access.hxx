@@ -40,7 +40,8 @@ namespace multiarray {
 
         ds.getChunkRequests(offset, shape, chunkRequests);
 
-        types::ShapeType offsetInRequest, shapeInRequest, chunkShape, offsetInChunk;
+        types::ShapeType offsetInRequest, requestShape, chunkShape;
+        types::ShapeType offsetInChunk;
 
         // TODO writing directly to a view does not work, probably because it is not continuous in memory (?!)
         // that's why we use the buffer for now.
@@ -58,21 +59,23 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, shapeInRequest, offsetInChunk);
+            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice(out);
-            sliceFromRoi(offsetSlice, offsetInRequest, shapeInRequest);
+            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::dynamic_view(out, offsetSlice);
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
 
             // N5-Axis order: we need to transpose the view and reverse the
-            // chunk shape internally
+            // chunk shape, as well as offset and request shape internally
             if(!ds.isZarr()) {
-                view = xt::transpose(view);  // TODO does this work as expected ?
+                view = xt::transpose(view);
                 std::reverse(chunkShape.begin(), chunkShape.end());
+                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
+                std::reverse(requestShape.begin(), requestShape.end());
             }
 
             // reshape buffer if necessary
@@ -82,8 +85,7 @@ namespace multiarray {
             }
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, &buffer(0));
-            //ds.readChunk(chunkId, bdata);
+            ds.readChunk(chunkId, buffer.raw_data());
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
@@ -92,12 +94,9 @@ namespace multiarray {
                 // without data copy: not working
                 //ds.readChunk(chunkId, &view(0));
 
-                std::cout << "Buffer: " << buffer(0, 0, 0) << " " << buffer(0, 0, 1) << std::endl;
                 // copy the data from the buffer into the view
                 view = buffer;
                 //std::copy(buffer.begin(), buffer.end(), view.begin());
-                std::cout << "Read complete ovlp: " << view(0, 0, 0) << " " << view(0, 0, 1) << std::endl;
-
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
@@ -105,7 +104,7 @@ namespace multiarray {
 
                 // copy the data from the correct buffer-view to the out view
                 xt::slice_vector bufSlice(buffer);
-                sliceFromRoi(bufSlice, offsetInChunk, shapeInRequest);
+                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(buffer, bufSlice);
                 // TODO can't use assignment here, but copy compiles, why?
                 //view = bufView;
@@ -158,7 +157,11 @@ namespace multiarray {
 
             // N5-Axis order: we need to reverse the chunk shape internally
             if(!ds.isZarr()) {
+                // FIXME
+                //view = xt::transpose(view);
                 std::reverse(chunkShape.begin(), chunkShape.end());
+                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
+                std::reverse(requestShape.begin(), requestShape.end());
             }
 
             // resize buffer if necessary
@@ -177,7 +180,7 @@ namespace multiarray {
                 //ds.writeChunk(chunkId, &view(0));
 
                 buffer = view;
-                ds.writeChunk(chunkId, &buffer(0));
+                ds.writeChunk(chunkId, buffer.raw_data());
             }
 
             // request and chunk overlap only partially
@@ -186,7 +189,7 @@ namespace multiarray {
             else {
 
                 // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer(0));
+                ds.readChunk(chunkId, buffer.raw_data());
 
                 // overwrite the data that is covered by the view
                 xt::slice_vector bufSlice(buffer);
@@ -198,7 +201,7 @@ namespace multiarray {
                 bufView = view;
 
                 // wrte the chunk
-                ds.writeChunk(chunkId, &buffer(0));
+                ds.writeChunk(chunkId, buffer.raw_data());
             }
         }
     }

@@ -2,6 +2,9 @@
 #include "z5/dataset.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
 
+#include "xtensor/xeval.hpp"
+
+
 namespace z5 {
 namespace multiarray {
 
@@ -18,8 +21,7 @@ namespace multiarray {
         std::vector<types::ShapeType> chunkRequests;
         ds.getChunkRequests(offset, shape, chunkRequests);
 
-        types::ShapeType localOffset, localShape, chunkShape;
-        types::ShapeType inChunkOffset;
+        types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
         // out buffer holding data for a single chunk
         types::ShapeType bufferShape;
         // N5-Axis order: we need to reverse the max chunk shape
@@ -33,12 +35,20 @@ namespace multiarray {
         // iterate over the chunks and write the buffer
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(
-                chunkId, offset, shape, localOffset, localShape, inChunkOffset
-            );
+            std::cout << "Writing chunk " << chunkId << std::endl;
+
+            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
+            ds.getChunkShape(chunkId, chunkShape);
+            // N5-Axis order: we need to reverse the chunk shape internally
+            if(!ds.isZarr()) {
+                std::reverse(chunkShape.begin(), chunkShape.end());
+                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
+                std::reverse(requestShape.begin(), requestShape.end());
+            }
 
             // reshape buffer if necessary
             if(bufferShape != chunkShape) {
+                std::cout << "Reshapeing to " << chunkShape << std::endl;
                 buffer.reshape(chunkShape);
                 bufferShape = chunkShape;
                 buffer = val;
@@ -47,20 +57,18 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                std::cout << "Writing full buffer with val " << buffer(0, 0, 0) << " " << buffer(0, 0, 1) << std::endl;
-                ds.writeChunk(chunkId, &buffer(0));
+                ds.writeChunk(chunkId, buffer.raw_data());
             }
 
             // request and chunk overlap only partially
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
-                std::cout << "Here I am !" << std::endl;
                 // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer(0));
+                ds.readChunk(chunkId, buffer.raw_data());
                 // overwrite the data that is covered by the view
                 xt::slice_vector bufSlice(buffer);
-                sliceFromRoi(bufSlice, inChunkOffset, localShape);
+                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(buffer, bufSlice);
                 bufView = val;
                 ds.writeChunk(chunkId, buffer.raw_data());

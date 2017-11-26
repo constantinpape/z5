@@ -17,7 +17,7 @@ namespace fs = boost::filesystem;
 namespace z5 {
 namespace io {
 
-    // TODO 
+    // TODO
     // endianess mess
     // the best way would be to handle this
     // in a streambuffer for boost::iostreams
