@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-project(zarr++)
+project(z5)
 
 include(CheckCXXCompilerFlag)
 
@@ -91,16 +91,34 @@ include_directories(${CMAKE_SOURCE_DIR}/external/marray/include)
 
 # add pybind
 if(BUILD_Z5_PYTHON)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11/include)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11)
+    find_package(pybind11 CONFIG REQUIRED)
+    message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
+    include_directories(pybind11_INCLUDE_DIR)
+    # add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11)
 endif()
 
-# FIXME xtensor-python only works if pybind11 is included, so we need 
-# to make these includes depend on each other
-# include xtensor
-include_directories(${CMAKE_SOURCE_DIR}/external/xtensor/include)
-include_directories(${CMAKE_SOURCE_DIR}/external/xtensor-python/include)
-include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
+# Find the current conda env and add it's include path
+execute_process(
+    COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
+    OUTPUT_VARIABLE CONDA_ENV_DIR
+)
+string(REGEX REPLACE "\n$" "" CONDA_ENV_DIR "${CONDA_ENV_DIR}")
+
+
+message(STATUS "Found conda env dir ${CONDA_ENV_DIR}")
+include_directories(${CONDA_ENV_DIR}/include)
+get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+foreach(dir ${dirs})
+    message(STATUS "dir='${dir}'")
+endforeach()
+
+#
+## FIXME xtensor-python only works if pybind11 is included, so we need 
+## to make these includes depend on each other
+## include xtensor
+#include_directories(${CMAKE_SOURCE_DIR}/external/xtensor/include)
+#include_directories(${CMAKE_SOURCE_DIR}/external/xtensor-python/include)
+#include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
 
 # find_package(NUMPY REQUIRED)
 # include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
@@ -109,7 +127,7 @@ include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
 add_subdirectory(src)
 
 # install the headers
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/zarr++"
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
   DESTINATION include
   FILES_MATCHING
   PATTERN "*.hxx"

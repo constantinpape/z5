@@ -3,7 +3,8 @@ addPythonModule(
         z5py
     SOURCES
         z5py.cxx
-        dataset.cxx
+        #dataset.cxx
+        simple.cxx
         #groups.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 

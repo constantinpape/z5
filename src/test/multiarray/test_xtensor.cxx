@@ -380,8 +380,8 @@ namespace multiarray {
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
 
-        auto arrayN5 = openDataset(pathIntRegularN5_);
-        testArrayWriteRead<int32_t>(arrayN5, distr);
+        //auto arrayN5 = openDataset(pathIntRegularN5_);
+        //testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
@@ -390,8 +390,8 @@ namespace multiarray {
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
 
-        auto arrayN5 = openDataset(pathFloatRegularN5_);
-        testArrayWriteRead<float>(arrayN5, distr);
+        //auto arrayN5 = openDataset(pathFloatRegularN5_);
+        //testArrayWriteRead<float>(arrayN5, distr);
     }
 
 
@@ -400,8 +400,8 @@ namespace multiarray {
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
 
-        auto arrayN5 = openDataset(pathIntIrregularN5_);
-        testArrayWriteRead<int32_t>(arrayN5, distr);
+        //auto arrayN5 = openDataset(pathIntIrregularN5_);
+        //testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
@@ -410,8 +410,8 @@ namespace multiarray {
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
 
-        auto arrayN5 = openDataset(pathFloatIrregularN5_);
-        testArrayWriteRead<float>(arrayN5, distr);
+        //auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        //testArrayWriteRead<float>(arrayN5, distr);
     }
 }
 }

@@ -11,15 +11,22 @@
 //#include "z5/multiarray/marray_access.hxx"
 //#include "z5/python/converter.hxx"
 
-// for xtensor numpy bindings
-#define FORCE_IMPORT_ARRAY
-#include <pybind11/numpy.h>
-#include "xtensor-python/pyarray.hpp"
 #include "z5/multiarray/xtensor_access.hxx"
+
+// for xtensor numpy bindings
+#ifndef FORCE_IMPORT_ARRAY
+#define FORCE_IMPORT_ARRAY
+#endif
+#include "xtensor-python/pyarray.hpp"
 
 namespace py = pybind11;
 
 namespace z5 {
+
+    template<class T>
+    inline void writePySubarray(const Dataset & ds, const xt::pyarray<T> & in, const std::vector<size_t> & roiBegin) {
+        multiarray::writeSubarray<T>(ds, in, roiBegin.begin());
+    }
 
     void exportDataset(py::module & module) {
 
@@ -36,7 +43,7 @@ namespace z5 {
             // int8
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<int8_t> & in,
+                const xt::pyarray<int8_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write int8" << std::endl;
@@ -46,7 +53,7 @@ namespace z5 {
             // int16
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<int16_t> & in,
+                const xt::pyarray<int16_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write int16" << std::endl;
@@ -56,17 +63,17 @@ namespace z5 {
             // int32
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<int32_t> & in,
+                const xt::pyarray<int32_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write int32" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<int32_t>(ds, in, roiBegin.begin());
-            })
+            }, py::arg("in").noconvert(), py::arg("roiBegin"))
             // int64
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<int64_t> & in,
+                const xt::pyarray<int64_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write int64" << std::endl;
@@ -76,18 +83,17 @@ namespace z5 {
             // uint8
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<uint8_t> & in,
+                const xt::pyarray<uint8_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write uint8" << std::endl;
                 py::gil_scoped_release allowThreads;
                 multiarray::writeSubarray<uint8_t>(ds, in, roiBegin.begin());
-                std::cout << "TTTHHHHEEERRREEEEE!!!!" << std::endl;
             })
             // uint16
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<uint16_t> & in,
+                const xt::pyarray<uint16_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write uint16" << std::endl;
@@ -97,7 +103,7 @@ namespace z5 {
             // uint32
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<uint32_t> & in,
+                const xt::pyarray<uint32_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write uint32" << std::endl;
@@ -107,7 +113,7 @@ namespace z5 {
             // uint64
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<uint64_t> & in,
+                const xt::pyarray<uint64_t> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write uint64" << std::endl;
@@ -117,7 +123,7 @@ namespace z5 {
             // float32
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<float> & in,
+                const xt::pyarray<float> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write float" << std::endl;
@@ -127,7 +133,7 @@ namespace z5 {
             // float64
             .def("write_subarray", [](
                 const Dataset & ds,
-                const xt::pyarray<double> & in,
+                const xt::pyarray<double> in,
                 const std::vector<size_t> & roiBegin
             ){
                 std::cout << "Write double" << std::endl;
@@ -232,7 +238,6 @@ namespace z5 {
             //
             // scalar broadcsting
             //
-            // TODO which ones do we have to define here?
             .def("write_scalar", [](
                 const Dataset & ds,
                 const std::vector<size_t> & roiBegin,
@@ -287,9 +292,15 @@ namespace z5 {
             // compression, compression_opts, fillvalue
         ;
 
+        module.def("write_subarray",
+                   &writePySubarray<int32_t>,
+                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
+                   py::call_guard<py::gil_scoped_release>());
+
         module.def("open_dataset",[](const std::string & path){
             return openDataset(path);
         });
+
 
         // TODO params
         module.def(

@@ -192,17 +192,17 @@ namespace multiarray {
         auto arrayN5 = openDataset(pathFloatRegularN5_);
         testBroadcast<float>(arrayN5);
     }
+    */
 
 
     TEST_F(BroadcastTest, TestReadIntIrregular) {
         // load the regular array and run the test
-        auto array = openDataset(pathIntIrregular_);
-        testBroadcast<int32_t>(array);
+        //auto array = openDataset(pathIntIrregular_);
+        //testBroadcast<int32_t>(array);
         // load the regular array and run the test
         auto arrayN5 = openDataset(pathIntIrregularN5_);
         testBroadcast<int32_t>(arrayN5);
     }
-    */
 
 
     TEST_F(BroadcastTest, TestReadFloatIrregular) {

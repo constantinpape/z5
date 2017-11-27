@@ -1,6 +1,6 @@
 import numpy as np
 import numbers
-from ._z5py import DatasetImpl, open_dataset, create_dataset
+from ._z5py import DatasetImpl, open_dataset, create_dataset, write_subarray
 from .attribute_manager import AttributeManager
 
 
@@ -116,10 +116,11 @@ class Dataset(object):
             assert item.ndim == self.ndim, \
                 "z5py.Dataset: complicated broadcasting is not supported"
             print("Here !!!")
-            self._impl.write_scalar(roi_begin, item.shape, np.int8(42))
+            # self._impl.write_scalar(roi_begin, item.shape, 42)
+            print(item.shape, item.strides, item.dtype)
+            #self._impl.write_subarray(item, roi_begin)
+            write_subarray(self._impl, item, roi_begin)
             print("Done !!!")
-            self._impl.write_subarray(item, roi_begin)
-            print("There !!!")
 
         # broadcast scalar
         else:

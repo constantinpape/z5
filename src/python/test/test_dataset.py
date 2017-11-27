@@ -45,11 +45,12 @@ class TestDataset(unittest.TestCase):
         self.assertTrue((out == 0).all())
 
     def test_ds_zarr(self):
-        for dtype in (
-            'int8', 'int16', 'int32', 'int64',
-            'uint8', 'uint16', 'uint32', 'uint64',
-            'float32', 'float64'
-        ):
+        dtypes = ('int8', 'int16', 'int32', 'int64',
+                  'uint8', 'uint16', 'uint32', 'uint64',
+                  'float32', 'float64')
+        dtypes = ('int32',)
+
+        for dtype in dtypes:
             print("Running Zarr-Test for %s" % dtype)
             ds = self.ff_zarr.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
@@ -61,11 +62,12 @@ class TestDataset(unittest.TestCase):
             self.assertTrue(np.allclose(out_array, in_array))
 
     def test_ds_n5(self):
-        for dtype in (
-            'int8', 'int16', 'int32', 'int64',
-            'uint8', 'uint16', 'uint32', 'uint64',
-            'float32', 'float64'
-        ):
+        dtypes = ('int8', 'int16', 'int32', 'int64',
+                  'uint8', 'uint16', 'uint32', 'uint64',
+                  'float32', 'float64')
+        dtypes = ('int32',)
+
+        for dtype in dtypes:
             print("Running N5-Test for %s" % dtype)
             ds = self.ff_n5.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)

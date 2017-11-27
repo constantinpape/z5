@@ -35,7 +35,7 @@ namespace multiarray {
         // iterate over the chunks and write the buffer
         for(const auto & chunkId : chunkRequests) {
 
-            std::cout << "Writing chunk " << chunkId << std::endl;
+            //std::cout << "Writing chunk " << chunkId << std::endl;
 
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
