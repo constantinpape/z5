@@ -1,6 +1,7 @@
 import numpy as np
 import numbers
-from ._z5py import DatasetImpl, open_dataset, create_dataset, write_subarray
+from ._z5py import DatasetImpl, open_dataset, create_dataset
+from ._z5py import write_subarray, write_scalar, read_subarray
 from .attribute_manager import AttributeManager
 
 
@@ -100,31 +101,25 @@ class Dataset(object):
     # most checks are done in c++
     def __getitem__(self, index):
         roi_begin, shape = self.index_to_roi(index)
-        out = np.zeros(shape, dtype=self.dtype)
-        self._impl.read_subarray(out, roi_begin)
+        out = np.empty(shape, dtype=self.dtype)
+        read_subarray(self._impl, out, roi_begin)
         return out
 
     # most checks are done in c++
     def __setitem__(self, index, item):
         assert isinstance(item, (numbers.Number, np.ndarray))
         roi_begin, shape = self.index_to_roi(index)
-        print("setitem called")
 
         # n5 input must be transpsed due to different axis convention
         # write the complete array
         if isinstance(item, np.ndarray):
             assert item.ndim == self.ndim, \
                 "z5py.Dataset: complicated broadcasting is not supported"
-            print("Here !!!")
-            # self._impl.write_scalar(roi_begin, item.shape, 42)
-            print(item.shape, item.strides, item.dtype)
-            #self._impl.write_subarray(item, roi_begin)
             write_subarray(self._impl, item, roi_begin)
-            print("Done !!!")
 
         # broadcast scalar
         else:
-            self._impl.write_scalar(roi_begin, list(shape), item)
+            write_scalar(self._impl, roi_begin, list(shape), item)
 
     def find_minimum_coordinates(self, dim):
         return self._impl.findMinimumCoordinates(dim)

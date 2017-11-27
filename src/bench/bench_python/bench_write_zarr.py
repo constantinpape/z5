@@ -65,7 +65,7 @@ def single_write_blosc(data, chunk, codec, shuffle):
 
 
 def time_write_zarr(data):
-    compressors_zarr = ['raw', 'zlib', 'bzip2']
+    compressors_zarr = ['raw',] #'zlib', 'bzip2']
     blosc_codecs = ['lz4', 'zlib']
     times = {}
     # iterate over `normal` compressors
@@ -75,13 +75,14 @@ def time_write_zarr(data):
             key, t_write, size = single_write(data, chunk, compression)
             times[key] = (t_write, size)
 
-    # iterate over blosc codecs
-    for chunk in chunks:
-        for codec in blosc_codecs:
-            for shuffle in (0, 1, 2):
-                    print("Writing blosc", chunk, codec, shuffle)
-                    key, t_write, size = single_write_blosc(data, chunk, codec, shuffle)
-                    times[key] = (t_write, size)
+    ## iterate over blosc codecs
+    #for chunk in chunks:
+    #    for codec in blosc_codecs:
+    #        for shuffle in (0, 1, 2):
+    #                print("Writing blosc", chunk, codec, shuffle)
+    #                key, t_write, size = single_write_blosc(data, chunk, codec, shuffle)
+    #                times[key] = (t_write, size)
+
     with open('./results/reswrite_zarr.json', 'w') as f:
         json.dump(times, f, indent=4, sort_keys=True)
 

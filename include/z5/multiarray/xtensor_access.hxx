@@ -6,6 +6,7 @@
 #include "xtensor/xarray.hpp"
 #include "xtensor/xview.hpp"
 #include "xtensor/xstridedview.hpp"
+#include "xtensor/xadapt.hpp"
 
 // free functions to read and write from xtensor multiarrays
 // (it's hard to have these as members due to dynamic type inference)
@@ -23,8 +24,31 @@ namespace multiarray {
     }
 
 
+    inline size_t offsetAndStridesFromRoi(const types::ShapeType & outStrides,
+                                          const types::ShapeType & requestShape,
+                                          const types::ShapeType & offsetInRequest,
+                                          types::ShapeType & requestStrides) {
+        // first, calculate the flat offset
+        // -> sum( coordinate_offset * out_strides )
+        size_t flatOffset = 1;
+        for(int d = 0; d < outStrides.size(); ++d) {
+            flatOffset += (outStrides[d] * offsetInRequest[d]);
+        }
+
+        // TODO this depends on the laout type.....
+        // next, calculate the new strides
+        requestStrides.resize(requestShape.size());
+        for(int d = 0; d < requestShape.size(); ++d) {
+            requestStrides[d] = std::accumulate(requestShape.rbegin(), requestShape.rbegin() + d, 1, std::multiplies<size_t>());
+        }
+        std::reverse(requestStrides.begin(), requestStrides.end());
+
+        return flatOffset;
+    }
+
+
     template<typename T, typename ARRAY, typename ITER>
-    void readSubarray(const Dataset & ds, xt::xexpression<ARRAY> & outExpression, ITER roiBeginIter) {
+    inline void readSubarray(const Dataset & ds, xt::xexpression<ARRAY> & outExpression, ITER roiBeginIter) {
 
         // need to cast to the actual xtensor implementation
         auto & out = outExpression.derived_cast();
@@ -47,68 +71,67 @@ namespace multiarray {
         // that's why we use the buffer for now.
         // In the end, it would be nice to do this without the buffer (which introduces an additional copy)
         // Benchmark and figure this out !
-        types::ShapeType bufferShape;
-        // N5-Axis order: we need to reverse the max chunk shape
-        if(ds.isZarr()) {
-           bufferShape = types::ShapeType(ds.maxChunkShape().begin(), ds.maxChunkShape().end());
-        } else {
-           bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
-        }
-        xt::xarray<T> buffer(bufferShape);
+
+        // we can use 1d buffers and adapt to xtensor !
+        size_t chunkSize = ds.maxChunkSize();
+        std::vector<T> buffer(chunkSize);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
+            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
+                                                           offset,
+                                                           shape,
+                                                           offsetInRequest,
+                                                           requestShape,
+                                                           offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice(out);
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::dynamic_view(out, offsetSlice);
 
+            // get the strided view
+            //size_t flatOffset = offsetAndStridesFromRoi(outStrides, requestShape, offsetInRequest, requestStrides);
+            //auto view = xt::strided_view(out, requestShape, requestStrides, flatOffset, xt::layout_type::dynamic);
+
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-
-            // N5-Axis order: we need to transpose the view and reverse the
-            // chunk shape, as well as offset and request shape internally
-            if(!ds.isZarr()) {
-                view = xt::transpose(view);
-                std::reverse(chunkShape.begin(), chunkShape.end());
-                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
-                std::reverse(requestShape.begin(), requestShape.end());
-            }
-
-            // reshape buffer if necessary
-            if(bufferShape != chunkShape) {
-                buffer.reshape(chunkShape);
-                bufferShape = chunkShape;
+            // TODO accumulate directly, w/o further read from data
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            if(chunkSize != buffer.size()) {
+                buffer.resize(chunkSize);
             }
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, buffer.raw_data());
+            ds.readChunk(chunkId, &buffer[0]);
 
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
             if(completeOvlp) {
-                // FIXME can we do this with xtensor
-                // without data copy: not working
-                //ds.readChunk(chunkId, &view(0));
-
+                // TODO figure out which one is faster
                 // copy the data from the buffer into the view
-                view = buffer;
+
+                // via xadapt and assignment operator
+                auto buffView = xt::xadapt(buffer, chunkShape);
+                view = buffView;
+
+                // or via copy from flat buffer
                 //std::copy(buffer.begin(), buffer.end(), view.begin());
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
             else {
 
-                // copy the data from the correct buffer-view to the out view
-                xt::slice_vector bufSlice(buffer);
+                // get a view to the part of the buffer we are interested in
+                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(buffer, bufSlice);
-                // TODO can't use assignment here, but copy compiles, why?
-                //view = bufView;
-                std::copy(bufView.begin(), bufView.end(), view.begin());
+                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+
+                // TODO figure out which one is faster
+                view = bufView;
+                //std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
@@ -134,40 +157,25 @@ namespace multiarray {
         types::ShapeType offsetInChunk;
 
         // TODO try to figure out writing without memcopys for fully overlapping chunks
-        // create marray buffer
-        types::ShapeType bufferShape;
-        // N5-Axis order: we need to reverse the max chunk shape
-        if(ds.isZarr()) {
-            bufferShape = types::ShapeType(ds.maxChunkShape().begin(), ds.maxChunkShape().end());
-        } else {
-            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
-        }
-        xt::xarray<T> buffer(bufferShape);
+        // we can use 1d buffers and adapt to xtensor !
+        size_t chunkSize = ds.maxChunkSize();
+        std::vector<T> buffer(chunkSize);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice(in);
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            auto view = xt::dynamic_view(in, offsetSlice);
-
-            // N5-Axis order: we need to reverse the chunk shape internally
-            if(!ds.isZarr()) {
-                // FIXME
-                //view = xt::transpose(view);
-                std::reverse(chunkShape.begin(), chunkShape.end());
-                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
-                std::reverse(requestShape.begin(), requestShape.end());
-            }
+            const auto view = xt::dynamic_view(in, offsetSlice);
 
             // resize buffer if necessary
-            if(bufferShape != chunkShape) {
-                buffer.reshape(chunkShape);
-                bufferShape = chunkShape;
+            if(chunkSize != buffer.size()) {
+                buffer.resize(chunkSize);
             }
 
             // request and chunk overlap completely
@@ -179,8 +187,9 @@ namespace multiarray {
                 // TODO would be nice to figure this out -> benchmark first !
                 //ds.writeChunk(chunkId, &view(0));
 
-                buffer = view;
-                ds.writeChunk(chunkId, buffer.raw_data());
+                //buffer = view;
+                std::copy(view.begin(), view.end(), buffer.begin());
+                ds.writeChunk(chunkId, &buffer[0]);
             }
 
             // request and chunk overlap only partially
@@ -189,19 +198,18 @@ namespace multiarray {
             else {
 
                 // load the current data into the buffer
-                ds.readChunk(chunkId, buffer.raw_data());
+                ds.readChunk(chunkId, &buffer[0]);
 
-                // overwrite the data that is covered by the view
-                xt::slice_vector bufSlice(buffer);
+                // overwrite the data that is covered by the request
+                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(buffer, bufSlice);
+                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                //bufView = view;
+                std::copy(view.begin(), view.end(), bufView.begin());
 
-                // TODO can't use copy here, but assignment compiles, why?
-                //std::copy(view.begin(), view.end(), bufView.begin());
-                bufView = view;
-
-                // wrte the chunk
-                ds.writeChunk(chunkId, buffer.raw_data());
+                // write the chunk
+                ds.writeChunk(chunkId, &buffer[0]);
             }
         }
     }

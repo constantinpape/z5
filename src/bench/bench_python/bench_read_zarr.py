@@ -5,8 +5,6 @@ import numpy as np
 import h5py
 import json
 
-# from volumina_viewer import volumina_n_layer
-
 sys.path.append('../../../bld/python')
 import z5py
 
@@ -18,7 +16,6 @@ chunks = [(1, 512, 512),
           (64, 64, 64)]
 
 
-# FIXME zarr output is weirdly transposed
 def single_read(data, chunk, compression):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk),
                      compression)
@@ -30,13 +27,10 @@ def single_read(data, chunk, compression):
     data_read = ds[:]
     t_read = time.time() - t_read
     assert data.shape == data_read.shape
-    # FIXME zarr I/O is broken
-    # volumina_n_layer([data.astype('float32'), data_read.astype('float32')])
-    # assert np.allclose(data, data_read), "\n%i / \n%i" % (np.sum(np.isclose(data, data_read)), data.size)
+    assert np.allclose(data, data_read), "\n%i / \n%i" % (np.sum(np.isclose(data, data_read)), data.size)
     return key, t_read
 
 
-# FIXME zarr output is weirdly transposed
 def single_read_blosc(data, chunk, codec, shuffle):
     key = 'blosc_%s_%s_%i' % ('_'.join(str(cc) for cc in chunk),
                               codec,
@@ -49,13 +43,12 @@ def single_read_blosc(data, chunk, codec, shuffle):
     data_read = ds[:]
     t_read = time.time() - t_read
     assert data.shape == data_read.shape
-    # FIXME zarr I/O is broken
-    #assert np.allclose(data, data_read)
+    assert np.allclose(data, data_read)
     return key, t_read
 
 
 def time_read_zarr(data):
-    compressors_zarr = ['raw', 'zlib', 'bzip2']
+    compressors_zarr = ['raw',] #'zlib', 'bzip2']
     blosc_codecs = ['lz4', 'zlib']
     times = {}
     for chunk in chunks:
@@ -65,12 +58,12 @@ def time_read_zarr(data):
             times[key] = t_read
 
     # iterate over blosc codecs
-    for chunk in chunks:
-        for codec in blosc_codecs:
-            for shuffle in (0, 1, 2):
-                    print("Reading blosc", chunk, codec, shuffle)
-                    key, t_read= single_read_blosc(data, chunk, codec, shuffle)
-                    times[key] = t_read
+    #for chunk in chunks:
+    #    for codec in blosc_codecs:
+    #        for shuffle in (0, 1, 2):
+    #                print("Reading blosc", chunk, codec, shuffle)
+    #                key, t_read= single_read_blosc(data, chunk, codec, shuffle)
+    #                times[key] = t_read
 
     with open('./results/resread_zarr.json', 'w') as f:
         json.dump(times, f, indent=4, sort_keys=True)

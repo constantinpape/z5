@@ -11,7 +11,8 @@ bb = np.s_[:100, :1024, :1024]
 chunks = [(1, 512, 512),
           (64, 64, 64)]
 
-result_folder = './results_laptop'
+#result_folder = './results_laptop'
+result_folder = './results'
 
 
 def single_read(data, chunk, compression):
@@ -42,8 +43,8 @@ def time_read_h5(data):
 
 
 if __name__ == '__main__':
-    path = '/home/consti/sampleA+_raw_automatically_realigned.h5'
-    # path = '/home/papec/Work/playground/z5_tests/sampleA+_raw_automatically_realigned.h5'
+    # path = '/home/consti/sampleA+_raw_automatically_realigned.h5'
+    path = '/home/papec/Work/playground/z5_tests/sampleA+_raw_automatically_realigned.h5'
 
     with h5py.File(path, 'r') as f:
         data = f['data'][bb]

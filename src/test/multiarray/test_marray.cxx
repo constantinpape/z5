@@ -1,7 +1,7 @@
+#ifdef WITH_MARRAY
+
 #include "gtest/gtest.h"
-
 #include <random>
-
 #include "z5/dataset_factory.hxx"
 #include "z5/multiarray/marray_access.hxx"
 
@@ -380,3 +380,4 @@ namespace multiarray {
     }
 }
 }
+#endif

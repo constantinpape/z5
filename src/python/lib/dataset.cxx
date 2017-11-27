@@ -14,9 +14,6 @@
 #include "z5/multiarray/xtensor_access.hxx"
 
 // for xtensor numpy bindings
-#ifndef FORCE_IMPORT_ARRAY
-#define FORCE_IMPORT_ARRAY
-#endif
 #include "xtensor-python/pyarray.hpp"
 
 namespace py = pybind11;
@@ -28,235 +25,48 @@ namespace z5 {
         multiarray::writeSubarray<T>(ds, in, roiBegin.begin());
     }
 
+    template<class T>
+    inline void readPySubarray(const Dataset & ds, xt::pyarray<T> & out, const std::vector<size_t> & roiBegin) {
+        multiarray::readSubarray<T>(ds, out, roiBegin.begin());
+    }
+
+    template<class T>
+    inline void writePyScalar(const Dataset & ds,
+                              const std::vector<size_t> & roiBegin,
+                              const std::vector<size_t> & roiShape,
+                              const T val) {
+        multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+    }
+
+
+    template<class T>
+    void exportIoT(py::module & module) {
+
+        // export writing subarrays
+        module.def("write_subarray",
+                   &writePySubarray<T>,
+                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export reading subarrays
+        module.def("read_subarray",
+                   &readPySubarray<T>,
+                   py::arg("ds"), py::arg("out").noconvert(), py::arg("roi_begin"),
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export writing scalars
+        module.def("write_scalar",
+                   &writePyScalar<T>,
+                   py::arg("ds"), py::arg("roi_begin"), py::arg("roi_shape"), py::arg("val").noconvert(),
+                   py::call_guard<py::gil_scoped_release>());
+    }
+
+
     void exportDataset(py::module & module) {
 
         auto dsClass = py::class_<Dataset>(module, "DatasetImpl");
 
-        // TODO do we really need to provide read / write for all datatypes ? / is there a way to
-        // do the dtype inference at runtime
-        // TODO export chunk access ?
         dsClass
-
-            //
-            // writers
-            //
-            // int8
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<int8_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write int8" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<int8_t>(ds, in, roiBegin.begin());
-            })
-            // int16
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<int16_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write int16" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<int16_t>(ds, in, roiBegin.begin());
-            })
-            // int32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<int32_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write int32" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<int32_t>(ds, in, roiBegin.begin());
-            }, py::arg("in").noconvert(), py::arg("roiBegin"))
-            // int64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<int64_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write int64" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<int64_t>(ds, in, roiBegin.begin());
-            })
-            // uint8
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<uint8_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write uint8" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<uint8_t>(ds, in, roiBegin.begin());
-            })
-            // uint16
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<uint16_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write uint16" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<uint16_t>(ds, in, roiBegin.begin());
-            })
-            // uint32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<uint32_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write uint32" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<uint32_t>(ds, in, roiBegin.begin());
-            })
-            // uint64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<uint64_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write uint64" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<uint64_t>(ds, in, roiBegin.begin());
-            })
-            // float32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<float> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write float" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<float>(ds, in, roiBegin.begin());
-            })
-            // float64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const xt::pyarray<double> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                std::cout << "Write double" << std::endl;
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray<double>(ds, in, roiBegin.begin());
-            })
-
-            //
-            // readers
-            //
-            // int 8
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<int8_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<int8_t>(ds, out, roiBegin.begin());
-            })
-            // int 16
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<int16_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<int16_t>(ds, out, roiBegin.begin());
-            })
-            // int 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<int32_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<int32_t>(ds, out, roiBegin.begin());
-            })
-            // int 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<int64_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<int64_t>(ds, out, roiBegin.begin());
-            })
-            // uint 8
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<uint8_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<uint8_t>(ds, out, roiBegin.begin());
-            })
-            // uint 16
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<uint16_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<uint16_t>(ds, out, roiBegin.begin());
-            })
-            // uint 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<uint32_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<uint32_t>(ds, out, roiBegin.begin());
-            })
-            // uint 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<uint64_t> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<uint64_t>(ds, out, roiBegin.begin());
-            })
-            // float 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<float> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<float>(ds, out, roiBegin.begin());
-            })
-            // flat 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                xt::pyarray<double> & out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray<double>(ds, out, roiBegin.begin());
-            })
-
-            //
-            // scalar broadcsting
-            //
-            .def("write_scalar", [](
-                const Dataset & ds,
-                const std::vector<size_t> & roiBegin,
-                const std::vector<size_t> & roiShape,
-                int val
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
-            })
-            .def("write_scalar", [](
-                const Dataset & ds,
-                const std::vector<size_t> & roiBegin,
-                const std::vector<size_t> & roiShape,
-                double val
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
-            })
-
             //
             // find min and max chunks along given dimension
             //
@@ -292,17 +102,12 @@ namespace z5 {
             // compression, compression_opts, fillvalue
         ;
 
-        module.def("write_subarray",
-                   &writePySubarray<int32_t>,
-                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
-                   py::call_guard<py::gil_scoped_release>());
-
         module.def("open_dataset",[](const std::string & path){
             return openDataset(path);
         });
 
 
-        // TODO params
+        // TODO params !!!
         module.def(
             "create_dataset",[](
             const std::string & path,
@@ -320,6 +125,21 @@ namespace z5 {
                 path, dtype, shape, chunkShape, createAsZarr, fillValue, compressor, codec, compressorLevel, compressorShuffle
             );
         });
+
+        // export I/O for all dtypes
+        // integer types
+        exportIoT<int8_t>(module);
+        exportIoT<int16_t>(module);
+        exportIoT<int32_t>(module);
+        exportIoT<int64_t>(module);
+        // unsigned integer types
+        exportIoT<uint8_t>(module);
+        exportIoT<uint16_t>(module);
+        exportIoT<uint32_t>(module);
+        exportIoT<uint64_t>(module);
+        // float types
+        exportIoT<float>(module);
+        exportIoT<double>(module);
     }
 
 

@@ -23,41 +23,31 @@ namespace multiarray {
 
         types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
         // out buffer holding data for a single chunk
-        types::ShapeType bufferShape;
-        // N5-Axis order: we need to reverse the max chunk shape
-        if(ds.isZarr()) {
-           bufferShape = types::ShapeType(ds.maxChunkShape().begin(), ds.maxChunkShape().end());
-        } else {
-           bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
-        }
-        xt::xarray<T> buffer(bufferShape, val);
+        size_t chunkSize = ds.maxChunkSize();
+        std::vector<T> buffer(chunkSize, val);
 
         // iterate over the chunks and write the buffer
         for(const auto & chunkId : chunkRequests) {
 
-            //std::cout << "Writing chunk " << chunkId << std::endl;
-
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
+            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
+                                                           offset,
+                                                           shape,
+                                                           offsetInRequest,
+                                                           requestShape,
+                                                           offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            // N5-Axis order: we need to reverse the chunk shape internally
-            if(!ds.isZarr()) {
-                std::reverse(chunkShape.begin(), chunkShape.end());
-                std::reverse(offsetInChunk.begin(), offsetInChunk.end());
-                std::reverse(requestShape.begin(), requestShape.end());
-            }
+            // TODO accumulate directly, w/o further read from data
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
 
             // reshape buffer if necessary
-            if(bufferShape != chunkShape) {
-                std::cout << "Reshapeing to " << chunkShape << std::endl;
-                buffer.reshape(chunkShape);
-                bufferShape = chunkShape;
-                buffer = val;
+            if(buffer.size() != chunkSize) {
+                buffer.resize(chunkSize, val);
             }
 
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                ds.writeChunk(chunkId, buffer.raw_data());
+                ds.writeChunk(chunkId, &buffer[0]);
             }
 
             // request and chunk overlap only partially
@@ -65,13 +55,14 @@ namespace multiarray {
             // to preserve the data that will not be written
             else {
                 // load the current data into the buffer
-                ds.readChunk(chunkId, buffer.raw_data());
-                // overwrite the data that is covered by the view
-                xt::slice_vector bufSlice(buffer);
+                ds.readChunk(chunkId, &buffer[0]);
+                // overwrite the data that is covered by the request
+                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(buffer, bufSlice);
+                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
                 bufView = val;
-                ds.writeChunk(chunkId, buffer.raw_data());
+                ds.writeChunk(chunkId, &buffer[0]);
             }
         }
     }
