@@ -1,9 +1,11 @@
 #include <pybind11/pybind11.h>
 
+#include "xtensor/xarray.hpp"
+
 // for xtensor numpy bindings
-#ifndef FORCE_IMPORT_ARRAY
+//#ifndef FORCE_IMPORT_ARRAY
 #define FORCE_IMPORT_ARRAY
-#endif
+//#endif
 #include "xtensor-python/pyarray.hpp"
 
 namespace py = pybind11;

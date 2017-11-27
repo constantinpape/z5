@@ -32,7 +32,7 @@ namespace z5 {
             const types::ShapeType & chunkShape,
             const bool isZarr,
             const double fillValue=0, // FIXME this should be a template if we use boost::any
-            const types::Compressor compressor=types::blosc,
+            const types::Compressor compressor=types::raw,
             const std::string & codec="lz4",
             const int compressorLevel=4,
             const int compressorShuffle=1
@@ -162,7 +162,11 @@ namespace z5 {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for N5 format");
             }
 
+            #ifdef WITH_ZLIB
             codec = (compressor == types::zlib) ? "gzip" : "";
+            #else
+            codec = "";
+            #endif
             // TODO these should become parameters in N5
             compressorLevel = 4;
             fillValue = 0;

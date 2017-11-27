@@ -115,6 +115,7 @@ namespace z5 {
         testRead<double>("n5_test_data/array_double_raw.n5", types::raw, "raw", 42);
     }
 
+    #ifdef WITH_ZLIB
     //
     // Read integer types with gzip compression
     //
@@ -150,6 +151,7 @@ namespace z5 {
     TEST_F(N5Test, testReadFillvalue) {
         testRead<int32_t>("n5_test_data/array_fv.n5", types::zlib, "gzip", 0);
     }
+    #endif
 
 
     //

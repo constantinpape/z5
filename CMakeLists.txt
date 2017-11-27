@@ -6,12 +6,11 @@ project(z5)
 
 include(CheckCXXCompilerFlag)
 
-
-# make sure the compiler supports c++11
+# make sure the compiler supports c++14
 # FIXME I think this won't work for MSVC
-CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_CPP11_FLAG)
-if(NOT HAS_CPP11_FLAG)
-    message(FATAL_ERROR "Unsupported compiler -- zarr++ requires C++11 support!")
+CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
+if(NOT HAS_CPP14_FLAG)
+    message(FATAL_ERROR "Unsupported compiler -- z5 requires C++14 support!")
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
@@ -25,7 +24,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
-option(BUILD_Z5_PYTHON OFF)
 
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
@@ -82,46 +80,42 @@ include_directories(include)
 add_subdirectory(external/googletest/googletest)
 include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
 
-
 # include json external library
 include_directories(${CMAKE_SOURCE_DIR}/external/json/src)
 
+# TODO make marray optional and remove it from external
 # include marray
 include_directories(${CMAKE_SOURCE_DIR}/external/marray/include)
 
-# add pybind
-if(BUILD_Z5_PYTHON)
-    find_package(pybind11 CONFIG REQUIRED)
-    message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
-    include_directories(pybind11_INCLUDE_DIR)
-    # add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/pybind11)
-endif()
 
+#######################
+# Setup python bindings
+#######################
+
+#  
 # Find the current conda env and add it's include path
 execute_process(
     COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
-    OUTPUT_VARIABLE CONDA_ENV_DIR
+    OUTPUT_VARIABLE CMAKE_PREFIX_PATH
 )
-string(REGEX REPLACE "\n$" "" CONDA_ENV_DIR "${CONDA_ENV_DIR}")
+string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
 
+# FIXME this is stuarts version, which doesn't work for me
+# (cmake version ?!)
+#set(CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX} CACHE PATH "")
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
 
-message(STATUS "Found conda env dir ${CONDA_ENV_DIR}")
-include_directories(${CONDA_ENV_DIR}/include)
-get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
-    message(STATUS "dir='${dir}'")
-endforeach()
+MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake/pybind11")
 
-#
-## FIXME xtensor-python only works if pybind11 is included, so we need 
-## to make these includes depend on each other
-## include xtensor
-#include_directories(${CMAKE_SOURCE_DIR}/external/xtensor/include)
-#include_directories(${CMAKE_SOURCE_DIR}/external/xtensor-python/include)
-#include_directories(${CMAKE_SOURCE_DIR}/external/xtl/include)
+include(pybind11Tools)
+include_directories("${CMAKE_PREFIX_PATH}/include")
 
-# find_package(NUMPY REQUIRED)
-# include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
+# numpy
+set(PYBIND11_CPP_STANDARD -std=c++14)
+find_package(NumPy REQUIRED)
+include_directories(${NUMPY_INCLUDE_DIRS})
+message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
 
 # add subdirectories
 add_subdirectory(src)
