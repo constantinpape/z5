@@ -21,13 +21,16 @@ build:
 requirements:
   build:
     - python {{PY_VER}}*
-    - boost 1.63.0
+    - cmake
+    - boost >=1.63.0
     - c-blosc
     - zlib
     - bzip2
+    - xtensor-python
+    - pybind11 >=2.2.1
   run:
     - python {{PY_VER}}*
-    - boost 1.63.0
+    - boost >=1.63.0
     - numpy # do not need to constrain np version
     - c-blosc
     - zlib

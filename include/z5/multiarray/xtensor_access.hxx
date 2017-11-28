@@ -2,9 +2,9 @@
 
 #include "z5/dataset.hxx"
 #include "z5/types/types.hxx"
+#include "z5/multiarray/xtensor_util.hxx"
 
 #include "xtensor/xarray.hpp"
-#include "xtensor/xview.hpp"
 #include "xtensor/xstridedview.hpp"
 #include "xtensor/xadapt.hpp"
 
@@ -13,77 +13,6 @@
 
 namespace z5 {
 namespace multiarray {
-
-
-    // small helper function to convert a ROI given by (offset, shape) into
-    // a proper xtensor sliceing
-    inline void sliceFromRoi(xt::slice_vector & roiSlice, const types::ShapeType & offset, const types::ShapeType & shape) {
-        for(int d = 0; d < offset.size(); ++d) {
-            roiSlice.push_back(xt::range(offset[d], offset[d] + shape[d]));
-        }
-    }
-
-
-    inline size_t offsetAndStridesFromRoi(const types::ShapeType & outStrides,
-                                          const types::ShapeType & requestShape,
-                                          const types::ShapeType & offsetInRequest,
-                                          types::ShapeType & requestStrides) {
-        // first, calculate the flat offset
-        // -> sum( coordinate_offset * out_strides )
-        size_t flatOffset = 1;
-        for(int d = 0; d < outStrides.size(); ++d) {
-            flatOffset += (outStrides[d] * offsetInRequest[d]);
-        }
-
-        // TODO this depends on the laout type.....
-        // next, calculate the new strides
-        requestStrides.resize(requestShape.size());
-        for(int d = 0; d < requestShape.size(); ++d) {
-            requestStrides[d] = std::accumulate(requestShape.rbegin(), requestShape.rbegin() + d, 1, std::multiplies<size_t>());
-        }
-        std::reverse(requestStrides.begin(), requestStrides.end());
-
-        return flatOffset;
-    }
-
-
-    // Need to hardcode dimension
-    // FIXME this only works for row-major (C) memory layout
-    template<typename T, typename VIEW, typename SHAPE_TYPE>
-    inline void smartCopyBufferToView(const std::vector<T> & buffer,
-                                      xt::xexpression<VIEW> & viewExperession,
-                                      const SHAPE_TYPE & arrayShape) {
-        auto & view = viewExperession.derived_cast();
-        const size_t dim = view.dimension();
-        // we copy data to consecutive pieces of memory in the view
-        // until we have exhausted the buffer
-        size_t bufferPos = 0;
-        //size_t viewPos = arrayOffset;
-        size_t viewPos = 0;
-        const size_t bufSize = buffer.size();
-        const auto & viewShape = view.shape();
-        // we start with the last dimension (which is consecutive in memory)
-        // and copy consecutve blocks from the buffer into the view
-        for(size_t z = 0; z < viewShape[0]; ++z) {
-            for(size_t y = 0; y < viewShape[1]; ++y) {
-                std::copy(buffer.begin() + bufferPos, buffer.begin() + bufferPos + viewShape[2], &view(0) + viewPos);
-                bufferPos += viewShape[2];
-                if(bufferPos >= bufSize) {
-                    //std::cout << "This should not happen" << std::endl;
-                    break;
-                }
-                // move the view position by our shape along the last axis
-                viewPos += arrayShape[2];
-            }
-            if(bufferPos >= bufSize) {
-                break;
-            }
-            // move the view position along the second axis, correcting for
-            // our movements along third axis
-            viewPos += arrayShape[1]*(arrayShape[2] - viewShape[2]);
-        }
-    }
-
 
     template<typename T, typename ARRAY, typename ITER>
     inline void readSubarray(const Dataset & ds, xt::xexpression<ARRAY> & outExpression, ITER roiBeginIter) {
@@ -105,12 +34,6 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        // TODO writing directly to a view does not work, probably because it is not continuous in memory (?!)
-        // that's why we use the buffer for now.
-        // In the end, it would be nice to do this without the buffer (which introduces an additional copy)
-        // Benchmark and figure this out !
-
-        // we can use 1d buffers and adapt to xtensor !
         size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
@@ -129,13 +52,8 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::dynamic_view(out, offsetSlice);
 
-            // get the strided view
-            //size_t flatOffset = offsetAndStridesFromRoi(outStrides, requestShape, offsetInRequest, requestStrides);
-            //auto view = xt::strided_view(out, requestShape, requestStrides, flatOffset, xt::layout_type::dynamic);
-
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            // TODO accumulate directly, w/o further read from data
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
@@ -147,23 +65,19 @@ namespace multiarray {
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
             if(completeOvlp) {
-                // copy the data from the buffer into the view
-                // via xadapt and assignment operator
-                //auto buffView = xt::xadapt(buffer, chunkShape);
-                //view = buffView;
-                smartCopyBufferToView(buffer, view, out.shape());
+                copyBufferToView(buffer, view, out.shape());
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
             else {
-
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::xadapt(buffer, chunkShape);
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
 
-                // TODO figure out which one is faster
+                // could also implement smart view for this,
+                // but this would be kind of hard and premature optimization
                 view = bufView;
             }
         }
@@ -189,8 +103,6 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        // TODO try to figure out writing without memcopys for fully overlapping chunks
-        // we can use 1d buffers and adapt to xtensor !
         size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
@@ -214,13 +126,8 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-
-                // for now this does not work without copying,
-                // because views are not contiguous in memory (I think ?!)
-                // TODO would be nice to figure this out -> benchmark first !
-                //ds.writeChunk(chunkId, &view(0));
-
-                //buffer = view;
+                // TODO smart copy
+                //copyViewToBuffer(view, buffer, in.shape());
                 std::copy(view.begin(), view.end(), buffer.begin());
                 ds.writeChunk(chunkId, &buffer[0]);
             }
@@ -229,7 +136,6 @@ namespace multiarray {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
-
                 // load the current data into the buffer
                 ds.readChunk(chunkId, &buffer[0]);
 
@@ -238,6 +144,9 @@ namespace multiarray {
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+
+                // could also implement smart view for this,
+                // but this would be kind of hard and premature optimization
                 bufView = view;
 
                 // write the chunk

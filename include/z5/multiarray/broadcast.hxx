@@ -1,6 +1,6 @@
 #pragma once
 #include "z5/dataset.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
+#include "z5/multiarray/xtensor_util.hxx"
 
 #include "xtensor/xeval.hpp"
 
