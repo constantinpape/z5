@@ -126,9 +126,7 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                // TODO smart copy
-                //copyViewToBuffer(view, buffer, in.shape());
-                std::copy(view.begin(), view.end(), buffer.begin());
+                copyViewToBuffer(view, buffer, in.shape());
                 ds.writeChunk(chunkId, &buffer[0]);
             }
 
