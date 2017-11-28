@@ -8,6 +8,9 @@ import json
 sys.path.append('../../../bld/python')
 import z5py
 
+# small shape for debugging
+#shape = (2, 1024, 1024)
+#bb = np.s_[:shape[0], :shape[1], :shape[2]]
 
 shape = (100, 1024, 1024)
 bb = np.s_[:100, :1024, :1024]

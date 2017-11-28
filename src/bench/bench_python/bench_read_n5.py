@@ -10,6 +10,11 @@ import z5py
 
 
 save_folder = './tmp_files'
+
+# small shape for debugging
+#shape = (2, 1024, 1024)
+#bb = np.s_[:shape[0], :shape[1], :shape[2]]
+
 shape = (100, 1024, 1024)
 bb = np.s_[:100, :1024, :1024]
 chunks = [(1, 512, 512),

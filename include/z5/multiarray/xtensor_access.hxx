@@ -47,6 +47,44 @@ namespace multiarray {
     }
 
 
+    // Need to hardcode dimension
+    // FIXME this only works for row-major (C) memory layout
+    template<typename T, typename VIEW, typename SHAPE_TYPE>
+    inline void smartCopyBufferToView(const std::vector<T> & buffer,
+                                      xt::xexpression<VIEW> & viewExperession,
+                                      const SHAPE_TYPE & arrayShape) {
+        auto & view = viewExperession.derived_cast();
+        const size_t dim = view.dimension();
+        // we copy data to consecutive pieces of memory in the view
+        // until we have exhausted the buffer
+        size_t bufferPos = 0;
+        //size_t viewPos = arrayOffset;
+        size_t viewPos = 0;
+        const size_t bufSize = buffer.size();
+        const auto & viewShape = view.shape();
+        // we start with the last dimension (which is consecutive in memory)
+        // and copy consecutve blocks from the buffer into the view
+        for(size_t z = 0; z < viewShape[0]; ++z) {
+            for(size_t y = 0; y < viewShape[1]; ++y) {
+                std::copy(buffer.begin() + bufferPos, buffer.begin() + bufferPos + viewShape[2], &view(0) + viewPos);
+                bufferPos += viewShape[2];
+                if(bufferPos >= bufSize) {
+                    //std::cout << "This should not happen" << std::endl;
+                    break;
+                }
+                // move the view position by our shape along the last axis
+                viewPos += arrayShape[2];
+            }
+            if(bufferPos >= bufSize) {
+                break;
+            }
+            // move the view position along the second axis, correcting for
+            // our movements along third axis
+            viewPos += arrayShape[1]*(arrayShape[2] - viewShape[2]);
+        }
+    }
+
+
     template<typename T, typename ARRAY, typename ITER>
     inline void readSubarray(const Dataset & ds, xt::xexpression<ARRAY> & outExpression, ITER roiBeginIter) {
 
@@ -109,15 +147,11 @@ namespace multiarray {
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
             if(completeOvlp) {
-                // TODO figure out which one is faster
                 // copy the data from the buffer into the view
-
                 // via xadapt and assignment operator
-                auto buffView = xt::xadapt(buffer, chunkShape);
-                view = buffView;
-
-                // or via copy from flat buffer
-                //std::copy(buffer.begin(), buffer.end(), view.begin());
+                //auto buffView = xt::xadapt(buffer, chunkShape);
+                //view = buffView;
+                smartCopyBufferToView(buffer, view, out.shape());
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
@@ -131,7 +165,6 @@ namespace multiarray {
 
                 // TODO figure out which one is faster
                 view = bufView;
-                //std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
@@ -205,8 +238,7 @@ namespace multiarray {
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
-                //bufView = view;
-                std::copy(view.begin(), view.end(), bufView.begin());
+                bufView = view;
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);

@@ -203,6 +203,7 @@ namespace z5 {
             }
             for(unsigned d = 0; d < shape.size(); ++d) {
                 if(chunkShape[d] > shape[d]) {
+                    std::cout << chunkShape <<  " " << shape << std::endl;
                     throw std::runtime_error("Chunkshape cannot be bigger than shape");
                 }
             }
