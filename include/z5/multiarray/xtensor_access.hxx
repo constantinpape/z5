@@ -81,6 +81,7 @@ namespace multiarray {
                 // but this would be kind of hard and premature optimization
                 view = bufView;
             }
+
         }
     }
 

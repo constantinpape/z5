@@ -174,7 +174,7 @@ namespace multiarray {
     };
 
 
-    TEST_F(BroadcastTest, TestReadIntRegular) {
+    TEST_F(BroadcastTest, TestBroadcastIntRegular) {
         // load the regular array and run the test
         auto array = openDataset(pathIntRegular_);
         testBroadcast<int32_t>(array);
@@ -184,7 +184,7 @@ namespace multiarray {
     }
 
 
-    TEST_F(BroadcastTest, TestReadFloatRegular) {
+    TEST_F(BroadcastTest, TestBroadcastFloatRegular) {
         // load the regular array and run the test
         auto array = openDataset(pathFloatRegular_);
         testBroadcast<float>(array);
@@ -194,22 +194,20 @@ namespace multiarray {
     }
 
 
-    TEST_F(BroadcastTest, TestReadIntIrregular) {
-        // FIXME Broadcasting tests for z5 with irregular shape are broken
+    TEST_F(BroadcastTest, TestBroadcastIntIrregular) {
         //// load the regular array and run the test
-        //auto array = openDataset(pathIntIrregular_);
-        //testBroadcast<int32_t>(array);
+        auto array = openDataset(pathIntIrregular_);
+        testBroadcast<int32_t>(array);
         // load the regular array and run the test
         auto arrayN5 = openDataset(pathIntIrregularN5_);
         testBroadcast<int32_t>(arrayN5);
     }
 
 
-    TEST_F(BroadcastTest, TestReadFloatIrregular) {
-        // FIXME Broadcasting tests for z5 with irregular shape are broken
+    TEST_F(BroadcastTest, TestBroadcastFloatIrregular) {
         //// load the regular array and run the test
-        //auto array = openDataset(pathFloatIrregular_);
-        //testBroadcast<float>(array);
+        auto array = openDataset(pathFloatIrregular_);
+        testBroadcast<float>(array);
         // load the regular array and run the test
         auto arrayN5 = openDataset(pathFloatIrregularN5_);
         testBroadcast<float>(arrayN5);

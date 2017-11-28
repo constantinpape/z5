@@ -35,8 +35,9 @@ namespace multiarray {
                                                            offsetInRequest,
                                                            requestShape,
                                                            offsetInChunk);
+
+
             ds.getChunkShape(chunkId, chunkShape);
-            // TODO accumulate directly, w/o further read from data
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
 
             // reshape buffer if necessary
@@ -63,6 +64,9 @@ namespace multiarray {
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
                 bufView = val;
                 ds.writeChunk(chunkId, &buffer[0]);
+
+                // need to reset the buffer to our fill value
+                std::fill(buffer.begin(), buffer.end(), val);
             }
         }
     }
