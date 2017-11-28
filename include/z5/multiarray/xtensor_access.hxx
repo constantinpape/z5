@@ -40,6 +40,7 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
+            //std::cout << "Reading chunk " << chunkId << std::endl;
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
                                                            offset,
                                                            shape,
@@ -65,7 +66,7 @@ namespace multiarray {
             // request and chunk completely overlap
             // -> we can read all the data from the chunk
             if(completeOvlp) {
-                copyBufferToView(buffer, view, out.shape());
+                copyBufferToView(buffer, view, out.strides());
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
@@ -126,7 +127,7 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                copyViewToBuffer(view, buffer, in.shape());
+                copyViewToBuffer(view, buffer, in.strides());
                 ds.writeChunk(chunkId, &buffer[0]);
             }
 

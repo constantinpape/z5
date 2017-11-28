@@ -146,6 +146,7 @@ namespace multiarray {
                 y = yy(gen);
                 z = zz(gen);
                 types::ShapeType offset({x, y, z});
+                //types::ShapeType offset({20, 30, 34});
 
                 // draw the shape coordinates
                 std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
@@ -155,7 +156,9 @@ namespace multiarray {
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
                 types::ShapeType shape({sx, sy, sz});
+                //types::ShapeType shape({40, 42, 56});
 
+                //std::cout << "Random Request: " << t << " / " << N << std::endl;
                 //std::cout << "Offset:" << std::endl;
                 //std::cout << x << " " << y << " " << z << std::endl;
                 //std::cout << "Shape:" << std::endl;
@@ -167,6 +170,7 @@ namespace multiarray {
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
                         for(int k = 0; k < shape[2]; ++k) {
+                            //std::cout << i << " " << j << " " << k << std::endl;
                             ASSERT_EQ(data(i, j, k), 42);
                         }
                     }

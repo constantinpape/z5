@@ -47,7 +47,7 @@ namespace multiarray {
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToView2D(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession,
-                                   const SHAPE_TYPE & arrayShape) {
+                                   const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
@@ -63,8 +63,9 @@ namespace multiarray {
             if(bufferPos >= bufSize) {
                 break;
             }
-            // move the view position by our shape along the last axis
-            viewPos += arrayShape[1];
+            // move the view position along the first axis
+            // FIXME TODO do we need to correct here
+            viewPos += arrayStrides[0];
         }
     }
 
@@ -74,7 +75,7 @@ namespace multiarray {
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToView3D(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession,
-                                   const SHAPE_TYPE & arrayShape) {
+                                   const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
@@ -82,24 +83,33 @@ namespace multiarray {
         size_t viewPos = 0;
         const size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
+
+        size_t covered;
+
         // we start with the last dimension (which is consecutive in memory)
         // and copy consecutve blocks from the buffer into the view
         for(size_t z = 0; z < viewShape[0]; ++z) {
+            covered = viewPos;
             for(size_t y = 0; y < viewShape[1]; ++y) {
-                std::copy(buffer.begin() + bufferPos, buffer.begin() + bufferPos + viewShape[2], &view(0) + viewPos);
-                bufferPos += viewShape[2];
+
                 if(bufferPos >= bufSize) {
+                    // this should not happen
+                    std::cout << "Inner break at z = " << z << " y = " << y << std::endl;
                     break;
                 }
+
+                std::copy(buffer.begin() + bufferPos, buffer.begin() + bufferPos + viewShape[2], &view(0) + viewPos);
+
+                bufferPos += viewShape[2];
                 // move the view position by our shape along the last axis
-                viewPos += arrayShape[2];
+                viewPos += arrayStrides[1];
             }
-            if(bufferPos >= bufSize) {
-                break;
-            }
-            // move the view position along the second axis, correcting for
-            // our movements along third axis
-            viewPos += arrayShape[1] * (arrayShape[2] - viewShape[2]);
+            //if(bufferPos >= bufSize) {
+            //    break;
+            //}
+            covered = (viewPos - covered);
+            viewPos += (arrayStrides[0] - covered);
+            //std::cout << "Incrementing by " << (arrayStrides[0] - covered) << std::endl;
         }
     }
 
@@ -117,20 +127,74 @@ namespace multiarray {
     }
 
 
+    /*
+    template<typename T, typename VIEW>
+    inline void copyBufferToViewND(const std::vector<T> & buffer,
+                                   xt::xexpression<VIEW> & viewExperession,
+                                   const SHAPE_TYPE & arrayStrides) {
+        auto & view = viewExperession.derived_cast();
+        const size_t dim = view.dimension();
+        size_t bufferOffset = 0;
+        size_t viewOffset = 0;
+        types::ShapeType dimPositions(dim);
+        const size_t bufSize = buffer.size();
+        const auto & viewShape = view.shape();
+        // THIS ASSUMES C-ORDER
+        const size_t memLen = viewShape[dim - 1];
+
+        // we copy data to consecutive pieces of memory in the view
+        // until we have exhausted the buffer
+
+        // we start out loop at the second from last dimension
+        // (last dimension is the fastest moving and consecutive in memory)
+        for(size_t d = dim - 2; d >= 0;) {
+            // copy the peace of buffer that is consectuve to our view
+            std::copy(buffer.begin() + bufferOffset, buffer.begin() + bufferOffset + memLen, &view(0) + viewOffset);
+
+            // increase the buffer offset and the view offset by the amount we have just
+            // written to memory
+            bufferOffset += memLen;
+            viewOffset += memLen;
+
+            // check if we need to decrease the dimension
+            for(d = dim - 2; d >= 0; --d) {
+                // increase the position in the current dimension
+                dimPositions[d] += 1;
+
+                // if we are smaller than the shape in this dimension, stay in this dimension
+                // (i.e. break and go back to the copy loop)
+                if(dimPositions[d] < viewShape[d]) {
+                    break;
+                // otherwise, decrease the dimension
+                } else {
+                    // increase the view offset corresponding to the dimension jump
+                    // i.e. increase by the stride in this dimension, corrected for
+                    // the ground we covered in the previous dimension
+                    // FIXME this is missing the correction term !!!!
+                    viewOffset += arrayStrides[d];
+                    // reset the position in this dimension
+                    dimPositions[d] = 0;
+                }
+            }
+        }
+    }
+    */
+
+
     // FIXME this only works for row-major (C) memory layout
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToView(const std::vector<T> & buffer,
                                  xt::xexpression<VIEW> & viewExperession,
-                                 const SHAPE_TYPE & arrayShape) {
+                                 const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
         switch(view.dimension()) {
             case 1: std::copy(buffer.begin(), buffer.end(), view.end()); break;
-            case 2: copyBufferToView2D(buffer, viewExperession, arrayShape); break;
-            case 3: copyBufferToView3D(buffer, viewExperession, arrayShape); break;
+            case 2: copyBufferToView2D(buffer, viewExperession, arrayStrides); break;
+            case 3: copyBufferToView3D(buffer, viewExperession, arrayStrides); break;
             // TODO implement 4D and 5D
             // TODO implement true ND instead (see link above)
-            //case 4: copyBufferToView4D(buffer, viewExperession, arrayShape); break;
-            //case 5: copyBufferToView5D(buffer, viewExperession, arrayShape); break;
+            //case 4: copyBufferToView4D(buffer, viewExperession, arrayStrides); break;
+            //case 5: copyBufferToView5D(buffer, viewExperession, arrayStrides); break;
             // use general (slow) view semantic for ND support
             default: copyBufferToViewND(buffer, viewExperession); break;
         }
@@ -141,7 +205,7 @@ namespace multiarray {
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBuffer2D(const xt::xexpression<VIEW> & viewExperession,
                                    std::vector<T> & buffer,
-                                   const SHAPE_TYPE & arrayShape) {
+                                   const SHAPE_TYPE & arrayStrides) {
         const auto & view = viewExperession.derived_cast();
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
@@ -158,7 +222,7 @@ namespace multiarray {
                 break;
             }
             // move the view position by our shape along the last axis
-            viewPos += arrayShape[1];
+            viewPos += arrayStrides[0];
         }
     }
 
@@ -168,7 +232,7 @@ namespace multiarray {
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBuffer3D(const xt::xexpression<VIEW> & viewExperession,
                                    std::vector<T> & buffer,
-                                   const SHAPE_TYPE & arrayShape) {
+                                   const SHAPE_TYPE & arrayStrides) {
         const auto & view = viewExperession.derived_cast();
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
@@ -176,9 +240,11 @@ namespace multiarray {
         size_t viewPos = 0;
         const size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
+        size_t covered;
         // we start with the last dimension (which is consecutive in memory)
         // and copy consecutve blocks from the buffer into the view
         for(size_t z = 0; z < viewShape[0]; ++z) {
+            covered = viewPos;
             for(size_t y = 0; y < viewShape[1]; ++y) {
                 std::copy(&view(0) + viewPos, &view(0) + viewPos + viewShape[2], buffer.begin() + bufferPos);
                 bufferPos += viewShape[2];
@@ -186,14 +252,15 @@ namespace multiarray {
                     break;
                 }
                 // move the view position by our shape along the last axis
-                viewPos += arrayShape[2];
+                viewPos += arrayStrides[1];
             }
             if(bufferPos >= bufSize) {
                 break;
             }
-            // move the view position along the second axis, correcting for
-            // our movements along third axis
-            viewPos += arrayShape[1] * (arrayShape[2] - viewShape[2]);
+            // move the view position along the first axis, correcting for
+            // our movements along second axis
+            covered = (viewPos - covered);
+            viewPos += (arrayStrides[0] - covered);
         }
     }
 
@@ -202,15 +269,15 @@ namespace multiarray {
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBuffer(const xt::xexpression<VIEW> & viewExperession,
                                  std::vector<T> & buffer,
-                                 const SHAPE_TYPE & arrayShape) {
+                                 const SHAPE_TYPE & arrayStrides) {
         const auto & view = viewExperession.derived_cast();
         switch(view.dimension()) {
-            case 2: copyViewToBuffer2D(viewExperession, buffer, arrayShape); break;
-            case 3: copyViewToBuffer3D(viewExperession, buffer, arrayShape); break;
+            case 2: copyViewToBuffer2D(viewExperession, buffer, arrayStrides); break;
+            case 3: copyViewToBuffer3D(viewExperession, buffer, arrayStrides); break;
             // TODO implement 4D and 5D
             // TODO implement true ND instead (see link above)
-            //case 4: copyViewToBuffer4D(viewExperession, buffer, arrayShape); break;
-            //case 5: copyViewToBuffer5D(viewExperession, buffer, arrayShape); break;
+            //case 4: copyViewToBuffer4D(viewExperession, buffer, arrayStrides); break;
+            //case 5: copyViewToBuffer5D(viewExperession, buffer, arrayStrides); break;
             // use general (slow) copy for ND support (also used in 1d, where this is fine)
             default: std::copy(view.begin(), view.end(), buffer.begin()); break;
         }
