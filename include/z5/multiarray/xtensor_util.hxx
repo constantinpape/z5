@@ -128,7 +128,7 @@ namespace multiarray {
 
 
     /*
-    template<typename T, typename VIEW>
+    template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToViewND(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession,
                                    const SHAPE_TYPE & arrayStrides) {
@@ -142,24 +142,31 @@ namespace multiarray {
         // THIS ASSUMES C-ORDER
         const size_t memLen = viewShape[dim - 1];
 
+        size_t covered = 0;
+
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
 
         // we start out loop at the second from last dimension
         // (last dimension is the fastest moving and consecutive in memory)
-        for(size_t d = dim - 2; d >= 0;) {
+        for(int d = dim - 2; d >= 0;) {
+            std::cout << "Write from buffer " << bufferOffset << " to " << bufferOffset + memLen << std::endl;
+            std::cout << "Write from view " << viewOffset << " to " << viewOffset + memLen << std::endl;
             // copy the peace of buffer that is consectuve to our view
-            std::copy(buffer.begin() + bufferOffset, buffer.begin() + bufferOffset + memLen, &view(0) + viewOffset);
+            std::copy(buffer.begin() + bufferOffset,
+                      buffer.begin() + bufferOffset + memLen,
+                      &view(0) + viewOffset);
 
             // increase the buffer offset and the view offset by the amount we have just
             // written to memory
             bufferOffset += memLen;
-            viewOffset += memLen;
+            viewOffset += arrayStrides[d];
 
             // check if we need to decrease the dimension
             for(d = dim - 2; d >= 0; --d) {
                 // increase the position in the current dimension
                 dimPositions[d] += 1;
+                std::cout << "Dim: " << d << " pos " << dimPositions[d] << " / " << viewShape[d] << std::endl;
 
                 // if we are smaller than the shape in this dimension, stay in this dimension
                 // (i.e. break and go back to the copy loop)
@@ -167,11 +174,17 @@ namespace multiarray {
                     break;
                 // otherwise, decrease the dimension
                 } else {
-                    // increase the view offset corresponding to the dimension jump
-                    // i.e. increase by the stride in this dimension, corrected for
-                    // the ground we covered in the previous dimension
-                    // FIXME this is missing the correction term !!!!
-                    viewOffset += arrayStrides[d];
+                    //std::cout << "Increasing view-offset due to dim jump " << d << std::endl;
+                    //// measure how much we covered since the last big jump
+                    //covered = (viewOffset - covered);
+                    //// increase the view offset corresponding to the dimension jump
+                    //// i.e. increase by the stride in this dimension, corrected for
+                    //// the ground we covered in the previous dimension
+                    //viewOffset += (arrayStrides[] - covered);
+                    //std::cout << "Increase by " << (arrayStrides[] - covered) << " (stride) " << arrayStrides[] << " (covered) " << covered << std::endl;
+                    //// reset the covered to the current offset
+                    //covered = viewOffset;
+
                     // reset the position in this dimension
                     dimPositions[d] = 0;
                 }
@@ -197,6 +210,7 @@ namespace multiarray {
             //case 5: copyBufferToView5D(buffer, viewExperession, arrayStrides); break;
             // use general (slow) view semantic for ND support
             default: copyBufferToViewND(buffer, viewExperession); break;
+            //default: copyBufferToViewND(buffer, viewExperession, arrayStrides); break;
         }
     }
 
