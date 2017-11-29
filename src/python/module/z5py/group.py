@@ -12,8 +12,6 @@ class Group(Base):
     @classmethod
     def make_group(cls, path, is_zarr):
         create_group(path, is_zarr)
-        # create empty attributes file
-        open(os.path.join(path, 'attributes.json'), 'w').close()
         return cls(path, is_zarr)
 
     @classmethod

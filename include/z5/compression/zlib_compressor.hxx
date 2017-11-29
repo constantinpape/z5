@@ -84,8 +84,6 @@ namespace compression {
     		    throw(std::runtime_error(oss.str()));
     		}
 
-            //dataOut.resize(currentPosition);
-
         }
 
 
@@ -129,8 +127,6 @@ namespace compression {
 
             inflateEnd(&zs);
 
-            // FIXME for some reasion this always failes with a -5 error (Z_BUF_ERROR)
-            // but the tests seem to work just fine...
 			if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
     			std::ostringstream oss;
     			oss << "Exception during zlib decompression: (" << ret << ") " << zs.msg;
