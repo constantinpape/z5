@@ -67,7 +67,7 @@ namespace compression {
 
                 ret = BZ2_bzCompress(&bzs, BZ_FINISH);
 
-                // combine the 32bit counts to get thr total out number
+                // combine the 32bit counts to get the total out number
                 total_out = (static_cast<size_t>(bzs.total_out_hi32) << 32) + bzs.total_out_lo32;
                 // get the current position in the out vector
                 currentPosition = total_out / sizeof(T);

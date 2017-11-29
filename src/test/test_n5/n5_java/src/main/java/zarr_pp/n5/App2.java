@@ -159,7 +159,6 @@ public class App2 {
                     
                     // FIXME int, long and double tests fail with an EOF exception !
                     // test the int block
-                    System.out.println("Here");
                     final DataBlock<?> loadedInt = n5.readBlock(intSetGzip, attrsInt, new long[]{x, y, z});
                     final int[] intData = (int[]) loadedInt.getData();
                     for(int i = 0; i < intData.length; i++) {
