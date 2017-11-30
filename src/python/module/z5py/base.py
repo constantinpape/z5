@@ -40,14 +40,16 @@ class Base(object):
 
     def is_group(self, path):
         if self.is_zarr:
-            return os.path.exists(
-                os.path.join(path, '.zgroup')
-            )
+            return os.path.exists(os.path.join(path, '.zgroup'))
         else:
-            with open(os.path.join(path, 'attributes.json'), 'r') as f:
+            meta_path = os.path.join(path, 'attributes.json')
+            if not os.path.exists(meta_path):
+                return True
+            with open(meta_path, 'r') as f:
                 # attributes for n5 file can be empty which cannot be parsed by json
                 try:
                     attributes = json.load(f)
                 except ValueError:
                     attributes = {}
+            # The dimensions key is only present in a dataset
             return 'dimensions' not in attributes

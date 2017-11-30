@@ -29,8 +29,9 @@ class File(Base):
                 "z5py.File: Cannot infer the file format for non existing file"
             os.mkdir(path)
             meta_file = os.path.join(path, '.zgroup' if use_zarr_format else 'attributes.json')
-            with open(meta_file, 'w') as f:
-                if use_zarr_format:
+            # we only need to write meta data for the zarr format
+            if use_zarr_format:
+                with open(meta_file, 'w') as f:
                     json.dump({'zarr_format': 2}, f)
 
         super(File, self).__init__(path, use_zarr_format)
