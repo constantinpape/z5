@@ -50,7 +50,6 @@ cmake .. \
         -DWITH_ZLIB=ON \
         -DWITH_BZIP2=ON \
 \
-        -DBUILD_Z5_PYTHON=ON \
         -DPYTHON_EXECUTABLE=${PYTHON} \
         -DPYTHON_LIBRARY=${PREFIX}/lib/libpython${PY_ABI}.${DYLIB} \
         -DPYTHON_INCLUDE_DIR=${PREFIX}/include/python${PY_ABI} \
