@@ -110,9 +110,9 @@ class Dataset(object):
 
         # check the individual slices
         assert all(isinstance(ii, slice) for ii in index_), \
-                "z5py.Dataset: index must be slice or tuple of slices"
+            "z5py.Dataset: index must be slice or tuple of slices"
         assert all(ii.step is None for ii in index_), \
-                "z5py.Dataset: slice with non-trivial step is not supported"
+            "z5py.Dataset: slice with non-trivial step is not supported"
         # get the roi begin and shape from the slicing
         roi_begin = [
             (0 if index_[d].start is None else index_[d].start)
@@ -152,3 +152,11 @@ class Dataset(object):
 
     def find_maximum_coordinates(self, dim):
         return self._impl.findMaximumCoordinates(dim)
+
+    # expose the impl write subarray functionality
+    def write_subarray(self, start, data):
+        self._impl.write_subarray(start, data)
+
+    # expose the impl read subarray functionality
+    def read_subarray(self, start, stop):
+        return self._impl.read_subarray(start, stop)

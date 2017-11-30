@@ -15,22 +15,25 @@ class Base(object):
     def attrs(self):
         return self._attrs
 
+    # FIXME this is not what we wan't, because
+    # a) we want to have the proper python key syntax
+    # b) this will not list nested paths in file properly,
+    # like 'volumes/raw'
     def keys(self):
         return os.listdir(self.path)
 
+    def __contains__(self, key):
+        return os.path.exists(os.path.join(self.path, key))
+
+    # TODO open_dataset, open_group and close_group should also be implemented here
+
     # TODO allow creating with data ?!
-    def create_dataset(
-        self,
-        key,
-        dtype,
-        shape,
-        chunks,
-        fill_value=0,
-        compressor='blosc',  # TODO change default value depending on zarr / n5
-        codec='lz4',  # TODO change default value depending on zarr / n5
-        level=4,
-        shuffle=1
-    ):
+    def create_dataset(self, key, dtype, shape, chunks,
+                       fill_value=0,
+                       compressor='blosc',  # TODO change default value depending on zarr / n5
+                       codec='lz4',  # TODO change default value depending on zarr / n5
+                       level=4,
+                       shuffle=1):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
@@ -38,7 +41,8 @@ class Base(object):
                                       fill_value, compressor,
                                       codec, level, shuffle)
 
-    def is_group(self, path):
+    def is_group(self, key):
+        path = os.path.join(self.path, key)
         if self.is_zarr:
             return os.path.exists(os.path.join(path, '.zgroup'))
         else:

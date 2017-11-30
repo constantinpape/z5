@@ -24,9 +24,9 @@ class Group(Base):
         return Group.make_group(path, self.is_zarr)
 
     def __getitem__(self, key):
+        assert key in self, "z5py.File.__getitem__: key does not exxist"
         path = os.path.join(self.path, key)
-        assert os.path.exists(path), "Key is not existing"
-        if self.is_group(path):
+        if self.is_group(key):
             return Group.open_group(path, self.is_zarr)
         else:
             return Dataset.open_dataset(path)
