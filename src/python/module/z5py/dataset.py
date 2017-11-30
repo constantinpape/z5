@@ -68,6 +68,14 @@ class Dataset(object):
     def dtype(self):
         return np.dtype(self._impl.dtype)
 
+    @property
+    def chunks_per_dimension(self):
+        return self._impl.chunks_per_dimension
+
+    @property
+    def number_of_chunks(self):
+        return self._impl.number_of_chunks
+
     def __len__(self):
         return self._impl.len
 
