@@ -17,7 +17,7 @@ Offers support for the following compression codecs:
 You can install the package via conda (only Linux for now):
 
 ```
-conda install -c cpape z5py
+conda install -c conda-forge -c cpape z5py
 ```
 
 ### C++
