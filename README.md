@@ -23,7 +23,7 @@ conda install -c cpape z5py
 ### C++
 
 The library itself is header-only, however you need to link against the relevant compression codecs.
-TODO CMake build.
+TODO describe CMake options.
 
 
 ## Examples / Usage
@@ -71,20 +71,46 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
+There are convenience functions to convert n5 files to popular data formats.
+(TODO also zarr format, convert to from png, jpeg, tiff)
+
+So far, only h5 is supported.
+
+```python
+# convert existing h5 file to n5
+# this only works if h5py is available
+from z5py.converter import convert_n5_to_h5
+
+h5_file = '/path/to/h5'
+n5_file = '/path/to/n5'
+h5_key = n5_key = 'data'
+target_chunks = (64, 64, 64)
+n_threads = 8
+
+convert_h5_to_n5(h5_file, n5_file,
+                 in_path_in_file=h5_key,
+                 out_path_in_file=n5_key,
+                 out_chunks=target_chunks,
+                 n_threads=n_threads,
+                 compressor='gzip')
+```
+
 ### C++
 
 The library is intended to be used with a multiarray, that holds data in memory.
-An interface to `marray` (https://github.com/bjoern-andres/marray) is implemented in 
-https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
+By default, `xtensor` (https://github.com/QuantStack/xtensor) is used. 
+See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx
+There also exists an interface for `marray` (https://github.com/bjoern-andres/marray).
+See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
 
 Some examples:
 
-```
-#include "andres/marray.hxx"
+```c++
+#include "xtensor/xarray.hxx"
 #include "z5/dataset_factory.hxx"
-#include "z5/multiarray/marray_access.hxx"
+#include "z5/multiarray/xtensor_access.hxx"
 #include "json.hpp"
 
 int main() {
@@ -97,13 +123,13 @@ int main() {
   // write marray to roi
   std::vector<size_t> offset1 = {50, 100, 150};
   std::vector<size_t> shape1 = {150, 200, 100};
-  andres::Marray<float> array1(shape1.begin(), shape1.end(), 42.);
+  xt::xarray<float> array1(shape1, 42.);
   z5::multiarray::writeSubarray(ds, array1, offset1.begin());
 
   // read marray from roi (values that were not written before are filled with a fill-value)
   std::vector<size_t> offset2 = {100, 100, 100};
   std::vector<size_t> shape2 = {300, 200, 75};
-  andres::Marray<float> array2(shape2.begin(), shape2.end());
+  xt::xarray<float> array2(shape2);
   z5::multiarray::readSubarray(ds, array2, offset2.begin());
 
   // read and write json attributes
@@ -143,8 +169,8 @@ While this is mostly handled internally, it means that the metadata does not tra
 
 |           |n5                      |z5              |
 |----------:|-----------------------:|---------------:|  
-|Shape      | (s_x, s_y, s_z)        |(s_z, s_y, s_x) |
-|Chunk-Shape| (c_x, c_y, c_z)        |(c_z, c_y, c_x) | 
-|Chunk-Ids  | (i_x, i_y, i_z)        |(i_z, i_y, i_x) |
+|Shape      | s_x, s_y, s_z          |s_z, s_y, s_x   |
+|Chunk-Shape| c_x, c_y, c_z          |c_z, c_y, c_x   | 
+|Chunk-Ids  | i_x, i_y, i_z          |i_z, i_y, i_x   |
 
 
