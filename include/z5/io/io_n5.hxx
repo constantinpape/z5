@@ -17,7 +17,7 @@ namespace fs = boost::filesystem;
 namespace z5 {
 namespace io {
 
-    // TODO 
+    // TODO
     // endianess mess
     // the best way would be to handle this
     // in a streambuffer for boost::iostreams
@@ -62,7 +62,7 @@ namespace io {
         }
 
 
-        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) const {
+        inline void write(const handle::Chunk & chunk, const T * data, const size_t chunkSize) const {
             // create the parent folder
             chunk.createTopDir();
             // this might speed up the I/O by decoupling C++ buffers from C buffers
@@ -70,7 +70,7 @@ namespace io {
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file);
-            file.write((char*) &data[0], data.size() * sizeof(T));
+            file.write((char*) data, chunkSize * sizeof(T));
             file.close();
         }
 
@@ -96,13 +96,54 @@ namespace io {
         }
 
 
-        inline void findMinimumChunk(types::ShapeType & minOut, const fs::path & dsDir, const size_t nChunksTotal) {
+        // TODO do we need to invert dim due to N5 axis conventions ?
+        inline void findMinimumChunk(const unsigned dim, const fs::path & dsDir, const size_t nChunksTotal, types::ShapeType & minOut) const {
             minOut.clear();
             fs::path chunkDir(dsDir);
+
+            // if our dimension is bigger than zero, we need to first find the chunk
+            // with lowest entry in the corresponding dimension
+            if(dim > 0) {
+                // get lists of chunks at query dimension
+                std::vector<types::ShapeType> chunkList;
+                listChunks(dim, dsDir, chunkList);
+
+                // find the lowest value in our dimension, while keeping the order of
+                // higher dimensions for chunks with same value
+                auto compareDim = [dim](types::ShapeType a, types::ShapeType b) {
+                    return std::lexicographical_compare(a.rbegin(), a.rend(),
+                                                        b.rbegin(), b.rend());
+                };
+                auto minChunkId = *(std::min_element(chunkList.begin(), chunkList.end(), compareDim));
+
+                // start the out chunk with the min ID we found
+                minOut.insert(minOut.end(), minChunkId.begin(), minChunkId.end());
+
+                // update the chunk dir
+                for(auto cc : minChunkId) {
+                    chunkDir /= std::to_string(cc);
+                }
+
+                // check if we are already at the lowest chunk level
+                // and if we are, return
+                if(fs::is_regular_file(chunkDir)) {
+                    // need to reverse due to n5 axis ordering
+                    std::reverse(minOut.begin(), minOut.end());
+                    return;
+                }
+            }
+
+            // we need to wrap std::min in a lambda and a std::function to pass it to `iterateChunks`
+            std::function<size_t (size_t, size_t)> minComp = [](size_t a, size_t b) {
+                return std::min(a, b);
+            };
+
+            // starting from our current chunk position, find the downstream chunk with
+            // lowest indices
             while(true) {
                 // we need to pass something that is definetely bigger than any chunk id
                 // as initial value here
-                size_t chunkId = iterateChunks(chunkDir, nChunksTotal, std::min);
+                size_t chunkId = iterateChunks(chunkDir, nChunksTotal, minComp);
                 minOut.push_back(chunkId);
                 chunkDir /= std::to_string(chunkId);
                 // we need to check if the next chunkDir is still a directory
@@ -111,24 +152,142 @@ namespace io {
                     break;
                 }
             }
+            // otherwise, we first need to list all chunks at the level corresponding to
+            // the query dimension, find the lowest entry and then open up the sub directories
+            // of this chunk
+
             // need to reverse due to n5 axis ordering
             std::reverse(minOut.begin(), minOut.end());
         }
 
 
-        inline void findMaximumChunk(types::ShapeType & maxOut, const fs::path & dsDir) {
-            
+        inline void findMaximumChunk(const unsigned dim, const fs::path & dsDir, types::ShapeType & maxOut) const {
+            maxOut.clear();
+            fs::path chunkDir(dsDir);
+
+            // if our dimension is bigger than zero, we need to first find the chunk
+            // with highest entry in the corresponding dimension
+            if(dim > 0) {
+                // get lists of chunks at query dimension
+                std::vector<types::ShapeType> chunkList;
+                listChunks(dim, dsDir, chunkList);
+
+                // find the lowest value in our dimension, sort lexicographical for rest
+                auto compareDim = [dim](types::ShapeType a, types::ShapeType b) {
+                    return std::lexicographical_compare(a.rbegin(), a.rend(),
+                                                        b.rbegin(), b.rend());
+                };
+                auto maxChunkId = *(std::max_element(chunkList.begin(), chunkList.end(), compareDim));
+
+                // start the out chunk with the max ID we found
+                maxOut.insert(maxOut.end(), maxChunkId.begin(), maxChunkId.end());
+
+                // update the chunk dir
+                for(auto cc : maxChunkId) {
+                    chunkDir /= std::to_string(cc);
+                }
+
+                // check if we are already at the lowest chunk level
+                // and if we are, return
+                if(fs::is_regular_file(chunkDir)) {
+                    // need to reverse due to n5 axis ordering
+                    std::reverse(maxOut.begin(), maxOut.end());
+                    return;
+                }
+            }
+
+            // we need to wrap std::max in a lambda and a std::function to pass it to `iterateChunks`
+            std::function<size_t (size_t, size_t)> maxComp = [](size_t a, size_t b) {
+                return std::max(a, b);
+            };
+
+            // starting from our current chunk position, find the downstream chunk with
+            // lowest indices
+            while(true) {
+                // we need to pass something that is definetely bigger than any chunk id
+                // as initial value here
+                size_t chunkId = iterateChunks(chunkDir, 0, maxComp);
+                maxOut.push_back(chunkId);
+                chunkDir /= std::to_string(chunkId);
+                // we need to check if the next chunkDir is still a directory
+                // or already a chunk file (and break)
+                if(fs::is_regular_file(chunkDir)) {
+                    break;
+                }
+            }
+            // otherwise, we first need to list all chunks at the level corresponding to
+            // the query dimension, find the lowest entry and then open up the sub directories
+            // of this chunk
+
+            // need to reverse due to n5 axis ordering
+            std::reverse(maxOut.begin(), maxOut.end());
         }
 
 
     private:
 
+        inline void listChunks(const unsigned dim, const fs::path & chunkDir, std::vector<types::ShapeType> & chunkList) const {
+            fs::recursive_directory_iterator dir(chunkDir), end;
+            types::ShapeType chunkId(dim + 1);
+            unsigned currentLevel;
+            // recursive directory iterator iterates depth first
+            // but thanks to level, we don't need to rely on this
+            while(dir != end) {
+
+                // if we are at the required depth, we don't open the directory further
+                // and we push back the chunk id
+                currentLevel = dir.level();
+
+                if(currentLevel >= dim) {
+
+                    // with this, we do not open the subfolders in iteration
+                    dir.no_push();
+                    int ii = 0;
+                    // starting from the current chunk path, we walk up the filepath,
+                    // until we hit the n5 root directory
+                    fs::path chunkPath(*dir);
+                    bool validChunk = true;
+
+                    while(true) {
+                        // we try to compare to this chunk index, however the file might not be
+                        // a chunk folder / file, in that case stoull will fail,
+                        // in this case we will invalidate the chunk
+                        try {
+                            chunkId[ii] = std::stoull(chunkPath.leaf().filename().string());
+                        } catch(std::invalid_argument) {
+                            validChunk = false;
+                            break;
+                        }
+                        if(currentLevel <= 0) {
+                            break;
+                        }
+                        ++ii;
+                        --currentLevel;
+                        chunkPath = chunkPath.parent_path();
+                    }
+
+                    if(validChunk) {
+                        std::reverse(chunkId.begin(), chunkId.end());
+                        // push back this chunk folder to the chunk list
+                        chunkList.emplace_back(chunkId);
+                    }
+                }
+                ++dir;
+            }
+        }
+
         // go through all chunks in this directory and return the chunk that is optimal w.r.t compare (max or min)
-        inline size_t iterateChunks(const fs::path & chunkDir, const size_t init, std::function<size_t (size_t, size_t)> compare) {
+        inline size_t iterateChunks(const fs::path & chunkDir, const size_t init, std::function<size_t (size_t, size_t)> compare) const {
             fs::directory_iterator it(chunkDir);
             size_t ret = init;
             for(; it != fs::directory_iterator(); ++it) {
-               ret = compare(ret, std::stoull(it->path().filename().string()));
+                // we try to compare to this chunk index, however the file might not be
+                // a chunk folder / file, in that case stoull will fail, and we just continue
+                try {
+                    ret = compare(ret, std::stoull(it->path().filename().string()));
+                } catch(std::invalid_argument) {
+                    continue;
+                }
             }
             return ret;
         }

@@ -32,11 +32,16 @@ namespace compression {
 
             // resize the out data to input size
             dataOut.clear();
-            dataOut.resize(sizeIn);
+            dataOut.reserve(sizeIn);
+
+            // we need an outbuffer with magic chunk size
+            std::vector<T> outbuffer(32768);
 
             // init the zlib stream
             if(useZlibEncoding_) {
-                if(deflateInit(&zs, clevel_) != Z_OK){throw(std::runtime_error("Initializing zLib deflate failed"));}
+                if(deflateInit(&zs, clevel_) != Z_OK){
+                    throw(std::runtime_error("Initializing zLib deflate failed"));
+                }
             } else {
                 if(deflateInit2(&zs, clevel_, Z_DEFLATED, gzipWindowsize + 16, gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
@@ -50,18 +55,24 @@ namespace compression {
 
             // let zlib compress the bytes blockwise
             int ret;
-            size_t currentPosition = 0;
+            //size_t currentPosition = 0;
+            size_t prevOutBytes = 0;
+            size_t bytesCompressed, endPosition;
             do {
                 // set the stream out-pointer to the current position of the out-data
                 // and set the available out size to the remaining size in the vector not written at
-                //zs.next_out = reinterpret_cast<Bytef*>(&dataOut[currentPosition]);
-                zs.next_out = (Bytef*) &dataOut[currentPosition];
-                zs.avail_out = std::distance(dataOut.begin() + currentPosition, dataOut.end()) * sizeof(T);
+
+                zs.next_out = (Bytef*) &outbuffer[0];
+                zs.avail_out = outbuffer.size() * sizeof(T);
 
                 ret = deflate(&zs, Z_FINISH);
+                bytesCompressed = zs.total_out - prevOutBytes;
+                prevOutBytes = zs.total_out;
 
-                // get the current position in the out vector
-                currentPosition = zs.total_out / sizeof(T);
+                // FIXME this is probably slow.... we could do float division instead and then
+                // cast back ?!
+                endPosition = bytesCompressed / sizeof(T) + bytesCompressed % sizeof(T);
+                dataOut.insert(dataOut.end(), outbuffer.begin(), outbuffer.begin() + endPosition);
 
             } while(ret == Z_OK);
 
@@ -72,8 +83,6 @@ namespace compression {
     		    oss << "Exception during zlib compression: (" << ret << ") " << zs.msg;
     		    throw(std::runtime_error(oss.str()));
     		}
-
-            dataOut.resize(currentPosition);
 
         }
 
@@ -86,9 +95,12 @@ namespace compression {
 
             // init the zlib stream
             if(useZlibEncoding_) {
-                if(inflateInit(&zs) != Z_OK){throw(std::runtime_error("Initializing zLib inflate failed"));}
+                if(inflateInit(&zs) != Z_OK){
+                    throw(std::runtime_error("Initializing zLib inflate failed"));
+                }
             } else {
-                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){throw(std::runtime_error("Initializing zLib inflate failed"));}
+                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){
+                    throw(std::runtime_error("Initializing zLib inflate failed"));}
             }
 
             // set the stream input to the beginning of the input data
@@ -115,13 +127,11 @@ namespace compression {
 
             inflateEnd(&zs);
 
-            // FIXME for some reasion this always failes with a -5 error (Z_BUF_ERROR)
-            // but the tests seem to work just fine...
-			//if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
-    		//	std::ostringstream oss;
-    		//	oss << "Exception during zlib decompression: (" << ret << ") " << zs.msg;
-    		//	throw(std::runtime_error(oss.str()));
-    		//}
+			if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
+    			std::ostringstream oss;
+    			oss << "Exception during zlib decompression: (" << ret << ") " << zs.msg;
+    			throw(std::runtime_error(oss.str()));
+    		}
 		}
 
         virtual types::Compressor type() const {

@@ -28,25 +28,28 @@ class Base(object):
         fill_value=0,
         compressor='blosc',  # TODO change default value depending on zarr / n5
         codec='lz4',  # TODO change default value depending on zarr / n5
-        level=5,
+        level=4,
         shuffle=1
     ):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
-        return Dataset.create_dataset(
-            path, dtype, shape, chunks, self.is_zarr, fill_value, compressor, codec, level, shuffle
-        )
+        return Dataset.create_dataset(path, dtype, shape,
+                                      chunks, self.is_zarr,
+                                      fill_value, compressor,
+                                      codec, level, shuffle)
 
     def is_group(self, path):
         if self.is_zarr:
-            return os.path.exists(
-                os.path.join(path, '.zgroup')
-            )
+            return os.path.exists(os.path.join(path, '.zgroup'))
         else:
-            with open(os.path.join(path, 'attributes.json'), 'r') as f:
+            meta_path = os.path.join(path, 'attributes.json')
+            if not os.path.exists(meta_path):
+                return True
+            with open(meta_path, 'r') as f:
                 # attributes for n5 file can be empty which cannot be parsed by json
                 try:
                     attributes = json.load(f)
                 except ValueError:
                     attributes = {}
+            # The dimensions key is only present in a dataset
             return 'dimensions' not in attributes

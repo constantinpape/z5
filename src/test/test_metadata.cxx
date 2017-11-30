@@ -91,7 +91,9 @@ namespace z5 {
             ASSERT_EQ(metadata.chunkShape[i], jN5["blockSize"][i]);
             ASSERT_EQ(metadata.shape[i], jN5["dimensions"][i]);
         }
+        #ifdef WITH_ZLIB
         ASSERT_EQ(metadata.compressor, types::zlib);
+        #endif
         ASSERT_EQ(metadata.codec, jN5["compressionType"]);
         ASSERT_EQ(metadata.dtype, types::n5ToDtype[jN5["dataType"]]);
     }
@@ -176,7 +178,9 @@ namespace z5 {
             ASSERT_EQ(metaRead.chunkShape[i], jN5["blockSize"][i]);
             ASSERT_EQ(metaRead.shape[i], jN5["dimensions"][i]);
         }
+        #ifdef WITH_ZLIB
         ASSERT_EQ(metaRead.compressor, types::zlib);
+        #endif
         ASSERT_EQ(metaRead.codec, "gzip");
         ASSERT_EQ(metaRead.dtype, types::n5ToDtype[jN5["dataType"]]);
     }

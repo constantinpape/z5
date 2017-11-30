@@ -27,8 +27,10 @@ echo "Io Zarr"
 ./io/test_io_zarr
 
 echo "Running Multiarray Tests"
-echo "Marray Tests"
-./multiarray/test_marray
+if [ -f ./multiarray/test_marray ]; then
+    echo "Marray Tests"
+    ./multiarray/test_marray
+fi
 
 echo "Running Zarr Tests"
 cd test_zarr

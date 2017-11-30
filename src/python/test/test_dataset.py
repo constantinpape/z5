@@ -1,4 +1,5 @@
 import unittest
+import sys
 import numpy as np
 import os
 from shutil import rmtree
@@ -31,23 +32,26 @@ class TestDataset(unittest.TestCase):
             rmtree('array.n5')
 
     def test_ds_open_empty_zarr(self):
+        print("open empty zarr array")
         ds = self.ff_zarr['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())
 
     def test_ds_open_empty_n5(self):
+        print("open empty n5 array")
         ds = self.ff_n5['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())
 
     def test_ds_zarr(self):
-        for dtype in (
-            'int8', 'int16', 'int32', 'int64',
-            'uint8', 'uint16', 'uint32', 'uint64',
-            'float32', 'float64'
-        ):
+        dtypes = ('int8', 'int16', 'int32', 'int64',
+                  'uint8', 'uint16', 'uint32', 'uint64',
+                  'float32', 'float64')
+        dtypes = ('int32',)
+
+        for dtype in dtypes:
             print("Running Zarr-Test for %s" % dtype)
             ds = self.ff_zarr.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
@@ -59,18 +63,23 @@ class TestDataset(unittest.TestCase):
             self.assertTrue(np.allclose(out_array, in_array))
 
     def test_ds_n5(self):
-        for dtype in (
-            'int8', 'int16', 'int32', 'int64',
-            'uint8', 'uint16', 'uint32', 'uint64',
-            'float32', 'float64'
-        ):
+        dtypes = ('int8', 'int16', 'int32', 'int64',
+                  'uint8', 'uint16', 'uint32', 'uint64',
+                  'float32', 'float64')
+        dtypes = ('int32',)
+
+        for dtype in dtypes:
             print("Running N5-Test for %s" % dtype)
             ds = self.ff_n5.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
+            print("Writing ds...")
             ds[:] = in_array
+            print("...done")
+            print("Reading ds...")
             out_array = ds[:]
+            print("...done")
             self.assertEqual(out_array.shape, in_array.shape)
             self.assertTrue(np.allclose(out_array, in_array))
 

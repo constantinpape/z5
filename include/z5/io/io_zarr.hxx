@@ -27,7 +27,6 @@ namespace io {
 
             // if the chunk exists, we read it
             if(chunk.exists()) {
-                
 
                 // this might speed up the I/O by decoupling C++ buffers from C buffers
                 std::ios_base::sync_with_stdio(false);
@@ -36,7 +35,6 @@ namespace io {
                 file.seekg(0, std::ios::end);
                 size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
-                
 
                 // resize the data vector
                 size_t vectorSize = fileSize / sizeof(T) + (fileSize % sizeof(T) == 0 ? 0 : sizeof(T));
@@ -55,23 +53,23 @@ namespace io {
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const std::vector<T> & data) const {
+        inline void write(const handle::Chunk & chunk, const T * data, const size_t chunkSize) const {
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
-            file.write((char*) &data[0], data.size() * sizeof(T));
+            file.write((char*) data, chunkSize * sizeof(T));
             file.close();
         }
 
         inline void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
         inline size_t getChunkSize(const handle::Chunk &) const {}
-        
-        inline void findMinimumChunk(types::ShapeType & minOut, const fs::path &, const size_t) {
+
+        inline void findMinimumChunk(const unsigned, const fs::path &, const size_t, types::ShapeType & minOut) const {
             std::cout << "WARNING: findMinimumChunk not implemented for zarr, returning zeros" << std::endl;
             minOut.push_back(0);
         }
-        
-        inline void findMaximumChunk(types::ShapeType & maxOut, const fs::path &) {
+
+        inline void findMaximumChunk(const unsigned, const fs::path &, types::ShapeType & maxOut) const {
             std::cout << "WARNING: findMaximumChunk not implemented for zarr, returning zeros" << std::endl;
             maxOut.push_back(0);
         }

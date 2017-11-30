@@ -67,7 +67,6 @@ namespace z5 {
         const int compressorLevel=5,
         const int compressorShuffle=1
     ) {
-
         // get the internal data type
         types::Datatype internalDtype;
         try {

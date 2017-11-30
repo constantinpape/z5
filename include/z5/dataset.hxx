@@ -76,11 +76,10 @@ namespace z5 {
         virtual void getCodec(std::string &) const = 0;
         virtual const handle::Dataset & handle() const = 0;
 
-        // TODO we need to properly define what we want here
         // find minimum / maximum existing coordinates
         // corresponding to the coordinates of the min / max chunk that was written
-        //virtual void findMinimumCoordinate(types::ShapeType &);
-        //virtual void findMaximumCoordinate(types::ShapeType &);
+        virtual void findMinimumCoordinates(const unsigned, types::ShapeType &) const = 0;
+        virtual void findMaximumCoordinates(const unsigned, types::ShapeType &) const = 0;
     };
 
 
@@ -311,24 +310,29 @@ namespace z5 {
         };
         virtual const handle::Dataset & handle() const {return handle_;}
 
-        // TODO we need to properly define what we want here !!!
-        // TODO need to handle the case if no chunks are existing
         // find minimum / maximum existing coordinates
         // corresponding to the coordinates of the min / max chunk that was written
-        //virtual inline void findMinimumCoordinate(types::ShapeType & minOut) {
-        //    io_->findMinumumChunk(minOut, handle_.path(), numberOfChunks_);
-        //    // multiply with chunk shape
-        //    for(int d = 0; d < chunkShape_.size(); ++d) {
-        //        minOut[d] *= chunkShape_[d];
-        //    }
-        //}
-        //virtual inline void findMaximumCoordinate(types::ShapeType & maxOut) {
-        //    io_->findMaximumChunk(maxOut, handle_.path());
-        //    // multiply with chunk shape and check if it exceeds the maximum chunk shape
-        //    for(int d = 0; d < chunkShape_.size(); ++d) {
-        //        minOut[d] *= chunkShape_[d];
-        //    }
-        //}
+        virtual inline void findMinimumCoordinates(const unsigned dim, types::ShapeType & minOut) const {
+            // TODO check that the array is non-empty and that the dimension is valid
+            io_->findMinimumChunk(dim, handle_.path(), numberOfChunks_, minOut);
+            // multiply with chunk shape
+            for(int d = 0; d < chunkShape_.size(); ++d) {
+                minOut[d] *= chunkShape_[d];
+            }
+        }
+
+        virtual inline void findMaximumCoordinates(const unsigned dim, types::ShapeType & maxOut) const {
+            // TODO check that the array is non-empty and that the dimension is valid
+            io_->findMaximumChunk(dim, handle_.path(), maxOut);
+            // multiply with chunk shape and check if it exceeds the maximum chunk shape
+            for(int d = 0; d < chunkShape_.size(); ++d) {
+                maxOut[d] *= chunkShape_[d];
+                maxOut[d] += chunkShape_[d];
+                if(maxOut[d] > shape_[d]) {
+                    maxOut[d] = shape_[d];
+                }
+            }
+        }
 
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
@@ -413,18 +417,33 @@ namespace z5 {
                 std::vector<T> dataTmp(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
 
-                // compress the data
-                compressor_->compress(&dataTmp[0], dataOut, chunkSize);
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
+                if(compressor_->type() == 0) {
+                    io_->write(chunk, &dataTmp[0], dataTmp.size());
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    compressor_->compress(&dataTmp[0], dataOut, chunkSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size());
+                }
 
             } else {
 
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
                 // compress the data
-                compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
-
+                if(compressor_->type() == 0) {
+                    io_->write(chunk, (const T*) dataIn, chunkSize);
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size());
+                }
             }
-
-            // write the data
-            io_->write(chunk, dataOut);
         }
 
 
@@ -442,7 +461,17 @@ namespace z5 {
             if(chunkExists) {
 
                 size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-                compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
+
+                // we don't need to decompress for raw compression
+                if(compressor_->type() == 0) {
+                    // FIXME for some reason, we need to copy here
+                    // however, it turns out that the memcopys are orders of 
+                    // magnitude faster than anything else anyway
+                    std::copy(dataTmp.begin(), dataTmp.end(), static_cast<T*>(dataOut));
+                    //dataOut = &dataTmp[0];
+                } else {
+                    compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
+                }
 
                 // reverse the endianness for N5 data
                 // TODO actually check that the file endianness is different than the system endianness

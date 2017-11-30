@@ -42,3 +42,15 @@ class AttributeManager(object):
         attributes[key] = item
         with open(self.path, 'w') as f:
             json.dump(attributes, f)
+
+    def items(self):
+        with open(self.path, 'r') as f:
+            return json.load(f).items()
+
+    def keys(self):
+        with open(self.path, 'r') as f:
+            return json.load(f).keys()
+
+    def values(self):
+        with open(self.path, 'r') as f:
+            return json.load(f).values()

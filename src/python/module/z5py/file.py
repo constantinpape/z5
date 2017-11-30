@@ -15,8 +15,6 @@ class File(Base):
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
             is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
-            is_n5 = os.path.exists(os.path.join(path, 'attributes.json'))
-            assert is_zarr != is_n5, "z5py.File: existing file does not have a valid format"
 
             # automatically infering the format
             if use_zarr_format is None:
@@ -24,8 +22,6 @@ class File(Base):
             # file was opened as zarr file
             elif use_zarr_format:
                 assert is_zarr, "z5py.File: can't open n5 file in zarr format"
-            else:
-                assert is_n5, "z5py.File: can't open zarr file in n5 format"
 
         # otherwise create a new file
         else:
@@ -33,8 +29,9 @@ class File(Base):
                 "z5py.File: Cannot infer the file format for non existing file"
             os.mkdir(path)
             meta_file = os.path.join(path, '.zgroup' if use_zarr_format else 'attributes.json')
-            with open(meta_file, 'w') as f:
-                if use_zarr_format:
+            # we only need to write meta data for the zarr format
+            if use_zarr_format:
+                with open(meta_file, 'w') as f:
                     json.dump({'zarr_format': 2}, f)
 
         super(File, self).__init__(path, use_zarr_format)

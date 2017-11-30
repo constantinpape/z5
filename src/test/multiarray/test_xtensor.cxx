@@ -1,9 +1,10 @@
-#ifdef WITH_MARRAY
-
 #include "gtest/gtest.h"
+
 #include <random>
+#include "xtensor/xarray.hpp"
+
 #include "z5/dataset_factory.hxx"
-#include "z5/multiarray/marray_access.hxx"
+#include "z5/multiarray/xtensor_access.hxx"
 
 namespace fs = boost::filesystem;
 
@@ -11,84 +12,87 @@ namespace z5 {
 namespace multiarray {
 
     // fixture for the zarr array test
-    class MarrayTest : public ::testing::Test {
+    class XtensorTest : public ::testing::Test {
 
     protected:
-        MarrayTest() :
+        XtensorTest() :
             pathIntRegular_("int_regular.zr"), pathIntIrregular_("int_irregular.zr"),
             pathFloatRegular_("float_regular.zr"), pathFloatIrregular_("float_irregular.zr"),
+            pathIntRegularN5_("int_regular.n5"), pathIntIrregularN5_("int_irregular.n5"),
+            pathFloatRegularN5_("float_regular.n5"), pathFloatIrregularN5_("float_irregular.n5"),
             shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
         {
         }
 
-        ~MarrayTest() {
+        ~XtensorTest() {
         }
 
-        virtual void SetUp() {
-            // create arrays
-            auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true);
-            auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true);
-            auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true);
-            auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true);
-
-            // write regular test data
-            {
-                const auto & chunks = intReg->chunksPerDimension();
-                const auto & chunkShape = intReg->maxChunkShape();
-                std::vector<int32_t> dataInt(intReg->maxChunkSize(), 42);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            intReg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
-                        }
-                    }
-                }
-
-                std::vector<float> dataFloat(floatReg->maxChunkSize(), 42.);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            floatReg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
-                        }
+        template<class T>
+        void writeData(const std::unique_ptr<Dataset> & ds) {
+            const auto & chunks = ds->chunksPerDimension();
+            const auto & chunkShape = ds->maxChunkShape();
+            std::vector<T> data(ds->maxChunkSize(), 42);
+            for(size_t z = 0; z < chunks[0]; ++z) {
+                for(size_t y = 0; y < chunks[1]; ++y) {
+                    for(size_t x = 0; x < chunks[2]; ++x) {
+                        ds->writeChunk(types::ShapeType({z, y, x}), &data[0]);
                     }
                 }
             }
+        }
 
-            // write irregular test data
+        virtual void SetUp() {
             {
-                const auto & chunks = intIrreg->chunksPerDimension();
-                const auto & chunkShape = intIrreg->maxChunkShape();
-                std::vector<int32_t> dataInt(intIrreg->maxChunkSize(), 42);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            intIrreg->writeChunk(types::ShapeType({x, y, z}), &dataInt[0]);
-                        }
-                    }
-                }
-
-                std::vector<float> dataFloat(floatIrreg->maxChunkSize(), 42.);
-                for(size_t x = 0; x < chunks[0]; ++x) {
-                    for(size_t y = 0; y < chunks[1]; ++y) {
-                        for(size_t z = 0; z < chunks[2]; ++z) {
-                            floatIrreg->writeChunk(types::ShapeType({x, y, z}), &dataFloat[0]);
-                        }
-                    }
-                }
+                // create arrays Zarr
+                auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, 0, "raw");
+                writeData<int>(intReg);
+                auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                writeData<int>(intIrreg);
+                auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, 0, "raw");
+                writeData<float>(floatReg);
+                auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                writeData<float>(floatIrreg);
+            }
+            {
+                // create arrays n5
+                auto intReg = createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, 0, "raw");
+                writeData<int>(intReg);
+                auto intIrreg = createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                writeData<int>(intIrreg);
+                auto floatReg = createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, 0, "raw");
+                writeData<float>(floatReg);
+                auto floatIrreg = createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                writeData<float>(floatIrreg);
             }
         }
 
         virtual void TearDown() {
-            // remove int arrays
-            fs::path ireg(pathIntRegular_);
-            fs::remove_all(ireg);
-            fs::path iirreg(pathIntIrregular_);
-            fs::remove_all(iirreg);
-            // remove float arrays
-            fs::path freg(pathFloatRegular_);
-            fs::remove_all(freg);
-            fs::path firreg(pathFloatIrregular_);
-            fs::remove_all(firreg);
+            // remove zarr paths
+            {
+                // remove int arrays
+                fs::path ireg(pathIntRegular_);
+                fs::remove_all(ireg);
+                fs::path iirreg(pathIntIrregular_);
+                fs::remove_all(iirreg);
+                // remove float arrays
+                fs::path freg(pathFloatRegular_);
+                fs::remove_all(freg);
+                fs::path firreg(pathFloatIrregular_);
+                fs::remove_all(firreg);
+            }
+            // remove n5 paths
+            {
+                // remove int arrays
+                fs::path ireg(pathIntRegularN5_);
+                fs::remove_all(ireg);
+                fs::path iirreg(pathIntIrregularN5_);
+                fs::remove_all(iirreg);
+                // remove float arrays
+                fs::path freg(pathFloatRegularN5_);
+                fs::remove_all(freg);
+                fs::path firreg(pathFloatIrregularN5_);
+                fs::remove_all(firreg);
+            }
         }
 
         template<typename T>
@@ -99,8 +103,8 @@ namespace multiarray {
             {
                 types::ShapeType offset({0, 0, 0});
                 types::ShapeType subShape({20, 20, 20});
-                andres::Marray<T> data(subShape.begin(), subShape.end());
-                readSubarray(array, data, offset.begin());
+                xt::xarray<T> data(subShape);
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < subShape[0]; ++i) {
                     for(int j = 0; j < subShape[1]; ++j) {
@@ -114,8 +118,8 @@ namespace multiarray {
             // load the complete array
             {
                 types::ShapeType offset({0, 0, 0});
-                andres::Marray<T> data(shape.begin(), shape.end());
-                readSubarray(array, data, offset.begin());
+                xt::xarray<T> data(shape);
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -142,6 +146,7 @@ namespace multiarray {
                 y = yy(gen);
                 z = zz(gen);
                 types::ShapeType offset({x, y, z});
+                //types::ShapeType offset({20, 30, 34});
 
                 // draw the shape coordinates
                 std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
@@ -151,18 +156,21 @@ namespace multiarray {
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
                 types::ShapeType shape({sx, sy, sz});
+                //types::ShapeType shape({40, 42, 56});
 
+                //std::cout << "Random Request: " << t << " / " << N << std::endl;
                 //std::cout << "Offset:" << std::endl;
                 //std::cout << x << " " << y << " " << z << std::endl;
                 //std::cout << "Shape:" << std::endl;
                 //std::cout << sx << " " << sy << " " << sz << std::endl;
 
-                andres::Marray<T> data(shape.begin(), shape.end());
-                readSubarray(array, data, offset.begin());
+                xt::xarray<T> data(shape);
+                readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
                         for(int k = 0; k < shape[2]; ++k) {
+                            //std::cout << i << " " << j << " " << k << std::endl;
                             ASSERT_EQ(data(i, j, k), 42);
                         }
                     }
@@ -184,15 +192,15 @@ namespace multiarray {
                 types::ShapeType subShape({20, 20, 20});
 
                 // generate random in data
-                andres::Marray<T> dataIn(subShape.begin(), subShape.end());
+                xt::xarray<T> dataIn(subShape);
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
-                andres::Marray<T> dataOut(subShape.begin(), subShape.end());
-                readSubarray(array, dataOut, offset.begin());
+                xt::xarray<T> dataOut(subShape);
+                readSubarray<T>(array, dataOut, offset.begin());
                 for(int i = 0; i < subShape[0]; ++i) {
                     for(int j = 0; j < subShape[1]; ++j) {
                         for(int k = 0; k < subShape[2]; ++k) {
@@ -207,15 +215,15 @@ namespace multiarray {
                 types::ShapeType offset({0, 0, 0});
 
                 // generate random in data
-                andres::Marray<T> dataIn(shape.begin(), shape.end());
+                xt::xarray<T> dataIn(shape);
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
-                andres::Marray<T> dataOut(shape.begin(), shape.end());
-                readSubarray(array, dataOut, offset.begin());
+                xt::xarray<T> dataOut(shape);
+                readSubarray<T>(array, dataOut, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -256,15 +264,15 @@ namespace multiarray {
                 //std::cout << "Shape:" << std::endl;
                 //std::cout << sx << " " << sy << " " << sz << std::endl;
                 // generate random in data
-                andres::Marray<T> dataIn(shape.begin(), shape.end());
+                xt::xarray<T> dataIn(shape);
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
-                writeSubarray(array, dataIn, offset.begin());
+                writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
-                andres::Marray<T> dataOut(shape.begin(), shape.end());
-                readSubarray(array, dataOut, offset.begin());
+                xt::xarray<T> dataOut(shape);
+                readSubarray<T>(array, dataOut, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
                     for(int j = 0; j < shape[1]; ++j) {
@@ -276,10 +284,16 @@ namespace multiarray {
             }
         }
 
+        // zarr paths
         std::string pathIntRegular_;
         std::string pathIntIrregular_;
         std::string pathFloatRegular_;
         std::string pathFloatIrregular_;
+        // N5 paths
+        std::string pathIntRegularN5_;
+        std::string pathIntIrregularN5_;
+        std::string pathFloatRegularN5_;
+        std::string pathFloatIrregularN5_;
 
         types::ShapeType shape_;
         types::ShapeType chunkShapeRegular_;
@@ -287,97 +301,119 @@ namespace multiarray {
     };
 
 
-    TEST_F(MarrayTest, TestThrow) {
+    TEST_F(XtensorTest, TestThrow) {
         auto array = openDataset(pathIntRegular_);
 
         // check for shape throws #0
         types::ShapeType shape0({120, 120, 120});
         types::ShapeType offset0({0, 0, 0});
-        andres::Marray<int32_t> sub0(shape0.begin(), shape0.end());
-        ASSERT_THROW(readSubarray(array, sub0, offset0.begin()), std::runtime_error);
+        xt::xarray<int32_t> sub0(shape0);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub0, offset0.begin()), std::runtime_error);
 
         // check for shape throws #1
         types::ShapeType shape1({80, 80, 80});
         types::ShapeType offset1({30, 30, 30});
-        andres::Marray<int32_t> sub1(shape1.begin(), shape1.end());
-        ASSERT_THROW(readSubarray(array, sub1, offset1.begin()), std::runtime_error);
+        xt::xarray<int32_t> sub1(shape1);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub1, offset1.begin()), std::runtime_error);
 
         // check for shape throws #2
         types::ShapeType shape2({80, 80, 0});
         types::ShapeType offset2({0, 0, 0});
-        andres::Marray<int32_t> sub2(shape2.begin(), shape2.end());
-        ASSERT_THROW(readSubarray(array, sub2, offset2.begin()), std::runtime_error);
+        xt::xarray<int32_t> sub2(shape2);
+        ASSERT_THROW(readSubarray<int32_t>(array, sub2, offset2.begin()), std::runtime_error);
 
         types::ShapeType shape({80, 80, 80});
         types::ShapeType offset({0, 0, 0});
         // check for dtype throws #0
-        andres::Marray<int64_t> sub64(shape.begin(), shape.end());
-        ASSERT_THROW(readSubarray(array, sub64, offset.begin()), std::runtime_error);
+        xt::xarray<int64_t> sub64(shape);
+        ASSERT_THROW(readSubarray<int64_t>(array, sub64, offset.begin()), std::runtime_error);
 
         // check for dtype throws #1
-        andres::Marray<uint32_t> subu(shape.begin(), shape.end());
-        ASSERT_THROW(readSubarray(array, subu, offset.begin()), std::runtime_error);
+        xt::xarray<uint32_t> subu(shape);
+        ASSERT_THROW(readSubarray<uint32_t>(array, subu, offset.begin()), std::runtime_error);
 
         // check for dtype throws #2
-        andres::Marray<float> subf(shape.begin(), shape.end());
-        ASSERT_THROW(readSubarray(array, subf, offset.begin()), std::runtime_error);
+        xt::xarray<float> subf(shape);
+        ASSERT_THROW(readSubarray<float>(array, subf, offset.begin()), std::runtime_error);
     }
 
-
-    TEST_F(MarrayTest, TestReadIntRegular) {
+    TEST_F(XtensorTest, TestReadIntRegular) {
         // load the regular array and run the test
         auto array = openDataset(pathIntRegular_);
         testArrayRead<int32_t>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathIntRegularN5_);
+        testArrayRead<int32_t>(arrayN5);
     }
 
 
-    TEST_F(MarrayTest, TestReadFloatRegular) {
+    TEST_F(XtensorTest, TestReadFloatRegular) {
         // load the regular array and run the test
         auto array = openDataset(pathFloatRegular_);
         testArrayRead<float>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        testArrayRead<float>(arrayN5);
     }
 
 
-    TEST_F(MarrayTest, TestReadIntIrregular) {
+    TEST_F(XtensorTest, TestReadIntIrregular) {
         // load the regular array and run the test
         auto array = openDataset(pathIntIrregular_);
         testArrayRead<int32_t>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        testArrayRead<int32_t>(arrayN5);
     }
 
 
-    TEST_F(MarrayTest, TestReadFloatIrregular) {
+    TEST_F(XtensorTest, TestReadFloatIrregular) {
         // load the regular array and run the test
         auto array = openDataset(pathFloatIrregular_);
         testArrayRead<float>(array);
+        // load the regular array and run the test
+        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        testArrayRead<float>(arrayN5);
     }
 
 
-    TEST_F(MarrayTest, TestWriteReadIntRegular) {
+    TEST_F(XtensorTest, TestWriteReadIntRegular) {
         auto array = openDataset(pathIntRegular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
+
+        auto arrayN5 = openDataset(pathIntRegularN5_);
+        testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
-    TEST_F(MarrayTest, TestWriteReadFloatRegular) {
+    TEST_F(XtensorTest, TestWriteReadFloatRegular) {
         auto array = openDataset(pathFloatRegular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
+
+        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        testArrayWriteRead<float>(arrayN5, distr);
     }
 
 
-    TEST_F(MarrayTest, TestWriteReadIntIrregular) {
+    TEST_F(XtensorTest, TestWriteReadIntIrregular) {
         auto array = openDataset(pathIntIrregular_);
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
+
+        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
-    TEST_F(MarrayTest, TestWriteReadFloatIrregular) {
+    TEST_F(XtensorTest, TestWriteReadFloatIrregular) {
         auto array = openDataset(pathFloatIrregular_);
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
+
+        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        testArrayWriteRead<float>(arrayN5, distr);
     }
 }
 }
-#endif

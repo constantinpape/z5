@@ -4,232 +4,87 @@
 
 #include "z5/dataset.hxx"
 #include "z5/dataset_factory.hxx"
-#include "z5/multiarray/marray_access.hxx"
-#include "z5/python/converter.hxx"
 #include "z5/groups.hxx"
-#include "z5/broadcast.hxx"
+#include "z5/multiarray/broadcast.hxx"
 
+// for marray numpy bindings
+//#include "z5/multiarray/marray_access.hxx"
+//#include "z5/python/converter.hxx"
+
+#include "z5/multiarray/xtensor_access.hxx"
+
+// for xtensor numpy bindings
+#include "xtensor-python/pyarray.hpp"
+
+namespace py = pybind11;
 
 namespace z5 {
+
+    template<class T>
+    inline void writePySubarray(const Dataset & ds, const xt::pyarray<T> & in, const std::vector<size_t> & roiBegin) {
+        multiarray::writeSubarray<T>(ds, in, roiBegin.begin());
+    }
+
+    template<class T>
+    inline void readPySubarray(const Dataset & ds, xt::pyarray<T> & out, const std::vector<size_t> & roiBegin) {
+        multiarray::readSubarray<T>(ds, out, roiBegin.begin());
+    }
+
+    template<class T>
+    inline void writePyScalar(const Dataset & ds,
+                              const std::vector<size_t> & roiBegin,
+                              const std::vector<size_t> & roiShape,
+                              const T val) {
+        multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+    }
+
+
+    template<class T>
+    void exportIoT(py::module & module) {
+
+        // export writing subarrays
+        module.def("write_subarray",
+                   &writePySubarray<T>,
+                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export reading subarrays
+        module.def("read_subarray",
+                   &readPySubarray<T>,
+                   py::arg("ds"), py::arg("out").noconvert(), py::arg("roi_begin"),
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export writing scalars
+        module.def("write_scalar",
+                   &writePyScalar<T>,
+                   py::arg("ds"), py::arg("roi_begin"), py::arg("roi_shape"), py::arg("val").noconvert(),
+                   py::call_guard<py::gil_scoped_release>());
+    }
+
 
     void exportDataset(py::module & module) {
 
         auto dsClass = py::class_<Dataset>(module, "DatasetImpl");
 
-        // TODO do we really need to provide read / write for all datatypes ? / is there a way to
-        // do the dtype inference at runtime
-        // TODO export chunk access ?
         dsClass
-
             //
-            // writers
+            // find min and max chunks along given dimension
             //
-            // int8
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<int8_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
+            .def("findMinimumCoordinates", [](const Dataset & ds, const unsigned dim){
+                types::ShapeType chunk;
+                {
+                    py::gil_scoped_release allowThreads;
+                    ds.findMinimumCoordinates(dim, chunk);
+                }
+                return chunk;
             })
-            // int16
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<int16_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // int32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<int32_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // int64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<int64_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // uint8
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<uint8_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // uint16
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<uint16_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // uint32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<uint32_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // uint64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<uint64_t> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // float32
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<float> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-            // float64
-            .def("write_subarray", [](
-                const Dataset & ds,
-                const andres::PyView<double> in,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::writeSubarray(ds, in, roiBegin.begin());
-            })
-
-            //
-            // readers
-            //
-            // int 8
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<int8_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // int 16
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<int16_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // int 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<int32_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // int 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<int64_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // uint 8
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<uint8_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // uint 16
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<uint16_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // uint 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<uint32_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // uint 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<uint64_t> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // float 32
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<float> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-            // flat 64
-            .def("read_subarray", [](
-                const Dataset & ds,
-                andres::PyView<double> out,
-                const std::vector<size_t> & roiBegin
-            ){
-                py::gil_scoped_release allowThreads;
-                multiarray::readSubarray(ds, out, roiBegin.begin());
-            })
-
-            //
-            // scalar broadcsting
-            //
-            // TODO which ones do we have to define here?
-            .def("write_scalar", [](
-                const Dataset & ds,
-                const std::vector<size_t> & roiBegin,
-                const std::vector<size_t> & roiShape,
-                int val
-            ){
-                py::gil_scoped_release allowThreads;
-                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
-            })
-            .def("write_scalar", [](
-                const Dataset & ds,
-                const std::vector<size_t> & roiBegin,
-                const std::vector<size_t> & roiShape,
-                double val
-            ){
-                py::gil_scoped_release allowThreads;
-                writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+            .def("findMaximumCoordinates", [](const Dataset & ds, const unsigned dim){
+                types::ShapeType chunk;
+                {
+                    py::gil_scoped_release allowThreads;
+                    ds.findMaximumCoordinates(dim, chunk);
+                }
+                return chunk;
             })
 
             //
@@ -242,6 +97,10 @@ namespace z5 {
             .def_property_readonly("size", [](const Dataset & ds){return ds.size();})
             .def_property_readonly("dtype", [](const Dataset & ds){return types::dtypeToN5[ds.getDtype()];})
             .def_property_readonly("is_zarr", [](const Dataset & ds){return ds.isZarr();})
+            .def_property_readonly("number_of_chunks", [](const Dataset & ds){return ds.numberOfChunks();})
+            .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){
+                return ds.chunksPerDimension();
+            })
 
             // TODO
             // compression, compression_opts, fillvalue
@@ -251,7 +110,8 @@ namespace z5 {
             return openDataset(path);
         });
 
-        // TODO params
+
+        // TODO params !!!
         module.def(
             "create_dataset",[](
             const std::string & path,
@@ -269,6 +129,21 @@ namespace z5 {
                 path, dtype, shape, chunkShape, createAsZarr, fillValue, compressor, codec, compressorLevel, compressorShuffle
             );
         });
+
+        // export I/O for all dtypes
+        // integer types
+        exportIoT<int8_t>(module);
+        exportIoT<int16_t>(module);
+        exportIoT<int32_t>(module);
+        exportIoT<int64_t>(module);
+        // unsigned integer types
+        exportIoT<uint8_t>(module);
+        exportIoT<uint16_t>(module);
+        exportIoT<uint32_t>(module);
+        exportIoT<uint64_t>(module);
+        // float types
+        exportIoT<float>(module);
+        exportIoT<double>(module);
     }
 
 
