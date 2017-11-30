@@ -7,6 +7,17 @@ from .attribute_manager import AttributeManager
 
 class Dataset(object):
 
+    dtype_dict = {np.dtype('uint8'): 'uint8',
+                  np.dtype('uint16'): 'uint16',
+                  np.dtype('uint32'): 'uint32',
+                  np.dtype('uint64'): 'uint64',
+                  np.dtype('int8'): 'int8',
+                  np.dtype('int16'): 'int16',
+                  np.dtype('int32'): 'int32',
+                  np.dtype('int64'): 'int64',
+                  np.dtype('float32'): 'float32',
+                  np.dtype('float64'): 'float64'}
+
     # FIXME for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
@@ -30,7 +41,14 @@ class Dataset(object):
         elif not is_zarr and compressor not in cls.compressors_n5:
             compressor = cls.n5_default_compressor
 
-        return cls(path, create_dataset(path, dtype,
+        # support for numpy datatypes
+        if not isinstance(dtype, str):
+            assert dtype in cls.dtype_dict, "z5py.Dataset: invalid data type"
+            dtype_ = cls.dtype_dict[dtype]
+        else:
+            dtype_ = dtype
+
+        return cls(path, create_dataset(path, dtype_,
                                         shape, chunks,
                                         is_zarr, fill_value,
                                         compressor, codec,

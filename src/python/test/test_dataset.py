@@ -1,4 +1,5 @@
 import unittest
+import sys
 import numpy as np
 import os
 from shutil import rmtree
@@ -30,14 +31,14 @@ class TestDataset(unittest.TestCase):
         if(os.path.exists('array.n5')):
             rmtree('array.n5')
 
-    def _test_ds_open_empty_zarr(self):
+    def test_ds_open_empty_zarr(self):
         print("open empty zarr array")
         ds = self.ff_zarr['test']
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())
 
-    def _test_ds_open_empty_n5(self):
+    def test_ds_open_empty_n5(self):
         print("open empty n5 array")
         ds = self.ff_n5['test']
         out = ds[:]
