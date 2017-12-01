@@ -69,11 +69,14 @@ namespace z5 {
         virtual const types::ShapeType & chunksPerDimension() const = 0;
         virtual size_t chunksPerDimension(const unsigned) const = 0;
 
-        // dtype
+        // dtype and compression options
         virtual types::Datatype getDtype() const = 0;
         virtual bool isZarr() const = 0;
         virtual types::Compressor getCompressor() const = 0;
+        virtual void getCompressor(std::string &) const = 0;
         virtual void getCodec(std::string &) const = 0;
+        virtual int getCLevel() const = 0;
+        virtual int getCShuffle() const = 0;
         virtual const handle::Dataset & handle() const = 0;
 
         // find minimum / maximum existing coordinates
@@ -301,14 +304,23 @@ namespace z5 {
             return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<size_t>());
         }
 
-        // stuff
+        // datatype, format and handle
         virtual types::Datatype getDtype() const {return dtype_;}
         virtual bool isZarr() const {return isZarr_;}
+        virtual const handle::Dataset & handle() const {return handle_;}
+
+        // compression options
         virtual types::Compressor getCompressor() const {return compressor_->type();}
+        virtual void getCompressor(std::string & compressor) const {
+            auto compressorType = getCompressor();
+            compressor = isZarr_ ? types::compressorToZarr[compressorType] : types::compressorToN5[compressorType];
+        }
+        //
         virtual void getCodec(std::string & codec) const {
             compressor_->getCodec(codec);
         };
-        virtual const handle::Dataset & handle() const {return handle_;}
+        virtual int getCLevel() const {return compressor_->getLevel();}
+        virtual int getCShuffle() const {return compressor_->getShuffle();}
 
         // find minimum / maximum existing coordinates
         // corresponding to the coordinates of the min / max chunk that was written

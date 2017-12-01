@@ -94,6 +94,13 @@ class Dataset(object):
     def number_of_chunks(self):
         return self._impl.number_of_chunks
 
+    @property
+    def compression_options(self):
+        return {'compressor': self._impl.compressor,
+                'codec': self._impl.codec,
+                'level': self._impl.level,
+                'shuffle': self._impl.shuffle}
+
     def __len__(self):
         return self._impl.len
 

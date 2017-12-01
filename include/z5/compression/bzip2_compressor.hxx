@@ -168,6 +168,11 @@ namespace compression {
             codec = "bzip2";
         }
 
+        virtual int getLevel() const {
+            return clevel_;
+        }
+
+
     private:
         void init(const DatasetMetadata & metadata) {
             // TODO clevel = compressorLevel -1 ???

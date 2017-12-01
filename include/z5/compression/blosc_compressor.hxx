@@ -65,6 +65,14 @@ namespace compression {
             codec = compressor_;
         }
 
+        virtual int getLevel() const {
+            return clevel_;
+        }
+
+        virtual int getShuffle() const {
+            return shuffle_;
+        }
+
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {
