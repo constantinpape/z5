@@ -43,6 +43,10 @@ class AttributeManager(object):
         with open(self.path, 'w') as f:
             json.dump(attributes, f)
 
+    def __contains__(self, item):
+        with open(self.path, 'r') as f:
+            return item in json.load(f)
+
     def items(self):
         with open(self.path, 'r') as f:
             return json.load(f).items()
