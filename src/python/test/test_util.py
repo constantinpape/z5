@@ -46,6 +46,8 @@ class TestUtil(unittest.TestCase):
         out_file = z5py.File(out_path, use_zarr_format=False)
         ds_out = out_file['data']
         data_out = ds_out[:]
+        self.assertEqual(data_out.shape, data.shape)
+        self.assertEqual(ds_out.chunks, new_chunks)
         self.assertTrue(np.allclose(data, data_out))
 
 
