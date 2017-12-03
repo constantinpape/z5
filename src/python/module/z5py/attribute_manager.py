@@ -4,7 +4,7 @@ import os
 
 class AttributeManager(object):
 
-    n5_keys = ('dimensions', 'blockSize', 'dataType', 'compresssionType')
+    n5_keys = ('dimensions', 'blockSize', 'dataType', 'compressionType')
 
     def __init__(self, path, is_zarr):
         self.path = os.path.join(path, '.zattrs' if is_zarr else 'attributes.json')
@@ -43,18 +43,33 @@ class AttributeManager(object):
         with open(self.path, 'w') as f:
             json.dump(attributes, f)
 
+    def _get_attributes(self):
+        try:
+            with open(self.path, 'r') as f:
+                attrs = json.load(f)
+        except ValueError:
+            attrs = {}
+        return attrs
+
+    def _get_n5_attributes(self):
+        attrs = self._get_attributes()
+        for key in self.n5_keys:
+            if key in attrs:
+                del attrs[key]
+        return attrs
+
     def __contains__(self, item):
-        with open(self.path, 'r') as f:
-            return item in json.load(f)
+        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
+        return item in attrs
 
     def items(self):
-        with open(self.path, 'r') as f:
-            return json.load(f).items()
+        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
+        return attrs.items()
 
     def keys(self):
-        with open(self.path, 'r') as f:
-            return json.load(f).keys()
+        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
+        return attrs.keys()
 
     def values(self):
-        with open(self.path, 'r') as f:
-            return json.load(f).values()
+        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
+        return attrs.values()
