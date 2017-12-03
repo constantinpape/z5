@@ -49,3 +49,9 @@ def rechunk(in_path,
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         tasks = [tp.submit(write_single_chunk, chunk_ids) for chunk_ids in all_chunk_ids]
         [t.result() for t in tasks]
+
+    # copy attributes
+    in_attrs = ds_in.attrs
+    out_attrs = ds_out.attrs
+    for key, val in in_attrs.items():
+        out_attrs[key] = val
