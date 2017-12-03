@@ -162,8 +162,10 @@ class Dataset(object):
 
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
-        self._impl.write_subarray(start, data)
+        write_subarray(self._impl, start, data)
 
     # expose the impl read subarray functionality
     def read_subarray(self, start, stop):
-        return self._impl.read_subarray(start, stop)
+        shape = tuple(sto - sta for sta, sto in zip(start, stop))
+        out = np.empty(shape, dtype=self.dtype)
+        return read_subarray(self._impl, out, start)
