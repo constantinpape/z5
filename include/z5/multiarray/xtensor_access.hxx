@@ -67,6 +67,8 @@ namespace multiarray {
             // -> we can read all the data from the chunk
             if(completeOvlp) {
                 copyBufferToView(buffer, view, out.strides());
+                //auto bufferView = xt::adapt(buffer, view.shape());
+                //view = bufferView;
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially

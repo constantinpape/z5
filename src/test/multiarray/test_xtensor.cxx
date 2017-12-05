@@ -103,12 +103,14 @@ namespace multiarray {
             {
                 types::ShapeType offset({0, 0, 0});
                 types::ShapeType subShape({20, 20, 20});
+                //types::ShapeType subShape({10, 10, 10});
                 xt::xarray<T> data(subShape);
                 readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < subShape[0]; ++i) {
                     for(int j = 0; j < subShape[1]; ++j) {
                         for(int k = 0; k < subShape[2]; ++k) {
+                            //std::cout << i << " " << j << " " << " " << k << std::endl;
                             ASSERT_EQ(data(i, j, k), 42);
                         }
                     }

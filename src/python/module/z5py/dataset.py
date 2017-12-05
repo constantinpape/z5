@@ -152,6 +152,7 @@ class Dataset(object):
 
         # broadcast scalar
         else:
+            # FIXME this seems to broken; fails with RuntimeError('WrongRequest Shape')
             write_scalar(self._impl, roi_begin, list(shape), item)
 
     def find_minimum_coordinates(self, dim):
