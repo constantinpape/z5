@@ -2,7 +2,7 @@
 
 #include "xtensor/xarray.hpp"
 #include "xtensor/xadapt.hpp"
-#include "xtensor/xstridedview.hpp"
+#include "xtensor/xstrided_view.hpp"
 
 
 namespace z5 {
@@ -115,14 +115,14 @@ namespace multiarray {
 
 
     // copy the data from the buffer into the view
-    // via xadapt and assignment operator
+    // via adapt and assignment operator
     // TODO implement ND buffer copy, following this idea:
     // https://github.com/saalfeldlab/n5-imglib2/blob/master/src/main/java/org/janelia/saalfeldlab/n5/imglib2/N5Utils.java#L501-L529
     template<typename T, typename VIEW>
     inline void copyBufferToViewND(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession) {
         auto & view = viewExperession.derived_cast();
-        auto buffView = xt::xadapt(buffer, view.shape());
+        auto buffView = xt::adapt(buffer, view.shape());
         view = buffView;
     }
 

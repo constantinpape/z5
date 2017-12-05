@@ -5,7 +5,7 @@
 #include "z5/multiarray/xtensor_util.hxx"
 
 #include "xtensor/xarray.hpp"
-#include "xtensor/xstridedview.hpp"
+#include "xtensor/xstrided_view.hpp"
 #include "xtensor/xadapt.hpp"
 
 // free functions to read and write from xtensor multiarrays
@@ -72,7 +72,7 @@ namespace multiarray {
             // -> we can read the chunk data only partially
             else {
                 // get a view to the part of the buffer we are interested in
-                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
@@ -140,7 +140,7 @@ namespace multiarray {
                 ds.readChunk(chunkId, &buffer[0]);
 
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);

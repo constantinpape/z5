@@ -58,7 +58,7 @@ namespace multiarray {
                 // load the current data into the buffer
                 ds.readChunk(chunkId, &buffer[0]);
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::xadapt(buffer, chunkShape);
+                auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice(fullBuffView);
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
