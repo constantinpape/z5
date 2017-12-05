@@ -75,6 +75,7 @@ namespace multiarray {
         return flatOffset;
     }
 
+    // FIXME N > 3 is segfaulting
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToViewND(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession,
@@ -145,13 +146,14 @@ namespace multiarray {
         auto & view = viewExperession.derived_cast();
         // ND impl doesn't work for 1D
         if(view.dimension() == 1) {
-            std::copy(buffer.begin(), buffer.end(), view.end());
+            std::copy(buffer.begin(), buffer.end(), view.begin());
         } else {
             copyBufferToViewND(buffer, viewExperession, arrayStrides);
         }
     }
 
 
+    // FIXME N > 3 is segfaulting
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBufferND(const xt::xexpression<VIEW> & viewExperession,
                                   std::vector<T> & buffer,
