@@ -43,6 +43,7 @@ class File(Base):
         return Group.make_group(path, self.is_zarr)
 
     def __getitem__(self, key):
+        # FIXME this check is someow broken
         assert key in self, "z5py.File.__getitem__: key does not exxist"
         path = os.path.join(self.path, key)
         if self.is_group(key):

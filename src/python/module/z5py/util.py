@@ -7,6 +7,26 @@ from random import shuffle
 from .file import File
 
 
+# TODO test this
+# ND blocking generator
+def blocking(shape, block_shape):
+    assert len(shape) == len(block_shape)
+    d = 0
+    ndim = len(shape)
+    strides = tuple(sha // blo for sha, blo in zip(shape, block_shape))
+    steps = [0] * ndim
+    while d < ndim:
+        # yield the current roi
+        yield tuple(slice(step, min(step + stride, sha))
+                    for step, stride, sha in zip(steps, strides, shape))
+        steps[d] += strides[d]
+        for d in range(dim):
+            if steps[d] < shape[d]:
+                break
+            else:
+                steps[d] = 0
+
+
 # TODO zarr support
 # TODO allow changing dtype ?
 # rechunk a n5 dataset
