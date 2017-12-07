@@ -24,7 +24,7 @@ class TestUtil(unittest.TestCase):
         if os.path.exists(self.tmp_dir):
             rmtree(self.tmp_dir)
 
-    def test_rechunk(self):
+    def test_rechunk_default(self):
         from z5py.util import rechunk
         in_path = os.path.join(self.tmp_dir, 'in.n5')
         out_path = os.path.join(self.tmp_dir, 'out.n5')
@@ -40,8 +40,36 @@ class TestUtil(unittest.TestCase):
         # rechunk
         new_chunks = (20, 20, 20)
         rechunk(in_path, out_path, 'data', 'data', new_chunks,
-                n_threads=8,
+                n_threads=1,
                 compressor='raw')
+        # make sure that new data agrees
+        out_file = z5py.File(out_path, use_zarr_format=False)
+        ds_out = out_file['data']
+        data_out = ds_out[:]
+        self.assertEqual(data_out.shape, data.shape)
+        self.assertEqual(ds_out.chunks, new_chunks)
+        self.assertTrue(np.allclose(data, data_out))
+
+    def _test_rechunk_custom(self):
+        from z5py.util import rechunk
+        in_path = os.path.join(self.tmp_dir, 'in.n5')
+        out_path = os.path.join(self.tmp_dir, 'out.n5')
+
+        # create input file
+        in_file = z5py.File(in_path, use_zarr_format=False)
+        ds_in = in_file.create_dataset('data', dtype='float32',
+                                       shape=self.shape, chunks=self.chunks,
+                                       compressor='gzip')
+        # write test data
+        data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
+        ds_in[:] = data
+        # rechunk
+        new_chunks = (20, 20, 20)
+        out_blocks = (40, 40, 40)
+        rechunk(in_path, out_path, 'data', 'data', new_chunks,
+                n_threads=8,
+                compressor='raw',
+                out_blocks=out_blocks)
         # make sure that new data agrees
         out_file = z5py.File(out_path, use_zarr_format=False)
         ds_out = out_file['data']

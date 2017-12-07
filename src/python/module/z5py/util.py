@@ -1,8 +1,5 @@
 from __future__ import print_function
-import os
 from concurrent import futures
-from itertools import product
-from random import shuffle
 
 from .file import File
 
@@ -13,18 +10,17 @@ def blocking(shape, block_shape):
     assert len(shape) == len(block_shape)
     d = 0
     ndim = len(shape)
-    strides = tuple(sha // blo for sha, blo in zip(shape, block_shape))
-    steps = [0] * ndim
-    while d < ndim:
+    positions = [0] * ndim
+    while d < ndim - 1:
         # yield the current roi
-        yield tuple(slice(step, min(step + stride, sha))
-                    for step, stride, sha in zip(steps, strides, shape))
-        steps[d] += strides[d]
-        for d in range(dim):
-            if steps[d] < shape[d]:
+        yield tuple(slice(pos, min(pos + bsha, sha))
+                    for pos, bsha, sha in zip(positions, block_shape, shape))
+        positions[d] += block_shape[d]
+        for d in range(ndim + 1):
+            if positions[d] < shape[d]:
                 break
             else:
-                steps[d] = 0
+                positions[d] = 0
 
 
 # TODO zarr support
@@ -37,9 +33,15 @@ def rechunk(in_path,
             out_path_in_file,
             out_chunks,
             n_threads,
+            out_blocks=None,
             **new_compression):
     f_in = File(in_path, use_zarr_format=False)
     f_out = File(out_path, use_zarr_format=False)
+
+    # if we don't have out-blocks explitictly given,
+    # we iterate over the out chunks
+    if out_blocks is None:
+        out_blocks = out_chunks
 
     ds_in = f_in[in_path_in_file]
     shape = ds_in.shape
@@ -50,24 +52,15 @@ def rechunk(in_path,
                                   shape=shape,
                                   chunks=out_chunks,
                                   **compression_opts)
-    chunks_per_dim = ds_out.chunks_per_dimension
 
-    def write_single_chunk(chunk_ids):
+    def write_single_chunk(roi):
         # print("Writing new chunk ", chunk_ids, "/", chunks_per_dim)
-        starts = [chunk_id * chunk_shape
-                  for chunk_id, chunk_shape in zip(chunk_ids, out_chunks)]
-        stops = [min((chunk_id + 1) * chunk_shape, max_dim)
-                 for chunk_id, chunk_shape, max_dim in zip(chunk_ids, out_chunks, shape)]
-        bb = tuple(slice(start, stop) for start, stop in zip(starts, stops))
-        ds_out[bb] = ds_in[bb]#.astype(out_dtype, copy=False)
+        print(roi)
+        ds_out[roi] = ds_in[roi]  # .astype(out_dtype, copy=False)
 
-    chunk_ranges = [range(n_dim) for n_dim in chunks_per_dim]
-    all_chunk_ids = list(product(*chunk_ranges))
-    # we randomize the ids to minimize overlapping requests in the in dataset
-    # this should speed up I/O significantly
-    shuffle(all_chunk_ids)
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-        tasks = [tp.submit(write_single_chunk, chunk_ids) for chunk_ids in all_chunk_ids]
+        tasks = [tp.submit(write_single_chunk, roi)
+                 for roi in blocking(shape, out_blocks)]
         [t.result() for t in tasks]
 
     # copy attributes
