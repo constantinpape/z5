@@ -1,7 +1,7 @@
 import numpy as np
 import numbers
 from ._z5py import DatasetImpl, open_dataset, create_dataset
-from ._z5py import write_subarray, write_scalar, read_subarray
+from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
 
 
@@ -152,7 +152,7 @@ class Dataset(object):
 
         # broadcast scalar
         else:
-            # FIXME this seems to broken; fails with RuntimeError('WrongRequest Shape')
+            # FIXME this seems to be broken; fails with RuntimeError('WrongRequest Shape')
             write_scalar(self._impl, roi_begin, list(shape), item)
 
     def find_minimum_coordinates(self, dim):
@@ -170,4 +170,11 @@ class Dataset(object):
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
         out = np.empty(shape, dtype=self.dtype)
         read_subarray(self._impl, out, start)
+        return out
+
+    def array_to_format(self, array):
+        assert array.ndim == self.ndim, "Array needs to be of same dimension as dataset"
+        assert np.dtype(array.dtype) == np.dtype(self.dtype), "Array needs to have same dtype as dataset"
+        out = np.zeros((1,), dtype='uint8');
+        convert_array_to_format(self._impl, array, out)
         return out

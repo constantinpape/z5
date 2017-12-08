@@ -169,5 +169,26 @@ namespace multiarray {
         writeSubarray<T>(*ds, in, roiBeginIter);
     }
 
+
+    template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
+    void convertArrayToFormat(const Dataset & ds,
+                              const xt::xexpression<ARRAY_IN> & inExpression,
+                              xt::xexpression<ARRAY_OUT> & outExpression) {
+        const auto & in = inExpression.derived_cast();
+        auto & out = outExpression.derived_cast();
+
+        std::vector<char> tmp;
+        types::ShapeType shape(in.shape().begin(), in.shape().end());
+        ds.dataToFormat(&in(0), tmp, shape);
+
+        out.reshape({(int64_t) tmp.size()});
+        std::copy(tmp.begin(), tmp.end(), out.begin());
+    }
+
+    template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
+    inline void convertArrayToFormat(std::unique_ptr<Dataset> & ds, const xt::xexpression<ARRAY_IN> & in, xt::xexpression<ARRAY_OUT> & out) {
+        convertArrayToFormat<T>(*ds, in, out);
+    }
+
 }
 }

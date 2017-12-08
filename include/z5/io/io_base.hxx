@@ -23,8 +23,11 @@ namespace io {
         virtual size_t getChunkSize(const handle::Chunk &) const = 0;
         virtual void findMinimumChunk(const unsigned, const fs::path &, const size_t, types::ShapeType &) const = 0;
         virtual void findMaximumChunk(const unsigned, const fs::path &, types::ShapeType &) const = 0;
+        // dummy implementation for no header
+        virtual inline size_t writeHeader(const types::ShapeType &, std::vector<char> &) const {
+            return 0;
+        }
     };
-
 
 }
 }

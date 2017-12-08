@@ -223,6 +223,38 @@ namespace io {
             std::reverse(maxOut.begin(), maxOut.end());
         }
 
+        inline size_t writeHeader(const types::ShapeType & shape, std::vector<char> & data) const {
+
+            // write the mode
+            uint16_t mode = 0; // TODO support the varlength mode as well
+            util::reverseEndiannessInplace(mode);
+            std::size_t offset = 0;
+            data.insert(data.begin() + offset, (char*) &mode, (char*) &mode + 2);
+            offset += 2;
+
+            // write the number of dimensions
+            uint16_t nDimsOut = shape.size();
+            util::reverseEndiannessInplace(nDimsOut);
+            data.insert(data.begin() + offset, (char*) &nDimsOut, (char*) &nDimsOut + 2);
+            offset += 2;
+
+            // get the bounded chunk shape and write it to file
+            std::vector<uint32_t> shapeOut(shape.begin(), shape.end());
+            util::reverseEndiannessInplace<uint32_t>(shapeOut.begin(), shapeOut.end());
+
+            // N5-Axis order: we need to reverse the chunk shape written to the header
+            std::reverse(shapeOut.begin(), shapeOut.end());
+            // write chunk shape to header
+            for(int d = 0; d < shape.size(); ++d) {
+                data.insert(data.begin() + offset, (char*) &shapeOut[d], (char*) &shapeOut[d] + 4);
+                offset += 4;
+            }
+            return offset;
+
+            // TODO need to write the actual size if we allow for varlength mode
+        }
+
+
 
     private:
 

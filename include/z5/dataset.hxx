@@ -34,6 +34,10 @@ namespace z5 {
         // read a chunk
         virtual void readChunk(const types::ShapeType &, void *) const = 0;
 
+        // convert in-memory data to / from data format
+        virtual void dataToFormat(const void *, std::vector<char> &, const types::ShapeType &) const = 0;
+        virtual void formatToData(const char *, void *) const = 0;
+
         // helper functions for multiarray API
         virtual void checkRequestShape(const types::ShapeType &, const types::ShapeType &) const = 0;
         virtual void checkRequestType(const std::type_info &) const = 0;
@@ -137,6 +141,63 @@ namespace z5 {
             readChunk(chunk, dataOut);
         }
 
+        // convert in-memory data to / from data format
+        virtual void dataToFormat(const void * data, std::vector<char> & format, const types::ShapeType & dataShape) const {
+
+            // data size from the shape
+            size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
+
+            // resize vector and write header for N5
+            if(!isZarr_) {
+                // FIXME don't hardcode header size
+                std::size_t headerSize = 4 + 4 * dataShape.size();
+                format.resize(headerSize);
+                io_->writeHeader(dataShape, format);
+            }
+
+
+            // reverse the endianness if necessary
+            if(sizeof(T) > 1 && !isZarr_) {
+
+                // copy the data and reverse endianness
+                std::vector<T> dataTmp(static_cast<const T*>(data), static_cast<const T*>(data) + dataSize);
+                util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
+
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
+                if(compressor_->type() == 0) {
+                    format.insert(format.end(), (const char*) &dataTmp[0], (const char*) &dataTmp[0] + dataSize * sizeof(T));
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    std::vector<T> compressed;
+                    compressor_->compress(&dataTmp[0], compressed, dataSize);
+                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                }
+
+            } else {
+
+                // if we have raw compression (== no compression), we bypass the compression step
+                // and directly write to data
+                // raw compression has enum-id 0
+                // compress the data
+                if(compressor_->type() == 0) {
+                    format.insert(format.end(), (const char *) data, (const char*) data + dataSize * sizeof(T));
+                }
+                // otherwise, we compress the data and then write to file
+                else {
+                    std::vector<T> compressed;
+                    compressor_->compress(static_cast<const T*>(data), compressed, dataSize);
+                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                }
+            }
+        }
+
+        // TODO TODO
+        virtual void formatToData(const char * format, void * data) const {
+
+        }
 
         virtual void checkRequestShape(const types::ShapeType & offset, const types::ShapeType & shape) const {
             if(offset.size() != shape_.size() || shape.size() != shape_.size()) {
