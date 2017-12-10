@@ -69,9 +69,9 @@ namespace z5 {
         const auto & compressor = jZarr["compressor"];
         ASSERT_EQ(metadata.compressorLevel, compressor["clevel"]);
         ASSERT_EQ(metadata.codec, compressor["cname"]);
-        ASSERT_EQ(metadata.compressor, types::zarrToCompressor[compressor["id"]]);
+        ASSERT_EQ(metadata.compressor, types::Compressors::zarrToCompressor()[compressor["id"]]);
         ASSERT_EQ(metadata.compressorShuffle, compressor["shuffle"]);
-        ASSERT_EQ(metadata.dtype, types::zarrToDtype[jZarr["dtype"]]);
+        ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);
         // FIXME boost any is a bit tricky here
         ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);
         ASSERT_EQ(metadata.order, jZarr["order"]);
@@ -95,7 +95,7 @@ namespace z5 {
         ASSERT_EQ(metadata.compressor, types::zlib);
         #endif
         ASSERT_EQ(metadata.codec, jN5["compressionType"]);
-        ASSERT_EQ(metadata.dtype, types::n5ToDtype[jN5["dataType"]]);
+        ASSERT_EQ(metadata.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 
 
@@ -182,7 +182,7 @@ namespace z5 {
         ASSERT_EQ(metaRead.compressor, types::zlib);
         #endif
         ASSERT_EQ(metaRead.codec, "gzip");
-        ASSERT_EQ(metaRead.dtype, types::n5ToDtype[jN5["dataType"]]);
+        ASSERT_EQ(metaRead.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 
 }

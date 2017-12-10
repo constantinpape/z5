@@ -80,7 +80,7 @@ namespace z5 {
                 if(compressor == types::raw) {
                     compressionOpts["id"] = nullptr;
                 } else {
-                    compressionOpts["id"] = types::compressorToZarr.at(compressor);
+                    compressionOpts["id"] = types::Compressors::compressorToZarr().at(compressor);
                 }
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.toJsonZarr: wrong compressor for zarr format");
@@ -90,7 +90,7 @@ namespace z5 {
             compressionOpts["shuffle"] = compressorShuffle;
             j["compressor"] = compressionOpts;
 
-            j["dtype"] = types::dtypeToZarr.at(dtype);
+            j["dtype"] = types::Datatypes::dtypeToZarr().at(dtype);
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
@@ -115,10 +115,10 @@ namespace z5 {
             types::ShapeType rchunks(chunkShape.rbegin(), chunkShape.rend());
             j["blockSize"] = rchunks;
 
-            j["dataType"] = types::dtypeToN5.at(dtype);
+            j["dataType"] = types::Datatypes::dtypeToN5().at(dtype);
 
             try {
-                j["compressionType"] = types::compressorToN5.at(compressor);
+                j["compressionType"] = types::Compressors::compressorToN5().at(compressor);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.toJsonN5: wrong compressor for N5 format");
             }
@@ -127,7 +127,7 @@ namespace z5 {
 
         void fromJsonZarr(const nlohmann::json & j) {
             checkJson(j);
-            dtype = types::zarrToDtype.at(j["dtype"]);
+            dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
             fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
@@ -135,7 +135,7 @@ namespace z5 {
 
             try {
                 compressor = compressionOpts["id"].is_null() ?
-                    types::raw : types::zarrToCompressor.at(compressionOpts["id"]);
+                    types::raw : types::Compressors::zarrToCompressor().at(compressionOpts["id"]);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
             }
@@ -148,7 +148,7 @@ namespace z5 {
 
         void fromJsonN5(const nlohmann::json & j) {
 
-            dtype = types::n5ToDtype.at(j["dataType"]);
+            dtype = types::Datatypes::n5ToDtype().at(j["dataType"]);
 
             // N5-Axis order: we need to reverse the shape when reading from metadata
             shape = types::ShapeType(j["dimensions"].rbegin(), j["dimensions"].rend());
@@ -157,7 +157,7 @@ namespace z5 {
             chunkShape = types::ShapeType(j["blockSize"].rbegin(), j["blockSize"].rend());
 
             try {
-                compressor = types::n5ToCompressor.at(j["compressionType"]);
+                compressor = types::Compressors::n5ToCompressor().at(j["compressionType"]);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for N5 format");
             }
@@ -304,7 +304,7 @@ namespace z5 {
         nlohmann::json j;
         file >> j;
         file.close();
-        return isZarr ? types::zarrToDtype.at(j["dtype"]) : types::n5ToDtype.at(j["dataType"]);
+        return isZarr ? types::Datatypes::zarrToDtype().at(j["dtype"]) : types::Datatypes::n5ToDtype().at(j["dataType"]);
     }
 
 } // namespace::z5

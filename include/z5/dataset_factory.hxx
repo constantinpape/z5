@@ -70,14 +70,14 @@ namespace z5 {
         // get the internal data type
         types::Datatype internalDtype;
         try {
-            internalDtype = types::n5ToDtype.at(dtype);
+            internalDtype = types::Datatypes::n5ToDtype().at(dtype);
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("z5py.createDataset: Invalid dtype for dataset");
         }
 
         types::Compressor internalCompressor;
         try {
-            internalCompressor = types::stringToCompressor.at(compressor);
+            internalCompressor = types::Compressors::stringToCompressor().at(compressor);
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("z5py.createDataset: Invalid compressor for dataset");
         }

@@ -14,7 +14,7 @@ namespace z5 {
 
     void writeMetadata(const handle::Dataset & h, const std::string & dtype) {
         DatasetMetadata meta(
-            types::n5ToDtype[dtype],
+            types::Datatypes::n5ToDtype()[dtype],
             types::ShapeType({100, 100, 100}),
             types::ShapeType({10, 10, 10}),
             true
@@ -68,7 +68,7 @@ namespace z5 {
             writeMetadata(handle_, dtype);
             auto array = openDataset(handle_.path().string());
 
-            switch(types::n5ToDtype[dtype]) {
+            switch(types::Datatypes::n5ToDtype()[dtype]) {
 
                 case types::int8:
                     checkDataset<int8_t>(array);
@@ -124,7 +124,7 @@ namespace z5 {
                 types::ShapeType({10, 10, 10}),
                 true
             );
-            switch(types::n5ToDtype.at(dtype)) {
+            switch(types::Datatypes::n5ToDtype().at(dtype)) {
 
                 case types::int8:
                     checkDataset<int8_t>(array);

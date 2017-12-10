@@ -109,7 +109,7 @@ namespace z5 {
             .def_property_readonly("chunks", [](const Dataset & ds){return ds.maxChunkShape();})
             .def_property_readonly("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_property_readonly("size", [](const Dataset & ds){return ds.size();})
-            .def_property_readonly("dtype", [](const Dataset & ds){return types::dtypeToN5[ds.getDtype()];})
+            .def_property_readonly("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
             .def_property_readonly("is_zarr", [](const Dataset & ds){return ds.isZarr();})
             .def_property_readonly("number_of_chunks", [](const Dataset & ds){return ds.numberOfChunks();})
             .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){

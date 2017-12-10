@@ -376,7 +376,7 @@ namespace z5 {
         virtual types::Compressor getCompressor() const {return compressor_->type();}
         virtual void getCompressor(std::string & compressor) const {
             auto compressorType = getCompressor();
-            compressor = isZarr_ ? types::compressorToZarr[compressorType] : types::compressorToN5[compressorType];
+            compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] : types::Compressors::compressorToN5()[compressorType];
         }
         //
         virtual void getCodec(std::string & codec) const {
