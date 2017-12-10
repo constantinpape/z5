@@ -8,7 +8,7 @@ namespace z5 {
 namespace util {
 
     template<typename ITER>
-    void join(const ITER & begin, const ITER & end, std::string & out, const std::string & delimiter) {
+    inline void join(const ITER & begin, const ITER & end, std::string & out, const std::string & delimiter) {
         for(ITER it = begin; it != end; ++it) {
             if(!out.empty()) {
                 out.append(delimiter);
@@ -19,8 +19,9 @@ namespace util {
 
 
     // FIXME this is relatively ugly...
+    // can use imglib trick !!!
     // would be nicer to do this in a dimension independent way
-    void makeRegularGrid(const types::ShapeType & minCoords, const types::ShapeType & maxCoords, std::vector<types::ShapeType> & grid) {
+    inline void makeRegularGrid(const types::ShapeType & minCoords, const types::ShapeType & maxCoords, std::vector<types::ShapeType> & grid) {
         size_t nDim = minCoords.size();
         if(nDim == 1) {
             for(size_t x = minCoords[0]; x <= maxCoords[0]; ++x) {

@@ -8,7 +8,7 @@ namespace fs = boost::filesystem;
 namespace z5 {
 
     // factory function to open an existing zarr-array
-    std::unique_ptr<Dataset> openDataset(const std::string & path) {
+    inline std::unique_ptr<Dataset> openDataset(const std::string & path) {
 
         // read the data type from the metadata
         handle::Dataset h(path);
@@ -43,7 +43,7 @@ namespace z5 {
     }
 
 
-    std::unique_ptr<Dataset> openDataset(
+    inline std::unique_ptr<Dataset> openDataset(
         const handle::Group & group,
         const std::string & key
     ) {
@@ -55,7 +55,7 @@ namespace z5 {
 
 
 
-    std::unique_ptr<Dataset> createDataset(
+    inline std::unique_ptr<Dataset> createDataset(
         const std::string & path,
         const std::string & dtype,
         const types::ShapeType & shape,
@@ -121,7 +121,7 @@ namespace z5 {
     }
 
 
-    std::unique_ptr<Dataset> createDataset(
+    inline std::unique_ptr<Dataset> createDataset(
         const handle::Group & group,
         const std::string & key,
         const std::string & dtype,

@@ -5,7 +5,7 @@
 
 namespace z5 {
 
-    void createGroup(const handle::Group & group, const bool isZarr=true) {
+    inline void createGroup(const handle::Group & group, const bool isZarr=true) {
         group.createDir();
         if(isZarr) {
             Metadata gmeta;
@@ -13,7 +13,7 @@ namespace z5 {
         }
     }
 
-    void createGroup(const handle::Group & group, const std::string & key, const bool isZarr=true) {
+    inline void createGroup(const handle::Group & group, const std::string & key, const bool isZarr=true) {
        auto path = group.path();
        path /= key;
        handle::Group subGroup(path.string());

@@ -248,7 +248,7 @@ namespace z5 {
     // helper functions
     //
 
-    void writeMetadata(const handle::Group & handle, const Metadata & metadata) {
+    inline void writeMetadata(const handle::Group & handle, const Metadata & metadata) {
         auto filePath = handle.path();
         filePath /= ".zgroup";
         nlohmann::json j;
@@ -258,7 +258,7 @@ namespace z5 {
         file.close();
     }
 
-    void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
+    inline void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
         fs::path filePath = handle.path();
         nlohmann::json j;
         metadata.toJson(j);
@@ -269,7 +269,7 @@ namespace z5 {
     }
 
 
-    bool getMetadataPath(const handle::Dataset & handle, fs::path & path) {
+    inline bool getMetadataPath(const handle::Dataset & handle, fs::path & path) {
         fs::path zarrPath = handle.path();
         fs::path n5Path = handle.path();
         zarrPath /= ".zarray";
@@ -286,7 +286,7 @@ namespace z5 {
     }
 
 
-    void readMetadata(const handle::Dataset & handle, DatasetMetadata & metadata) {
+    inline void readMetadata(const handle::Dataset & handle, DatasetMetadata & metadata) {
         nlohmann::json j;
         fs::path filePath;
         auto isZarr = getMetadataPath(handle, filePath);
@@ -297,7 +297,7 @@ namespace z5 {
     }
 
 
-    types::Datatype readDatatype(const handle::Dataset & handle) {
+    inline types::Datatype readDatatype(const handle::Dataset & handle) {
         fs::path filePath;
         bool isZarr = getMetadataPath(handle, filePath);
         fs::ifstream file(filePath);
