@@ -9,7 +9,7 @@ namespace z5 {
 
 namespace attrs_detail {
 
-    bool checkHandle(const handle::Handle & handle) {
+    inline bool checkHandle(const handle::Handle & handle) {
 
         bool isZarr = handle.isZarr();
         bool isN5 = handle.isN5();
@@ -26,7 +26,7 @@ namespace attrs_detail {
     }
 
 
-    void readAttributes(fs::path & path, const std::vector<std::string> & keys, nlohmann::json & j) {
+    inline void readAttributes(fs::path & path, const std::vector<std::string> & keys, nlohmann::json & j) {
         nlohmann::json jTmp;
         fs::ifstream file(path);
         file >> jTmp;
@@ -42,7 +42,7 @@ namespace attrs_detail {
     }
 
 
-    void writeAttributes(const fs::path & path, const nlohmann::json & j) {
+    inline void writeAttributes(const fs::path & path, const nlohmann::json & j) {
         nlohmann::json jOut;
         // if we already have attributes, read them
         if(fs::exists(path)) {
@@ -59,7 +59,7 @@ namespace attrs_detail {
     }
 }
 
-    void readAttributes(
+    inline void readAttributes(
         const handle::Handle & handle,
         const std::vector<std::string> & keys,
         nlohmann::json & j
@@ -74,7 +74,7 @@ namespace attrs_detail {
     }
 
 
-    void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {
+    inline void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {
         bool isZarr = attrs_detail::checkHandle(handle);
         auto path = handle.path();
         path /= isZarr ? ".zattrs" : "attributes.json";
