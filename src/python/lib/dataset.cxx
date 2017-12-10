@@ -15,6 +15,7 @@
 
 // for xtensor numpy bindings
 #include "xtensor-python/pyarray.hpp"
+#include "xtensor-python/pytensor.hpp"
 
 namespace py = pybind11;
 
@@ -38,6 +39,13 @@ namespace z5 {
         multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
     }
 
+    template<class T>
+    inline void convertPyArrayToFormat(const Dataset & ds,
+                                       const xt::pyarray<T> & in,
+                                       xt::pytensor<uint8_t, 1> & out) {
+        multiarray::convertArrayToFormat<T>(ds, in, out);
+    }
+
 
     template<class T>
     void exportIoT(py::module & module) {
@@ -58,6 +66,12 @@ namespace z5 {
         module.def("write_scalar",
                    &writePyScalar<T>,
                    py::arg("ds"), py::arg("roi_begin"), py::arg("roi_shape"), py::arg("val").noconvert(),
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export conversions
+        module.def("convert_array_to_format",
+                   &convertPyArrayToFormat<T>,
+                   py::arg("ds"), py::arg("in").noconvert(), py::arg("out").noconvert(),
                    py::call_guard<py::gil_scoped_release>());
     }
 
