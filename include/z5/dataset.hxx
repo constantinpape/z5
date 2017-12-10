@@ -97,6 +97,7 @@ namespace z5 {
     public:
 
         typedef T value_type;
+        typedef types::ShapeType shape_type;
 
         // create a new array with metadata
         DatasetTyped(

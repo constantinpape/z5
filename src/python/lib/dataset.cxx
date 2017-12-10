@@ -7,10 +7,6 @@
 #include "z5/groups.hxx"
 #include "z5/multiarray/broadcast.hxx"
 
-// for marray numpy bindings
-//#include "z5/multiarray/marray_access.hxx"
-//#include "z5/python/converter.hxx"
-
 #include "z5/multiarray/xtensor_access.hxx"
 
 // for xtensor numpy bindings
