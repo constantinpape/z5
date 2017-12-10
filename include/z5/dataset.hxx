@@ -96,6 +96,8 @@ namespace z5 {
 
     public:
 
+        typedef T value_type;
+
         // create a new array with metadata
         DatasetTyped(
             const handle::Dataset & handle,
