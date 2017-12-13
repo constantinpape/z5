@@ -83,6 +83,32 @@ class TestDataset(unittest.TestCase):
             self.assertEqual(out_array.shape, in_array.shape)
             self.assertTrue(np.allclose(out_array, in_array))
 
+    def test_ds_n5_array_to_format(self):
+        dtypes = ('int8', 'int16', 'int32', 'int64',
+                  'uint8', 'uint16', 'uint32', 'uint64',
+                  'float32', 'float64')
+
+        for dtype in dtypes:
+            print("Running N5 Array to format-Test for %s" % dtype)
+            ds = self.ff_n5.create_dataset(
+                'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
+            )
+            in_array = 42 * np.ones((10, 10, 10), dtype=dtype)
+            print("Writing ds...")
+            ds[:10,:10,:10] = in_array
+            print("...done")
+
+            
+            print("Reading chunk...")
+            path = os.path.join(os.path.dirname(ds.attrs.path), '0', '0', '0')
+            read_from_file = open(path, 'rb').read()
+            
+            converted_data = ds.array_to_format(in_array)
+
+            print("...done")
+            self.assertEqual(len(read_from_file), len(converted_data))
+            self.assertEqual(read_from_file, converted_data)
+
 
 if __name__ == '__main__':
     unittest.main()
