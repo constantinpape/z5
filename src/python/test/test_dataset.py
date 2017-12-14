@@ -4,7 +4,6 @@ import numpy as np
 import os
 from shutil import rmtree
 
-import sys
 try:
     import z5py
 except ImportError:
@@ -74,12 +73,8 @@ class TestDataset(unittest.TestCase):
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
-            print("Writing ds...")
             ds[:] = in_array
-            print("...done")
-            print("Reading ds...")
             out_array = ds[:]
-            print("...done")
             self.assertEqual(out_array.shape, in_array.shape)
             self.assertTrue(np.allclose(out_array, in_array))
 
@@ -89,25 +84,20 @@ class TestDataset(unittest.TestCase):
                   'float32', 'float64')
 
         for dtype in dtypes:
-            print("Running N5 Array to format-Test for %s" % dtype)
             ds = self.ff_n5.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones((10, 10, 10), dtype=dtype)
-            print("Writing ds...")
-            ds[:10,:10,:10] = in_array
-            print("...done")
+            ds[:10, :10, :10] = in_array
 
-            
-            print("Reading chunk...")
             path = os.path.join(os.path.dirname(ds.attrs.path), '0', '0', '0')
-            read_from_file = open(path, 'rb').read()
-            
+            with open(path, 'rb') as f:
+                read_from_file = np.array([byte for byte in f.read()], dtype='int8')
+
             converted_data = ds.array_to_format(in_array)
 
-            print("...done")
             self.assertEqual(len(read_from_file), len(converted_data))
-            self.assertEqual(read_from_file, converted_data)
+            self.assertTrue(np.allclose(read_from_file, converted_data))
 
 
 if __name__ == '__main__':

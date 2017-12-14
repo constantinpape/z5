@@ -150,11 +150,8 @@ namespace z5 {
             // data size from the shape
             size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
 
-            // resize vector and write header for N5
+            // write header for N5
             if(!isZarr_) {
-                // FIXME don't hardcode header size
-                std::size_t headerSize = 4 + 4 * dataShape.size();
-                format.resize(headerSize);
                 io_->writeHeader(dataShape, format);
             }
 

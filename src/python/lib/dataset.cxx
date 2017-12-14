@@ -36,10 +36,11 @@ namespace z5 {
     }
 
     template<class T>
-    inline void convertPyArrayToFormat(const Dataset & ds,
-                                       const xt::pyarray<T> & in,
-                                       xt::pytensor<uint8_t, 1> & out) {
+    inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
+                                       const xt::pyarray<T> & in) {
+        xt::pytensor<char, 1> out = xt::zeros<char>({1});
         multiarray::convertArrayToFormat<T>(ds, in, out);
+        return out;
     }
 
 
@@ -67,7 +68,7 @@ namespace z5 {
         // export conversions
         module.def("convert_array_to_format",
                    &convertPyArrayToFormat<T>,
-                   py::arg("ds"), py::arg("in").noconvert(), py::arg("out").noconvert(),
+                   py::arg("ds"), py::arg("in").noconvert(),
                    py::call_guard<py::gil_scoped_release>());
     }
 
