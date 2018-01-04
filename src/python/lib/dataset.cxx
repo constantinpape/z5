@@ -7,10 +7,6 @@
 #include "z5/groups.hxx"
 #include "z5/multiarray/broadcast.hxx"
 
-// for marray numpy bindings
-//#include "z5/multiarray/marray_access.hxx"
-//#include "z5/python/converter.hxx"
-
 #include "z5/multiarray/xtensor_access.hxx"
 
 // for xtensor numpy bindings
@@ -40,10 +36,11 @@ namespace z5 {
     }
 
     template<class T>
-    inline void convertPyArrayToFormat(const Dataset & ds,
-                                       const xt::pyarray<T> & in,
-                                       xt::pytensor<uint8_t, 1> & out) {
+    inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
+                                       const xt::pyarray<T> & in) {
+        xt::pytensor<char, 1> out = xt::zeros<char>({1});
         multiarray::convertArrayToFormat<T>(ds, in, out);
+        return out;
     }
 
 
@@ -71,7 +68,7 @@ namespace z5 {
         // export conversions
         module.def("convert_array_to_format",
                    &convertPyArrayToFormat<T>,
-                   py::arg("ds"), py::arg("in").noconvert(), py::arg("out").noconvert(),
+                   py::arg("ds"), py::arg("in").noconvert(),
                    py::call_guard<py::gil_scoped_release>());
     }
 
@@ -109,7 +106,7 @@ namespace z5 {
             .def_property_readonly("chunks", [](const Dataset & ds){return ds.maxChunkShape();})
             .def_property_readonly("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_property_readonly("size", [](const Dataset & ds){return ds.size();})
-            .def_property_readonly("dtype", [](const Dataset & ds){return types::dtypeToN5[ds.getDtype()];})
+            .def_property_readonly("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
             .def_property_readonly("is_zarr", [](const Dataset & ds){return ds.isZarr();})
             .def_property_readonly("number_of_chunks", [](const Dataset & ds){return ds.numberOfChunks();})
             .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){

@@ -96,6 +96,9 @@ namespace z5 {
 
     public:
 
+        typedef T value_type;
+        typedef types::ShapeType shape_type;
+
         // create a new array with metadata
         DatasetTyped(
             const handle::Dataset & handle,
@@ -147,11 +150,8 @@ namespace z5 {
             // data size from the shape
             size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
 
-            // resize vector and write header for N5
+            // write header for N5
             if(!isZarr_) {
-                // FIXME don't hardcode header size
-                std::size_t headerSize = 4 + 4 * dataShape.size();
-                format.resize(headerSize);
                 io_->writeHeader(dataShape, format);
             }
 
@@ -374,7 +374,7 @@ namespace z5 {
         virtual types::Compressor getCompressor() const {return compressor_->type();}
         virtual void getCompressor(std::string & compressor) const {
             auto compressorType = getCompressor();
-            compressor = isZarr_ ? types::compressorToZarr[compressorType] : types::compressorToN5[compressorType];
+            compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] : types::Compressors::compressorToN5()[compressorType];
         }
         //
         virtual void getCodec(std::string & codec) const {

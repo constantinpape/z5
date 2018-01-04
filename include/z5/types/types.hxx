@@ -29,36 +29,39 @@ namespace types {
     };
 
     // TODO handle endianness differently ?
-    std::map<std::string, Datatype> zarrToDtype({
-        { {"<i1", int8}, {"<i2", int16}, {"<i4", int32}, {"<i8", int64},
-          {"<u1", uint8}, {"<u2", uint16}, {"<u4", uint32}, {"<u8", uint64},
-          {"<f4", float32}, {"<f8", float64}
-        }
-    });
+    struct Datatypes {
+        typedef std::map<std::string, Datatype> DtypeMap;
+        typedef std::map<Datatype, std::string> InverseDtypeMap;
 
-    // TODO handle endianness differently
-    std::map<Datatype, std::string> dtypeToZarr({
-        { {int8   , "<i1"}, {int16,  "<i2"}, {int32, "<i4"}, {int64, "<i8"},
-          {uint8  , "<u1"}, {uint16, "<u2"}, {uint32, "<u4"},{uint64,"<u8"},
-          {float32, "<f4"}, {float64,"<f8"}
+        static DtypeMap & zarrToDtype() {
+            static DtypeMap dtypeMap({{{"<i1", int8}, {"<i2", int16}, {"<i4", int32}, {"<i8", int64},
+                                       {"<u1", uint8}, {"<u2", uint16}, {"<u4", uint32}, {"<u8", uint64},
+                                       {"<f4", float32}, {"<f8", float64}}});
+            return dtypeMap;
         }
-    });
 
+        static InverseDtypeMap & dtypeToZarr() {
 
-    // n5 dtypes
-    std::map<std::string, Datatype> n5ToDtype({
-        { {"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
-          {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
-          {"float32", float32}, {"float64", float64}
+            static InverseDtypeMap dtypeMap({{{int8   , "<i1"}, {int16,  "<i2"}, {int32, "<i4"}, {int64, "<i8"},
+                                              {uint8  , "<u1"}, {uint16, "<u2"}, {uint32, "<u4"},{uint64,"<u8"},
+                                              {float32, "<f4"}, {float64,"<f8"}}});
+            return dtypeMap;
         }
-    });
 
-    std::map<Datatype, std::string> dtypeToN5({
-        { {int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
-          {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
-          {float32,"float32"}, {float64, "float64"}
+        static DtypeMap & n5ToDtype() {
+            static DtypeMap dtypeMap({{{"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
+                                       {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
+                                       {"float32", float32}, {"float64", float64}}});
+            return dtypeMap;
         }
-    });
+
+        static InverseDtypeMap & dtypeToN5() {
+            static InverseDtypeMap dtypeMap({{{int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
+                                              {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
+                                              {float32,"float32"}, {float64, "float64"}}});
+            return dtypeMap;
+        }
+    };
 
 
     //
@@ -86,81 +89,103 @@ namespace types {
         #endif
     };
 
-    std::map<std::string, Compressor> stringToCompressor({{
-        {"raw", raw},
-        #ifdef WITH_BLOSC
-        {"blosc", blosc},
-        #endif
-        #ifdef WITH_ZLIB
-        {"zlib", zlib},
-        {"gzip", zlib},
-        #endif
-        #ifdef WITH_BZIP2
-        {"bzip2", bzip2},
-        #endif
-        #ifdef WITH_LZ4
-        {"lz4", lz4},
-        #endif
-        #ifdef WITH_XZ
-        {"xz", xz}
-        #endif
-    }});
 
-    std::map<std::string, Compressor> zarrToCompressor({{
-        #ifdef WITH_BLOSC
-        {"blosc", blosc},
-        #endif
-        #ifdef WITH_ZLIB
-        {"zlib", zlib},
-        #endif
-        #ifdef WITH_BZIP2
-        {"bzip2", bzip2},
-        #endif
-        #ifdef WITH_LZ4
-        {"lz4", lz4},
-        #endif
-    }});
+    struct Compressors {
 
-    std::map<Compressor, std::string> compressorToZarr({{
-        #ifdef WITH_BLOSC
-        {blosc, "blosc"},
-        #endif
-        #ifdef WITH_ZLIB
-        {zlib, "zlib"},
-        #endif
-        #ifdef WITH_BZIP2
-        {bzip2, "bzip2"},
-        #endif
-        #ifdef WITH_LZ4
-        {lz4, "lz4"},
-        #endif
-    }});
+        typedef std::map<std::string, Compressor> CompressorMap;
+        typedef std::map<Compressor, std::string> InverseCompressorMap;
 
-    std::map<std::string, Compressor> n5ToCompressor({{
-        {"raw", raw},
-        #ifdef WITH_ZLIB
-        {"gzip", zlib},
-        #endif
-        #ifdef WITH_BZIP2
-        {"bzip2", bzip2},
-        #endif
-        #ifdef WITH_XZ
-        {"xz", xz}
-        #endif
-    }});
+        static CompressorMap & stringToCompressor() {
+            static CompressorMap cMap({{
+                {"raw", raw},
+                #ifdef WITH_BLOSC
+                {"blosc", blosc},
+                #endif
+                #ifdef WITH_ZLIB
+                {"zlib", zlib},
+                {"gzip", zlib},
+                #endif
+                #ifdef WITH_BZIP2
+                {"bzip2", bzip2},
+                #endif
+                #ifdef WITH_LZ4
+                {"lz4", lz4},
+                #endif
+                #ifdef WITH_XZ
+                {"xz", xz}
+                #endif
+            }});
+            return cMap;
+        }
 
-    std::map<Compressor, std::string> compressorToN5({{
-        {raw, "raw"},
-        #ifdef WITH_ZLIB
-        {zlib, "gzip"},
-        #endif
-        #ifdef WITH_BZIP2
-        {bzip2, "bzip2"},
-        #endif
-        #ifdef WITH_XZ
-        {xz, "xz"}
-        #endif
-    }});
+        static CompressorMap & zarrToCompressor() {
+            static CompressorMap cMap({{
+                #ifdef WITH_BLOSC
+                {"blosc", blosc},
+                #endif
+                #ifdef WITH_ZLIB
+                {"zlib", zlib},
+                #endif
+                #ifdef WITH_BZIP2
+                {"bzip2", bzip2},
+                #endif
+                #ifdef WITH_LZ4
+                {"lz4", lz4},
+                #endif
+            }});
+            return cMap;
+        }
+
+        static InverseCompressorMap & compressorToZarr() {
+            static InverseCompressorMap cMap({{
+                #ifdef WITH_BLOSC
+                {blosc, "blosc"},
+                #endif
+                #ifdef WITH_ZLIB
+                {zlib, "zlib"},
+                #endif
+                #ifdef WITH_BZIP2
+                {bzip2, "bzip2"},
+                #endif
+                #ifdef WITH_LZ4
+                {lz4, "lz4"},
+                #endif
+            }});
+            return cMap;
+        }
+
+        static CompressorMap & n5ToCompressor() {
+            static CompressorMap cMap({{
+                {"raw", raw},
+                #ifdef WITH_ZLIB
+                {"gzip", zlib},
+                #endif
+                #ifdef WITH_BZIP2
+                {"bzip2", bzip2},
+                #endif
+                #ifdef WITH_XZ
+                {"xz", xz}
+                #endif
+            }});
+            return cMap;
+        }
+
+        static InverseCompressorMap & compressorToN5() {
+            static InverseCompressorMap cMap({{
+                {raw, "raw"},
+                #ifdef WITH_ZLIB
+                {zlib, "gzip"},
+                #endif
+                #ifdef WITH_BZIP2
+                {bzip2, "bzip2"},
+                #endif
+                #ifdef WITH_XZ
+                {xz, "xz"}
+                #endif
+            }});
+            return cMap;
+        }
+    };
 
 } // namespace::types
     // overload ostream operator for ShapeType (a.k.a) vector for convinience

@@ -82,7 +82,6 @@ class TestDataset(unittest.TestCase):
                   'float32', 'float64')
 
         for dtype in dtypes:
-            print("Running N5 Array to format-Test for %s" % dtype)
             ds = self.ff_n5.create_dataset(
                 'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
@@ -90,12 +89,14 @@ class TestDataset(unittest.TestCase):
             ds[:10, :10, :10] = in_array
 
             path = os.path.join(os.path.dirname(ds.attrs.path), '0', '0', '0')
-            read_from_file = open(path, 'rb').read()
+            with open(path, 'rb') as f:
+                read_from_file = np.array([byte for byte in f.read()], dtype='int8')
+
 
             converted_data = ds.array_to_format(in_array)
 
             self.assertEqual(len(read_from_file), len(converted_data))
-            self.assertEqual(read_from_file, converted_data)
+            self.assertTrue(np.allclose(read_from_file, converted_data))
 
 
 if __name__ == '__main__':

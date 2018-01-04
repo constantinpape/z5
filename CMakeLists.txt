@@ -87,7 +87,6 @@ SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}")
 SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/lib")
 SET(Boost_NO_SYSTEM_PATHS ON)
 find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIR})
 
 
