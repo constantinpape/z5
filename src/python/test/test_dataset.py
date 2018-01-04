@@ -92,6 +92,7 @@ class TestDataset(unittest.TestCase):
             with open(path, 'rb') as f:
                 read_from_file = np.array([byte for byte in f.read()], dtype='int8')
 
+
             converted_data = ds.array_to_format(in_array)
 
             self.assertEqual(len(read_from_file), len(converted_data))

@@ -112,6 +112,8 @@ namespace z5 {
             .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){
                 return ds.chunksPerDimension();
             })
+
+            // compression, compression_opts, fillvalue
             .def_property_readonly("compressor", [](const Dataset & ds){
                 std::string compressor;
                 ds.getCompressor(compressor);
@@ -129,7 +131,23 @@ namespace z5 {
                 return ds.getCShuffle();
             })
 
-            // compression, compression_opts, fillvalue
+            // pickle support
+            .def(py::pickle(
+                // __getstate__ -> we simply pickle the path,
+                // the rest will be read from the attributes
+                [](const Dataset & ds) {
+                    return py::make_tuple(ds.handle().path().string());
+                },
+                // __setstate__
+                [](py::tuple tup) {
+                    if(tup.size() != 1) { // the serialization size is 1, because we only pickle the path
+                        std::cout << tup.size() << std::endl;
+                        throw std::runtime_error("Invalid state for unpickling z5::Dataset");
+                    }
+
+                    return openDataset(tup[0].cast<std::string>());
+                }
+            ))
         ;
 
         module.def("open_dataset",[](const std::string & path){
