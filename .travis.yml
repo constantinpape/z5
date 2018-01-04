@@ -6,10 +6,8 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
-env: 
-  - COMPILER=gcc6
 
-install:
+before_script:
   # TODO conda 2 for python 2.7
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
@@ -38,15 +36,13 @@ script:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - source activate test-env
   - export ENV_ROOT="$HOME/miniconda/envs/test-env"
-  - export ENV_INCLUDE="$ENV_ROOT/include"
   - export ENV_BIN=$ENV_ROOT/bin
-  - export ROOT_BIN="$HOME/miniconda/bin"
   
   ###############################################
   # setup compiler
   ###############################################
-  - export CXX="$ENV_BIN/g++";
-  - export CC="$ENV_BIN/gcc";
+  - export CXX="$ENV_BIN/g++"
+  - export CC="$ENV_BIN/gcc"
   
   ###############################################
   # configure cmake
@@ -69,6 +65,7 @@ script:
   ###############################################
   # TODO run all python unittests instead
   # python -m unittest discover python/test
+  - which python
   - python python/test/test_dataset.py
 
   # TODO cpp tests
