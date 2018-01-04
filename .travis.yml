@@ -37,7 +37,7 @@ script:
   # shortcuts
   ###############################################
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - source activate dev
+  - source activate test-env
   - export ENV_ROOT="$HOME/miniconda/envs/test-env"
   - export ENV_INCLUDE="$ENV_ROOT/include"
   - export ENV_BIN=$ENV_ROOT/bin
@@ -52,7 +52,6 @@ script:
   ###############################################
   # configure cmake
   ###############################################
-  - source activate test-env
   - $ENV_BIN/cmake 
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
