@@ -1,3 +1,8 @@
+Travis (Ubuntu builds)
+----------------------
+[![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
+
+
 # z5
 
 Lightweight C++ and Python wrapper for reading and writing zarr 
