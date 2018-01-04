@@ -64,8 +64,7 @@ script:
   # test the project
   ###############################################
   # TODO run all python unittests instead
-  # python -m unittest discover python/test
-  - which python
-  - python python/test/test_dataset.py
+  # - $ENV_BIN/python -m unittest discover python/test
+  - $ENV_BIN/python python/test/test_dataset.py
 
   # TODO cpp tests
