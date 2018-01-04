@@ -1,4 +1,3 @@
-# TODO different python versions !
 # TODO osx
 os: linux
 dist: trusty
@@ -53,10 +52,12 @@ script:
   # configure cmake
   ###############################################
   - $ENV_BIN/cmake 
+          -DWITHIN_TRAVIS=ON
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
           -DWITH_BZIP2=ON
-          -DBoost_INCLUDE_DIR=$ENV_INCLUDE  
+          -DCMAKE_PREFIX_PATH="$ENV_ROOT"
+
          
   ###############################################
   # the actual build
@@ -69,3 +70,5 @@ script:
   # TODO run all python unittests instead
   # python -m unittest discover python/test
   - python python/test/test_dataset.py
+
+  # TODO cpp tests

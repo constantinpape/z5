@@ -42,6 +42,9 @@ option(WITH_BZIP2 ON)
 # marray multiarray
 option(WITH_MARRAY OFF)
 
+# adaptions to travis build
+option(WITHIN_TRAVIS OFF)
+
 
 ###############################
 # Include git submodules
@@ -59,12 +62,15 @@ include_directories(${CMAKE_SOURCE_DIR}/external/json/src)
 # Set up conda env
 ###############################
 
-# Find the current conda env and set it as CMAKE_PREFIX_PATH
-execute_process(
-    COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
-    OUTPUT_VARIABLE CMAKE_PREFIX_PATH
-)
-string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
+# This does not work within travis for some reason
+if(NOT WITHIN_TRAVIS)
+    # Find the current conda env and set it as CMAKE_PREFIX_PATH
+    execute_process(
+        COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
+        OUTPUT_VARIABLE CMAKE_PREFIX_PATH
+    )
+    string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
+endif()
 
 # Set CMAKE_PREFIX_PATH to the conda env, but allow changing it
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
