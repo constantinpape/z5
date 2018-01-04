@@ -29,8 +29,12 @@ class TestCompression(unittest.TestCase):
                 for dim in (1, 2, 3):  # TODO 4d and more once fixed
                     print("Running N5-Test for compression %s, dtype %s, dimension %i"
                           % (compression, dtype, dim))
-                    shape = dim * (100,)
-                    chunks = dim * (10,)
+
+                    shape = dim * (100,) if dim > 2 else dim * (1000,)
+                    chunks = dim * (10,) if dim > 2 else dim * (100,)
+                    # need bigger chunks for gzip in 1D case
+                    if dim == 1:
+                        chunks = (1000,)
                     ds_name = "ds_%s_%s_%i" % (compression, dtype, dim)
                     ds = f.create_dataset(ds_name,
                                           dtype=dtype,

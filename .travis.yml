@@ -23,10 +23,7 @@ before_script:
   - conda install -c conda-forge pybind11 xtensor xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2
   - conda install -c anaconda cmake
-  # FIXME is this correct ?
   - conda install -c rdonnelly gcc-6=6.1.0
-  # TODO additional dependencies for converter
-  # - hdf5, dvid
 
 script:
 
@@ -63,9 +60,12 @@ script:
   ###############################################
   # test the project
   ###############################################
-  # TODO run all python unittests instead
-  # - $ENV_BIN/python -m unittest discover python/test
-  - export PYTHONPATH="./python:$PYTHONPATH"
-  - $ENV_BIN/python python/test/test_dataset.py
-
   # TODO cpp tests
+  
+  # python tests
+  - export PYTHONPATH="./python:$PYTHONPATH"
+  # TODO install additional dependencies for converter
+  # - hdf5, dvid
+  # run all python unittests
+  - $ENV_BIN/python -m unittest discover python/test
+  # - $ENV_BIN/python python/test/test_dataset.py
