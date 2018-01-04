@@ -65,6 +65,7 @@ script:
   ###############################################
   # TODO run all python unittests instead
   # - $ENV_BIN/python -m unittest discover python/test
+  - export PYTHONPATH="./python:$PYTHONPATH"
   - $ENV_BIN/python python/test/test_dataset.py
 
   # TODO cpp tests
