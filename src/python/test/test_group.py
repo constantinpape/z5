@@ -50,8 +50,6 @@ class TestGroup(unittest.TestCase):
     def test_open_empty_group_n5(self):
         g = self.ff_n5['test']
         ds = g['test']
-        print(type(ds))
-        print(ds.shape)
         out = ds[:]
         self.assertEqual(out.shape, self.shape)
         self.assertTrue((out == 0).all())

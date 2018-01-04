@@ -1,0 +1,72 @@
+# TODO different python versions !
+# TODO osx
+os: linux
+dist: trusty
+language: python
+python:
+  - "2.7"
+  - "3.5"
+  - "3.6"
+env: 
+  - COMPILER=gcc6
+
+install:
+  # TODO conda 2 for python 2.7
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+  # create the test environment
+  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
+  - source activate test-env
+  # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
+  - conda install -c conda-forge pybind11 xtensor xtensor-python
+  - conda install -c conda-forge boost c-blosc zlib bzip2
+  - conda install -c anaconda cmake
+  # FIXME is this correct ?
+  - conda install -c rdonnelly gcc-6=6.1.0
+  # TODO additional dependencies for converter
+  # - hdf5, dvid
+
+script:
+
+  ###############################################
+  # shortcuts
+  ###############################################
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - source activate dev
+  - export ENV_ROOT="$HOME/miniconda/envs/test-env"
+  - export ENV_INCLUDE="$ENV_ROOT/include"
+  - export ENV_BIN=$ENV_ROOT/bin
+  - export ROOT_BIN="$HOME/miniconda/bin"
+  
+  ###############################################
+  # setup compiler
+  ###############################################
+  - export CXX="$ENV_BIN/g++";
+  - export CC="$ENV_BIN/gcc";
+  
+  ###############################################
+  # configure cmake
+  ###############################################
+  - source activate test-env
+  - $ENV_BIN/cmake 
+          -DWITH_BLOSC=ON
+          -DWITH_ZLIB=ON
+          -DWITH_BZIP2=ON
+          -DBoost_INCLUDE_DIR=$ENV_INCLUDE  
+         
+  ###############################################
+  # the actual build
+  ###############################################
+  - make -j 4
+  
+  ###############################################
+  # test the project
+  ###############################################
+  # TODO run all python unittests instead
+  # python -m unittest discover python/test
+  - python python/test/test_dataset.py
