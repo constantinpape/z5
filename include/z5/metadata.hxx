@@ -218,7 +218,7 @@ namespace z5 {
             if(jIt != j.end()) {
                 if(*jIt != order) {
                     throw std::runtime_error(
-                        "Invalid Order: Zarr++ only supports C order"
+                        "Invalid Order: Z5 only supports C order"
                     );
                 }
             }
@@ -227,7 +227,7 @@ namespace z5 {
             if(jIt != j.end()) {
                 if(*jIt != zarrFormat) {
                     throw std::runtime_error(
-                        "Invalid Zarr format: Zarr++ only supports zarr format 2"
+                        "Invalid Zarr format: Z5 only supports zarr format 2"
                     );
                 }
             }
@@ -236,7 +236,7 @@ namespace z5 {
             if(jIt != j.end()) {
                 if(!j["filters"].is_null()) {
                     throw std::runtime_error(
-                        "Invalid Filters: Zarr++ does not support filters"
+                        "Invalid Filters: Z5 does not support filters"
                     );
                 }
             }

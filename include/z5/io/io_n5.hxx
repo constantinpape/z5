@@ -334,7 +334,7 @@ namespace io {
 
             // TODO support varlength mode
             if(mode != 0) {
-                throw std::runtime_error("Zarr++ only supports reading N5 chunks in default mode");
+                throw std::runtime_error("Z5 only supports reading N5 chunks in default mode");
             }
 
             // read the number of dimensions
