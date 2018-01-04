@@ -3,7 +3,12 @@ import unittest
 import numpy as np
 import os
 from shutil import rmtree
-import h5py
+
+try:
+    import h5py
+    WITH_H5 = True
+except ImportError:
+    WITH_H5 = False
 
 try:
     import z5py
@@ -25,6 +30,7 @@ class TestConverter(unittest.TestCase):
         if os.path.exists(self.tmp_dir):
             rmtree(self.tmp_dir)
 
+    @unittest.skipUnless(WITH_H5, 'Requires h5py')
     def test_h5_to_n5(self):
         from z5py.converter import convert_h5_to_n5
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
@@ -43,7 +49,8 @@ class TestConverter(unittest.TestCase):
         self.assertTrue(np.allclose(data, data_n5))
         print("Test h5 to n5 passed")
 
-    def _test_n5_to_h5(self):
+    @unittest.skipUnless(WITH_H5, 'Requires h5py')
+    def test_n5_to_h5(self):
         from z5py.converter import convert_n5_to_h5
         n5_file = os.path.join(self.tmp_dir, 'tmp.n5')
         f = z5py.File(n5_file, use_zarr_format=False)
@@ -58,7 +65,7 @@ class TestConverter(unittest.TestCase):
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
         convert_n5_to_h5(n5_file, h5_file, 'data', 'data', self.chunks, n_threads=1)
 
-        with h5py.File(h5_file, 'w') as fh5:
+        with h5py.File(h5_file, 'r') as fh5:
             data_h5 = fh5['data'][:]
         self.assertTrue(np.allclose(data, data_h5))
         print("Test n5 to h5 passed")
