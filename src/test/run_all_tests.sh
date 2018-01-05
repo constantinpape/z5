@@ -32,6 +32,11 @@ if [ -f ./multiarray/test_marray ]; then
     ./multiarray/test_marray
 fi
 
+echo "XT Tests"
+./multiarray/test_broadcast
+./multiarray/test_xtensor
+./multiarray/test_xtnd
+
 echo "Running Zarr Tests"
 cd test_zarr
 ./run_test.bash

@@ -8,6 +8,9 @@
 
 namespace fs = boost::filesystem;
 
+#define MIN_DIM 1
+#define MAX_DIM 5
+
 namespace z5 {
 namespace multiarray {
 
@@ -144,9 +147,7 @@ namespace multiarray {
 
     // FIXME N > 3 segfaults
     TEST_F(XtensorNDTest, TestRead) {
-        //for(size_t dim = 1; dim < 6; ++dim) {
-        //for(size_t dim = 4; dim < 6; ++dim) {
-        for(size_t dim = 1; dim < 4; ++dim) {
+        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
             // remove array
             fs::path path(path_);
@@ -156,9 +157,7 @@ namespace multiarray {
 
     // FIXME N > 3 segfaults
     TEST_F(XtensorNDTest, TestWriteRead) {
-        //for(size_t dim = 1; dim < 6; ++dim) {
-        //for(size_t dim = 4; dim < 6; ++dim) {
-        for(size_t dim = 1; dim < 4; ++dim) {
+        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);
             // remove array
             fs::path path(path_);
