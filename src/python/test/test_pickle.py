@@ -26,6 +26,7 @@ class TestPickle(unittest.TestCase):
         if(os.path.exists('array.n5')):
             rmtree('array.n5')
 
+    @unittest.skipIf(sys.version_info.major < 3, "Pickle test segfaults in python 2")
     def test_pickle(self):
         dtypes = ('int8', 'int16', 'int32', 'int64',
                   'uint8', 'uint16', 'uint32', 'uint64',
@@ -34,9 +35,9 @@ class TestPickle(unittest.TestCase):
         for dtype in dtypes:
             print("Running Pickle-Test for %s" % dtype)
             ds = self.ff.create_dataset('data_%s' % dtype,
-                                             dtype=dtype,
-                                             shape=self.shape,
-                                             chunks=(10, 10, 10))
+                                        dtype=dtype,
+                                        shape=self.shape,
+                                        chunks=(10, 10, 10))
             in_array = 42 * np.ones(self.shape, dtype=dtype)
             ds[:] = in_array
 

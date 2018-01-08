@@ -24,6 +24,7 @@ class TestUtil(unittest.TestCase):
         if os.path.exists(self.tmp_dir):
             rmtree(self.tmp_dir)
 
+    @unittest.skipIf(sys.version_info.major < 3, "Needs 3rd party concurrent.futures in python 2")
     def test_rechunk_default(self):
         from z5py.util import rechunk
         in_path = os.path.join(self.tmp_dir, 'in.n5')
@@ -57,6 +58,7 @@ class TestUtil(unittest.TestCase):
             self.assertEqual(ds_out.chunks, new_chunks)
             self.assertTrue(np.allclose(data, data_out))
 
+    @unittest.skipIf(sys.version_info.major < 3, "Needs 3rd party concurrent.futures in python 2")
     def test_rechunk_custom(self):
         from z5py.util import rechunk
         in_path = os.path.join(self.tmp_dir, 'in.n5')

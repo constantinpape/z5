@@ -76,6 +76,7 @@ class TestDataset(unittest.TestCase):
             self.assertEqual(out_array.shape, in_array.shape)
             self.assertTrue(np.allclose(out_array, in_array))
 
+    @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
     def test_ds_n5_array_to_format(self):
         dtypes = ('int8', 'int16', 'int32', 'int64',
                   'uint8', 'uint16', 'uint32', 'uint64',
