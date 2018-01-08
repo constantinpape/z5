@@ -148,7 +148,7 @@ class Dataset(object):
         if isinstance(item, np.ndarray):
             assert item.ndim == self.ndim, \
                 "z5py.Dataset: complicated broadcasting is not supported"
-            write_subarray(self._impl, item, roi_begin)
+            write_subarray(self._impl, np.require(item, requirements='C'), roi_begin)
 
         # broadcast scalar
         else:
@@ -163,7 +163,7 @@ class Dataset(object):
 
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
-        write_subarray(self._impl, data, start)
+        write_subarray(self._impl, np.require(data, requirements='C'), start)
 
     # expose the impl read subarray functionality
     def read_subarray(self, start, stop):
@@ -175,4 +175,4 @@ class Dataset(object):
     def array_to_format(self, array):
         assert array.ndim == self.ndim, "Array needs to be of same dimension as dataset"
         assert np.dtype(array.dtype) == np.dtype(self.dtype), "Array needs to have same dtype as dataset"
-        return convert_array_to_format(self._impl, array)
+        return convert_array_to_format(self._impl, np.require(array, requirements='C'))
