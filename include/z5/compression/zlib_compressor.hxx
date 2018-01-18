@@ -138,14 +138,6 @@ namespace compression {
             return types::zlib;
         }
 
-        virtual void getCodec(std::string & codec) const {
-            codec = useZlibEncoding_ ? "zlib" : "gzip";
-        }
-
-        virtual int getLevel() const {
-            return clevel_;
-        }
-
     private:
         void init(const DatasetMetadata & metadata) {
             clevel_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));

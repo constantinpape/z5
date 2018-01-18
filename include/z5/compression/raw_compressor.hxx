@@ -26,10 +26,6 @@ namespace compression {
         virtual types::Compressor type() const {
             return types::raw;
         }
-
-        virtual void getCodec(std::string & codec) const {
-            codec = "raw";
-        }
     };
 
 }

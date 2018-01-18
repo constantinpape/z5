@@ -20,8 +20,6 @@ namespace z5 {
             auto ds = openDataset(ds_path);
             ASSERT_EQ(ds->getCompressor(), expectedCompressor);
             std::string codec;
-            ds->getCodec(codec);
-            ASSERT_EQ(codec, expectedCodec);
 
             // check for the correct shapes, chunk size and shapes
             ASSERT_EQ(ds->size(), 111*121*113);

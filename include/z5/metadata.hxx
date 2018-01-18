@@ -113,7 +113,7 @@ namespace z5 {
             const auto & compressionOpts = j["compressor"];
 
             try {
-                compressor = compressionOpts["id"].is_null() ?
+                compressor = compressionOpts.is_null() ?
                     types::raw : types::Compressors::zarrToCompressor().at(compressionOpts["id"]);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");

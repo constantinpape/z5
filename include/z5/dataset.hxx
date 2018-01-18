@@ -78,9 +78,6 @@ namespace z5 {
         virtual bool isZarr() const = 0;
         virtual types::Compressor getCompressor() const = 0;
         virtual void getCompressor(std::string &) const = 0;
-        virtual void getCodec(std::string &) const = 0;
-        virtual int getCLevel() const = 0;
-        virtual int getCShuffle() const = 0;
         virtual const handle::Dataset & handle() const = 0;
 
         // find minimum / maximum existing coordinates
@@ -376,12 +373,6 @@ namespace z5 {
             auto compressorType = getCompressor();
             compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] : types::Compressors::compressorToN5()[compressorType];
         }
-        //
-        virtual void getCodec(std::string & codec) const {
-            compressor_->getCodec(codec);
-        };
-        virtual int getCLevel() const {return compressor_->getLevel();}
-        virtual int getCShuffle() const {return compressor_->getShuffle();}
 
         // find minimum / maximum existing coordinates
         // corresponding to the coordinates of the min / max chunk that was written

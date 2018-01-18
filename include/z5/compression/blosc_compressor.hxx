@@ -61,18 +61,6 @@ namespace compression {
             return types::blosc;
         }
 
-        virtual void getCodec(std::string & codec) const {
-            codec = compressor_;
-        }
-
-        virtual int getLevel() const {
-            return clevel_;
-        }
-
-        virtual int getShuffle() const {
-            return shuffle_;
-        }
-
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {

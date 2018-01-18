@@ -119,17 +119,6 @@ namespace z5 {
                 ds.getCompressor(compressor);
                 return compressor;
             })
-            .def_property_readonly("codec", [](const Dataset & ds){
-                std::string codec;
-                ds.getCodec(codec);
-                return codec;
-            })
-            .def_property_readonly("level", [](const Dataset & ds){
-                return ds.getCLevel();
-            })
-            .def_property_readonly("shuffle", [](const Dataset & ds){
-                return ds.getCShuffle();
-            })
 
             // pickle support
             .def(py::pickle(

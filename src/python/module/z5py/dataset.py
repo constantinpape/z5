@@ -20,6 +20,17 @@ class Dataset(object):
                   np.dtype('float32'): 'float32',
                   np.dtype('float64'): 'float64'}
 
+    zarr_dtype_dict = {np.dtype('uint8'): '<i1',
+                       np.dtype('uint16'): '<i2',
+                       np.dtype('uint32'): '<i4',
+                       np.dtype('uint64'): '<i8',
+                       np.dtype('int8'): '<u1',
+                       np.dtype('int16'): '<u2',
+                       np.dtype('int32'): '<u4',
+                       np.dtype('int64'): '<u8',
+                       np.dtype('float32'): '<f4',
+                       np.dtype('float64'): '<f8'}
+
     # FIXME for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
@@ -34,18 +45,52 @@ class Dataset(object):
         self._attrs = AttributeManager(path, self._impl.is_zarr)
 
     @staticmethod
+    def _to_zarr_compression_options(compression, compression_options):
+        opts = {}
+        if compression == 'blosc':
+            opts['id'] = 'blosc'
+            opts['name'] = compression_options['codec']
+            opts['level'] = compression_options['level']
+            opts['shuffle'] = compression_options['shuffle']
+        elif compression == 'zlib':
+            opts['id'] = 'zlib'
+            opts['level'] = compression_options['level']
+        elif compression == 'bzip2':
+            opts['id'] = 'bzip2'
+            opts['level'] = compression_options['level']
+        elif compression == 'raw':
+            opts = None
+        return opts
+
+    @staticmethod
+    def _to_n5_compression_options(compression, compression_options):
+        opts = {}
+        # TODO blosc in n5
+        # if compression == 'blosc':
+        #     opts['id'] = 'blosc'
+        #     opts['name'] = compression_options['codec']
+        #     opts['level'] = compression_options['level']
+        #     opts['shuffle'] = compression_options['shuffle']
+        if compression == 'gzip':
+            opts['id'] = 'gzip'
+            opts['level'] = compression_options['level']
+        elif compression == 'bzip2':
+            opts['id'] = 'bzip2'
+            opts['blockSize'] = compression_options['level']
+        elif compression == 'raw':
+            opts['id'] = 'raw'
+        return opts
+
+    @staticmethod
     def _create_dataset_zarr(path, dtype, shape, chunks,
-                             compressor, compression_options,
+                             compression, compression_options,
                              fill_value):
         os.mkdir(path)
-        # TODO TODO
-        params = {
-            'dtype': dtype,  # TODO need to properly map dtype to zarr convention
-            'shape': shape,
-            'chunks': chunks,
-            'fill_value': fill_value
-            'compressor': zarr_compressor_to_params(compressor, compression_params) # TODO
-        }
+        params = {'dtype': zarr_dtype_dict[np.dtype(dtype)],
+                  'shape': shape,
+                  'chunks': chunks,
+                  'fill_value': fill_value,
+                  'compressor': Dataset._to_zarr_compression_options(compression, compression_options)}
         with open(os.path.join(path, '.zarray'), 'w') as f:
             json.dump(params, f)
 
@@ -53,26 +98,23 @@ class Dataset(object):
     def _create_dataset_n5(path, dtype, shape, chunks,
                            compressor, compression_options):
         os.mkdir(path)
-        # TODO TODO
-        # params = {
-        #     'dtype': dtype,  # TODO need to properly map dtype to zarr convention
-        #     'shape': shape,
-        #     'chunks': chunks,
-        #     'compressor': zarr_compressor_to_params(compressor, compression_params) # TODO
-        # }
-        # with open(os.path.join(path, 'attributes.json'), 'w') as f:
-        #     json.dump(params, f)
+        params = {'dtype': dtype,
+                  'shape': shape[::-1],
+                  'chunks': chunks[::-1],
+                  'compression': Dataset._to_n5_compression_options(compression, compression_options)}
+        with open(os.path.join(path, 'attributes.json'), 'w') as f:
+            json.dump(params, f)
 
 
     @classmethod
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
-                       compressor, compression_options,
+                       compression, compression_options,
                        fill_value):
         if is_zarr and compressor not in cls.compressors_zarr:
-            compressor = cls.zarr_default_compressor
+            compression = cls.zarr_default_compressor
         elif not is_zarr and compressor not in cls.compressors_n5:
-            compressor = cls.n5_default_compressor
+            compression = cls.n5_default_compressor
 
         # support for numpy datatypes
         if not isinstance(dtype, str):
@@ -83,10 +125,10 @@ class Dataset(object):
 
         if is_zarr:
             cls._create_dataset_zarr(path, dtype, shape, chunks,
-                                     compressor, compression_options, fill_value)
+                                     compression, compression_options, fill_value)
         else:
             cls._create_dataset_n5(path, dtype, shape, chunks,
-                                   compressor, compression_options)
+                                   compression, compression_options)
         return cls(path, open_dataset(path))
 
     @classmethod

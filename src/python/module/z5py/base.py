@@ -29,17 +29,14 @@ class Base(object):
 
     # TODO allow creating with data ?!
     def create_dataset(self, key, dtype, shape, chunks,
-                       fill_value=0,
-                       compressor='blosc',  # TODO change default value depending on zarr / n5
-                       codec='lz4',  # TODO change default value depending on zarr / n5
-                       level=4,
-                       shuffle=1):
+                       fill_value=0, compressor='raw',
+                       **compression_options):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,
-                                      fill_value, compressor,
-                                      codec, level, shuffle)
+                                      compression, compression_options,
+                                      fill_value)
 
     def is_group(self, key):
         path = os.path.join(self.path, key)

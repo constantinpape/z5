@@ -212,7 +212,7 @@ namespace types {
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: options["level"] = static_cast<int>(jOpts["clevel"]);
+            case zlib: options["level"] = static_cast<int>(jOpts["level"]);
                        options["useZlib"] = true;
                        break;
             #endif
@@ -227,7 +227,7 @@ namespace types {
                                                   nlohmann::json & jOpts) {
         try {
             if(compressor == types::raw) {
-                jOpts["id"] = nullptr;
+                jOpts = nullptr;
             } else {
                 jOpts["id"] = types::Compressors::compressorToZarr().at(compressor);
             }
@@ -243,7 +243,7 @@ namespace types {
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: jOpts["clevel"] = boost::any_cast<int>(options.at("level"));
+            case zlib: jOpts["level"] = boost::any_cast<int>(options.at("level"));
                        break;
             #endif
             // raw compression has no parameters
@@ -291,8 +291,8 @@ namespace types {
         switch(compressor) {
             // TODO blosc in n5
             #ifdef WITH_BLOSC
-            case blosc: jOpts["cname"]   = boost::any_cast<std::string>(options.at("codec"));
-                        jOpts["clevel"]  = boost::any_cast<int>(options.at("level")); 
+            case blosc: jOpts["name"]   = boost::any_cast<std::string>(options.at("codec"));
+                        jOpts["level"]  = boost::any_cast<int>(options.at("level")); 
                         jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));
                         break;
             #endif
