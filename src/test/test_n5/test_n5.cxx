@@ -68,7 +68,7 @@ namespace z5 {
             types::ShapeType chunkShape = {10, 10, 10};
             // we can hardcode the codec to gzip here, because it is neither read for raw nor for 
             // bzip2 compression
-            auto ds = createDataset(ds_path, dtype, shape, chunkShape, false, 0, n5Compressor, "gzip");
+            auto ds = createDataset(ds_path, dtype, shape, chunkShape, false, n5Compressor);
 
             auto chunks = ds->chunksPerDimension();
             std::vector<T> data(ds->maxChunkSize(), value);

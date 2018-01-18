@@ -25,7 +25,7 @@ namespace multiarray {
             std::vector<size_t> shape(dim, size_);
             std::vector<size_t> chunkShape(dim, chunkSize_);
             // create the dataset
-            auto ds = createDataset(path_, "int32", shape, chunkShape, false, 0, "raw");
+            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
             // write the data
             std::vector<int32_t> data(ds->maxChunkSize(), 42);
             const auto & chunksPerDim = ds->chunksPerDimension();
@@ -87,7 +87,7 @@ namespace multiarray {
             // create the dataset
             std::vector<size_t> shape(dim, size_);
             std::vector<size_t> chunkShape(dim, chunkSize_);
-            auto ds = createDataset(path_, "int32", shape, chunkShape, false, 0, "raw");
+            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
 
             // random number generator
             std::uniform_int_distribution<int32_t> distr;

@@ -12,9 +12,7 @@ namespace io {
         types::ShapeType shape({20, 20, 20});
         types::ShapeType chunks({13, 5, 9});
 
-        auto ds = createDataset(
-            "array_irregular", "float32", shape, chunks, false, 0, "raw"
-        );
+        auto ds = createDataset("array_irregular", "float32", shape, chunks, false, "raw");
 
         types::ShapeType chunkShape;
         types::ShapeType expectedShape;

@@ -3,6 +3,10 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <boost/any.hpp>
+
+#include "json.hpp"
+
 
 namespace z5 {
 namespace types {
@@ -186,6 +190,119 @@ namespace types {
             return cMap;
         }
     };
+    
+    
+    //
+    // Compression Options
+    //
+
+    typedef std::map<std::string, boost::any> CompressionOptions;
+
+
+    inline void readZarrCompressionOptionsFromJson(Compressor compressor,
+                                                   const nlohmann::json & jOpts,
+                                                   CompressionOptions & options) {
+        switch(compressor) {
+            #ifdef WITH_BLOSC
+            case blosc: options["codec"] = jOpts["cname"];
+                        options["level"] = jOpts["clevel"];
+                        options["shuffle"] = jOpts["shuffle"];
+                        break;
+            #endif
+            #ifdef WITH_ZLIB
+            case zlib: options["level"] = jOpts["clevel"];
+                       options["use_zlib"] = true;
+                       break;
+            #endif
+            // raw compression has no parameters
+            default: break;
+        }
+    }
+
+
+    inline void writeZarrCompressionOptionsToJson(Compressor compressor,
+                                                  const CompressionOptions & options,
+                                                  nlohmann::json & jOpts) {
+        try {
+            if(compressor == types::raw) {
+                jOpts["id"] = nullptr;
+            } else {
+                jOpts["id"] = types::Compressors::compressorToZarr().at(compressor);
+            }
+        } catch(std::out_of_range) {
+            throw std::runtime_error("z5.DatasetMetadata.toJsonZarr: wrong compressor for zarr format");
+        }
+
+        switch(compressor) {
+            #ifdef WITH_BLOSC
+            case blosc: jOpts["cname"]   = boost::any_cast<std::string>(options.at("codec"));    
+                        jOpts["clevel"]  = boost::any_cast<int>(options.at("level"));    
+                        jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));  
+                        break;
+            #endif
+            #ifdef WITH_ZLIB
+            case zlib: jOpts["clevel"] = boost::any_cast<int>(options.at("level"));
+                       break;
+            #endif
+            // raw compression has no parameters
+            default: break;
+        }
+    }
+    
+
+    inline void readN5CompressionOptionsFromJson(Compressor compressor,
+                                                 const nlohmann::json & jOpts,
+                                                 CompressionOptions & options) {
+        switch(compressor) {
+            // TODO blosc in n5
+            #ifdef WITH_BLOSC
+            case blosc: options["codec"] = jOpts["codec"];
+                        options["level"] = jOpts["level"];
+                        options["shuffle"] = jOpts["shuffle"];
+                        break;
+            #endif
+            #ifdef WITH_ZLIB
+            case zlib: options["level"] = jOpts["level"];
+                       options["use_zlib"] = false;
+                       break;
+            #endif
+            #ifdef WITH_BZIP2
+            case bzip2: options["level"] = jOpts["blockSize"];
+            #endif
+            // raw compression has no parameters
+            default: break;
+        }
+    }
+    
+    
+    inline void writeN5CompressionOptionsToJson(Compressor compressor,
+                                                const CompressionOptions & options,
+                                                nlohmann::json & jOpts) {
+        try {
+            jOpts["type"] = types::Compressors::compressorToN5().at(compressor);
+        } catch(std::out_of_range) {
+            throw std::runtime_error("z5.DatasetMetadata.toJsonN5: wrong compressor for N5 format");
+        }
+        
+        switch(compressor) {
+            // TODO blosc in n5
+            #ifdef WITH_BLOSC
+            case blosc: jOpts["cname"]   = boost::any_cast<std::string>(options.at("codec"));
+                        jOpts["clevel"]  = boost::any_cast<int>(options.at("level")); 
+                        jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));
+                        break;
+            #endif
+            #ifdef WITH_ZLIB
+            case zlib: jOpts["level"] = boost::any_cast<int>(options.at("level"));
+                       break;
+            #endif
+            #ifdef WITH_BZIP2
+            case bzip2: jOpts["blockSize"]  = boost::any_cast<int>(options.at("level"));
+            #endif
+            // raw compression has no parameters
+            default: break;
+        }
+    }
 
 } // namespace::types
     // overload ostream operator for ShapeType (a.k.a) vector for convinience

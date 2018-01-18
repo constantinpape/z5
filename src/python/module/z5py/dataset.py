@@ -1,6 +1,8 @@
-import numpy as np
 import numbers
-from ._z5py import DatasetImpl, open_dataset, create_dataset
+import json
+
+import numpy as np
+from ._z5py import DatasetImpl, open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
 
@@ -31,11 +33,42 @@ class Dataset(object):
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
 
+    @staticmethod
+    def _create_dataset_zarr(path, dtype, shape, chunks,
+                             compressor, compression_options,
+                             fill_value):
+        os.mkdir(path)
+        # TODO TODO
+        params = {
+            'dtype': dtype,  # TODO need to properly map dtype to zarr convention
+            'shape': shape,
+            'chunks': chunks,
+            'fill_value': fill_value
+            'compressor': zarr_compressor_to_params(compressor, compression_params) # TODO
+        }
+        with open(os.path.join(path, '.zarray'), 'w') as f:
+            json.dump(params, f)
+
+    @staticmethod
+    def _create_dataset_n5(path, dtype, shape, chunks,
+                           compressor, compression_options):
+        os.mkdir(path)
+        # TODO TODO
+        # params = {
+        #     'dtype': dtype,  # TODO need to properly map dtype to zarr convention
+        #     'shape': shape,
+        #     'chunks': chunks,
+        #     'compressor': zarr_compressor_to_params(compressor, compression_params) # TODO
+        # }
+        # with open(os.path.join(path, 'attributes.json'), 'w') as f:
+        #     json.dump(params, f)
+
+
     @classmethod
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
-                       fill_value, compressor,
-                       codec, level, shuffle):
+                       compressor, compression_options,
+                       fill_value):
         if is_zarr and compressor not in cls.compressors_zarr:
             compressor = cls.zarr_default_compressor
         elif not is_zarr and compressor not in cls.compressors_n5:
@@ -48,11 +81,13 @@ class Dataset(object):
         else:
             dtype_ = dtype
 
-        return cls(path, create_dataset(path, dtype_,
-                                        shape, chunks,
-                                        is_zarr, fill_value,
-                                        compressor, codec,
-                                        level, shuffle))
+        if is_zarr:
+            cls._create_dataset_zarr(path, dtype, shape, chunks,
+                                     compressor, compression_options, fill_value)
+        else:
+            cls._create_dataset_n5(path, dtype, shape, chunks,
+                                   compressor, compression_options)
+        return cls(path, open_dataset(path))
 
     @classmethod
     def open_dataset(cls, path):

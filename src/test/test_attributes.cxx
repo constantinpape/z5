@@ -25,18 +25,20 @@ namespace z5 {
         void SetUp() {
             types::ShapeType shape({100, 100, 100});
             types::ShapeType chunks({10, 10, 10});
-            createDataset(
-                hZarr.path().string(), "int32",
-                shape, chunks, true,
-                0, "blosc",
-                "lz4", 5, 1
-            );
-            createDataset(
-                hN5.path().string(), "int32",
-                shape, chunks, false,
-                0, "zlib",
-                "gzip", 5, 0
-            );
+
+            types::CompressionOptions cOpts;
+            cOpts["level"] = 5;
+            cOpts["codec"] = "lz4";
+            cOpts["shuffle"] = 1;
+            createDataset(hZarr.path().string(), "int32",
+                          shape, chunks, true,
+                          "blosc", cOpts, 0);
+
+            types::CompressionOptions cOptsN5;
+            cOptsN5["level"] = 5;
+            createDataset(hN5.path().string(), "int32",
+                          shape, chunks, false,
+                          "zlib", cOptsN5, 0);
         }
 
         void TearDown() {

@@ -44,24 +44,24 @@ namespace multiarray {
         virtual void SetUp() {
             {
                 // create arrays Zarr
-                auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, 0, "raw");
+                auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, "raw");
                 writeData<int>(intReg);
-                auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, "raw");
                 writeData<int>(intIrreg);
-                auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, 0, "raw");
+                auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, "raw");
                 writeData<float>(floatReg);
-                auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, 0, "raw");
+                auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, "raw");
                 writeData<float>(floatIrreg);
             }
             {
                 // create arrays n5
-                auto intReg = createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, 0, "raw");
+                auto intReg = createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, "raw");
                 writeData<int>(intReg);
-                auto intIrreg = createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                auto intIrreg = createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, "raw");
                 writeData<int>(intIrreg);
-                auto floatReg = createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, 0, "raw");
+                auto floatReg = createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, "raw");
                 writeData<float>(floatReg);
-                auto floatIrreg = createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, 0, "raw");
+                auto floatIrreg = createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, "raw");
                 writeData<float>(floatIrreg);
             }
         }

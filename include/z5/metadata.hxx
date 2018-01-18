@@ -2,8 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <boost/any.hpp>
-#include "json.hpp"
 
 #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
@@ -18,6 +16,7 @@ namespace fs = boost::filesystem;
 
 namespace z5 {
 
+    // TODO general format strig
     struct Metadata {
         const int zarrFormat = 2;
     };
@@ -31,20 +30,16 @@ namespace z5 {
             const types::ShapeType & shape,
             const types::ShapeType & chunkShape,
             const bool isZarr,
-            const double fillValue=0, // FIXME this should be a template if we use boost::any
             const types::Compressor compressor=types::raw,
-            const std::string & codec="lz4",
-            const int compressorLevel=4,
-            const int compressorShuffle=1
+            const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
+            const double fillValue=0 // FIXME the fill value should not be used here
             ) : dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
                 isZarr(isZarr),
-                fillValue(fillValue), // FIXME boost::any
                 compressor(compressor),
-                codec(codec),
-                compressorLevel(compressorLevel),
-                compressorShuffle(compressorShuffle)
+                compressionOptions(compressionOptions),
+                fillValue(fillValue) // FIXME fill value should not be used here
         {
             checkShapes();
         }
@@ -76,28 +71,13 @@ namespace z5 {
         void toJsonZarr(nlohmann:: json & j) const {
 
             nlohmann::json compressionOpts;
-            try {
-                if(compressor == types::raw) {
-                    compressionOpts["id"] = nullptr;
-                } else {
-                    compressionOpts["id"] = types::Compressors::compressorToZarr().at(compressor);
-                }
-            } catch(std::out_of_range) {
-                throw std::runtime_error("z5.DatasetMetadata.toJsonZarr: wrong compressor for zarr format");
-            }
-            compressionOpts["cname"] = codec;
-            compressionOpts["clevel"] = compressorLevel;
-            compressionOpts["shuffle"] = compressorShuffle;
+            types::writeZarrCompressionOptionsToJson(compressor, compressionOptions, compressionOpts);
             j["compressor"] = compressionOpts;
 
             j["dtype"] = types::Datatypes::dtypeToZarr().at(dtype);
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            // FIXME boost::any isn't doing what it's supposed to :(
-            //j["fill_value"] = types::isRealType(.dtype) ? boost::any_cast<float>(.fillValue)
-            //    : (types::isUnsignedType(.dtype) ? boost::any_cast<uint64_t>(.fillValue)
-            //        : boost::any_cast<int64_t>(.fillValue));
             j["fill_value"] = fillValue;
 
             j["filters"] = filters;
@@ -117,11 +97,9 @@ namespace z5 {
 
             j["dataType"] = types::Datatypes::dtypeToN5().at(dtype);
 
-            try {
-                j["compressionType"] = types::Compressors::compressorToN5().at(compressor);
-            } catch(std::out_of_range) {
-                throw std::runtime_error("z5.DatasetMetadata.toJsonN5: wrong compressor for N5 format");
-            }
+            // try to read the new format
+            nlohmann::json jOpts;
+            types::writeN5CompressionOptionsToJson(compressor, compressionOptions, jOpts);
         }
 
 
@@ -130,7 +108,7 @@ namespace z5 {
             dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
-            fillValue = static_cast<double>(j["fill_value"]); // FIXME boost::any
+            fillValue = static_cast<double>(j["fill_value"]); // FIXME fill value should not be used at this level
             const auto & compressionOpts = j["compressor"];
 
             try {
@@ -140,9 +118,7 @@ namespace z5 {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
             }
 
-            codec    = compressionOpts["cname"];
-            compressorLevel   = compressionOpts["clevel"];
-            compressorShuffle = compressionOpts["shuffle"];
+            types::readZarrCompressionOptionsFromJson(compressor, compressionOpts, compressionOptions);
         }
 
 
@@ -156,19 +132,42 @@ namespace z5 {
             // N5-Axis order: we need to reverse the chunk shape when reading from metadata
             chunkShape = types::ShapeType(j["blockSize"].rbegin(), j["blockSize"].rend());
 
+            // we need to deal with two different encodings for compression in n5:
+            // in the old format, we only have the field 'compressionType', indicating which compressor should be used
+            // in the new format, we have the field 'type', which indicates the compressor
+            // and can have additional attributes for options
+            bool newFormat;
+            std::string n5Compressor;
             try {
-                compressor = types::Compressors::n5ToCompressor().at(j["compressionType"]);
+                // try to read the old format
+                n5Compressor = j["compressionType"];
+                newFormat = false;
             } catch(std::out_of_range) {
-                throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for N5 format");
+                // try to read the new format
+                try {
+                    n5Compressor = j["compressor"]["type"];
+                    newFormat = true;
+                } catch(std::out_of_range) {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
+                }
             }
 
-            #ifdef WITH_ZLIB
-            codec = (compressor == types::zlib) ? "gzip" : "";
-            #else
-            codec = "";
-            #endif
-            // TODO these should become parameters in N5
-            compressorLevel = 4;
+            try {
+                // try to read the old format
+                compressor = types::Compressors::n5ToCompressor().at(n5Compressor);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for n5 format");
+            }
+
+            if(newFormat) {
+                const auto & jOpts = j["compressor"];
+                readN5CompressionOptionsFromJson(compressor, jOpts, compressionOptions);
+            } else {
+                compressionOptions["level"] = 4;
+                compressionOptions["useZlib"] = false;
+            }
+
+            // FIXME fill value should not be used here
             fillValue = 0;
         }
 
@@ -177,17 +176,14 @@ namespace z5 {
         types::Datatype dtype;
         types::ShapeType shape;
         types::ShapeType chunkShape;
-
-        // FIXME boost::any isn't doing what it's supposed to :(
-        // for now we just store the fill value as double as a hacky workaround
-        //boost::any fillValue;
-        double fillValue;
-
-        int compressorLevel;
-        types::Compressor compressor;
-        std::string codec;
-        int compressorShuffle;
         bool isZarr; // flag to specify whether we have a zarr or n5 array
+
+        // compressor name and opyions
+        types::Compressor compressor;
+        types::CompressionOptions compressionOptions;
+
+        // FIXME fill value should not be used at this level of implementation
+        double fillValue;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2

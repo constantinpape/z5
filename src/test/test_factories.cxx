@@ -13,12 +13,10 @@ namespace z5 {
 
 
     void writeMetadata(const handle::Dataset & h, const std::string & dtype) {
-        DatasetMetadata meta(
-            types::Datatypes::n5ToDtype()[dtype],
-            types::ShapeType({100, 100, 100}),
-            types::ShapeType({10, 10, 10}),
-            true
-        );
+        DatasetMetadata meta(types::Datatypes::n5ToDtype()[dtype],
+                             types::ShapeType({100, 100, 100}),
+                             types::ShapeType({10, 10, 10}),
+                             true);
         writeMetadata(h, meta);
     }
 

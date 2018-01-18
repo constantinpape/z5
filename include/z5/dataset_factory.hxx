@@ -61,11 +61,9 @@ namespace z5 {
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
         const bool createAsZarr,
-        const double fillValue=0,
-        const std::string & compressor="blosc",
-        const std::string & codec="lz4",
-        const int compressorLevel=5,
-        const int compressorShuffle=1
+        const std::string & compressor="raw",
+        const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
+        const double fillValue=0
     ) {
         // get the internal data type
         types::Datatype internalDtype;
@@ -86,9 +84,8 @@ namespace z5 {
         DatasetMetadata metadata(
             internalDtype, shape,
             chunkShape, createAsZarr,
-            fillValue, internalCompressor,
-            codec, compressorLevel, compressorShuffle
-        );
+            internalCompressor, compressionOptions,
+            fillValue);
 
         // make array handle
         handle::Dataset h(path);
@@ -128,19 +125,16 @@ namespace z5 {
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
         const bool createAsZarr,
-        const double fillValue=0,
-        const std::string & compressor="blosc",
-        const std::string & codec="lz4",
-        const int compressorLevel=5,
-        const int compressorShuffle=1
+        const std::string & compressor="raw",
+        const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
+        const double fillValue=0
     ) {
         auto path = group.path();
         path /= key;
         return createDataset(path.string(),
             dtype, shape, chunkShape,
-            createAsZarr, fillValue, compressor,
-            codec, compressorLevel, compressorShuffle
-        );
+            createAsZarr, compressor,
+            compressionOptions, fillValue);
     }
 
 }

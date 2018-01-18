@@ -29,16 +29,16 @@ namespace multiarray {
 
         virtual void SetUp() {
             // create zarr arrays
-            createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, 0, "raw");
-            createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, 0, "raw");
-            createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, 0, "raw");
-            createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, 0, "raw");
+            createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, "raw");
+            createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, "raw");
+            createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, "raw");
+            createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, "raw");
 
             // create n5 arrays
-            createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, 0, "raw");
-            createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, 0, "raw");
-            createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, 0, "raw");
-            createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, 0, "raw");
+            createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, "raw");
+            createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, "raw");
+            createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, "raw");
+            createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, "raw");
         }
 
         virtual void TearDown() {

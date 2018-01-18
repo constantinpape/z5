@@ -14,6 +14,7 @@ namespace z5 {
         MetadataTest(){
             // standard zarray metadata
             jZarr = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<f8\", \"fill_value\": 0, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
+            // TODO change to new compression format
             jN5 = "{ \"blockSize\": [10, 10, 10], \"compressionType\": \"gzip\", \"dataType\": \"float64\", \"dimensions\": [100, 100, 100] }"_json;
         }
 
@@ -49,7 +50,6 @@ namespace z5 {
 
         nlohmann::json jZarr;
         nlohmann::json jN5;
-
     };
 
 
@@ -67,16 +67,17 @@ namespace z5 {
             ASSERT_EQ(metadata.shape[i], jZarr["shape"][i]);
         }
         const auto & compressor = jZarr["compressor"];
-        ASSERT_EQ(metadata.compressorLevel, compressor["clevel"]);
-        ASSERT_EQ(metadata.codec, compressor["cname"]);
+        // check compressr
         ASSERT_EQ(metadata.compressor, types::Compressors::zarrToCompressor()[compressor["id"]]);
-        ASSERT_EQ(metadata.compressorShuffle, compressor["shuffle"]);
+        // check compression options
+        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["level"]), compressor["clevel"]);
+        ASSERT_EQ(boost::any_cast<std::string>(metadata.compressionOptions["codec"]), compressor["cname"]);
+        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["shuffel"]), compressor["shuffle"]);
+        // check dtype, fillvalue and order
         ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);
-        // FIXME boost any is a bit tricky here
         ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);
         ASSERT_EQ(metadata.order, jZarr["order"]);
     }
-
 
     TEST_F(MetadataTest, ReadMetadataN5) {
         handle::Dataset h("array.n5");
@@ -94,7 +95,7 @@ namespace z5 {
         #ifdef WITH_ZLIB
         ASSERT_EQ(metadata.compressor, types::zlib);
         #endif
-        ASSERT_EQ(metadata.codec, jN5["compressionType"]);
+        ASSERT_EQ(boost::any_cast<bool>(metadata.compressionOptions.at("useZlib")), false);
         ASSERT_EQ(metadata.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 
@@ -139,6 +140,7 @@ namespace z5 {
         DatasetMetadata metaRead;
         readMetadata(h, metaRead);
 
+        // check shapes and chunks
         ASSERT_EQ(metaRead.shape.size(), metaRead.chunkShape.size());
         ASSERT_EQ(metaRead.shape.size(), metaWrite.shape.size());
         ASSERT_EQ(metaRead.chunkShape.size(), metaWrite.chunkShape.size());
@@ -146,12 +148,17 @@ namespace z5 {
             ASSERT_EQ(metaRead.chunkShape[i], metaWrite.chunkShape[i]);
             ASSERT_EQ(metaRead.shape[i],      metaWrite.shape[i]);
         }
-        ASSERT_EQ(metaRead.compressorLevel,   metaWrite.compressorLevel);
-        ASSERT_EQ(metaRead.codec,    metaWrite.codec);
-        ASSERT_EQ(metaRead.compressor,      metaWrite.compressor);
-        ASSERT_EQ(metaRead.compressorShuffle, metaWrite.compressorShuffle);
+        // check compression
+        ASSERT_EQ(metaRead.compressor, metaWrite.compressor);
+        // check compression options
+        ASSERT_EQ(boost::any_cast<int>(metaRead.compressionOptions.at("level")),
+                  boost::any_cast<int>(metaWrite.compressionOptions.at("level")));
+        ASSERT_EQ(boost::any_cast<int>(metaRead.compressionOptions.at("shuffle")),
+                  boost::any_cast<int>(metaWrite.compressionOptions.at("shuffle")));
+        ASSERT_EQ(boost::any_cast<std::string>(metaRead.compressionOptions.at("codec")),
+                  boost::any_cast<std::string>(metaWrite.compressionOptions.at("codec")));
+        // check dtype, fill value, order
         ASSERT_EQ(metaRead.dtype,             metaWrite.dtype);
-        // FIXME boost any is a bit tricky here
         ASSERT_EQ(metaRead.fillValue, metaWrite.fillValue);
         ASSERT_EQ(metaRead.order, metaWrite.order);
     }
@@ -181,7 +188,7 @@ namespace z5 {
         #ifdef WITH_ZLIB
         ASSERT_EQ(metaRead.compressor, types::zlib);
         #endif
-        ASSERT_EQ(metaRead.codec, "gzip");
+        ASSERT_EQ(boost::any_cast<bool>(metaRead.compressionOptions["useZlib"]), false);
         ASSERT_EQ(metaRead.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 

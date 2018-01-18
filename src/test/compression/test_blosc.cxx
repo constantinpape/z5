@@ -17,9 +17,9 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.codec = "lz4";
-        metadata.compressorLevel = 5;
-        metadata.compressorShuffle = 1;
+        metadata.compressionOptions["codec"] = "lz4";
+        metadata.compressionOptions["level"] = 5;
+        metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
@@ -36,9 +36,9 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.codec = "lz4";
-        metadata.compressorLevel = 5;
-        metadata.compressorShuffle = 1;
+        metadata.compressionOptions["codec"] = "lz4";
+        metadata.compressionOptions["level"] = 5;
+        metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
@@ -55,9 +55,9 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.codec = "lz4";
-        metadata.compressorLevel = 5;
-        metadata.compressorShuffle = 1;
+        metadata.compressionOptions["codec"] = "lz4";
+        metadata.compressionOptions["level"] = 5;
+        metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
@@ -77,9 +77,9 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.codec = "lz4";
-        metadata.compressorLevel = 5;
-        metadata.compressorShuffle = 1;
+        metadata.compressionOptions["codec"] = "lz4";
+        metadata.compressionOptions["level"] = 5;
+        metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<float> compressor(metadata);
 
         std::vector<float> dataOut;

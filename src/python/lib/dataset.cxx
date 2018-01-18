@@ -154,26 +154,6 @@ namespace z5 {
             return openDataset(path);
         });
 
-
-        // TODO params !!!
-        module.def(
-            "create_dataset",[](
-            const std::string & path,
-            const std::string & dtype,
-            const types::ShapeType & shape,
-            const types::ShapeType & chunkShape,
-            const bool createAsZarr,
-            const double fillValue,
-            const std::string & compressor,
-            const std::string & codec,
-            const int compressorLevel,
-            const int compressorShuffle
-        ){
-            return createDataset(
-                path, dtype, shape, chunkShape, createAsZarr, fillValue, compressor, codec, compressorLevel, compressorShuffle
-            );
-        });
-
         // export I/O for all dtypes
         // integer types
         exportIoT<int8_t>(module);

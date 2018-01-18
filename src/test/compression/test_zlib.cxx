@@ -15,17 +15,17 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
-        for(const auto & name : zlibCompressors) {
-            metadata.codec = name;
+        metadata.compressionOptions["level"] = 5;
+        for(const auto & useZlib : {false, true}) {
+            metadata.compressionOptions["useZlib"] = useZlib;
             ZlibCompressor<int> compressor(metadata);
 
             std::vector<int> dataOut;
             compressor.compress(dataInt_, dataOut, SIZE);
 
             ASSERT_TRUE(dataOut.size() < SIZE);
-            std::cout << "Compression " << name << " - Int: " << dataOut.size() << " / " << SIZE << std::endl;
+            std::cout << "Compression " << useZlib << " - Int: " << dataOut.size() << " / " << SIZE << std::endl;
         }
     }
 
@@ -34,17 +34,17 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
-        for(const auto & name : zlibCompressors) {
-            metadata.codec = name;
+        metadata.compressionOptions["level"] = 5;
+        for(const auto & useZlib : {false, true}) {
+            metadata.compressionOptions["useZlib"] = useZlib;
             ZlibCompressor<float> compressor(metadata);
 
             std::vector<float> dataOut;
             compressor.compress(dataFloat_, dataOut, SIZE);
 
             ASSERT_TRUE(dataOut.size() < SIZE);
-            std::cout << "Compression " << name << " - Float: " << dataOut.size() << " / " << SIZE << std::endl;
+            std::cout << "Compression " << useZlib << " - Float: " << dataOut.size() << " / " << SIZE << std::endl;
         }
     }
 
@@ -53,10 +53,10 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
-        for(const auto & name : zlibCompressors) {
-            metadata.codec = name;
+        metadata.compressionOptions["level"] = 5;
+        for(const auto & useZlib : {false, true}) {
+            metadata.compressionOptions["useZlib"] = useZlib;
             ZlibCompressor<int> compressor(metadata);
 
             std::vector<int> dataOut;
@@ -76,10 +76,9 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
         metadata.compressor = types::zlib;
-        for(const auto & name : zlibCompressors) {
-            metadata.codec = name;
+        metadata.compressionOptions["level"] = 5;
+        for(const auto & useZlib : {false, true}) {
             ZlibCompressor<float> compressor(metadata);
 
             std::vector<float> dataOut;

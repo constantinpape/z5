@@ -76,9 +76,9 @@ namespace compression {
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {
-            clevel_ = metadata.compressorLevel;
-            shuffle_ = metadata.compressorShuffle;
-            compressor_ = metadata.codec;
+            clevel_     = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            shuffle_    = boost::any_cast<int>(metadata.compressionOptions.at("shuffle"));
+            compressor_ = boost::any_cast<std::string>(metadata.compressionOptions.at("codec"));
         }
 
         // the blosc compressor
