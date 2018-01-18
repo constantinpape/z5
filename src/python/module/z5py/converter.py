@@ -77,8 +77,8 @@ if WITH_H5:
 
             # modify n5 arguments
             out_dtype = n5_kwargs.pop('dtype', ds_h5.dtype)
-            if 'compressor' not in n5_kwargs:
-                n5_kwargs['compressor'] = 'raw'
+            if 'compression' not in n5_kwargs:
+                n5_kwargs['compression'] = 'raw'
             ds_n5 = f_n5.create_dataset(out_path_in_file,
                                         dtype=out_dtype,
                                         shape=shape,

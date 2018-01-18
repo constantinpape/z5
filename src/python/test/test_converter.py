@@ -56,7 +56,7 @@ class TestConverter(unittest.TestCase):
         f = z5py.File(n5_file, use_zarr_format=False)
         ds = f.create_dataset('data',
                               dtype='float32',
-                              compressor='raw',
+                              compression='raw',
                               shape=self.shape,
                               chunks=self.chunks)
         data = np.arange(ds.size).reshape(ds.shape).astype(ds.dtype)

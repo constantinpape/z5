@@ -24,6 +24,7 @@ class TestAttributes(unittest.TestCase):
 
     def setUp(self):
         self.shape = (100, 100, 100)
+
         self.ff_zarr = z5py.File('array.zr', True)
         self.ff_zarr.create_dataset(
             'ds', dtype='float32', shape=self.shape, chunks=(10, 10, 10)

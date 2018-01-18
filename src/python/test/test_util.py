@@ -34,7 +34,7 @@ class TestUtil(unittest.TestCase):
         in_file = z5py.File(in_path, use_zarr_format=False)
         ds_in = in_file.create_dataset('data', dtype='float32',
                                        shape=self.shape, chunks=self.chunks,
-                                       compressor='gzip')
+                                       compression='gzip')
         # write test data
         data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
         ds_in[:] = data
@@ -68,19 +68,19 @@ class TestUtil(unittest.TestCase):
         in_file = z5py.File(in_path, use_zarr_format=False)
         ds_in = in_file.create_dataset('data', dtype='float32',
                                        shape=self.shape, chunks=self.chunks,
-                                       compressor='gzip')
+                                       compression='gzip')
         # write test data
         data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
         ds_in[:] = data
         # rechunk
         new_chunks = (20, 20, 20)
-        for compressor in ('raw', 'gzip'):
+        for compression in ('raw', 'gzip'):
             for dtype in ('float64', 'int32', 'uint32'):
-                ds_name = 'ds_%s_%s' % (compressor, dtype)
+                ds_name = 'ds_%s_%s' % (compression, dtype)
                 rechunk(in_path, out_path,
                         'data', ds_name, new_chunks,
                         n_threads=8,
-                        compressor=compressor,
+                        compression=compression,
                         dtype=dtype)
                 # make sure that new data agrees
                 out_file = z5py.File(out_path, use_zarr_format=False)

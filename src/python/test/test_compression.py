@@ -40,7 +40,7 @@ class TestCompression(unittest.TestCase):
                                           dtype=dtype,
                                           shape=shape,
                                           chunks=chunks,
-                                          compressor=compression)
+                                          compression=compression)
                     in_array = np.random.random(size=shape).astype(dtype)
                     ds[:] = in_array
                     out_array = ds[:]

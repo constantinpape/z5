@@ -4,7 +4,7 @@ import os
 
 class AttributeManager(object):
 
-    n5_keys = ('dimensions', 'blockSize', 'dataType', 'compressionType')
+    n5_keys = ('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression')
 
     def __init__(self, path, is_zarr):
         self.path = os.path.join(path, '.zattrs' if is_zarr else 'attributes.json')

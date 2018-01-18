@@ -153,8 +153,8 @@ namespace z5 {
                 }
             }
 
+            // get the actual compressor
             try {
-                // try to read the old format
                 compressor = types::Compressors::n5ToCompressor().at(n5Compressor);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for n5 format");

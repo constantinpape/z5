@@ -29,7 +29,7 @@ class Base(object):
 
     # TODO allow creating with data ?!
     def create_dataset(self, key, dtype, shape, chunks,
-                       fill_value=0, compressor='raw',
+                       fill_value=0, compression='raw',
                        **compression_options):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)

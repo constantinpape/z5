@@ -1,3 +1,4 @@
+import os
 import numbers
 import json
 
@@ -20,14 +21,14 @@ class Dataset(object):
                   np.dtype('float32'): 'float32',
                   np.dtype('float64'): 'float64'}
 
-    zarr_dtype_dict = {np.dtype('uint8'): '<i1',
-                       np.dtype('uint16'): '<i2',
-                       np.dtype('uint32'): '<i4',
-                       np.dtype('uint64'): '<i8',
-                       np.dtype('int8'): '<u1',
-                       np.dtype('int16'): '<u2',
-                       np.dtype('int32'): '<u4',
-                       np.dtype('int64'): '<u8',
+    zarr_dtype_dict = {np.dtype('uint8'): '<u1',
+                       np.dtype('uint16'): '<u2',
+                       np.dtype('uint32'): '<u4',
+                       np.dtype('uint64'): '<u8',
+                       np.dtype('int8'): '<i1',
+                       np.dtype('int16'): '<i2',
+                       np.dtype('int32'): '<i4',
+                       np.dtype('int64'): '<i8',
                        np.dtype('float32'): '<f4',
                        np.dtype('float64'): '<f8'}
 
@@ -43,23 +44,43 @@ class Dataset(object):
         assert isinstance(dset_impl, DatasetImpl)
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
+        self.path = path
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
         opts = {}
         if compression == 'blosc':
             opts['id'] = 'blosc'
-            opts['name'] = compression_options['codec']
-            opts['level'] = compression_options['level']
-            opts['shuffle'] = compression_options['shuffle']
+            opts['cname'] = compression_options.get('codec', 'lz4')
+            opts['clevel'] = compression_options.get('level', 5)
+            opts['shuffle'] = compression_options.get('shuffle', 1)
         elif compression == 'zlib':
             opts['id'] = 'zlib'
-            opts['level'] = compression_options['level']
+            opts['level'] = compression_options.get('level', 5)
         elif compression == 'bzip2':
             opts['id'] = 'bzip2'
-            opts['level'] = compression_options['level']
+            opts['level'] = compression_options.get('level', 5)
         elif compression == 'raw':
             opts = None
+        return opts
+
+    def _read_zarr_compression_options(self):
+        opts = {}
+        with open(os.path.join(self.path, '.zarray'), 'r') as f:
+            zarr_opts = json.load(f)
+        if zarr_opts is None:
+            opts['compression'] = 'raw'
+        elif zarr_opts['id'] == 'blosc':
+            opts['compression'] = 'blosc'
+            opts['level'] = zarr_opts['clevel']
+            opts['shuffle'] = zarr_opts['shuffle']
+            opts['codec'] = zarr_opts['cname']
+        elif zarr_opts['id'] == 'zlib':
+            opts['compression'] = 'zlib'
+            opts['level'] = zarr_opts['level']
+        elif zarr_opts['id'] == 'bzip2':
+            opts['compression'] = 'bzip2'
+            opts['level'] = zarr_opts['level']
         return opts
 
     @staticmethod
@@ -67,18 +88,38 @@ class Dataset(object):
         opts = {}
         # TODO blosc in n5
         # if compression == 'blosc':
-        #     opts['id'] = 'blosc'
-        #     opts['name'] = compression_options['codec']
+        #     opts['type'] = 'blosc'
+        #     opts['codec'] = compression_options['codec']
         #     opts['level'] = compression_options['level']
         #     opts['shuffle'] = compression_options['shuffle']
         if compression == 'gzip':
-            opts['id'] = 'gzip'
-            opts['level'] = compression_options['level']
+            opts['type'] = 'gzip'
+            opts['level'] = compression_options.get('level', 5)
         elif compression == 'bzip2':
-            opts['id'] = 'bzip2'
-            opts['blockSize'] = compression_options['level']
+            opts['type'] = 'bzip2'
+            opts['blockSize'] = compression_options.get('level', 5)
         elif compression == 'raw':
-            opts['id'] = 'raw'
+            opts['type'] = 'raw'
+        return opts
+
+    def _read_n5_compression_options(self):
+        opts = {}
+        with open(os.path.join(self.path, 'attributes.json'), 'r') as f:
+            n5_opts = json.load(f)
+        if n5_opts['compression'] == 'raw':
+            opts['compression'] = 'raw'
+        # TODO blosc in n5
+        # elif n5_opts['id'] == 'blosc':
+        #     opts['compression'] = 'blosc'
+        #     opts['level'] = n5_opts['clevel']
+        #     opts['shuffle'] = n5_opts['shuffle']
+        #     opts['codec'] = n5_opts['cname']
+        elif n5_opts['compression'] == 'gzip':
+            opts['compression'] = 'gzip'
+            opts['level'] = n5_opts['level']
+        elif n5_opts['compression'] == 'bzip2':
+            opts['compression'] = 'bzip2'
+            opts['level'] = n5_opts['blockSize']
         return opts
 
     @staticmethod
@@ -86,7 +127,7 @@ class Dataset(object):
                              compression, compression_options,
                              fill_value):
         os.mkdir(path)
-        params = {'dtype': zarr_dtype_dict[np.dtype(dtype)],
+        params = {'dtype': Dataset.zarr_dtype_dict[np.dtype(dtype)],
                   'shape': shape,
                   'chunks': chunks,
                   'fill_value': fill_value,
@@ -96,24 +137,24 @@ class Dataset(object):
 
     @staticmethod
     def _create_dataset_n5(path, dtype, shape, chunks,
-                           compressor, compression_options):
+                           compression, compression_options):
         os.mkdir(path)
-        params = {'dtype': dtype,
-                  'shape': shape[::-1],
-                  'chunks': chunks[::-1],
+        params = {'dataType': Dataset.dtype_dict[np.dtype(dtype)],
+                  'dimensions': shape[::-1],
+                  'blockSize': chunks[::-1],
                   'compression': Dataset._to_n5_compression_options(compression, compression_options)}
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
             json.dump(params, f)
-
 
     @classmethod
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
                        compression, compression_options,
                        fill_value):
-        if is_zarr and compressor not in cls.compressors_zarr:
+        assert not os.path.exists(path), "z5py.Dataset: cannot create existing dataset"
+        if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
-        elif not is_zarr and compressor not in cls.compressors_n5:
+        elif not is_zarr and compression not in cls.compressors_n5:
             compression = cls.n5_default_compressor
 
         # support for numpy datatypes
@@ -173,10 +214,8 @@ class Dataset(object):
 
     @property
     def compression_options(self):
-        return {'compressor': self._impl.compressor,
-                'codec': self._impl.codec,
-                'level': self._impl.level,
-                'shuffle': self._impl.shuffle}
+        return self._read_zarr_compression_options() if self._impl.is_zarr else \
+            self._read_n5_compression_options()
 
     def __len__(self):
         return self._impl.len
