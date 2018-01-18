@@ -16,7 +16,7 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
+        metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
@@ -32,7 +32,7 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
+        metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<float> compressor(metadata);
 
         std::vector<float> dataOut;
@@ -48,7 +48,7 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
+        metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<int> compressor(metadata);
 
         std::vector<int> dataOut;
@@ -67,7 +67,7 @@ namespace compression {
 
         // Test compression with default values
         DatasetMetadata metadata;
-        metadata.compressorLevel = 5;
+        metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<float> compressor(metadata);
 
         std::vector<float> dataOut;

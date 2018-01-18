@@ -175,8 +175,7 @@ namespace compression {
 
     private:
         void init(const DatasetMetadata & metadata) {
-            // TODO clevel = compressorLevel -1 ???
-            clevel_ = metadata.compressorLevel;
+            clevel_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level
