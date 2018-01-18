@@ -190,8 +190,8 @@ namespace types {
             return cMap;
         }
     };
-    
-    
+
+
     //
     // Compression Options
     //
@@ -202,16 +202,18 @@ namespace types {
     inline void readZarrCompressionOptionsFromJson(Compressor compressor,
                                                    const nlohmann::json & jOpts,
                                                    CompressionOptions & options) {
+        std::string codec;
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: options["codec"] = jOpts["cname"];
-                        options["level"] = jOpts["clevel"];
-                        options["shuffle"] = jOpts["shuffle"];
+            case blosc: codec = jOpts["cname"];
+                        options["codec"] = codec;
+                        options["level"] = static_cast<int>(jOpts["clevel"]);
+                        options["shuffle"] = static_cast<int>(jOpts["shuffle"]);
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: options["level"] = jOpts["clevel"];
-                       options["use_zlib"] = true;
+            case zlib: options["level"] = static_cast<int>(jOpts["clevel"]);
+                       options["useZlib"] = true;
                        break;
             #endif
             // raw compression has no parameters
@@ -235,9 +237,9 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: jOpts["cname"]   = boost::any_cast<std::string>(options.at("codec"));    
-                        jOpts["clevel"]  = boost::any_cast<int>(options.at("level"));    
-                        jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));  
+            case blosc: jOpts["cname"]   = boost::any_cast<std::string>(options.at("codec"));
+                        jOpts["clevel"]  = boost::any_cast<int>(options.at("level"));
+                        jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -248,33 +250,35 @@ namespace types {
             default: break;
         }
     }
-    
+
 
     inline void readN5CompressionOptionsFromJson(Compressor compressor,
                                                  const nlohmann::json & jOpts,
                                                  CompressionOptions & options) {
+        std::string codec;
         switch(compressor) {
             // TODO blosc in n5
             #ifdef WITH_BLOSC
-            case blosc: options["codec"] = jOpts["codec"];
-                        options["level"] = jOpts["level"];
-                        options["shuffle"] = jOpts["shuffle"];
+            case blosc: codec = jOpts["codec"];
+                        options["codec"] = codec;
+                        options["level"] = static_cast<int>(jOpts["level"]);
+                        options["shuffle"] = static_cast<int>(jOpts["shuffle"]);
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: options["level"] = jOpts["level"];
-                       options["use_zlib"] = false;
+            case zlib: options["level"] = static_cast<int>(jOpts["level"]);
+                       options["useZlib"] = false;
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: options["level"] = jOpts["blockSize"];
+            case bzip2: options["level"] = static_cast<int>(jOpts["blockSize"]);
             #endif
             // raw compression has no parameters
             default: break;
         }
     }
-    
-    
+
+
     inline void writeN5CompressionOptionsToJson(Compressor compressor,
                                                 const CompressionOptions & options,
                                                 nlohmann::json & jOpts) {
@@ -283,7 +287,7 @@ namespace types {
         } catch(std::out_of_range) {
             throw std::runtime_error("z5.DatasetMetadata.toJsonN5: wrong compressor for N5 format");
         }
-        
+
         switch(compressor) {
             // TODO blosc in n5
             #ifdef WITH_BLOSC

@@ -17,7 +17,8 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.compressionOptions["codec"] = "lz4";
+        std::string codec = "lz4";
+        metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<int> compressor(metadata);
@@ -36,7 +37,8 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.compressionOptions["codec"] = "lz4";
+        std::string codec = "lz4";
+        metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<float> compressor(metadata);
@@ -55,7 +57,8 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.compressionOptions["codec"] = "lz4";
+        std::string codec = "lz4";
+        metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<int> compressor(metadata);
@@ -77,7 +80,8 @@ namespace compression {
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressor = types::blosc;
-        metadata.compressionOptions["codec"] = "lz4";
+        std::string codec = "lz4";
+        metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
         BloscCompressor<float> compressor(metadata);

@@ -79,6 +79,7 @@ namespace compression {
         metadata.compressor = types::zlib;
         metadata.compressionOptions["level"] = 5;
         for(const auto & useZlib : {false, true}) {
+            metadata.compressionOptions["useZlib"] = useZlib;
             ZlibCompressor<float> compressor(metadata);
 
             std::vector<float> dataOut;

@@ -28,7 +28,8 @@ namespace z5 {
 
             types::CompressionOptions cOpts;
             cOpts["level"] = 5;
-            cOpts["codec"] = "lz4";
+            std::string codec = "lz4";
+            cOpts["codec"] = codec;
             cOpts["shuffle"] = 1;
             createDataset(hZarr.path().string(), "int32",
                           shape, chunks, true,
@@ -36,9 +37,10 @@ namespace z5 {
 
             types::CompressionOptions cOptsN5;
             cOptsN5["level"] = 5;
+            cOptsN5["useZlib"] = false;
             createDataset(hN5.path().string(), "int32",
                           shape, chunks, false,
-                          "zlib", cOptsN5, 0);
+                          "gzip", cOptsN5, 0);
         }
 
         void TearDown() {

@@ -66,9 +66,10 @@ namespace z5 {
             // TODO asymmetric, overhanging chunk shapes
             types::ShapeType shape = {100, 100, 100};
             types::ShapeType chunkShape = {10, 10, 10};
-            // we can hardcode the codec to gzip here, because it is neither read for raw nor for 
-            // bzip2 compression
-            auto ds = createDataset(ds_path, dtype, shape, chunkShape, false, n5Compressor);
+            types::CompressionOptions cOpts;
+            cOpts["level"] = 5;
+            cOpts["useZlib"] = false;
+            auto ds = createDataset(ds_path, dtype, shape, chunkShape, false, n5Compressor, cOpts);
 
             auto chunks = ds->chunksPerDimension();
             std::vector<T> data(ds->maxChunkSize(), value);

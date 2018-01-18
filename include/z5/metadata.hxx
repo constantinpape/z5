@@ -97,9 +97,10 @@ namespace z5 {
 
             j["dataType"] = types::Datatypes::dtypeToN5().at(dtype);
 
-            // try to read the new format
+            // write the new format
             nlohmann::json jOpts;
             types::writeN5CompressionOptionsToJson(compressor, compressionOptions, jOpts);
+            j["compression"] = jOpts;
         }
 
 
@@ -142,12 +143,12 @@ namespace z5 {
                 // try to read the old format
                 n5Compressor = j["compressionType"];
                 newFormat = false;
-            } catch(std::out_of_range) {
+            } catch(nlohmann::json::type_error) {
                 // try to read the new format
                 try {
-                    n5Compressor = j["compressor"]["type"];
+                    n5Compressor = j["compression"]["type"];
                     newFormat = true;
-                } catch(std::out_of_range) {
+                } catch(nlohmann::json::type_error) {
                     throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
                 }
             }
@@ -160,7 +161,7 @@ namespace z5 {
             }
 
             if(newFormat) {
-                const auto & jOpts = j["compressor"];
+                const auto & jOpts = j["compression"];
                 readN5CompressionOptionsFromJson(compressor, jOpts, compressionOptions);
             } else {
                 compressionOptions["level"] = 4;

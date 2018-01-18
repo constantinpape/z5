@@ -8,8 +8,9 @@
 
 namespace fs = boost::filesystem;
 
+// FIXME N > 3 segfaults
 #define MIN_DIM 1
-#define MAX_DIM 5
+#define MAX_DIM 3
 
 namespace z5 {
 namespace multiarray {

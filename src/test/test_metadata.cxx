@@ -72,7 +72,7 @@ namespace z5 {
         // check compression options
         ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["level"]), compressor["clevel"]);
         ASSERT_EQ(boost::any_cast<std::string>(metadata.compressionOptions["codec"]), compressor["cname"]);
-        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["shuffel"]), compressor["shuffle"]);
+        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["shuffle"]), compressor["shuffle"]);
         // check dtype, fillvalue and order
         ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);
         ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);

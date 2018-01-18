@@ -33,9 +33,11 @@ if [ -f ./multiarray/test_marray ]; then
 fi
 
 echo "XT Tests"
-./multiarray/test_broadcast
-./multiarray/test_xtensor
-./multiarray/test_xtnd
+cd multiarray
+./test_broadcast
+./test_xtensor
+./test_xtnd
+cd ..
 
 echo "Running Zarr Tests"
 cd test_zarr
@@ -44,5 +46,5 @@ cd ..
 
 echo "Running N5 Tests"
 cd test_n5
-./test_n5/run_test.bash
+./run_test.bash
 cd ..
