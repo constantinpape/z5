@@ -292,3 +292,6 @@ class Dataset(object):
         assert array.ndim == self.ndim, "Array needs to be of same dimension as dataset"
         assert np.dtype(array.dtype) == np.dtype(self.dtype), "Array needs to have same dtype as dataset"
         return convert_array_to_format(self._impl, np.require(array, requirements='C'))
+
+    def chunk_exists(self, chunk_indices):
+        return self._impl.chunkExists(chunk_indices)

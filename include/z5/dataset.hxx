@@ -34,6 +34,8 @@ namespace z5 {
         // read a chunk
         virtual void readChunk(const types::ShapeType &, void *) const = 0;
 
+        virtual bool chunkExists(const types::ShapeType &) const = 0;
+
         // convert in-memory data to / from data format
         virtual void dataToFormat(const void *, std::vector<char> &, const types::ShapeType &) const = 0;
         virtual void formatToData(const char *, void *) const = 0;
@@ -139,6 +141,11 @@ namespace z5 {
         virtual inline void readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
             handle::Chunk chunk(handle_, chunkIndices, isZarr_);
             readChunk(chunk, dataOut);
+        }
+
+        virtual inline bool chunkExists(const types::ShapeType & chunkIndices) const {
+            handle::Chunk chunk(handle_, chunkIndices, isZarr_);
+            return chunk.exists();
         }
 
         // convert in-memory data to / from data format

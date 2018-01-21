@@ -50,7 +50,10 @@ class File(Base):
         # check if we have an attributes
         if os.path.exists(attrs_file):
             with open(attrs_file, 'r') as f:
-                attrs = json.load(f)
+                try:
+                    attrs = json.load(f)
+                except json.decoder.JSONDecodeError:
+                    attrs = {}
             # check if attributes have a version tag
             if 'n5' in attrs:
                 tag = attrs['n5']
