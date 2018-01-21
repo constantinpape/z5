@@ -8,9 +8,8 @@
 
 namespace fs = boost::filesystem;
 
-// FIXME N > 3 segfaults
 #define MIN_DIM 1
-#define MAX_DIM 3
+#define MAX_DIM 4
 
 namespace z5 {
 namespace multiarray {
@@ -23,6 +22,7 @@ namespace multiarray {
         }
 
         auto writeData(const size_t dim) {
+            // std::vector<size_t> shape(dim, (dim < 5) ? size_ : 20);
             std::vector<size_t> shape(dim, size_);
             std::vector<size_t> chunkShape(dim, chunkSize_);
             // create the dataset
@@ -146,7 +146,6 @@ namespace multiarray {
         size_t chunkSize_;
     };
 
-    // FIXME N > 3 segfaults
     TEST_F(XtensorNDTest, TestRead) {
         for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
@@ -156,7 +155,6 @@ namespace multiarray {
         }
     }
 
-    // FIXME N > 3 segfaults
     TEST_F(XtensorNDTest, TestWriteRead) {
         for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);

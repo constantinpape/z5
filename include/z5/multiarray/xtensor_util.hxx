@@ -145,8 +145,12 @@ namespace multiarray {
                                  const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
         // ND impl doesn't work for 1D
-        if(view.dimension() == 1) {
-            std::copy(buffer.begin(), buffer.end(), view.begin());
+        // Also, N > 3 is not working yet, so we default to std::copy
+        // FIXME fix ND copy for N > 3
+        if(view.dimension() == 1 || view.dimension() > 3) {
+            // std::copy(buffer.begin(), buffer.end(), view.begin());
+            const auto bufferView = xt::adapt(buffer, view.shape());
+            view = bufferView;
         } else {
             copyBufferToViewND(buffer, viewExperession, arrayStrides);
         }
@@ -224,8 +228,13 @@ namespace multiarray {
         const auto & view = viewExperession.derived_cast();
         // can't use the ND implementation in 1d, hence we resort to std::copy,
         // which should be fine in 1D
-        if(view.dimension() == 1) {
-            std::copy(view.begin(), view.end(), buffer.begin());
+
+        // Also, N > 3 is not working yet, so we default to std::copy
+        // FIXME fix ND copy for N > 3
+        if(view.dimension() == 1 || view.dimension() > 3) {
+            // std::copy(view.begin(), view.end(), buffer.begin());
+            auto bufferView = xt::adapt(buffer, view.shape());
+            bufferView = view;
         } else {
             copyViewToBufferND(viewExperession, buffer, arrayStrides);
         }
