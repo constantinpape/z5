@@ -4,6 +4,12 @@ from .group import Group
 from .dataset import Dataset
 import json
 
+# set correct json error type for python 2 / 3
+try:
+    from json.decoder import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
+
 
 class File(Base):
 
@@ -52,7 +58,7 @@ class File(Base):
             with open(attrs_file, 'r') as f:
                 try:
                     attrs = json.load(f)
-                except json.decoder.JSONDecodeError:
+                except JSONDecodeError:
                     attrs = {}
             # check if attributes have a version tag
             if 'n5' in attrs:
