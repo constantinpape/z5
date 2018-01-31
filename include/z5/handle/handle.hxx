@@ -66,6 +66,7 @@ namespace handle {
 
     };
 
+
     class Dataset : public Handle {
 
     public:
@@ -80,6 +81,16 @@ namespace handle {
 
     public:
         Group(const std::string & pathOnFilesystem_)
+            : Handle(pathOnFilesystem_) {
+        }
+
+    };
+
+
+    class File : public Handle {
+
+    public:
+        File(const std::string & pathOnFilesystem_)
             : Handle(pathOnFilesystem_) {
         }
 
