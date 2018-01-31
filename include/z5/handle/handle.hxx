@@ -39,7 +39,7 @@ namespace handle {
             return fs::create_directory(pathOnFilesystem_);
         }
 
-        virtual bool isZarrArray() const {
+        virtual bool isZarrDataset() const {
             fs::path tmp(pathOnFilesystem_);
             tmp /= ".zarray";
             return fs::exists(tmp);
@@ -52,14 +52,17 @@ namespace handle {
         }
 
         virtual bool isZarr() const {
-            return isZarrArray() || isZarrGroup();
+            return isZarrDataset() || isZarrGroup();
         }
 
-        virtual bool isN5() const {
-            fs::path tmp(pathOnFilesystem_);
-            tmp /= "attributes.json";
-            return fs::exists(tmp);
-        }
+        // TODO check the keys to determine if we have a dataset
+        // virtual bool isN5Dataset() const {
+        //     fs::path tmp(pathOnFilesystem_);
+        //     tmp /= "attributes.json";
+        //     if(!fs::exists(tmp)) {
+        //         return false;
+        //     }
+        // }
 
     private:
         fs::path pathOnFilesystem_;

@@ -9,23 +9,6 @@ namespace z5 {
 
 namespace attrs_detail {
 
-    inline bool checkHandle(const handle::Handle & handle) {
-
-        bool isZarr = handle.isZarr();
-        bool isN5 = handle.isN5();
-
-        if(isZarr && isN5) {
-            throw std::runtime_error("Same file with both Zarr and N5 specification is not supported");
-        }
-
-        if( !(isZarr || isN5) ) {
-            throw std::runtime_error("File was not initialised to either Zarr or N5 format");
-        }
-
-        return isZarr;
-    }
-
-
     inline void readAttributes(fs::path & path, const std::vector<std::string> & keys, nlohmann::json & j) {
         nlohmann::json jTmp;
         fs::ifstream file(path);
@@ -64,7 +47,7 @@ namespace attrs_detail {
         const std::vector<std::string> & keys,
         nlohmann::json & j
     ) {
-        bool isZarr = attrs_detail::checkHandle(handle);
+        bool isZarr = handle.isZarr();
         auto path = handle.path();
         path /= isZarr ? ".zattrs" : "attributes.json";
         if(!fs::exists(path)) {
@@ -75,7 +58,7 @@ namespace attrs_detail {
 
 
     inline void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {
-        bool isZarr = attrs_detail::checkHandle(handle);
+        bool isZarr = handle.isZarr();
         auto path = handle.path();
         path /= isZarr ? ".zattrs" : "attributes.json";
         attrs_detail::writeAttributes(path, j);
