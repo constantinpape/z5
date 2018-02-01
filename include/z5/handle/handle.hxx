@@ -36,7 +36,7 @@ namespace handle {
         }
 
         virtual bool createDir() const {
-            return fs::create_directory(pathOnFilesystem_);
+            return fs::create_directories(pathOnFilesystem_);
         }
 
         virtual bool isZarrDataset() const {
