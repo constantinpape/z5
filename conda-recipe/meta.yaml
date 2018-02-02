@@ -22,7 +22,7 @@ requirements:
   build:
     - python {{PY_VER}}*
     - cmake
-    - boost >=1.63.0
+    - boost 1.66.0  # the boost version needs to be fixed, because we are linking against specific shared objects
     - c-blosc
     - zlib
     - bzip2
@@ -30,7 +30,7 @@ requirements:
     - pybind11 >=2.2.1
   run:
     - python {{PY_VER}}*
-    - boost >=1.63.0
+    - boost 1.66.0
     - numpy # do not need to constrain np version
     - c-blosc
     - zlib
