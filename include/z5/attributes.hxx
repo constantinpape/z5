@@ -1,6 +1,6 @@
 #pragma once
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "z5/handle/handle.hxx"
 
 namespace fs = boost::filesystem;

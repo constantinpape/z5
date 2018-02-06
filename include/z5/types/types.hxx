@@ -5,7 +5,7 @@
 #include <map>
 #include <boost/any.hpp>
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 
 namespace z5 {
