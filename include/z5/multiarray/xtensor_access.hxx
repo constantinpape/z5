@@ -181,7 +181,7 @@ namespace multiarray {
         types::ShapeType shape(in.shape().begin(), in.shape().end());
         ds.dataToFormat(&in(0), tmp, shape);
 
-        out.reshape({(int64_t) tmp.size()});
+        out.resize({(int64_t) tmp.size()});
         // TODO use xadapt instead
         std::copy(tmp.begin(), tmp.end(), out.begin());
     }
