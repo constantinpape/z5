@@ -137,21 +137,6 @@ namespace z5 {
             // in the old format, we only have the field 'compressionType', indicating which compressor should be used
             // in the new format, we have the field 'type', which indicates the compressor
             // and can have additional attributes for options
-            // bool newFormat;
-            // std::string n5Compressor;
-            // try {
-            //     // try to read the old format
-            //     n5Compressor = j["compressionType"];
-            //     newFormat = false;
-            // } catch(nlohmann::json::type_error) {
-            //     // try to read the new format
-            //     try {
-            //         n5Compressor = j["compression"]["type"];
-            //         newFormat = true;
-            //     } catch(nlohmann::json::type_error) {
-            //         throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
-            //     }
-            // }
 
             std::string n5Compressor;
             auto jIt = j.find("compression");

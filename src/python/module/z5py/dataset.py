@@ -62,6 +62,8 @@ class Dataset(object):
             opts['level'] = compression_options.get('level', 5)
         elif compression == 'raw':
             opts = None
+        else:
+            raise RuntimeError("Compression %s is not supported in zarr format" % compression)
         return opts
 
     def _read_zarr_compression_options(self):
@@ -100,6 +102,8 @@ class Dataset(object):
             opts['blockSize'] = compression_options.get('level', 5)
         elif compression == 'raw':
             opts['type'] = 'raw'
+        else:
+            raise RuntimeError("Compression %s is not supported in n5 format" % compression)
         return opts
 
     def _read_n5_compression_options(self):
