@@ -10,6 +10,7 @@ namespace z5 {
     // factory function to open an existing zarr-array
     inline std::unique_ptr<Dataset> openDataset(const std::string & path) {
 
+        // TODO only read the datarype here
         // read the data type from the metadata
         handle::Dataset h(path);
         DatasetMetadata metadata;

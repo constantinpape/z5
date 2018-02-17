@@ -137,34 +137,61 @@ namespace z5 {
             // in the old format, we only have the field 'compressionType', indicating which compressor should be used
             // in the new format, we have the field 'type', which indicates the compressor
             // and can have additional attributes for options
-            bool newFormat;
+            // bool newFormat;
+            // std::string n5Compressor;
+            // try {
+            //     // try to read the old format
+            //     n5Compressor = j["compressionType"];
+            //     newFormat = false;
+            // } catch(nlohmann::json::type_error) {
+            //     // try to read the new format
+            //     try {
+            //         n5Compressor = j["compression"]["type"];
+            //         newFormat = true;
+            //     } catch(nlohmann::json::type_error) {
+            //         throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
+            //     }
+            // }
+
             std::string n5Compressor;
-            try {
-                // try to read the old format
-                n5Compressor = j["compressionType"];
-                newFormat = false;
-            } catch(nlohmann::json::type_error) {
-                // try to read the new format
-                try {
-                    n5Compressor = j["compression"]["type"];
-                    newFormat = true;
-                } catch(nlohmann::json::type_error) {
+            auto jIt = j.find("compression");
+
+            if(jIt != j.end()) {
+                const auto & jOpts = *jIt;
+                auto j2It = jOpts.find("type");
+                if(j2It != jOpts.end()) {
+                    n5Compressor = *j2It;
+                } else {
                     throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
                 }
-            }
 
-            // get the actual compressor
-            try {
-                compressor = types::Compressors::n5ToCompressor().at(n5Compressor);
-            } catch(std::out_of_range) {
-                throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for n5 format");
-            }
+                // get the actual compressor
+                try {
+                    compressor = types::Compressors::n5ToCompressor().at(n5Compressor);
+                } catch(std::out_of_range) {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for n5 format");
+                }
 
-            if(newFormat) {
-                const auto & jOpts = j["compression"];
                 readN5CompressionOptionsFromJson(compressor, jOpts, compressionOptions);
-            } else {
-                compressionOptions["level"] = 4;
+            }
+
+            else {
+                auto j2It = j.find("compressionType");
+                if(j2It != j.end()) {
+                    n5Compressor = *j2It;
+                } else {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compression format");
+                }
+
+                // get the actual compressor
+                try {
+                    compressor = types::Compressors::n5ToCompressor().at(n5Compressor);
+                } catch(std::out_of_range) {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonN5: wrong compressor for n5 format");
+                }
+
+                // for the old compression, we just write the default gzip options
+                compressionOptions["level"] = 5;
                 compressionOptions["useZlib"] = false;
             }
 
