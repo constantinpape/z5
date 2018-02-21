@@ -169,10 +169,10 @@ class Dataset(object):
             dtype_ = dtype
 
         if is_zarr:
-            cls._create_dataset_zarr(path, dtype, shape, chunks,
+            cls._create_dataset_zarr(path, dtype_, shape, chunks,
                                      compression, compression_options, fill_value)
         else:
-            cls._create_dataset_n5(path, dtype, shape, chunks,
+            cls._create_dataset_n5(path, dtype_, shape, chunks,
                                    compression, compression_options)
         return cls(path, open_dataset(path))
 
