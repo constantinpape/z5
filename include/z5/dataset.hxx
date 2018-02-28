@@ -55,10 +55,15 @@ namespace z5 {
             types::ShapeType &,
             types::ShapeType &) const = 0;
 
+        // find chunk index of coordinate
+        virtual size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
+        // get offset of chunk
+
         // size and shape of an actual chunk
         virtual size_t getChunkSize(const types::ShapeType &) const = 0;
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
         virtual size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
+        virtual void getChunkOffset(const types::ShapeType &, types::ShapeType &) const = 0;
 
         // maximal chunk size and shape
         virtual size_t maxChunkSize() const = 0;
@@ -349,6 +354,19 @@ namespace z5 {
             }
         }
 
+        inline void getChunkOffset(const types::ShapeType & chunkIds, types::ShapeType & chunkOffset) const {
+            chunkOffset.resize(shape_.size());
+            for(unsigned dim = 0; dim < shape_.size(); ++dim) {
+                chunkOffset[dim] = chunkIds[dim] * chunkShape_[dim];
+            }
+        }
+
+        inline size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
+            chunkId.resize(shape_.size());
+            for(unsigned dim = 0; dim < shape_.size(); ++dim) {
+               chunkId[dim] = coordinate[dim] / chunkShape_[dim];
+            }
+        }
 
         virtual size_t getChunkSize(const types::ShapeType & chunkId) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);

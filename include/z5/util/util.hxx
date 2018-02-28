@@ -64,7 +64,7 @@ namespace util {
                 for(size_t y = minCoords[1]; y <= maxCoords[1]; ++y) {
                     for(size_t z = minCoords[2]; z <= maxCoords[2]; ++z) {
                         for(size_t t = minCoords[3]; t <= maxCoords[3]; ++t) {
-                            for(size_t c = minCoords[4]; t <= maxCoords[4]; ++t) {
+                            for(size_t c = minCoords[4]; c <= maxCoords[4]; ++t) {
                                 grid.emplace_back(types::ShapeType({x, y, z, t, c}));
                             }
                         }
