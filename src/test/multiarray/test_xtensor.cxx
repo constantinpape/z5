@@ -97,12 +97,14 @@ namespace multiarray {
 
         template<typename T>
         void testArrayRead(std::unique_ptr<Dataset> & array) {
+            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             const auto & shape = array->shape();
+            ArrayShape arrayShape(shape.begin(), shape.end());
 
             // load a completely overlapping array consisting of 8 chunks
             {
                 types::ShapeType offset({0, 0, 0});
-                types::ShapeType subShape({20, 20, 20});
+                ArrayShape subShape({20, 20, 20});
                 //types::ShapeType subShape({10, 10, 10});
                 xt::xarray<T> data(subShape);
                 readSubarray<T>(array, data, offset.begin());
@@ -120,7 +122,7 @@ namespace multiarray {
             // load the complete array
             {
                 types::ShapeType offset({0, 0, 0});
-                xt::xarray<T> data(shape);
+                xt::xarray<T> data(arrayShape);
                 readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
@@ -157,7 +159,7 @@ namespace multiarray {
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
-                types::ShapeType shape({sx, sy, sz});
+                ArrayShape shape({sx, sy, sz});
                 //types::ShapeType shape({40, 42, 56});
 
                 //std::cout << "Random Request: " << t << " / " << N << std::endl;
@@ -184,14 +186,17 @@ namespace multiarray {
         template<typename T, typename DISTR>
         void testArrayWriteRead(std::unique_ptr<Dataset> & array, DISTR & distr) {
 
+            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             const auto & shape = array->shape();
+            ArrayShape arrayShape(shape.begin(), shape.end());
+
             std::default_random_engine gen;
             auto draw = std::bind(distr, gen);
 
             // write and read a completely overlapping array consisting of 8 chunks
             {
                 types::ShapeType offset({0, 0, 0});
-                types::ShapeType subShape({20, 20, 20});
+                ArrayShape subShape({20, 20, 20});
 
                 // generate random in data
                 xt::xarray<T> dataIn(subShape);
@@ -217,14 +222,14 @@ namespace multiarray {
                 types::ShapeType offset({0, 0, 0});
 
                 // generate random in data
-                xt::xarray<T> dataIn(shape);
+                xt::xarray<T> dataIn(arrayShape);
                 for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
                     *it = draw();
                 }
                 writeSubarray<T>(array, dataIn, offset.begin());
 
                 // read the out data
-                xt::xarray<T> dataOut(shape);
+                xt::xarray<T> dataOut(arrayShape);
                 readSubarray<T>(array, dataOut, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
@@ -259,7 +264,7 @@ namespace multiarray {
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
-                types::ShapeType shape({sx, sy, sz});
+                ArrayShape shape({sx, sy, sz});
 
                 //std::cout << "Offset:" << std::endl;
                 //std::cout << x << " " << y << " " << z << std::endl;
