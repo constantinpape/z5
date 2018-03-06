@@ -12,6 +12,8 @@ except ImportError:
 
 
 class File(Base):
+    ZARR_EXTS = {'.zarr', '.zr'}
+    N5_EXTS = {'.n5'}
 
     def __init__(self, path, use_zarr_format=None):
 
@@ -35,6 +37,13 @@ class File(Base):
 
         # otherwise create a new file
         else:
+            if use_zarr_format is None:
+                _, ext = os.path.splitext(path)
+                if ext.lower() in self.ZARR_EXTS:
+                    use_zarr_format = True
+                elif ext.lower() in self.N5_EXTS:
+                    use_zarr_format = False
+
             assert use_zarr_format is not None, \
                 "z5py.File: Cannot infer the file format for non existing file"
             os.mkdir(path)
