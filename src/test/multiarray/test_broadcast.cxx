@@ -80,8 +80,7 @@ namespace multiarray {
             // write scalcar and load for completely overlapping array consisting of 8 chunks
             {
                 ArrayShape offset({0, 0, 0});
-                types::ShapeType subShape({20, 20, 20});
-                //types::ShapeType subShape({10, 10, 10});
+                ArrayShape subShape({20, 20, 20});
                 writeScalar(array, offset.begin(), subShape.begin(), val);
                 xt::xarray<T> data(subShape);
                 readSubarray<T>(array, data, offset.begin());
@@ -98,7 +97,7 @@ namespace multiarray {
 
             // load the complete array
             {
-                types::ShapeType offset({0, 0, 0});
+                ArrayShape offset({0, 0, 0});
                 writeScalar(array, offset.begin(), shape.begin(), val);
                 xt::xarray<T> data(arrayShape);
                 readSubarray<T>(array, data, offset.begin());
@@ -128,7 +127,7 @@ namespace multiarray {
                 x = xx(gen);
                 y = yy(gen);
                 z = zz(gen);
-                types::ShapeType offset({x, y, z});
+                ArrayShape offset({x, y, z});
 
                 // draw the shape coordinates
                 std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
