@@ -1,7 +1,10 @@
 import os
+import shutil
+
 from .base import Base
 from .group import Group
 from .dataset import Dataset
+from .modes import FileMode
 import json
 
 # set correct json error type for python 2 / 3
@@ -11,13 +14,19 @@ except ImportError:
     JSONDecodeError = ValueError
 
 
+ZARR_EXTS = {'.zarr'}
+N5_EXTS = {'.n5'}
+
+
 class File(Base):
 
-    def __init__(self, path, use_zarr_format=None):
+    def __init__(self, path, use_zarr_format=None, mode='a'):
+        self.mode = FileMode(mode)
+        exists = self.mode.check_file(path)
 
         # check if the file already exists
         # and load it if it does
-        if os.path.exists(path):
+        if exists:
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
             is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
@@ -33,8 +42,14 @@ class File(Base):
             if not is_zarr:
                 self._check_n5_version(path)
 
-        # otherwise create a new file
         else:
+            if use_zarr_format is None:
+                _, ext = os.path.splitext(path)
+                if ext.lower() in ZARR_EXTS:
+                    use_zarr_format = True
+                elif ext.lower() in N5_EXTS:
+                    use_zarr_format = False
+
             assert use_zarr_format is not None, \
                 "z5py.File: Cannot infer the file format for non existing file"
             os.mkdir(path)
@@ -74,14 +89,21 @@ class File(Base):
         assert key not in self.keys(), \
             "z5py.File.create_group: Group is already existing"
         path = os.path.join(self.path, key)
-        return Group.make_group(path, self.is_zarr)
+        self.mode.check_write(path)
+        return Group.make_group(path, self.is_zarr, self.mode)
 
     def __getitem__(self, key):
         assert key in self, "z5py.File.__getitem__: key does not exxist"
         path = os.path.join(self.path, key)
         if self.is_group(key):
-            return Group.open_group(path, self.is_zarr)
+            return Group.open_group(path, self.is_zarr, self.mode)
         else:
-            return Dataset.open_dataset(path)
+            return Dataset.open_dataset(path, self.mode)
 
     # TODO setitem, delete datasets ?
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass

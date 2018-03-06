@@ -3,6 +3,8 @@ import numbers
 import json
 
 import numpy as np
+
+from .modes import FileMode
 from ._z5py import DatasetImpl, open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
@@ -40,11 +42,12 @@ class Dataset(object):
     zarr_default_compressor = 'blosc'
     n5_default_compressor = 'gzip'
 
-    def __init__(self, path, dset_impl):
+    def __init__(self, path, dset_impl, mode='a'):
         assert isinstance(dset_impl, DatasetImpl)
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
         self.path = path
+        self.mode = FileMode(mode)
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
@@ -154,8 +157,10 @@ class Dataset(object):
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
                        compression, compression_options,
-                       fill_value):
+                       fill_value, mode='a'):
         assert not os.path.exists(path), "z5py.Dataset: cannot create existing dataset"
+        mode = FileMode(mode)
+        mode.check_write(path)
         if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
         elif not is_zarr and compression not in cls.compressors_n5:
@@ -174,11 +179,11 @@ class Dataset(object):
         else:
             cls._create_dataset_n5(path, dtype_, shape, chunks,
                                    compression, compression_options)
-        return cls(path, open_dataset(path))
+        return cls(path, open_dataset(path), mode)
 
     @classmethod
-    def open_dataset(cls, path):
-        return cls(path, open_dataset(path))
+    def open_dataset(cls, path, mode='a'):
+        return cls(path, open_dataset(path), mode)
 
     @property
     def is_zarr(self):
@@ -261,6 +266,7 @@ class Dataset(object):
     # most checks are done in c++
     def __setitem__(self, index, item):
         assert isinstance(item, (numbers.Number, np.ndarray))
+        self.mode.check_write(self.path)
         roi_begin, shape = self.index_to_roi(index)
 
         # n5 input must be transpsed due to different axis convention
@@ -283,6 +289,7 @@ class Dataset(object):
 
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
+        self.mode.check_write(self.path)
         write_subarray(self._impl, np.require(data, requirements='C'), start)
 
     # expose the impl read subarray functionality

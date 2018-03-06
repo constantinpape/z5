@@ -1,15 +1,19 @@
 import os
 import json
+import numpy as np
+
+from .modes import FileMode
 from .dataset import Dataset
 from .attribute_manager import AttributeManager
 
 
 class Base(object):
 
-    def __init__(self, path, is_zarr=True):
+    def __init__(self, path, is_zarr=True, mode='a'):
         self.path = path
         self.is_zarr = is_zarr
         self._attrs = AttributeManager(path, is_zarr)
+        self.mode = FileMode(mode)
 
     @property
     def attrs(self):
@@ -27,16 +31,46 @@ class Base(object):
 
     # TODO open_dataset, open_group and close_group should also be implemented here
 
-    # TODO allow creating with data ?!
-    def create_dataset(self, key, dtype, shape, chunks,
-                       fill_value=0, compression='raw',
+    def create_dataset(self, key, dtype=None, shape=None, chunks=None,
+                       fill_value=0, compression='raw', data=None,
                        **compression_options):
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
-        return Dataset.create_dataset(path, dtype, shape,
+        self.mode.check_write(path)
+
+        if data is None:
+            assert shape is not None, "Datasets must be given a shape"
+            assert chunks is not None, "Datasets must be given a chunk size"
+            dtype = dtype or np.dtype('float64')
+        else:
+            data = np.asarray(data)
+            if dtype is None:
+                dtype = data.dtype
+            else:
+                assert dtype == data.dtype, "Given dtype ({}) conflicts with type of given data ({})".format(
+                    dtype, data.dtype
+                )  # could coerce instead
+
+            if shape is None:
+                shape = dtype.shape
+            else:
+                assert shape == data.shape, "Given shape ({}) conflicts with shape of given data ({})".format(
+                    shape, data.shape
+                )
+
+            if chunks is None:
+                chunks = shape  # contiguous
+
+        ds = Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,
                                       compression, compression_options,
-                                      fill_value)
+                                      fill_value, mode=self.mode)
+
+        if data is None:
+            return ds
+
+        ds[:, :, :] = data
+        return ds
 
     def is_group(self, key):
         path = os.path.join(self.path, key)
