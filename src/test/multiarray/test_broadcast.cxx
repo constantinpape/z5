@@ -72,12 +72,14 @@ namespace multiarray {
 
         template<typename T>
         void testBroadcast(std::unique_ptr<Dataset> & array) {
+            typedef typename xt::xarray<T>::shape_type ArrayShape;
             types::ShapeType shape(array->shape());
+            ArrayShape arrayShape(shape.begin(), shape.end());
             const T val = 42;
 
             // write scalcar and load for completely overlapping array consisting of 8 chunks
             {
-                types::ShapeType offset({0, 0, 0});
+                ArrayShape offset({0, 0, 0});
                 types::ShapeType subShape({20, 20, 20});
                 //types::ShapeType subShape({10, 10, 10});
                 writeScalar(array, offset.begin(), subShape.begin(), val);
@@ -98,7 +100,7 @@ namespace multiarray {
             {
                 types::ShapeType offset({0, 0, 0});
                 writeScalar(array, offset.begin(), shape.begin(), val);
-                xt::xarray<T> data(shape);
+                xt::xarray<T> data(arrayShape);
                 readSubarray<T>(array, data, offset.begin());
 
                 for(int i = 0; i < shape[0]; ++i) {
@@ -135,7 +137,7 @@ namespace multiarray {
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
-                types::ShapeType subShape({sx, sy, sz});
+                ArrayShape subShape({sx, sy, sz});
 
                 //std::cout << "Offset:" << std::endl;
                 //std::cout << x << " " << y << " " << z << std::endl;

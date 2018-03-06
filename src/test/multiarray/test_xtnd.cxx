@@ -48,14 +48,16 @@ namespace multiarray {
         }
 
         void testArrayRead(const size_t dim) {
+            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             auto ds = writeData(dim);
             const auto & shape = ds->shape();
+            ArrayShape arrayShape(shape.begin(), shape.end());
 
             std::cout << "Run test data " << dim << " d" << std::endl;
             // load a completely overlapping array consisting of 8 chunks
             {
                 types::ShapeType offset(dim, 0);
-                types::ShapeType subShape(dim, 20);
+                ArrayShape subShape(dim, 20);
                 xt::xarray<int32_t> data(subShape);
                 //std::cout << "Read..." << std::endl;
                 readSubarray<int32_t>(ds, data, offset.begin());
@@ -71,7 +73,7 @@ namespace multiarray {
             // load the complete array
             {
                 types::ShapeType offset(dim, 0);
-                xt::xarray<int32_t> data(shape);
+                xt::xarray<int32_t> data(arrayShape);
                 readSubarray<int32_t>(ds, data, offset.begin());
 
                 for(const auto elem: data) {
@@ -85,8 +87,9 @@ namespace multiarray {
 
         void testArrayWriteRead(const size_t dim) {
 
+            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             // create the dataset
-            std::vector<size_t> shape(dim, size_);
+            ArrayShape shape(dim, size_);
             std::vector<size_t> chunkShape(dim, chunkSize_);
             auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
 
@@ -98,7 +101,7 @@ namespace multiarray {
             // write and read a completely overlapping array consisting of 8 chunks
             {
                 types::ShapeType offset(dim, 0);
-                types::ShapeType subShape(dim, 20);
+                ArrayShape subShape(dim, 20);
 
                 // generate random in data
                 xt::xarray<int32_t> dataIn(subShape);
