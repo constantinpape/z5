@@ -20,7 +20,7 @@ before_script:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - source activate test-env
   # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
-  - conda install -c conda-forge pybind11 xtensor xtensor-python
+  - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2
   - conda install -c anaconda cmake
   - conda install -c rdonnelly gcc-6=6.1.0

@@ -306,25 +306,26 @@ namespace multiarray {
     TEST_F(XtensorTest, TestThrow) {
         auto array = openDataset(pathIntRegular_);
 
+        typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
         // check for shape throws #0
-        types::ShapeType shape0({120, 120, 120});
+        ArrayShape shape0({120, 120, 120});
         types::ShapeType offset0({0, 0, 0});
         xt::xarray<int32_t> sub0(shape0);
         ASSERT_THROW(readSubarray<int32_t>(array, sub0, offset0.begin()), std::runtime_error);
 
         // check for shape throws #1
-        types::ShapeType shape1({80, 80, 80});
+        ArrayShape shape1({80, 80, 80});
         types::ShapeType offset1({30, 30, 30});
         xt::xarray<int32_t> sub1(shape1);
         ASSERT_THROW(readSubarray<int32_t>(array, sub1, offset1.begin()), std::runtime_error);
 
         // check for shape throws #2
-        types::ShapeType shape2({80, 80, 0});
+        ArrayShape shape2({80, 80, 0});
         types::ShapeType offset2({0, 0, 0});
         xt::xarray<int32_t> sub2(shape2);
         ASSERT_THROW(readSubarray<int32_t>(array, sub2, offset2.begin()), std::runtime_error);
 
-        types::ShapeType shape({80, 80, 80});
+        ArrayShape shape({80, 80, 80});
         types::ShapeType offset({0, 0, 0});
         // check for dtype throws #0
         xt::xarray<int64_t> sub64(shape);
