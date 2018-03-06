@@ -98,7 +98,7 @@ namespace multiarray {
             // load the complete array
             {
                 ArrayShape offset({0, 0, 0});
-                writeScalar(array, offset.begin(), shape.begin(), val);
+                writeScalar(array, offset.begin(), arrayShape.begin(), val);
                 xt::xarray<T> data(arrayShape);
                 readSubarray<T>(array, data, offset.begin());
 
