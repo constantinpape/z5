@@ -22,13 +22,25 @@ Offers support for the following compression codecs:
 You can install the package via conda (only Linux for now):
 
 ```
-conda install -c conda-forge -c cpape z5py
+$ conda install -c conda-forge -c cpape z5py
 ```
 
 ### C++
 
 The library itself is header-only, however you need to link against the relevant compression codecs.
-TODO describe CMake options.
+The easiest way to build the library itself from source is from a conda-environment with all necessary dependencies:
+
+```
+Either create new environment or install relevant packages to an existing one
+$ conda create -n z5-env -c conda-forge xtensor-python c-blosc
+$ source activate z5-env
+$ mkdir z5-bld
+$ cd z5-bld
+Activate the relevant compressions via WITH_BLOSC, WITH_BZIP2, WITH_ZLIB
+$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON /path/to/z5
+$ make
+```
+(Note that there is no `make install` yet).
 
 
 ## Examples / Usage
