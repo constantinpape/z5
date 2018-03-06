@@ -90,8 +90,9 @@ namespace multiarray {
             typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             // create the dataset
             ArrayShape shape(dim, size_);
+            types::ShapeType dsShape(dim, size_);
             std::vector<size_t> chunkShape(dim, chunkSize_);
-            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
+            auto ds = createDataset(path_, "int32", dsShape, chunkShape, false, "raw");
 
             // random number generator
             std::uniform_int_distribution<int32_t> distr;
