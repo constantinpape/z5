@@ -174,4 +174,10 @@ namespace z5 {
             createGroup(h, key, isZarr);
         });
     }
+
+
+    // TODO expose file mode to python
+    // void exportFileMode(py::module & module) {
+    //     module.class_<>
+    // }
 }

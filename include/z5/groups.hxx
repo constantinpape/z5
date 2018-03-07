@@ -6,6 +6,10 @@
 namespace z5 {
 
     inline void createGroup(const handle::Group & group, const bool isZarr=true) {
+        if(!group.mode().canCreate()) {
+            const std::string err = "Cannot create new group in file mode " + group.mode().printMode();
+            throw std::runtime_error(err.c_str());
+        }
         group.createDir();
         if(isZarr) {
             Metadata gmeta;

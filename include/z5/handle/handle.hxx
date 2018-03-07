@@ -8,6 +8,7 @@
 #include <boost/filesystem.hpp>
 
 #include "z5/util/util.hxx"
+#include "z5/handle/file_mode.hxx"
 #include "z5/types/types.hxx"
 
 namespace fs = boost::filesystem;
@@ -18,12 +19,12 @@ namespace handle {
     class Handle {
 
     public:
-        Handle(const std::string & pathOnFilesystem) :
-            pathOnFilesystem_(pathOnFilesystem) {
+        Handle(const std::string & pathOnFilesystem, const FileMode::modes mode=FileMode::a) :
+            pathOnFilesystem_(pathOnFilesystem), mode_(mode) {
         }
 
-        Handle(const fs::path & pathOnFilesystem) :
-            pathOnFilesystem_(pathOnFilesystem) {
+        Handle(const fs::path & pathOnFilesystem, const FileMode::modes mode=FileMode::a) :
+            pathOnFilesystem_(pathOnFilesystem), mode_(mode) {
         }
 
         // check if the file managed by this handle exists
@@ -64,8 +65,14 @@ namespace handle {
         //     }
         // }
 
+        virtual const FileMode & mode() const {
+            return mode_;
+        }
+
+
     private:
         fs::path pathOnFilesystem_;
+        FileMode mode_;
 
     };
 
@@ -73,8 +80,8 @@ namespace handle {
     class Dataset : public Handle {
 
     public:
-        Dataset(const std::string & pathOnFilesystem_)
-            : Handle(pathOnFilesystem_) {
+        Dataset(const std::string & pathOnFilesystem_, const FileMode::modes mode=FileMode::a)
+            : Handle(pathOnFilesystem_, mode) {
         }
 
     };
@@ -83,8 +90,8 @@ namespace handle {
     class Group : public Handle {
 
     public:
-        Group(const std::string & pathOnFilesystem_)
-            : Handle(pathOnFilesystem_) {
+        Group(const std::string & pathOnFilesystem_, const FileMode::modes mode=FileMode::a)
+            : Handle(pathOnFilesystem_, mode) {
         }
 
     };
@@ -93,8 +100,8 @@ namespace handle {
     class File : public Handle {
 
     public:
-        File(const std::string & pathOnFilesystem_)
-            : Handle(pathOnFilesystem_) {
+        File(const std::string & pathOnFilesystem_, const FileMode::modes mode=FileMode::a)
+            : Handle(pathOnFilesystem_, mode) {
         }
 
     };
