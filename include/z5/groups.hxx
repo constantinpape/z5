@@ -1,14 +1,16 @@
 #pragma once
 
+#include <system_error>
+
 #include "z5/handle/handle.hxx"
 #include "z5/metadata.hxx"
 
 namespace z5 {
 
     inline void createGroup(const handle::Group & group, const bool isZarr=true) {
-        if(!group.mode().canCreate()) {
+        if(!group.mode().canWrite()) {
             const std::string err = "Cannot create new group in file mode " + group.mode().printMode();
-            throw std::runtime_error(err.c_str());
+            throw std::system_error(EROFS, std::generic_category(), err.c_str());
         }
         group.createDir();
         if(isZarr) {
@@ -17,10 +19,13 @@ namespace z5 {
         }
     }
 
-    inline void createGroup(const handle::Group & group, const std::string & key, const bool isZarr=true) {
+    inline void createGroup(const handle::Group & group,
+                            const std::string & key,
+                            const bool isZarr=true,
+                            const FileMode::modes mode=FileMode::a) {
        auto path = group.path();
        path /= key;
-       handle::Group subGroup(path.string());
+       handle::Group subGroup(path.string(), mode);
        createGroup(subGroup, isZarr);
     }
 

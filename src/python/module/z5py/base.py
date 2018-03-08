@@ -1,12 +1,26 @@
 import os
+import errno
 import json
 from .dataset import Dataset
 from .attribute_manager import AttributeManager
+from ._z5py import FileMode
 
 
 class Base(object):
+    # the python / h5py file modes and the corresponding internal types
+    # TODO as far as I can tell there is no difference between 'w-' and 'x',
+    # so for now they get mapped to the same internal type
+    file_modes = {'a': FileMode.a, 'r': FileMode.r,
+                  'r+': FileMode.r_p, 'w': FileMode.w,
+                  'w-': FileMode.w_m, 'x': FileMode.w_m}
 
-    def __init__(self, path, is_zarr=True):
+    def __init__(self, path, is_zarr=True, mode='a'):
+        assert mode in self.file_modes, "Invalid mode %s" % mode
+        # x is not a mode in c++, because it has the same properties
+        # as w- (as far as I can see)
+        self.mode = mode
+        self._internal_mode = self.file_modes[mode]
+        self._permissions = FileMode(self._internal_mode)
         self.path = path
         self.is_zarr = is_zarr
         self._attrs = AttributeManager(path, is_zarr)
@@ -31,12 +45,14 @@ class Base(object):
     def create_dataset(self, key, dtype, shape, chunks,
                        fill_value=0, compression='raw',
                        **compression_options):
+        if not self._permissions.can_write():
+            raise OSError(errno.EROFS, os.strerror(errno.EROFS), self.path)
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,
                                       compression, compression_options,
-                                      fill_value)
+                                      fill_value, self._internal_mode)
 
     def is_group(self, key):
         path = os.path.join(self.path, key)

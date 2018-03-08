@@ -12,6 +12,7 @@ namespace py = pybind11;
 namespace z5 {
     void exportDataset(py::module &);
     void exportGroups(py::module &);
+    void exportFileMode(py::module &);
 }
 
 
@@ -23,4 +24,5 @@ PYBIND11_MODULE(_z5py, module) {
     using namespace z5;
     exportDataset(module);
     exportGroups(module);
+    exportFileMode(module);
 }

@@ -142,8 +142,8 @@ namespace z5 {
             ))
         ;
 
-        module.def("open_dataset",[](const std::string & path){
-            return openDataset(path);
+        module.def("open_dataset",[](const std::string & path, const FileMode::modes mode){
+            return openDataset(path, mode);
         });
 
         // export I/O for all dtypes
@@ -164,8 +164,8 @@ namespace z5 {
 
 
     void exportGroups(py::module & module) {
-        module.def("create_group",[](const std::string & path, const bool isZarr){
-            handle::Group h(path);
+        module.def("create_group",[](const std::string & path, const bool isZarr, const FileMode::modes mode){
+            handle::Group h(path, mode);
             createGroup(h, isZarr);
         });
 
@@ -177,7 +177,27 @@ namespace z5 {
 
 
     // TODO expose file mode to python
-    // void exportFileMode(py::module & module) {
-    //     module.class_<>
-    // }
+    void exportFileMode(py::module & module) {
+        py::class_<FileMode> pyFileMode(module, "FileMode");
+
+        // expose class
+        pyFileMode
+            .def(py::init<FileMode::modes>())
+            .def("can_write", &FileMode::canWrite)
+            .def("can_create", &FileMode::canCreate)
+            .def("must_not_exist", &FileMode::mustNotExist)
+            .def("should_truncate", &FileMode::shouldTruncate)
+            .def("mode", &FileMode::printMode)
+        ;
+
+        // expose enum
+        py::enum_<FileMode::modes>(pyFileMode, "modes")
+            .value("r", FileMode::modes::r)
+            .value("r_p", FileMode::modes::r_p)
+            .value("w", FileMode::modes::w)
+            .value("w_m", FileMode::modes::w_m)
+            .value("a", FileMode::modes::a)
+            .export_values()
+        ;
+    }
 }
