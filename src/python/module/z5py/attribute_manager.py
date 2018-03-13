@@ -1,5 +1,6 @@
 import json
 import os
+import errno
 
 
 class AttributeManager(object):
@@ -49,6 +50,11 @@ class AttributeManager(object):
                 attrs = json.load(f)
         except ValueError:
             attrs = {}
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                attrs = {}
+            else:
+                raise
         return attrs
 
     def _get_n5_attributes(self):
