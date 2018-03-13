@@ -52,7 +52,7 @@ Some differences are:
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
 - `File` does not support different read/write modes.
-- There is no need to close `File`, hence the `with` block isn't necessary.
+- There is no need to close `File`, hence the `with` block isn't necessary (but supported).
 
 Some examples:
 
@@ -137,13 +137,13 @@ int main() {
   bool asZarr = true;
   auto ds = z5::createDataset("ds.zr", "float32", shape, chunks, asZarr);
   
-  // write marray to roi
+  // write array to roi
   std::vector<size_t> offset1 = {50, 100, 150};
   std::vector<size_t> shape1 = {150, 200, 100};
   xt::xarray<float> array1(shape1, 42.);
   z5::multiarray::writeSubarray(ds, array1, offset1.begin());
 
-  // read marray from roi (values that were not written before are filled with a fill-value)
+  // read array from roi (values that were not written before are filled with a fill-value)
   std::vector<size_t> offset2 = {100, 100, 100};
   std::vector<size_t> shape2 = {300, 200, 75};
   xt::xarray<float> array2(shape2);
@@ -173,7 +173,7 @@ I recommend to use these implementations, which are more thoroughly tested.
 
 ## Current Limitations / TODOs
 
-- No thread / process synchonization -> writing (reading?) to the same chunk will lead to undefined behavior.
+- No thread / process synchonization -> writing to the same chunk in parallel will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
 - Supports only little endianness for the zarr format.
 
