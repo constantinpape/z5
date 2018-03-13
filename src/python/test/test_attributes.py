@@ -15,6 +15,8 @@ except ImportError:
 class TestAttributes(unittest.TestCase):
 
     def attrs_test(self, attrs):
+        self.assertFalse('not_an_attr' in attrs)
+
         attrs["a"] = 1
         attrs["b"] = [1, 2, 3]
         attrs["c"] = "whooosa"
