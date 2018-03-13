@@ -41,17 +41,17 @@ class TestPermissions(unittest.TestCase):
 
         # TODO would be nice to have consistent exceptions here
         # test that a new group can't be created
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError):
             f.create_group('g')
 
         # test that a new dataset can't be created
         # with self.assertRaises(RuntimeError):
-        with self.assertRaises(OSError):
+        with self.assertRaises(ValueError):
             f.create_dataset('ds', dtype='uint8', shape=(10, 10), chunks=(10, 10))
 
         # test that we cannot write to an existing dataset
         ds = f['data']
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(ValueError):
             ds[:] = np.zeros((10, 10), dtype='uint8')
 
     # generic test for all default operations

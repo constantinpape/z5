@@ -1,7 +1,5 @@
 #pragma once
 
-#include <system_error>
-
 #include "z5/handle/handle.hxx"
 #include "z5/metadata.hxx"
 
@@ -10,7 +8,7 @@ namespace z5 {
     inline void createGroup(const handle::Group & group, const bool isZarr=true) {
         if(!group.mode().canWrite()) {
             const std::string err = "Cannot create new group in file mode " + group.mode().printMode();
-            throw std::system_error(EROFS, std::generic_category(), err.c_str());
+            throw std::invalid_argument(err.c_str());
         }
         group.createDir();
         if(isZarr) {

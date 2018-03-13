@@ -111,7 +111,7 @@ namespace z5 {
             // check if we have permissions to create a new dataset
             if(!handle_.mode().canCreate()) {
                 const std::string err = "Cannot create new dataset in file mode " + handle_.mode().printMode();
-                throw std::runtime_error(err.c_str());
+                throw std::invalid_argument(err.c_str());
             }
 
             // make sure that the file does not exist already
@@ -146,7 +146,7 @@ namespace z5 {
             // check if we are allowed to write
             if(!handle_.mode().canWrite()) {
                 const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
-                throw std::runtime_error(err.c_str());
+                throw std::invalid_argument(err.c_str());
             }
             handle::Chunk chunk(handle_, chunkIndices, isZarr_);
             writeChunk(chunk, dataIn);
