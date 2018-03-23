@@ -8,11 +8,11 @@ namespace fs = boost::filesystem;
 namespace z5 {
 
     // factory function to open an existing zarr-array
-    inline std::unique_ptr<Dataset> openDataset(const std::string & path) {
+    inline std::unique_ptr<Dataset> openDataset(const std::string & path, const FileMode::modes mode=FileMode::a) {
 
         // TODO only read the datarype here
         // read the data type from the metadata
-        handle::Dataset h(path);
+        handle::Dataset h(path, mode);
         auto dtype = readDatatype(h);
 
         // make the ptr to the DatasetTyped of appropriate dtype
@@ -49,9 +49,8 @@ namespace z5 {
     ) {
         auto path = group.path();
         path /= key;
-        return openDataset(path.string());
+        return openDataset(path.string(), group.mode().mode());
     }
-
 
 
 
@@ -63,7 +62,8 @@ namespace z5 {
         const bool createAsZarr,
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-        const double fillValue=0
+        const double fillValue=0,
+        const FileMode::modes mode=FileMode::a
     ) {
         // get the internal data type
         types::Datatype internalDtype;
@@ -88,7 +88,7 @@ namespace z5 {
             fillValue);
 
         // make array handle
-        handle::Dataset h(path);
+        handle::Dataset h(path, mode);
 
         // make the ptr to the DatasetTyped of appropriate dtype
         std::unique_ptr<Dataset> ptr;
@@ -134,7 +134,7 @@ namespace z5 {
         return createDataset(path.string(),
             dtype, shape, chunkShape,
             createAsZarr, compressor,
-            compressionOptions, fillValue);
+            compressionOptions, fillValue, group.mode().mode());
     }
 
 }

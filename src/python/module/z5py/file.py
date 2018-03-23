@@ -1,8 +1,11 @@
 import os
+import errno
+import json
+from shutil import rmtree
+
 from .base import Base
 from .group import Group
 from .dataset import Dataset
-import json
 
 # set correct json error type for python 2 / 3
 try:
@@ -15,37 +18,61 @@ class File(Base):
     zarr_exts = {'.zarr', '.zr'}
     n5_exts = {'.n5'}
 
-    def __init__(self, path, use_zarr_format=None):
-
-        # check if the file already exists
-        # and load it if it does
+    @staticmethod
+    def infer_format(path):
+        """
+        Infer the file format from the path.
+        Return `True` for zarr, `False` for n5 and `None` if the format could not be infered.
+        """
+        # if the path exists infer the format from the metadata
         if os.path.exists(path):
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
-            is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
+            return os.path.exists(zarr_group) or os.path.exists(zarr_array)
+        # otherwise check if we can infer it from the file ending
+        else:
+            is_zarr = None
+            _, ext = os.path.splitext(path)
+            if ext.lower() in File.zarr_exts:
+                is_zarr = True
+            elif ext.lower() in File.n5_exts:
+                is_zarr = False
+            return is_zarr
 
-            # automatically infering the format
-            if use_zarr_format is None:
-                use_zarr_format = is_zarr
-            # file was opened as zarr file
-            elif use_zarr_format:
-                assert is_zarr, "z5py.File: can't open n5 file in zarr format"
+    def __init__(self, path, use_zarr_format=None, mode='a'):
+
+        # infer the file format from the path
+        is_zarr = self.infer_format(path)
+        # check if the format that was infered is consistent with `use_zarr_format`
+        if use_zarr_format is None:
+            assert is_zarr is not None,\
+                "z5py.File: Cannot infer the file format (zarr or N5)"
+            use_zarr_format = is_zarr
+        elif use_zarr_format:
+            assert is_zarr, "z5py.File: N5 file cannot be opened in zarr format"
+        else:
+            assert not is_zarr, "z5py.File: Zarr file cannot be opened in N5 format"
+        super(File, self).__init__(path, use_zarr_format, mode)
+
+        # check if the file already exists and load if it does
+        if os.path.exists(path):
+
+            # throw error if the file must not exist according to file mode
+            if self._permissions.must_not_exist():
+                raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), path)
+            # TODO I am unsure about this, an accidental 'w' could wreak a lot of havoc ...
+            if self._permissions.should_truncate():
+                rmtree(path)
+                os.mkdir(path)
 
             # TODO check zarr version as well
-            if not is_zarr:
+            if not use_zarr_format:
                 self._check_n5_version(path)
 
         # otherwise create a new file
         else:
-            if use_zarr_format is None:
-                _, ext = os.path.splitext(path)
-                if ext.lower() in self.zarr_exts:
-                    use_zarr_format = True
-                elif ext.lower() in self.n5_exts:
-                    use_zarr_format = False
-
-            assert use_zarr_format is not None, \
-                "z5py.File: Cannot infer the file format for non existing file"
+            if not self._permissions.can_create():
+                raise OSError(errno.EROFS, os.strerror(errno.EROFS), path)
             os.mkdir(path)
             meta_file = os.path.join(path, '.zgroup' if use_zarr_format else 'attributes.json')
             # we only need to write meta data for the zarr format
@@ -55,8 +82,6 @@ class File(Base):
             else:
                 with open(meta_file, 'w') as f:
                     json.dump({'n5': "2.0.0"}, f)
-
-        super(File, self).__init__(path, use_zarr_format)
 
     @staticmethod
     def _check_n5_version(path):
@@ -83,17 +108,19 @@ class File(Base):
         assert key not in self.keys(), \
             "z5py.File.create_group: Group is already existing"
         path = os.path.join(self.path, key)
-        return Group.make_group(path, self.is_zarr)
+        return Group.make_group(path, self.is_zarr, self.mode)
 
     def __getitem__(self, key):
         assert key in self, "z5py.File.__getitem__: key does not exxist"
         path = os.path.join(self.path, key)
         if self.is_group(key):
-            return Group.open_group(path, self.is_zarr)
+            return Group.open_group(path, self.is_zarr, self.mode)
         else:
-            return Dataset.open_dataset(path)
+            return Dataset.open_dataset(path, self._internal_mode)
 
     # TODO setitem, delete datasets ?
+    # - setitem could be implemented with softlinks
+    # - delete item would remove the folder (or softlink)
 
     def __enter__(self):
         return self

@@ -108,12 +108,19 @@ namespace z5 {
             const handle::Dataset & handle,
             const DatasetMetadata & metadata) : handle_(handle) {
 
+            // check if we have permissions to create a new dataset
+            if(!handle_.mode().canCreate()) {
+                const std::string err = "Cannot create new dataset in file mode " + handle_.mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+
             // make sure that the file does not exist already
             if(handle.exists()) {
                 throw std::runtime_error(
                     "Creating a new Dataset failed because file already exists."
                 );
             }
+
             init(metadata);
             handle.createDir();
             writeMetadata(handle, metadata);
@@ -136,6 +143,11 @@ namespace z5 {
 
 
         virtual inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) const {
+            // check if we are allowed to write
+            if(!handle_.mode().canWrite()) {
+                const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
             handle::Chunk chunk(handle_, chunkIndices, isZarr_);
             writeChunk(chunk, dataIn);
         }
@@ -492,6 +504,8 @@ namespace z5 {
 
         // write a chunk
         inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) const {
+
+            // throw a runtime error if we don't have write permissions
 
             // make sure that we have a valid chunk
             checkChunk(chunk);

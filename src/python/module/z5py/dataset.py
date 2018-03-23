@@ -135,7 +135,8 @@ class Dataset(object):
                   'shape': shape,
                   'chunks': chunks,
                   'fill_value': fill_value,
-                  'compressor': Dataset._to_zarr_compression_options(compression, compression_options)}
+                  'compressor': Dataset._to_zarr_compression_options(compression,
+                                                                     compression_options)}
         with open(os.path.join(path, '.zarray'), 'w') as f:
             json.dump(params, f)
 
@@ -146,7 +147,8 @@ class Dataset(object):
         params = {'dataType': Dataset.dtype_dict[np.dtype(dtype)],
                   'dimensions': shape[::-1],
                   'blockSize': chunks[::-1],
-                  'compression': Dataset._to_n5_compression_options(compression, compression_options)}
+                  'compression': Dataset._to_n5_compression_options(compression,
+                                                                    compression_options)}
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
             json.dump(params, f)
 
@@ -154,7 +156,7 @@ class Dataset(object):
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
                        compression, compression_options,
-                       fill_value):
+                       fill_value, mode):
         assert not os.path.exists(path), "z5py.Dataset: cannot create existing dataset"
         if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
@@ -174,11 +176,11 @@ class Dataset(object):
         else:
             cls._create_dataset_n5(path, dtype_, shape, chunks,
                                    compression, compression_options)
-        return cls(path, open_dataset(path))
+        return cls(path, open_dataset(path, mode))
 
     @classmethod
-    def open_dataset(cls, path):
-        return cls(path, open_dataset(path))
+    def open_dataset(cls, path, mode):
+        return cls(path, open_dataset(path, mode))
 
     @property
     def is_zarr(self):
