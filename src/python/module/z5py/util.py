@@ -7,7 +7,8 @@ from .file import File
 
 # ND blocking generator
 def blocking(shape, block_shape):
-    assert len(shape) == len(block_shape)
+    if len(shape) != len(block_shape):
+        raise RuntimeError("Invalid number of dimensions.")
     ranges = [range(sha // bsha if sha % bsha == 0 else sha // bsha + 1)
               for sha, bsha in zip(shape, block_shape)]
     start_points = product(*ranges)

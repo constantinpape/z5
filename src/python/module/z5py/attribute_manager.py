@@ -13,21 +13,21 @@ class AttributeManager(object):
 
     def __getitem__(self, key):
 
-        assert os.path.exists(self.path), \
-            "z5py.AttributeManager.__getitem__: no attributes present"
+        if not os.path.exists(self.path):
+            raise RuntimeError("No attributes present!")
 
         with open(self.path, 'r') as f:
             attributes = json.load(f)
 
-        assert key in attributes, \
-            "z5py.AttributeManager.__getitem__: key is not existing"
+        if key not in attributes:
+            raise RuntimeError("Key %s is not existing" % key)
         return attributes[key]
 
     def __setitem__(self, key, item):
 
         if not self.is_zarr:
-            assert key not in self.n5_keys, \
-                "z5py.AttributeManager.__getitem__: not allowed to write N5 metadata keys"
+            if key in self.n5_keys:
+                raise RuntimeError("It is not allowed to write N5 metadata keys")
 
         if os.path.exists(self.path):
             with open(self.path, 'r') as f:

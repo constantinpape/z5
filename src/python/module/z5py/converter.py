@@ -4,7 +4,6 @@
 from __future__ import print_function
 import os
 from concurrent import futures
-from itertools import product
 
 try:
     import h5py
@@ -27,7 +26,8 @@ if WITH_H5:
                          n_threads,
                          out_blocks=None,
                          **h5_kwargs):
-        assert os.path.exists(in_path), in_path
+        if not os.path.exists(in_path):
+            raise RuntimeError("Path %s does not exist" % in_path)
         f_n5 = File(in_path, use_zarr_format=False)
         ds_n5 = f_n5[in_path_in_file]
         shape = ds_n5.shape
@@ -66,7 +66,8 @@ if WITH_H5:
                          n_threads,
                          out_blocks=None,
                          **n5_kwargs):
-        assert os.path.exists(in_path), in_path
+        if not os.path.exists(in_path):
+            raise RuntimeError("Path %s does not exist" % in_path)
         if out_blocks is None:
             out_blocks = out_chunks
 

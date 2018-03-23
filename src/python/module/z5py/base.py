@@ -1,5 +1,4 @@
 import os
-import errno
 import json
 from .dataset import Dataset
 from .attribute_manager import AttributeManager
@@ -15,7 +14,9 @@ class Base(object):
                   'w-': FileMode.w_m, 'x': FileMode.w_m}
 
     def __init__(self, path, is_zarr=True, mode='a'):
-        assert mode in self.file_modes, "Invalid mode %s" % mode
+        if mode not in self.file_modes:
+            raise ValueError("Invalid file mode: %s" % mode)
+
         # x is not a mode in c++, because it has the same properties
         # as w- (as far as I can see)
         self.mode = mode
@@ -47,7 +48,8 @@ class Base(object):
                        **compression_options):
         if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
-        assert key not in self.keys(), "Dataset is already existing"
+        if key in self:
+            raise RuntimeError("Dataset %s is already existing." % key)
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,

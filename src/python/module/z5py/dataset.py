@@ -3,7 +3,7 @@ import numbers
 import json
 
 import numpy as np
-from ._z5py import DatasetImpl, open_dataset
+from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
 
@@ -41,7 +41,6 @@ class Dataset(object):
     n5_default_compressor = 'gzip'
 
     def __init__(self, path, dset_impl):
-        assert isinstance(dset_impl, DatasetImpl)
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
         self.path = path
@@ -157,7 +156,8 @@ class Dataset(object):
                        shape, chunks, is_zarr,
                        compression, compression_options,
                        fill_value, mode):
-        assert not os.path.exists(path), "z5py.Dataset: cannot create existing dataset"
+        if os.path.exists(path):
+            raise RuntimeError("Cannot create existing dataset")
         if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
         elif not is_zarr and compression not in cls.compressors_n5:
@@ -165,7 +165,8 @@ class Dataset(object):
 
         # support for numpy datatypes
         if not isinstance(dtype, str):
-            assert dtype in cls.dtype_dict, "z5py.Dataset: invalid data type"
+            if dtype not in cls.dtype_dict:
+                raise ValueError("Invalid data type")
             dtype_ = cls.dtype_dict[dtype]
         else:
             dtype_ = dtype
@@ -230,18 +231,19 @@ class Dataset(object):
     def index_to_roi(self, index):
 
         # check index types of index and normalize the index
-        assert isinstance(index, (slice, tuple)), \
-            "z5py.Dataset: index must be slice or tuple of slices"
+        if not isinstance(index, (slice, tuple)):
+            raise RuntimeError("Index must be slice or tuple of slices")
         index_ = (index,) if isinstance(index, slice) else index
 
         # check lengths of index
-        assert len(index_) <= self.ndim, "z5py.Dataset: index is longer than dimension"
+        if len(index_) > self.ndim:
+            raise RuntimeError("Index cannot be longer than dimension")
 
         # check the individual slices
-        assert all(isinstance(ii, slice) for ii in index_), \
-            "z5py.Dataset: index must be slice or tuple of slices"
-        assert all(ii.step is None for ii in index_), \
-            "z5py.Dataset: slice with non-trivial step is not supported"
+        if not all(isinstance(ii, slice) for ii in index_):
+            raise RuntimeError("Index must be slice or tuple of slices")
+        if not all(ii.step is None for ii in index_):
+            raise RuntimeError("Slice with non-trivial step is not supported")
         # get the roi begin and shape from the slicing
         roi_begin = [
             (0 if index_[d].start is None else index_[d].start)
@@ -262,14 +264,15 @@ class Dataset(object):
 
     # most checks are done in c++
     def __setitem__(self, index, item):
-        assert isinstance(item, (numbers.Number, np.ndarray))
+        if not isinstance(item, (numbers.Number, np.ndarray)):
+            raise ValueError("Invalid item")
         roi_begin, shape = self.index_to_roi(index)
 
         # n5 input must be transpsed due to different axis convention
         # write the complete array
         if isinstance(item, np.ndarray):
-            assert item.ndim == self.ndim, \
-                "z5py.Dataset: complicated broadcasting is not supported"
+            if item.ndim != self.ndim:
+                raise ValueError("Complicated broadcasting is not supported")
             write_subarray(self._impl, np.require(item, requirements='C'), roi_begin)
 
         # broadcast scalar
@@ -295,8 +298,10 @@ class Dataset(object):
         return out
 
     def array_to_format(self, array):
-        assert array.ndim == self.ndim, "Array needs to be of same dimension as dataset"
-        assert np.dtype(array.dtype) == np.dtype(self.dtype), "Array needs to have same dtype as dataset"
+        if array.ndim != self.ndim:
+            raise RuntimeError("Array needs to be of same dimension as dataset")
+        if np.dtype(array.dtype) != np.dtype(self.dtype):
+            raise RuntimeError("Array needs to have same dtype as dataset")
         return convert_array_to_format(self._impl, np.require(array, requirements='C'))
 
     def chunk_exists(self, chunk_indices):
