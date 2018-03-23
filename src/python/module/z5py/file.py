@@ -45,13 +45,17 @@ class File(Base):
         is_zarr = self.infer_format(path)
         # check if the format that was infered is consistent with `use_zarr_format`
         if use_zarr_format is None:
-            assert is_zarr is not None,\
-                "z5py.File: Cannot infer the file format (zarr or N5)"
+            if is_zarr is None:
+                raise RuntimeError("Cannot infer the file format (zarr or N5)")
             use_zarr_format = is_zarr
+
         elif use_zarr_format:
-            assert is_zarr, "z5py.File: N5 file cannot be opened in zarr format"
+            if not is_zarr:
+                raise RuntimeError("N5 file cannot be opened in zarr format")
+
         else:
-            assert not is_zarr, "z5py.File: Zarr file cannot be opened in N5 format"
+            if is_zarr:
+                raise RuntimeError("Zarr file cannot be opened in N5 format")
         super(File, self).__init__(path, use_zarr_format, mode)
 
         # check if the file already exists and load if it does
@@ -105,13 +109,14 @@ class File(Base):
                 raise RuntimeError("z5py.File: Can't open n5 file with major version bigger than 2")
 
     def create_group(self, key):
-        assert key not in self.keys(), \
-            "z5py.File.create_group: Group is already existing"
+        if key in self:
+            raise RuntimeError("Group %s is already existing" % key)
         path = os.path.join(self.path, key)
         return Group.make_group(path, self.is_zarr, self.mode)
 
     def __getitem__(self, key):
-        assert key in self, "z5py.File.__getitem__: key does not exxist"
+        if key not in self:
+            raise RuntimeError("Key %s does not exist" % key)
         path = os.path.join(self.path, key)
         if self.is_group(key):
             return Group.open_group(path, self.is_zarr, self.mode)

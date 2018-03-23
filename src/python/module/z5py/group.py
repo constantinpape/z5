@@ -19,12 +19,14 @@ class Group(Base):
         return cls(path, is_zarr, mode)
 
     def create_group(self, key):
-        assert key not in self.keys(), "Group is already existing"
+        if key in self.keys():
+            raise RuntimeError("Group %s is already existing" % key)
         path = os.path.join(self.path, key)
         return Group.make_group(path, self.is_zarr, self.mode)
 
     def __getitem__(self, key):
-        assert key in self, "z5py.File.__getitem__: key does not exxist"
+        if key not in self:
+            raise RuntimeError("Key %s does not exist" % key)
         path = os.path.join(self.path, key)
         if self.is_group(key):
             return Group.open_group(path, self.is_zarr, self.mode)
