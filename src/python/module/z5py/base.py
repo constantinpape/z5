@@ -46,7 +46,7 @@ class Base(object):
                        fill_value=0, compression='raw',
                        **compression_options):
         if not self._permissions.can_write():
-            raise OSError(errno.EROFS, os.strerror(errno.EROFS), self.path)
+            raise ValueError("Cannot create dataset with read-only permissions.")
         assert key not in self.keys(), "Dataset is already existing"
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
