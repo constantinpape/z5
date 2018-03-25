@@ -8,6 +8,7 @@ namespace fs = boost::filesystem;
 namespace z5 {
 namespace io {
 
+    // TODO add tests for non-reversing IO
     TEST_F(IoTest, IrregularChunksN5) {
         types::ShapeType shape({20, 20, 20});
         types::ShapeType chunks({13, 5, 9});
@@ -63,7 +64,7 @@ namespace io {
         handle::Chunk chunkHandle(ds_n5, chunk0Id, false);
 
         types::ShapeType shape({1000, 1000, 1000});
-        ChunkIoN5<int> io(shape, chunkShape);
+        ChunkIoN5<int> io(shape, chunkShape, true);
 
         std::vector<int> tmpData;
         ASSERT_TRUE(io.read(chunkHandle, tmpData));
@@ -79,7 +80,7 @@ namespace io {
         handle::Chunk chunkHandle(ds_n5, chunk1Id, false);
 
         types::ShapeType shape({1000, 1000, 1000});
-        ChunkIoN5<int> io(shape, chunkShape);
+        ChunkIoN5<int> io(shape, chunkShape, true);
 
         std::vector<int> tmpData(SIZE, 0);
         io.write(chunkHandle, &tmpData[0], tmpData.size());
@@ -91,7 +92,7 @@ namespace io {
         handle::Chunk chunkHandle(ds_n5, chunk1Id, false);
 
         types::ShapeType shape({1000, 1000, 1000});
-        ChunkIoN5<int> io(shape, chunkShape);
+        ChunkIoN5<int> io(shape, chunkShape, true);
 
         std::vector<int> tmpData1(SIZE);
         std::copy(data_, data_ + SIZE, tmpData1.begin());

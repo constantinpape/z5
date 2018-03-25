@@ -32,6 +32,9 @@ class Dataset(object):
                        np.dtype('float32'): '<f4',
                        np.dtype('float64'): '<f8'}
 
+    # TODO support aliases for the axis orders
+    axis_orders = ['C', 'F']
+
     # FIXME for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
@@ -40,10 +43,12 @@ class Dataset(object):
     zarr_default_compressor = 'blosc'
     n5_default_compressor = 'gzip'
 
-    def __init__(self, path, dset_impl):
+    def __init__(self, path, dset_impl, axis_order='C'):
         self._impl = dset_impl
-        self._attrs = AttributeManager(path, self._impl.is_zarr)
+        self._axis_order = axis_order
         self.path = path
+        self._attrs = AttributeManager(self.path, self._impl.is_zarr,
+                                       self.axis_order)
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
@@ -128,7 +133,10 @@ class Dataset(object):
     @staticmethod
     def _create_dataset_zarr(path, dtype, shape, chunks,
                              compression, compression_options,
-                             fill_value):
+                             fill_value, axis_order):
+        # TODO support this !
+        if axis_order != 'C':
+            raise RuntimeError("Cannot create zarr dataset with Fortran axis order.")
         os.mkdir(path)
         params = {'dtype': Dataset.zarr_dtype_dict[np.dtype(dtype)],
                   'shape': shape,
@@ -141,11 +149,11 @@ class Dataset(object):
 
     @staticmethod
     def _create_dataset_n5(path, dtype, shape, chunks,
-                           compression, compression_options):
+                           compression, compression_options, axis_order):
         os.mkdir(path)
         params = {'dataType': Dataset.dtype_dict[np.dtype(dtype)],
-                  'dimensions': shape[::-1],
-                  'blockSize': chunks[::-1],
+                  'dimensions': shape[::-1] if axis_order == 'C' else shape,
+                  'blockSize': chunks[::-1] if axis_order == 'C' else chunks,
                   'compression': Dataset._to_n5_compression_options(compression,
                                                                     compression_options)}
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
@@ -155,9 +163,11 @@ class Dataset(object):
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
                        compression, compression_options,
-                       fill_value, mode):
+                       fill_value, mode, axis_order):
         if os.path.exists(path):
             raise RuntimeError("Cannot create existing dataset")
+        if axis_order not in cls.axis_orders:
+            raise RuntimeError("Invalid axis order %s" % axis_order)
         if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
         elif not is_zarr and compression not in cls.compressors_n5:
@@ -177,7 +187,18 @@ class Dataset(object):
         else:
             cls._create_dataset_n5(path, dtype_, shape, chunks,
                                    compression, compression_options)
-        return cls(path, open_dataset(path, mode))
+        return cls(path, open_dataset(path, mode, axis_order == 'C'), axis_order)
+
+    def change_axis_order(self, axis_order):
+        if axis_order not in self._axis_orders:
+            raise RuntimeError("Invalid axis order %s" % axis_order)
+        # TODO support this !
+        if axis_order != 'C':
+            raise RuntimeError("Cannot create zarr dataset with Fortran axis order.")
+        if self.axis_order == axis_order:
+            return
+        self._axis_order = axis_order
+        self._impl = open_dataset(path, self._impl.mode, axis_order == 'C')
 
     @classmethod
     def open_dataset(cls, path, mode):

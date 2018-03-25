@@ -7,6 +7,9 @@ class AttributeManager(object):
 
     n5_keys = ('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression')
 
+    # TODO take axis order as argument
+    # TODO implement
+    # getAttribute, setAttribute, getVector, setVector
     def __init__(self, path, is_zarr):
         self.path = os.path.join(path, '.zattrs' if is_zarr else 'attributes.json')
         self.is_zarr = is_zarr

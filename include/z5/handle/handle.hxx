@@ -65,7 +65,7 @@ namespace handle {
         //     }
         // }
 
-        virtual const FileMode & mode() const {
+        inline const FileMode & mode() const {
             return mode_;
         }
 
@@ -80,9 +80,18 @@ namespace handle {
     class Dataset : public Handle {
 
     public:
-        Dataset(const std::string & pathOnFilesystem_, const FileMode::modes mode=FileMode::a)
-            : Handle(pathOnFilesystem_, mode) {
+        Dataset(const std::string & pathOnFilesystem_,
+                const FileMode::modes mode=FileMode::a,
+                const bool reverseN5Attributes=true)
+            : Handle(pathOnFilesystem_, mode), reverseN5Attributes_(reverseN5Attributes) {
         }
+
+        inline bool reverseN5Attributes() const {
+            return reverseN5Attributes_;
+        }
+
+    private:
+        bool reverseN5Attributes_;
 
     };
 
@@ -111,9 +120,14 @@ namespace handle {
 
     public:
 
-        Chunk(const Dataset & handle, const types::ShapeType & chunkIndices, const bool zarrFormat)
-            : Handle(pathFromDatasetAndIndices(handle, chunkIndices, zarrFormat)), chunkIndices_(chunkIndices), zarrFormat_(zarrFormat){
-
+        Chunk(const Dataset & handle,
+              const types::ShapeType & chunkIndices,
+              const bool zarrFormat)
+            : Handle(pathFromDatasetAndIndices(handle,
+                                               chunkIndices,
+                                               zarrFormat)),
+              chunkIndices_(chunkIndices),
+              zarrFormat_(zarrFormat) {
         }
 
         inline const types::ShapeType & chunkIndices() const {
@@ -177,14 +191,20 @@ namespace handle {
             // otherwise (n5-format), each chunk index has
             // its own directory
             else {
-                // N5-Axis order: we need to read the chunks in reverse order
-                for(auto it = chunkIndices.rbegin(); it != chunkIndices.rend(); ++it) {
-                    ret /= std::to_string(*it);
+                // N5-Axis order: we need to read the chunks in reverse order if we load
+                // data in 'C' axis order
+                if(handle.reverseN5Attributes()) {
+                    for(auto it = chunkIndices.rbegin(); it != chunkIndices.rend(); ++it) {
+                        ret /= std::to_string(*it);
+                    }
+                } else {
+                    for(auto it = chunkIndices.begin(); it != chunkIndices.end(); ++it) {
+                        ret /= std::to_string(*it);
+                    }
                 }
             }
             return ret;
         }
-
 
         types::ShapeType chunkIndices_;
         bool zarrFormat_;

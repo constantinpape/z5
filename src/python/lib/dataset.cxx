@@ -115,6 +115,9 @@ namespace z5 {
             .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){
                 return ds.chunksPerDimension();
             })
+            .def_property_readonly("mode", [](const Dataset & ds){
+                return ds.mode();
+            }, py::return_value_policy::copy)
 
             // compression, compression_opts, fillvalue
             .def_property_readonly("compressor", [](const Dataset & ds){
@@ -142,8 +145,8 @@ namespace z5 {
             ))
         ;
 
-        module.def("open_dataset",[](const std::string & path, const FileMode::modes mode){
-            return openDataset(path, mode);
+        module.def("open_dataset",[](const std::string & path, const FileMode::modes mode, const bool reverseN5Attributes){
+            return openDataset(path, mode, reverseN5Attributes);
         });
 
         // export I/O for all dtypes

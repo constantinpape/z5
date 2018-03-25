@@ -91,6 +91,8 @@ namespace z5 {
         // corresponding to the coordinates of the min / max chunk that was written
         virtual void findMinimumCoordinates(const unsigned, types::ShapeType &) const = 0;
         virtual void findMaximumCoordinates(const unsigned, types::ShapeType &) const = 0;
+
+        virtual const FileMode & mode() const = 0;
     };
 
 
@@ -121,7 +123,7 @@ namespace z5 {
                 );
             }
 
-            init(metadata);
+            init(metadata, handle.reverseN5Attributes());
             handle.createDir();
             writeMetadata(handle, metadata);
         }
@@ -138,7 +140,7 @@ namespace z5 {
             }
             DatasetMetadata metadata;
             readMetadata(handle, metadata);
-            init(metadata);
+            init(metadata, handle.reverseN5Attributes());
         }
 
 
@@ -436,6 +438,10 @@ namespace z5 {
             }
         }
 
+        const FileMode & mode() const {
+            return handle_.mode();
+        }
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik
@@ -449,7 +455,7 @@ namespace z5 {
         //
         // member functions
         //
-        void init(const DatasetMetadata & metadata) {
+        void init(const DatasetMetadata & metadata, const bool reverseN5Attributes) {
 
             // zarr or n5 array?
             isZarr_ = metadata.isZarr;
@@ -487,7 +493,7 @@ namespace z5 {
             if(isZarr_) {
                 io_.reset(new io::ChunkIoZarr<T>());
             } else {
-                io_.reset(new io::ChunkIoN5<T>(shape_, chunkShape_));
+                io_.reset(new io::ChunkIoN5<T>(shape_, chunkShape_, reverseN5Attributes));
             }
 
             // get chunk specifications

@@ -7,12 +7,16 @@
 namespace fs = boost::filesystem;
 namespace z5 {
 
-    // factory function to open an existing zarr-array
-    inline std::unique_ptr<Dataset> openDataset(const std::string & path, const FileMode::modes mode=FileMode::a) {
+    // TODO pass the reverse paramter to the relevant functions
+    // - handle
+    // factory function to open an existing dataset
+    inline std::unique_ptr<Dataset> openDataset(const std::string & path,
+                                                const FileMode::modes mode=FileMode::a,
+                                                const bool reverseN5Attributes=true) {
 
-        // TODO only read the datarype here
+        // create the handle to the dataset
+        handle::Dataset h(path, mode, reverseN5Attributes);
         // read the data type from the metadata
-        handle::Dataset h(path, mode);
         auto dtype = readDatatype(h);
 
         // make the ptr to the DatasetTyped of appropriate dtype
@@ -43,17 +47,17 @@ namespace z5 {
     }
 
 
-    inline std::unique_ptr<Dataset> openDataset(
-        const handle::Group & group,
-        const std::string & key
+    inline std::unique_ptr<Dataset> openDataset(const handle::Group & group,
+                                                const std::string & key,
+                                                const bool reverseN5Attributes=true
     ) {
         auto path = group.path();
         path /= key;
-        return openDataset(path.string(), group.mode().mode());
+        return openDataset(path.string(), group.mode().mode(), reverseN5Attributes);
     }
 
 
-
+    // factory function to open an existing dataset
     inline std::unique_ptr<Dataset> createDataset(
         const std::string & path,
         const std::string & dtype,
@@ -63,7 +67,8 @@ namespace z5 {
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
         const double fillValue=0,
-        const FileMode::modes mode=FileMode::a
+        const FileMode::modes mode=FileMode::a,
+        const bool reverseN5Attributes=true
     ) {
         // get the internal data type
         types::Datatype internalDtype;
@@ -88,7 +93,7 @@ namespace z5 {
             fillValue);
 
         // make array handle
-        handle::Dataset h(path, mode);
+        handle::Dataset h(path, mode, reverseN5Attributes);
 
         // make the ptr to the DatasetTyped of appropriate dtype
         std::unique_ptr<Dataset> ptr;
@@ -127,14 +132,16 @@ namespace z5 {
         const bool createAsZarr,
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-        const double fillValue=0
+        const double fillValue=0,
+        const bool reverseN5Attributes=true
     ) {
         auto path = group.path();
         path /= key;
         return createDataset(path.string(),
             dtype, shape, chunkShape,
             createAsZarr, compressor,
-            compressionOptions, fillValue, group.mode().mode());
+            compressionOptions, fillValue, group.mode().mode(),
+            reverseN5Attributes);
     }
 
 }

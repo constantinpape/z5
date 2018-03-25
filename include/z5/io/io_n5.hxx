@@ -28,8 +28,12 @@ namespace io {
 
     public:
 
-        ChunkIoN5(const types::ShapeType & shape, const types::ShapeType & chunkShape) :
-            shape_(shape), chunkShape_(chunkShape){
+        ChunkIoN5(const types::ShapeType & shape,
+                  const types::ShapeType & chunkShape,
+                  const bool reverseN5Attributes) :
+            shape_(shape),
+            chunkShape_(chunkShape),
+            reverseN5Attributes_(reverseN5Attributes){
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
@@ -128,7 +132,9 @@ namespace io {
                 // and if we are, return
                 if(fs::is_regular_file(chunkDir)) {
                     // need to reverse due to n5 axis ordering
-                    std::reverse(minOut.begin(), minOut.end());
+                    if(reverseN5Attributes_) {
+                        std::reverse(minOut.begin(), minOut.end());
+                    }
                     return;
                 }
             }
@@ -157,7 +163,9 @@ namespace io {
             // of this chunk
 
             // need to reverse due to n5 axis ordering
-            std::reverse(minOut.begin(), minOut.end());
+            if(reverseN5Attributes_) {
+                std::reverse(minOut.begin(), minOut.end());
+            }
         }
 
 
@@ -190,8 +198,11 @@ namespace io {
                 // check if we are already at the lowest chunk level
                 // and if we are, return
                 if(fs::is_regular_file(chunkDir)) {
-                    // need to reverse due to n5 axis ordering
-                    std::reverse(maxOut.begin(), maxOut.end());
+                    // N5-Axis order: we need to reverse the chunk shape written to the header if
+                    // we opened in 'C' order
+                    if(reverseN5Attributes_) {
+                        std::reverse(maxOut.begin(), maxOut.end());
+                    }
                     return;
                 }
             }
@@ -219,8 +230,11 @@ namespace io {
             // the query dimension, find the lowest entry and then open up the sub directories
             // of this chunk
 
-            // need to reverse due to n5 axis ordering
-            std::reverse(maxOut.begin(), maxOut.end());
+            // N5-Axis order: we need to reverse the chunk shape written to the header if
+            // we opened in 'C' order
+            if(reverseN5Attributes_) {
+                std::reverse(maxOut.begin(), maxOut.end());
+            }
         }
 
         inline size_t writeHeader(const types::ShapeType & shape, std::vector<char> & data) const {
@@ -242,8 +256,11 @@ namespace io {
             std::vector<uint32_t> shapeOut(shape.begin(), shape.end());
             util::reverseEndiannessInplace<uint32_t>(shapeOut.begin(), shapeOut.end());
 
-            // N5-Axis order: we need to reverse the chunk shape written to the header
-            std::reverse(shapeOut.begin(), shapeOut.end());
+            // N5-Axis order: we need to reverse the chunk shape written to the header if
+            // we opened in 'C' order
+            if(reverseN5Attributes_) {
+                std::reverse(shapeOut.begin(), shapeOut.end());
+            }
             // write chunk shape to header
             for(int d = 0; d < shape.size(); ++d) {
                 data.insert(data.begin() + offset, (char*) &shapeOut[d], (char*) &shapeOut[d] + 4);
@@ -350,7 +367,10 @@ namespace io {
             util::reverseEndiannessInplace<uint32_t>(shapeTmp.begin(), shapeTmp.end());
 
             // N5-Axis order: we need to reverse the chunk shape read from the header
-            std::reverse(shapeTmp.begin(), shapeTmp.end());
+            // need to reverse due to n5 axis ordering
+            if(reverseN5Attributes_) {
+                std::reverse(shapeTmp.begin(), shapeTmp.end());
+            }
 
             // copy the tempory shape to out shape
             shape.resize(nDims);
@@ -393,6 +413,7 @@ namespace io {
         // members
         const types::ShapeType & shape_;
         const types::ShapeType & chunkShape_;
+        bool reverseN5Attributes_;
 
     };
 
