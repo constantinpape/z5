@@ -14,13 +14,13 @@ class AttributeManager(object):
     def __getitem__(self, key):
 
         if not os.path.exists(self.path):
-            raise RuntimeError("No attributes present!")
+            raise KeyError("No attributes present!")
 
         with open(self.path, 'r') as f:
             attributes = json.load(f)
 
         if key not in attributes:
-            raise RuntimeError("Key %s is not existing" % key)
+            raise KeyError("Key %s is not existing" % key)
         return attributes[key]
 
     def __setitem__(self, key, item):

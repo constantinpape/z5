@@ -20,13 +20,13 @@ class Group(Base):
 
     def create_group(self, key):
         if key in self.keys():
-            raise RuntimeError("Group %s is already existing" % key)
+            raise KeyError("Group %s is already existing" % key)
         path = os.path.join(self.path, key)
         return Group.make_group(path, self.is_zarr, self.mode)
 
     def __getitem__(self, key):
         if key not in self:
-            raise RuntimeError("Key %s does not exist" % key)
+            raise KeyError("Key %s does not exist" % key)
         path = os.path.join(self.path, key)
         if self.is_group(key):
             return Group.open_group(path, self.is_zarr, self.mode)

@@ -49,7 +49,7 @@ class Base(object):
         if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         if key in self:
-            raise RuntimeError("Dataset %s is already existing." % key)
+            raise KeyError("Dataset %s is already existing." % key)
         path = os.path.join(self.path, key)
         return Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,

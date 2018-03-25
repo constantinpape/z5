@@ -232,18 +232,18 @@ class Dataset(object):
 
         # check index types of index and normalize the index
         if not isinstance(index, (slice, tuple)):
-            raise RuntimeError("Index must be slice or tuple of slices")
+            raise TypeError("Index must be slice or tuple of slices")
         index_ = (index,) if isinstance(index, slice) else index
 
         # check lengths of index
         if len(index_) > self.ndim:
-            raise RuntimeError("Index cannot be longer than dimension")
+            raise TypeError("Argument sequence too long")
 
         # check the individual slices
         if not all(isinstance(ii, slice) for ii in index_):
-            raise RuntimeError("Index must be slice or tuple of slices")
+            raise TypeError("Index must be slice or tuple of slices")
         if not all(ii.step is None for ii in index_):
-            raise RuntimeError("Slice with non-trivial step is not supported")
+            raise TypeError("Slice with non-trivial step is not supported")
         # get the roi begin and shape from the slicing
         roi_begin = [
             (0 if index_[d].start is None else index_[d].start)
