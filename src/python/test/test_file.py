@@ -21,6 +21,8 @@ class TestFile(unittest.TestCase):
             rmtree(self.n5_path)
         if(os.path.exists(self.zr_path)):
             rmtree(self.zr_path)
+        if(os.path.exists(self.zarr_path)):
+            rmtree(self.zarr_path)
 
     def test_context_manager_n5(self):
         self.assertFalse(os.path.exists(self.n5_path))
