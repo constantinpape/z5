@@ -24,7 +24,7 @@ before_script:
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2
   - conda install -c anaconda cmake
-  - conda install -c rdonnelly gcc-6=6.1.0
+  - conda install -c psi4 gcc-5
 
 script:
 
