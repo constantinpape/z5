@@ -21,6 +21,8 @@ class TestFile(unittest.TestCase):
             rmtree(self.n5_path)
         if(os.path.exists(self.zr_path)):
             rmtree(self.zr_path)
+        if(os.path.exists(self.zarr_path)):
+            rmtree(self.zarr_path)
 
     def test_context_manager_n5(self):
         self.assertFalse(os.path.exists(self.n5_path))
@@ -57,3 +59,22 @@ class TestFile(unittest.TestCase):
 
         f = z5py.File(self.zarr_path, None)
         self.assertTrue(f.is_zarr)
+
+    def test_direct_constructor_n5(self):
+        self.assertFalse(os.path.exists(self.n5_path))
+
+        f = z5py.N5File(self.n5_path)
+        self.assertFalse(f.is_zarr)
+
+    def test_direct_constructor_zarr(self):
+        self.assertFalse(os.path.exists(self.zarr_path))
+
+        f = z5py.ZarrFile(self.zarr_path)
+        self.assertTrue(f.is_zarr)
+
+    def test_wrong_ext_fails(self):
+        with self.assertRaises(RuntimeError):
+            f = z5py.File(self.zarr_path, use_zarr_format=False)
+
+        with self.assertRaises(RuntimeError):
+            f = z5py.File(self.n5_path, use_zarr_format=True)

@@ -18,8 +18,8 @@ class File(Base):
     zarr_exts = {'.zarr', '.zr'}
     n5_exts = {'.n5'}
 
-    @staticmethod
-    def infer_format(path):
+    @classmethod
+    def infer_format(cls, path):
         """
         Infer the file format from the path.
         Return `True` for zarr, `False` for n5 and `None` if the format could not be infered.
@@ -33,9 +33,9 @@ class File(Base):
         else:
             is_zarr = None
             _, ext = os.path.splitext(path)
-            if ext.lower() in File.zarr_exts:
+            if ext.lower() in cls.zarr_exts:
                 is_zarr = True
-            elif ext.lower() in File.n5_exts:
+            elif ext.lower() in cls.n5_exts:
                 is_zarr = False
             return is_zarr
 
@@ -50,7 +50,7 @@ class File(Base):
             use_zarr_format = is_zarr
 
         elif use_zarr_format:
-            if not is_zarr:
+            if is_zarr == False:
                 raise RuntimeError("N5 file cannot be opened in zarr format")
 
         else:
@@ -132,3 +132,13 @@ class File(Base):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+
+class N5File(File):
+    def __init__(self, path, mode='a'):
+        super(N5File, self).__init__(path=path, use_zarr_format=False, mode=mode)
+
+
+class ZarrFile(File):
+    def __init__(self, path, mode='a'):
+        super(ZarrFile, self).__init__(path=path, use_zarr_format=True, mode=mode)
