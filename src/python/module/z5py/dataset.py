@@ -163,19 +163,17 @@ class Dataset(object):
         elif not is_zarr and compression not in cls.compressors_n5:
             compression = cls.n5_default_compressor
 
-        # support for numpy datatypes
-        if not isinstance(dtype, str):
-            if dtype not in cls.dtype_dict:
-                raise ValueError("Invalid data type")
-            dtype_ = cls.dtype_dict[dtype]
-        else:
-            dtype_ = dtype
+        parsed_dtype = np.dtype(dtype)
 
         if is_zarr:
-            cls._create_dataset_zarr(path, dtype_, shape, chunks,
+            if parsed_dtype not in cls.zarr_dtype_dict:
+                raise ValueError("Invalid data type {} for zarr dataset".format(dtype))
+            cls._create_dataset_zarr(path, parsed_dtype, shape, chunks,
                                      compression, compression_options, fill_value)
         else:
-            cls._create_dataset_n5(path, dtype_, shape, chunks,
+            if parsed_dtype not in cls.dtype_dict:
+                raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
+            cls._create_dataset_n5(path, parsed_dtype, shape, chunks,
                                    compression, compression_options)
         return cls(path, open_dataset(path, mode))
 
