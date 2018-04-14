@@ -24,15 +24,17 @@ class TestAttributes(unittest.TestCase):
         self.assertEqual(attrs["b"], [1, 2, 3])
         self.assertEqual(attrs["c"], "whooosa")
 
-    def check_n5_ds_attrs(self, attrs):
-        for key in attrs.n5_keys:
+    def check_ds_attrs(self, attrs):
+        for key in attrs.reserved_keys:
             with self.assertRaises(RuntimeError):
                 attrs[key] = 5
 
             with self.assertRaises(RuntimeError):
                 del attrs[key]
 
+            self.assertIsNone(attrs.get(key))
             self.assertFalse(key in attrs)
+            self.assertFalse(key in set(attrs))
 
     def setUp(self):
         self.shape = (100, 100, 100)
@@ -71,6 +73,7 @@ class TestAttributes(unittest.TestCase):
         f_ds = self.ff_zarr["ds"].attrs
         print("Zarr: Dataset Attribute Test")
         self.check_attrs(f_ds)
+        self.check_ds_attrs(f_ds)
 
     def test_attrs_n5(self):
 
@@ -88,7 +91,7 @@ class TestAttributes(unittest.TestCase):
         print("N5: Dataset Attribute Test")
         f_ds = self.ff_n5["ds"].attrs
         self.check_attrs(f_ds)
-        self.check_n5_ds_attrs(f_ds)
+        self.check_ds_attrs(f_ds)
 
 
 if __name__ == '__main__':
