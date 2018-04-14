@@ -1,81 +1,90 @@
 import json
 import os
 import errno
+from functools import wraps
+from contextlib import contextmanager
+
+try:
+    from collections.abc import MutableMapping
+except ImportError:
+    from collections import MutableMapping
 
 
-class AttributeManager(object):
+__all__ = ['AttributeManager']
 
-    n5_keys = ('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression')
+
+def restrict_metadata_keys(fn):
+    """
+    Decorator for AttributeManager methods which checks that, if the manager is for N5, the key argument is not a
+    reserved metadata name.
+    """
+    @wraps(fn)
+    def wrapped(obj, key, *args, **kwargs):
+        if key in obj.reserved_keys:
+            raise RuntimeError("Reserved metadata (key {}) cannot be mutated".format(repr(key)))
+        return fn(obj, key, *args, **kwargs)
+    return wrapped
+
+
+class AttributeManager(MutableMapping):
+    zarr_fname = '.zattributes'
+    n5_fname = 'attributes.json'
+    n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
 
     def __init__(self, path, is_zarr):
-        self.path = os.path.join(path, '.zattrs' if is_zarr else 'attributes.json')
-        self.is_zarr = is_zarr
+        self.path = os.path.join(path, self.zarr_fname if is_zarr else self.n5_fname)
+        self.reserved_keys = frozenset() if is_zarr else self.n5_keys
 
     def __getitem__(self, key):
+        with self._open_attributes() as attributes:
+            return attributes[key]
 
-        if not os.path.exists(self.path):
-            raise KeyError("No attributes present!")
-
-        with open(self.path, 'r') as f:
-            attributes = json.load(f)
-
-        if key not in attributes:
-            raise KeyError("Key %s is not existing" % key)
-        return attributes[key]
-
+    @restrict_metadata_keys
     def __setitem__(self, key, item):
+        with self._open_attributes(True) as attributes:
+            attributes[key] = item
 
-        if not self.is_zarr:
-            if key in self.n5_keys:
-                raise RuntimeError("It is not allowed to write N5 metadata keys")
+    @restrict_metadata_keys
+    def __delitem__(self, key):
+        with self._open_attributes(True) as attributes:
+            del attributes[key]
 
-        if os.path.exists(self.path):
+    @contextmanager
+    def _open_attributes(self, write=False):
+        """Context manager for JSON attribute store.
+
+        Set ``write`` to True to dump out changes."""
+        attributes = self._read_attributes()
+        hidden_attrs = {key: attributes.pop(key) for key in self.reserved_keys.intersection(attributes)}
+        yield attributes
+        if write:
+            hidden_attrs.update(attributes)
+            self._write_attributes(hidden_attrs)
+
+    def _read_attributes(self):
+        """Return dict from JSON attribute store. Caller needs to distinguish between valid and N5 metadata keys."""
+        try:
             with open(self.path, 'r') as f:
-                # json cannot decode empty files,
-                # which may appear for N5 files
-                try:
-                    attributes = json.load(f)
-                except ValueError:
-                    attributes = {}
-        else:
+                attributes = json.load(f)
+        except ValueError:
             attributes = {}
+        except IOError as e:
+            if e.errno == errno.ENOENT:
+                attributes = {}
+            else:
+                raise
 
-        attributes[key] = item
+        return attributes
+
+    def _write_attributes(self, attributes):
+        """Dump ``attributes`` to JSON. Potentially dangerous for N5 metadata."""
         with open(self.path, 'w') as f:
             json.dump(attributes, f)
 
-    def _get_attributes(self):
-        try:
-            with open(self.path, 'r') as f:
-                attrs = json.load(f)
-        except ValueError:
-            attrs = {}
-        except IOError as e:
-            if e.errno == errno.ENOENT:
-                attrs = {}
-            else:
-                raise
-        return attrs
+    def __iter__(self):
+        with self._open_attributes() as attributes:
+            return iter(attributes)
 
-    def _get_n5_attributes(self):
-        attrs = self._get_attributes()
-        for key in self.n5_keys:
-            if key in attrs:
-                del attrs[key]
-        return attrs
-
-    def __contains__(self, item):
-        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
-        return item in attrs
-
-    def items(self):
-        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
-        return attrs.items()
-
-    def keys(self):
-        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
-        return attrs.keys()
-
-    def values(self):
-        attrs = self._get_attributes() if self.is_zarr else self._get_n5_attributes()
-        return attrs.values()
+    def __len__(self):
+        with self._open_attributes() as attributes:
+            return len(attributes)

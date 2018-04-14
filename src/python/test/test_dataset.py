@@ -24,6 +24,28 @@ class TestDataset(unittest.TestCase):
             'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
         )
 
+        base_dtypes = [
+            'int8', 'int16', 'int32', 'int64',
+            'uint8', 'uint16', 'uint32', 'uint64',
+            'float32', 'float64'
+        ]
+        self.dtypes = tuple(
+            base_dtypes +
+            [
+                np.dtype(s) for s in base_dtypes
+            ] +
+            [
+                '<i1', '<i2', '<i4', '<i8',
+                '<u1', '<u2', '<u4', '<u8',
+                '<f4', '<f8'
+            ] +
+            [
+                np.int8, np.int16, np.int32, np.int64,
+                np.uint8, np.uint16, np.uint32, np.uint64,
+                np.float32, np.float64
+            ]
+        )
+
     def tearDown(self):
         if(os.path.exists('array.zr')):
             rmtree('array.zr')
@@ -45,14 +67,10 @@ class TestDataset(unittest.TestCase):
         self.assertTrue((out == 0).all())
 
     def test_ds_zarr(self):
-        dtypes = ('int8', 'int16', 'int32', 'int64',
-                  'uint8', 'uint16', 'uint32', 'uint64',
-                  'float32', 'float64')
-
-        for dtype in dtypes:
+        for dtype in self.dtypes:
             print("Running Zarr-Test for %s" % dtype)
             ds = self.ff_zarr.create_dataset(
-                'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
+                'data_%s' % hash(dtype), dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
             ds[:] = in_array
@@ -61,14 +79,10 @@ class TestDataset(unittest.TestCase):
             self.assertTrue(np.allclose(out_array, in_array))
 
     def test_ds_n5(self):
-        dtypes = ('int8', 'int16', 'int32', 'int64',
-                  'uint8', 'uint16', 'uint32', 'uint64',
-                  'float32', 'float64')
-
-        for dtype in dtypes:
+        for dtype in self.dtypes:
             print("Running N5-Test for %s" % dtype)
             ds = self.ff_n5.create_dataset(
-                'data_%s' % dtype, dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
+                'data_%s' % hash(dtype), dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
             ds[:] = in_array
@@ -78,12 +92,8 @@ class TestDataset(unittest.TestCase):
 
     @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
     def test_ds_n5_array_to_format(self):
-        dtypes = ('int8', 'int16', 'int32', 'int64',
-                  'uint8', 'uint16', 'uint32', 'uint64',
-                  'float32', 'float64')
-
-        for dtype in dtypes:
-            ds = self.ff_n5.create_dataset('data_%s' % dtype,
+        for dtype in self.dtypes:
+            ds = self.ff_n5.create_dataset('data_%s' % hash(dtype),
                                            dtype=dtype,
                                            shape=self.shape,
                                            chunks=(10, 10, 10))
