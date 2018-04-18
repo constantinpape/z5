@@ -109,20 +109,29 @@ class Dataset(object):
         opts = {}
         with open(os.path.join(self.path, 'attributes.json'), 'r') as f:
             n5_opts = json.load(f)
-        if n5_opts['compression'] == 'raw':
+        # old compression scheme
+        if 'compressionType' in n5_opts:
+            ctype = n5_opts['compressionType']
+            new_compression = False
+        # new compression scheme
+        else:
+            ctype = n5_opts['compression']['type']
+            new_compression = True
+
+        if ctype == 'raw':
             opts['compression'] = 'raw'
+        elif ctype == 'gzip':
+            opts['compression'] = 'gzip'
+            opts['level'] = n5_opts['compression']['level'] if new_compression else 5
+        elif ctype['compression'] == 'bzip2':
+            opts['compression'] = 'bzip2'
+            opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 5
         # TODO blosc in n5
         # elif n5_opts['id'] == 'blosc':
         #     opts['compression'] = 'blosc'
         #     opts['level'] = n5_opts['clevel']
         #     opts['shuffle'] = n5_opts['shuffle']
         #     opts['codec'] = n5_opts['cname']
-        elif n5_opts['compression'] == 'gzip':
-            opts['compression'] = 'gzip'
-            opts['level'] = n5_opts['level']
-        elif n5_opts['compression'] == 'bzip2':
-            opts['compression'] = 'bzip2'
-            opts['level'] = n5_opts['blockSize']
         return opts
 
     @staticmethod
