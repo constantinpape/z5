@@ -1,11 +1,49 @@
 import os
 import numbers
 import json
+from itertools import chain
 
 import numpy as np
 from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
+
+
+def slice_to_begin_shape(s, size):
+    if s.step not in (None, 1):
+        raise TypeError('Nontrivial steps are not supported')
+
+    if s.start is None:
+        begin = 0
+    elif -size <= s.start < 0:
+        begin = size + s.start
+    elif s.start < -size or s.start >= size:
+        return None, 0
+    else:
+        begin = s.start
+
+    if s.stop is None or s.stop > size:
+        shape = size - begin
+    elif s.stop < 0:
+        shape = (size + s.stop) - begin
+    else:
+        shape = s.stop - begin
+
+    if shape < 1:
+        return None, 0
+
+    return begin, shape
+
+
+def int_to_begin_shape(i, size):
+    if -size < i < 0:
+        begin = i + size
+    elif i >= size or i < -size:
+        raise TypeError('index {} is out of bounds for axis with size {}'.format(i, size))
+    else:
+        begin = i
+
+    return begin, 1
 
 
 class Dataset(object):
@@ -234,38 +272,48 @@ class Dataset(object):
     def __len__(self):
         return self._impl.len
 
-    # TODO support ellipsis
     def index_to_roi(self, index):
+        try:
+            index_lst = list(index)
+        except TypeError:
+            index_lst = [index]
 
-        # check index types of index and normalize the index
-        if not isinstance(index, (slice, tuple)):
-            raise TypeError("Index must be slice or tuple of slices")
-        index_ = (index,) if isinstance(index, slice) else index
-
-        # check lengths of index
-        if len(index_) > self.ndim:
+        if len([item for item in index_lst if item != Ellipsis]) > self.ndim:
             raise TypeError("Argument sequence too long")
+        elif len(index_lst) < self.ndim and Ellipsis not in index_lst:
+            index_lst.append(Ellipsis)
 
-        # check the individual slices
-        if not all(isinstance(ii, slice) for ii in index_):
-            raise TypeError("Index must be slice or tuple of slices")
-        if not all(ii.step is None for ii in index_):
-            raise TypeError("Slice with non-trivial step is not supported")
-        # get the roi begin and shape from the slicing
-        roi_begin = [
-            (0 if index_[d].start is None else index_[d].start)
-            if d < len(index_) else 0 for d in range(self.ndim)
-        ]
-        roi_shape = tuple(
-            ((self.shape[d] if index_[d].stop is None else index_[d].stop)
-             if d < len(index_) else self.shape[d]) - roi_begin[d] for d in range(self.ndim)
-        )
+        start_shapes = []
+        found_ellipsis = False
+        d = 0
+        for item in index_lst:
+            if isinstance(item, slice):
+                start_shapes.append(slice_to_begin_shape(item, self.shape[d]))
+                d += 1
+            elif isinstance(item, int):
+                start_shapes.append(int_to_begin_shape(item, self.shape[d]))
+                d += 1
+            elif isinstance(item, type(Ellipsis)):
+                if found_ellipsis:
+                    raise TypeError("an index can only have a single ellipsis ('...')")
+                found_ellipsis = True
+                done_count = d
+                while len(start_shapes) + (len(index_lst) - done_count - 1) < self.ndim:
+                    start_shapes.append((0, self.shape[d]))
+                    d += 1
+            else:
+                raise TypeError("only integers, slices (`:`), and ellipsis (`...`) are valid indices")
+
+        roi_begin, roi_shape = zip(*start_shapes)
         return roi_begin, roi_shape
 
     # most checks are done in c++
     def __getitem__(self, index):
+        # todo: support newaxis, integer/boolean arrays, striding
         roi_begin, shape = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
+        if 0 in shape:
+            return out
         read_subarray(self._impl, out, roi_begin)
         return out
 
@@ -274,6 +322,8 @@ class Dataset(object):
         if not isinstance(item, (numbers.Number, np.ndarray)):
             raise ValueError("Invalid item")
         roi_begin, shape = self.index_to_roi(index)
+        if 0 in shape:
+            return
 
         # n5 input must be transpsed due to different axis convention
         # write the complete array
