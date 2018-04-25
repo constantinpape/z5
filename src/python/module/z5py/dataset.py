@@ -1,7 +1,6 @@
 import os
 import numbers
 import json
-from itertools import chain
 
 import numpy as np
 from ._z5py import open_dataset
@@ -11,7 +10,7 @@ from .attribute_manager import AttributeManager
 
 def slice_to_begin_shape(s, size):
     if s.step not in (None, 1):
-        raise TypeError('Nontrivial steps are not supported')
+        raise ValueError('Nontrivial steps are not supported')
 
     if s.start is None:
         begin = 0
@@ -39,7 +38,7 @@ def int_to_begin_shape(i, size):
     if -size < i < 0:
         begin = i + size
     elif i >= size or i < -size:
-        raise TypeError('index {} is out of bounds for axis with size {}'.format(i, size))
+        raise ValueError('Index ({}) out of range (0-{})'.format(i, size-1))
     else:
         begin = i
 
@@ -273,10 +272,15 @@ class Dataset(object):
         return self._impl.len
 
     def index_to_roi(self, index):
-        try:
+        type_msg = 'Advanced selection inappropriate. ' \
+                   'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
+
+        if isinstance(index, tuple):
             index_lst = list(index)
-        except TypeError:
+        elif isinstance(index, (numbers.Number, slice, type(Ellipsis))):
             index_lst = [index]
+        else:
+            raise TypeError(type_msg)
 
         if len([item for item in index_lst if item != Ellipsis]) > self.ndim:
             raise TypeError("Argument sequence too long")
@@ -285,24 +289,20 @@ class Dataset(object):
 
         start_shapes = []
         found_ellipsis = False
-        d = 0
         for item in index_lst:
+            d = len(start_shapes)
             if isinstance(item, slice):
                 start_shapes.append(slice_to_begin_shape(item, self.shape[d]))
-                d += 1
-            elif isinstance(item, int):
-                start_shapes.append(int_to_begin_shape(item, self.shape[d]))
-                d += 1
+            elif isinstance(item, numbers.Number):
+                start_shapes.append(int_to_begin_shape(int(item), self.shape[d]))
             elif isinstance(item, type(Ellipsis)):
                 if found_ellipsis:
-                    raise TypeError("an index can only have a single ellipsis ('...')")
+                    raise ValueError("Only one ellipsis may be used")
                 found_ellipsis = True
-                done_count = d
-                while len(start_shapes) + (len(index_lst) - done_count - 1) < self.ndim:
-                    start_shapes.append((0, self.shape[d]))
-                    d += 1
+                while len(start_shapes) + (len(index_lst) - d - 1) < self.ndim:
+                    start_shapes.append((0, self.shape[len(start_shapes)]))
             else:
-                raise TypeError("only integers, slices (`:`), and ellipsis (`...`) are valid indices")
+                raise TypeError(type_msg)
 
         roi_begin, roi_shape = zip(*start_shapes)
         return roi_begin, roi_shape
@@ -315,6 +315,11 @@ class Dataset(object):
         if 0 in shape:
             return out
         read_subarray(self._impl, out, roi_begin)
+        try:
+            if len(index) == self.ndim and all(isinstance(i, numbers.Number) for i in index):
+                return out[(0,) * out.ndim]
+        except TypeError:
+            pass
         return out
 
     # most checks are done in c++

@@ -84,14 +84,25 @@ class TestDatasetMixin(object):
 
         self.check_ds_indexing(ds[1, :, :], (1, 100, 100), 'integer index failed')
         self.check_ds_indexing(ds[-20:, :, :], (20, 100, 100), 'negative slice failed')
-        self.check_ds_indexing(ds[1, 1, 1], (1, 1, 1), 'point index failed')
 
-        with self.assertRaises(Exception):
+        self.assertEqual(ds[1, 1, 1], 1, 'point index failed')
+
+        with self.assertRaises(ValueError):
             ds[500, :, :]
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             ds[-500, :, :]
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             ds[..., :, ...]
+        with self.assertRaises(ValueError):
+            ds[1, 1, slice(0, 100, 2)]
+        with self.assertRaises(TypeError):
+            ds[[1, 1, 1]]  # explicitly test behaviour different to h5py
+
+        class NotAnIndex(object):
+            pass
+
+        with self.assertRaises(TypeError):
+            ds[1, 1, NotAnIndex()]
 
 
 class TestZarrDataset(unittest.TestCase, TestDatasetMixin):
