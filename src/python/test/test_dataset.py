@@ -3,6 +3,8 @@ import sys
 import numpy as np
 import os
 from shutil import rmtree
+from six import add_metaclass
+from abc import ABCMeta
 
 try:
     import z5py
@@ -11,8 +13,9 @@ except ImportError:
     import z5py
 
 
-class TestDatasetMixin(object):
-    def mixinSetUp(self):
+@add_metaclass(ABCMeta)
+class DatasetTestMixin(object):
+    def setUp(self):
         self.shape = (100, 100, 100)
         self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
 
@@ -36,7 +39,7 @@ class TestDatasetMixin(object):
             ]
         )
 
-    def mixinTearDown(self):
+    def tearDown(self):
         try:
             rmtree('array.' + self.data_format)
         except OSError:
@@ -105,24 +108,12 @@ class TestDatasetMixin(object):
             ds[1, 1, NotAnIndex()]
 
 
-class TestZarrDataset(unittest.TestCase, TestDatasetMixin):
+class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
 
-    def setUp(self):
-        self.mixinSetUp()
 
-    def tearDown(self):
-        self.mixinTearDown()
-
-
-class TestN5Dataset(unittest.TestCase, TestDatasetMixin):
+class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'n5'
-
-    def setUp(self):
-        self.mixinSetUp()
-
-    def tearDown(self):
-        self.mixinTearDown()
 
     @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
     def test_ds_array_to_format(self):
