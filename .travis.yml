@@ -25,6 +25,7 @@ before_script:
   - conda install -c conda-forge boost c-blosc zlib bzip2
   - conda install -c anaconda cmake
   - conda install -c psi4 gcc-5
+  - conda install six
 
 script:
 
@@ -35,29 +36,29 @@ script:
   - source activate test-env
   - export ENV_ROOT="$HOME/miniconda/envs/test-env"
   - export ENV_BIN=$ENV_ROOT/bin
-  
+
   ###############################################
   # setup compiler
   ###############################################
   - export CXX="$ENV_BIN/g++"
   - export CC="$ENV_BIN/gcc"
-  
+
   ###############################################
   # configure cmake
   ###############################################
-  - $ENV_BIN/cmake 
+  - $ENV_BIN/cmake
           -DWITHIN_TRAVIS=ON
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
           -DWITH_BZIP2=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
 
-         
+
   ###############################################
   # the actual build
   ###############################################
   - make -j 4
-  
+
   ###############################################
   # test the project
   ###############################################
