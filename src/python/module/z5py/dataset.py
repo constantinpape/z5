@@ -3,46 +3,11 @@ import numbers
 import json
 
 import numpy as np
+
 from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
-
-
-def slice_to_begin_shape(s, size):
-    if s.step not in (None, 1):
-        raise ValueError('Nontrivial steps are not supported')
-
-    if s.start is None:
-        begin = 0
-    elif -size <= s.start < 0:
-        begin = size + s.start
-    elif s.start < -size or s.start >= size:
-        return None, 0
-    else:
-        begin = s.start
-
-    if s.stop is None or s.stop > size:
-        shape = size - begin
-    elif s.stop < 0:
-        shape = (size + s.stop) - begin
-    else:
-        shape = s.stop - begin
-
-    if shape < 1:
-        return None, 0
-
-    return begin, shape
-
-
-def int_to_begin_shape(i, size):
-    if -size < i < 0:
-        begin = i + size
-    elif i >= size or i < -size:
-        raise ValueError('Index ({}) out of range (0-{})'.format(i, size-1))
-    else:
-        begin = i
-
-    return begin, 1
+from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
 
 
 class Dataset(object):
@@ -334,17 +299,23 @@ class Dataset(object):
             write_scalar(self._impl, roi_begin, list(shape), item)
             return
 
-        item_arr = np.asarray(item)
-
-        if item_arr.ndim != self.ndim:
-            raise ValueError("Complicated broadcasting is not supported")
-        if np.issubdtype(item_arr.dtype, np.object_):
-            raise OSError("Can't prepare for writing data (no appropriate function for conversion path)")
-
         try:
-            write_subarray(self._impl, np.require(item_arr, self.dtype, requirements='C'), roi_begin)
-        except ValueError:
-            raise TypeError("No conversion path for dtype: " + repr(item_arr.dtype))
+            item_arr = np.asarray(item, self.dtype, order='C')
+        except ValueError as e:
+            if any(s in str(e) for s in ('invalid literal for ', 'could not convert')):
+                bad_dtype = np.asarray(item).dtype
+                raise TypeError("No conversion path for dtype: " + repr(bad_dtype))
+            else:
+                raise
+        except TypeError as e:
+            if 'argument must be' in str(e):
+                raise OSError("Can't prepare for writing data (no appropriate function for conversion path)")
+            else:
+                raise
+
+        item_arr = rectify_shape(item_arr, shape)
+
+        write_subarray(self._impl, item_arr, roi_begin)
 
     def find_minimum_coordinates(self, dim):
         return self._impl.findMinimumCoordinates(dim)
