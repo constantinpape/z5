@@ -324,23 +324,27 @@ class Dataset(object):
 
     # most checks are done in c++
     def __setitem__(self, index, item):
-        if not isinstance(item, (numbers.Number, np.ndarray)):
-            raise ValueError("Invalid item")
         roi_begin, shape = self.index_to_roi(index)
         if 0 in shape:
             return
 
-        # n5 input must be transpsed due to different axis convention
-        # write the complete array
-        if isinstance(item, np.ndarray):
-            if item.ndim != self.ndim:
-                raise ValueError("Complicated broadcasting is not supported")
-            write_subarray(self._impl, np.require(item, requirements='C'), roi_begin)
-
         # broadcast scalar
-        else:
+        if isinstance(item, (numbers.Number, np.number)):
             # FIXME this seems to be broken; fails with RuntimeError('WrongRequest Shape')
             write_scalar(self._impl, roi_begin, list(shape), item)
+            return
+
+        item_arr = np.asarray(item)
+
+        if item_arr.ndim != self.ndim:
+            raise ValueError("Complicated broadcasting is not supported")
+        if np.issubdtype(item_arr.dtype, np.object_):
+            raise OSError("Can't prepare for writing data (no appropriate function for conversion path)")
+
+        try:
+            write_subarray(self._impl, np.require(item_arr, self.dtype, requirements='C'), roi_begin)
+        except ValueError:
+            raise TypeError("No conversion path for dtype: " + repr(item_arr.dtype))
 
     def find_minimum_coordinates(self, dim):
         return self._impl.findMinimumCoordinates(dim)

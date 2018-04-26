@@ -50,7 +50,6 @@ class DatasetTestMixin(object):
         self.assertTrue(np.allclose(result, expected), msg)
 
     def test_ds_open_empty(self):
-        print("open empty {} array".format(self.data_format))
         self.root_file.create_dataset(
             'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
         )
@@ -69,24 +68,28 @@ class DatasetTestMixin(object):
             out_array = ds[:]
             self.check_array(out_array, in_array)
 
-    def check_ds_indexing(self, sliced_ones, expected_shape, msg=None):
+    def check_ones(self, sliced_ones, expected_shape, msg=None):
         self.check_array(sliced_ones, np.ones(expected_shape, dtype=np.uint8), msg)
+
+    def test_ds_simple_write(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, np.uint8)
 
     def test_ds_indexing(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
         ds[:] = np.ones(self.shape, np.uint8)
 
-        self.check_ds_indexing(ds[:], self.shape, 'full index failed')
+        self.check_ones(ds[:], self.shape, 'full index failed')
 
-        self.check_ds_indexing(ds[1, ...], (1, 100, 100), 'trailing ellipsis failed')
-        self.check_ds_indexing(ds[..., 1], (100, 100, 1), 'leading ellipsis failed')
-        self.check_ds_indexing(ds[1], (1, 100, 100), 'implicit ellipsis failed')
-        self.check_ds_indexing(ds[:, :, :, ...], self.shape, 'superfluous ellipsis failed')
-        self.check_ds_indexing(ds[500:501, :, :], (0, 100, 100), 'out-of-bounds slice failed')
-        self.check_ds_indexing(ds[-501:500, :, :], (0, 100, 100), 'negative out-of-bounds slice failed')
+        self.check_ones(ds[1, ...], (1, 100, 100), 'trailing ellipsis failed')
+        self.check_ones(ds[..., 1], (100, 100, 1), 'leading ellipsis failed')
+        self.check_ones(ds[1], (1, 100, 100), 'implicit ellipsis failed')
+        self.check_ones(ds[:, :, :, ...], self.shape, 'superfluous ellipsis failed')
+        self.check_ones(ds[500:501, :, :], (0, 100, 100), 'out-of-bounds slice failed')
+        self.check_ones(ds[-501:500, :, :], (0, 100, 100), 'negative out-of-bounds slice failed')
 
-        self.check_ds_indexing(ds[1, :, :], (1, 100, 100), 'integer index failed')
-        self.check_ds_indexing(ds[-20:, :, :], (20, 100, 100), 'negative slice failed')
+        self.check_ones(ds[1, :, :], (1, 100, 100), 'integer index failed')
+        self.check_ones(ds[-20:, :, :], (20, 100, 100), 'negative slice failed')
 
         self.assertEqual(ds[1, 1, 1], 1, 'point index failed')
 
@@ -106,6 +109,58 @@ class DatasetTestMixin(object):
 
         with self.assertRaises(TypeError):
             ds[1, 1, NotAnIndex()]
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = 1
+        self.check_ones(ds[:], self.shape)
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast_from_float(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = float(1)
+        self.check_ones(ds[:], self.shape)
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast_from_bool(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = True
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_set_with_arraylike(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[0, :2, :2] = [[1, 1], [1, 1]]
+        self.check_ones(ds[0, :2, :2], (2, 2))
+
+    def test_ds_set_from_float(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, dtype=float)
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_set_from_bool(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, dtype=bool)
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_fancy_broadcast_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        with self.assertRaises(ValueError):
+            ds[0, :10, :10] = np.ones(10, dtype=np.uint8)
+
+    def test_ds_write_object_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+
+        class ArbitraryObject(object):
+            pass
+
+        with self.assertRaises(OSError):
+            ds[0, 0, :2] = [ArbitraryObject(), ArbitraryObject()]
+
+    def test_ds_write_flexible_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        with self.assertRaises(TypeError):
+            ds[0, 0, 0] = "hey, you're not a number"
 
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
