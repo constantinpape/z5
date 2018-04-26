@@ -51,8 +51,11 @@ The Python API is very similar to h5py.
 Some differences are: 
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
-- `File` does not support different read/write modes.
 - There is no need to close `File`, hence the `with` block isn't necessary (but supported).
+- Linked datasets (`my_file['new_ds'] = my_file['old_ds']`) are not supported
+- Broadcasting is only supported for scalars in `Dataset.__setitem__`
+- Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
+- Compatibility of exception handling is a goal, but not necessarily a guarantee
 
 Some examples:
 
@@ -189,5 +192,3 @@ While this is mostly handled internally, it means that the metadata does not tra
 |Shape      | s_x, s_y, s_z          |s_z, s_y, s_x   |
 |Chunk-Shape| c_x, c_y, c_z          |c_z, c_y, c_x   | 
 |Chunk-Ids  | i_x, i_y, i_z          |i_z, i_y, i_x   |
-
-
