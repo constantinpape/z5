@@ -86,5 +86,5 @@ script:
   # TODO install additional dependencies for converter
   # - hdf5, dvid
   # run all python unittests
-  - $ENV_BIN/python -m unittest discover python/test
+  - $ENV_BIN/python -m unittest discover -v python/test
   # - $ENV_BIN/python python/test/test_dataset.py
