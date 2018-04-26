@@ -280,12 +280,11 @@ class Dataset(object):
         if 0 in shape:
             return out
         read_subarray(self._impl, out, roi_begin)
+        squeezed = out.squeeze()
         try:
-            if len(index) == self.ndim and all(isinstance(i, numbers.Number) for i in index):
-                return out[(0,) * out.ndim]
-        except TypeError:
-            pass
-        return out
+            return squeezed.item()
+        except ValueError:
+            return squeezed
 
     # most checks are done in c++
     def __setitem__(self, index, item):
