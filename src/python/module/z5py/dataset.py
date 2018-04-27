@@ -3,9 +3,11 @@ import numbers
 import json
 
 import numpy as np
+
 from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
+from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
 
 
 class Dataset(object):
@@ -234,58 +236,85 @@ class Dataset(object):
     def __len__(self):
         return self._impl.len
 
-    # TODO support ellipsis
     def index_to_roi(self, index):
+        type_msg = 'Advanced selection inappropriate. ' \
+                   'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
 
-        # check index types of index and normalize the index
-        if not isinstance(index, (slice, tuple)):
-            raise TypeError("Index must be slice or tuple of slices")
-        index_ = (index,) if isinstance(index, slice) else index
+        if isinstance(index, tuple):
+            index_lst = list(index)
+        elif isinstance(index, (numbers.Number, slice, type(Ellipsis))):
+            index_lst = [index]
+        else:
+            raise TypeError(type_msg)
 
-        # check lengths of index
-        if len(index_) > self.ndim:
+        if len([item for item in index_lst if item != Ellipsis]) > self.ndim:
             raise TypeError("Argument sequence too long")
+        elif len(index_lst) < self.ndim and Ellipsis not in index_lst:
+            index_lst.append(Ellipsis)
 
-        # check the individual slices
-        if not all(isinstance(ii, slice) for ii in index_):
-            raise TypeError("Index must be slice or tuple of slices")
-        if not all(ii.step is None for ii in index_):
-            raise TypeError("Slice with non-trivial step is not supported")
-        # get the roi begin and shape from the slicing
-        roi_begin = [
-            (0 if index_[d].start is None else index_[d].start)
-            if d < len(index_) else 0 for d in range(self.ndim)
-        ]
-        roi_shape = tuple(
-            ((self.shape[d] if index_[d].stop is None else index_[d].stop)
-             if d < len(index_) else self.shape[d]) - roi_begin[d] for d in range(self.ndim)
-        )
+        start_shapes = []
+        found_ellipsis = False
+        for item in index_lst:
+            d = len(start_shapes)
+            if isinstance(item, slice):
+                start_shapes.append(slice_to_begin_shape(item, self.shape[d]))
+            elif isinstance(item, numbers.Number):
+                start_shapes.append(int_to_begin_shape(int(item), self.shape[d]))
+            elif isinstance(item, type(Ellipsis)):
+                if found_ellipsis:
+                    raise ValueError("Only one ellipsis may be used")
+                found_ellipsis = True
+                while len(start_shapes) + (len(index_lst) - d - 1) < self.ndim:
+                    start_shapes.append((0, self.shape[len(start_shapes)]))
+            else:
+                raise TypeError(type_msg)
+
+        roi_begin, roi_shape = zip(*start_shapes)
         return roi_begin, roi_shape
 
     # most checks are done in c++
     def __getitem__(self, index):
+        # todo: support newaxis, integer/boolean arrays, striding
         roi_begin, shape = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
+        if 0 in shape:
+            return out
         read_subarray(self._impl, out, roi_begin)
-        return out
+        squeezed = out.squeeze()
+        try:
+            return squeezed.item()
+        except ValueError:
+            return squeezed
 
     # most checks are done in c++
     def __setitem__(self, index, item):
-        if not isinstance(item, (numbers.Number, np.ndarray)):
-            raise ValueError("Invalid item")
         roi_begin, shape = self.index_to_roi(index)
-
-        # n5 input must be transpsed due to different axis convention
-        # write the complete array
-        if isinstance(item, np.ndarray):
-            if item.ndim != self.ndim:
-                raise ValueError("Complicated broadcasting is not supported")
-            write_subarray(self._impl, np.require(item, requirements='C'), roi_begin)
+        if 0 in shape:
+            return
 
         # broadcast scalar
-        else:
+        if isinstance(item, (numbers.Number, np.number)):
             # FIXME this seems to be broken; fails with RuntimeError('WrongRequest Shape')
             write_scalar(self._impl, roi_begin, list(shape), item)
+            return
+
+        try:
+            item_arr = np.asarray(item, self.dtype, order='C')
+        except ValueError as e:
+            if any(s in str(e) for s in ('invalid literal for ', 'could not convert')):
+                bad_dtype = np.asarray(item).dtype
+                raise TypeError("No conversion path for dtype: " + repr(bad_dtype))
+            else:
+                raise
+        except TypeError as e:
+            if 'argument must be' in str(e):
+                raise OSError("Can't prepare for writing data (no appropriate function for conversion path)")
+            else:
+                raise
+
+        item_arr = rectify_shape(item_arr, shape)
+
+        write_subarray(self._impl, item_arr, roi_begin)
 
     def find_minimum_coordinates(self, dim):
         return self._impl.findMinimumCoordinates(dim)

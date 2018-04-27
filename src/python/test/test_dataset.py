@@ -3,6 +3,8 @@ import sys
 import numpy as np
 import os
 from shutil import rmtree
+from six import add_metaclass
+from abc import ABCMeta
 
 try:
     import z5py
@@ -11,18 +13,11 @@ except ImportError:
     import z5py
 
 
-class TestDataset(unittest.TestCase):
-
+@add_metaclass(ABCMeta)
+class DatasetTestMixin(object):
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.ff_zarr = z5py.File('array.zr', True)
-        self.ff_zarr.create_dataset(
-            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
-        )
-        self.ff_n5 = z5py.File('array.n5', False)
-        self.ff_n5.create_dataset(
-            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
-        )
+        self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
 
         base_dtypes = [
             'int8', 'int16', 'int32', 'int64',
@@ -31,9 +26,7 @@ class TestDataset(unittest.TestCase):
         ]
         self.dtypes = tuple(
             base_dtypes +
-            [
-                np.dtype(s) for s in base_dtypes
-            ] +
+            [np.dtype(s) for s in base_dtypes] +
             [
                 '<i1', '<i2', '<i4', '<i8',
                 '<u1', '<u2', '<u4', '<u8',
@@ -47,53 +40,140 @@ class TestDataset(unittest.TestCase):
         )
 
     def tearDown(self):
-        if(os.path.exists('array.zr')):
-            rmtree('array.zr')
-        if(os.path.exists('array.n5')):
-            rmtree('array.n5')
+        try:
+            rmtree('array.' + self.data_format)
+        except OSError:
+            pass
 
-    def test_ds_open_empty_zarr(self):
-        print("open empty zarr array")
-        ds = self.ff_zarr['test']
+    def check_array(self, result, expected, msg=None):
+        self.assertEqual(result.shape, expected.shape, msg)
+        self.assertTrue(np.allclose(result, expected), msg)
+
+    def test_ds_open_empty(self):
+        self.root_file.create_dataset(
+            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
+        )
+        ds = self.root_file['test']
         out = ds[:]
-        self.assertEqual(out.shape, self.shape)
-        self.assertTrue((out == 0).all())
+        self.check_array(out, np.zeros(self.shape))
 
-    def test_ds_open_empty_n5(self):
-        print("open empty n5 array")
-        ds = self.ff_n5['test']
-        out = ds[:]
-        self.assertEqual(out.shape, self.shape)
-        self.assertTrue((out == 0).all())
-
-    def test_ds_zarr(self):
+    def test_ds_dtypes(self):
         for dtype in self.dtypes:
-            print("Running Zarr-Test for %s" % dtype)
-            ds = self.ff_zarr.create_dataset(
+            print("Running %s-Test for %s" % (self.data_format.title(), dtype))
+            ds = self.root_file.create_dataset(
                 'data_%s' % hash(dtype), dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
             )
             in_array = 42 * np.ones(self.shape, dtype=dtype)
             ds[:] = in_array
             out_array = ds[:]
-            self.assertEqual(out_array.shape, in_array.shape)
-            self.assertTrue(np.allclose(out_array, in_array))
+            self.check_array(out_array, in_array)
 
-    def test_ds_n5(self):
-        for dtype in self.dtypes:
-            print("Running N5-Test for %s" % dtype)
-            ds = self.ff_n5.create_dataset(
-                'data_%s' % hash(dtype), dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
-            )
-            in_array = 42 * np.ones(self.shape, dtype=dtype)
-            ds[:] = in_array
-            out_array = ds[:]
-            self.assertEqual(out_array.shape, in_array.shape)
-            self.assertTrue(np.allclose(out_array, in_array))
+    def check_ones(self, sliced_ones, expected_shape, msg=None):
+        self.check_array(sliced_ones, np.ones(expected_shape, dtype=np.uint8), msg)
+
+    def test_ds_simple_write(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, np.uint8)
+
+    def test_ds_indexing(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, np.uint8)
+
+        self.check_ones(ds[:], self.shape, 'full index failed')
+
+        self.check_ones(ds[1, ...], (100, 100), 'trailing ellipsis failed')
+        self.check_ones(ds[..., 1], (100, 100), 'leading ellipsis failed')
+        self.check_ones(ds[1], (100, 100), 'implicit ellipsis failed')
+        self.check_ones(ds[:, :, :, ...], self.shape, 'superfluous ellipsis failed')
+        self.check_ones(ds[500:501, :, :], (0, 100, 100), 'out-of-bounds slice failed')
+        self.check_ones(ds[-501:500, :, :], (0, 100, 100), 'negative out-of-bounds slice failed')
+
+        self.check_ones(ds[1, :, :], (100, 100), 'integer index failed')
+        self.check_ones(ds[-20:, :, :], (20, 100, 100), 'negative slice failed')
+
+        self.assertEqual(ds[1, 1, 1], 1, 'point index failed')
+
+        with self.assertRaises(ValueError):
+            ds[500, :, :]
+        with self.assertRaises(ValueError):
+            ds[-500, :, :]
+        with self.assertRaises(ValueError):
+            ds[..., :, ...]
+        with self.assertRaises(ValueError):
+            ds[1, 1, slice(0, 100, 2)]
+        with self.assertRaises(TypeError):
+            ds[[1, 1, 1]]  # explicitly test behaviour different to h5py
+
+        class NotAnIndex(object):
+            pass
+
+        with self.assertRaises(TypeError):
+            ds[1, 1, NotAnIndex()]
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = 1
+        self.check_ones(ds[:], self.shape)
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast_from_float(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = float(1)
+        self.check_ones(ds[:], self.shape)
+
+    @unittest.expectedFailure
+    def test_ds_scalar_broadcast_from_bool(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = True
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_set_with_arraylike(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[0, :2, :2] = [[1, 1], [1, 1]]
+        self.check_ones(ds[0, :2, :2], (2, 2))
+
+    def test_ds_set_from_float(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, dtype=float)
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_set_from_bool(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds[:] = np.ones(self.shape, dtype=bool)
+        self.check_ones(ds[:], self.shape)
+
+    def test_ds_fancy_broadcast_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        with self.assertRaises(ValueError):
+            ds[0, :10, :10] = np.ones(10, dtype=np.uint8)
+
+    def test_ds_write_object_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+
+        class ArbitraryObject(object):
+            pass
+
+        with self.assertRaises(OSError):
+            ds[0, 0, :2] = [ArbitraryObject(), ArbitraryObject()]
+
+    def test_ds_write_flexible_fails(self):
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        with self.assertRaises(TypeError):
+            ds[0, 0, 0] = "hey, you're not a number"
+
+
+class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
+    data_format = 'zarr'
+
+
+class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
+    data_format = 'n5'
 
     @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
-    def test_ds_n5_array_to_format(self):
+    def test_ds_array_to_format(self):
         for dtype in self.dtypes:
-            ds = self.ff_n5.create_dataset('data_%s' % hash(dtype),
+            ds = self.root_file.create_dataset('data_%s' % hash(dtype),
                                            dtype=dtype,
                                            shape=self.shape,
                                            chunks=(10, 10, 10))

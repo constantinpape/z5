@@ -33,6 +33,7 @@ requirements:
     - python {{PY_VER}}*
     - boost 1.66.0
     - numpy # do not need to constrain np version
+    - six
     - c-blosc
     - zlib
     - bzip2
