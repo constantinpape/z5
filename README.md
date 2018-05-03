@@ -112,7 +112,7 @@ convert_h5_to_n5(h5_file, n5_file,
                  out_path_in_file=n5_key,
                  out_chunks=target_chunks,
                  n_threads=n_threads,
-                 compressor='gzip')
+                 compression='gzip')
 ```
 
 ### C++
