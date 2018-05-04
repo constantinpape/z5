@@ -99,7 +99,7 @@ So far, only h5 is supported.
 ```python
 # convert existing h5 file to n5
 # this only works if h5py is available
-from z5py.converter import convert_n5_to_h5
+from z5py.converter import convert_h5_to_n5
 
 h5_file = '/path/to/h5'
 n5_file = '/path/to/n5'
