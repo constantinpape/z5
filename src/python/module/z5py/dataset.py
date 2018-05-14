@@ -299,7 +299,7 @@ class Dataset(object):
         if isinstance(item, (numbers.Number, np.number)):
             write_scalar(self._impl, roi_begin,
                          list(shape), item,
-                         str(self.dtype))
+                         str(self.dtype), self.n_threads)
             return
 
         try:

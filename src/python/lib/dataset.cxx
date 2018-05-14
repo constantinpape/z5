@@ -37,8 +37,9 @@ namespace z5 {
     inline void writePyScalar(const Dataset & ds,
                               const std::vector<size_t> & roiBegin,
                               const std::vector<size_t> & roiShape,
-                              const T val) {
-        multiarray::writeScalar<T>(ds, roiBegin.begin(), roiShape.begin(), val);
+                              const T val,
+                              const int numberOfThreads) {
+        multiarray::writeScalar<T>(ds, roiBegin.begin(), roiShape.begin(), val, numberOfThreads);
     }
 
     template<class T>
@@ -175,28 +176,49 @@ namespace z5 {
                                       const std::vector<size_t> & roiBegin,
                                       const std::vector<size_t> & roiShape,
                                       const double val,
-                                      const std::string & dtype) {
+                                      const std::string & dtype,
+                                      const int numberOfThreads) {
                     auto internalDtype = types::Datatypes::n5ToDtype().at(dtype);
                     switch(internalDtype) {
-                        case types::Datatype::int8 : writePyScalar<int8_t>(ds, roiBegin, roiShape, static_cast<int8_t>(val));
+                        case types::Datatype::int8 : writePyScalar<int8_t>(ds, roiBegin, roiShape,
+                                                                           static_cast<int8_t>(val),
+                                                                           numberOfThreads);
                                                      break;
-                        case types::Datatype::int16 : writePyScalar<int16_t>(ds, roiBegin, roiShape, static_cast<int16_t>(val));
+                        case types::Datatype::int16 : writePyScalar<int16_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int16_t>(val),
+                                                                             numberOfThreads);
                                                      break;
-                        case types::Datatype::int32 : writePyScalar<int32_t>(ds, roiBegin, roiShape, static_cast<int32_t>(val));
+                        case types::Datatype::int32 : writePyScalar<int32_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int32_t>(val),
+                                                                             numberOfThreads);
                                                      break;
-                        case types::Datatype::int64 : writePyScalar<int64_t>(ds, roiBegin, roiShape, static_cast<int64_t>(val));
+                        case types::Datatype::int64 : writePyScalar<int64_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int64_t>(val),
+                                                                             numberOfThreads);
                                                      break;
-                        case types::Datatype::uint8 : writePyScalar<uint8_t>(ds, roiBegin, roiShape, static_cast<uint8_t>(val));
+                        case types::Datatype::uint8 : writePyScalar<uint8_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<uint8_t>(val),
+                                                                             numberOfThreads);
                                                      break;
-                        case types::Datatype::uint16 : writePyScalar<uint16_t>(ds, roiBegin, roiShape, static_cast<uint16_t>(val));
+                        case types::Datatype::uint16 : writePyScalar<uint16_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint16_t>(val),
+                                                                               numberOfThreads);
                                                      break;
-                        case types::Datatype::uint32 : writePyScalar<uint32_t>(ds, roiBegin, roiShape, static_cast<uint32_t>(val));
+                        case types::Datatype::uint32 : writePyScalar<uint32_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint32_t>(val),
+                                                                               numberOfThreads);
                                                      break;
-                        case types::Datatype::uint64 : writePyScalar<uint64_t>(ds, roiBegin, roiShape, static_cast<uint64_t>(val));
+                        case types::Datatype::uint64 : writePyScalar<uint64_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint64_t>(val),
+                                                                               numberOfThreads);
                                                      break;
-                        case types::Datatype::float32 : writePyScalar<float>(ds, roiBegin, roiShape, static_cast<float>(val));
+                        case types::Datatype::float32 : writePyScalar<float>(ds, roiBegin, roiShape,
+                                                                             static_cast<float>(val),
+                                                                             numberOfThreads);
                                                         break;
-                        case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape, static_cast<double>(val));
+                        case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape,
+                                                                              static_cast<double>(val),
+                                                                              numberOfThreads);
                                                         break;
                         default: throw(std::runtime_error("Invalid datatype"));
 
@@ -206,6 +228,7 @@ namespace z5 {
                   py::arg("roi_shape"),
                   py::arg("val"),
                   py::arg("dtype"),
+                  py::arg("n_threads")=1,
                   py::call_guard<py::gil_scoped_release>());
 
     }
