@@ -18,26 +18,33 @@ namespace py = pybind11;
 namespace z5 {
 
     template<class T>
-    inline void writePySubarray(const Dataset & ds, const xt::pyarray<T> & in, const std::vector<size_t> & roiBegin) {
-        multiarray::writeSubarray<T>(ds, in, roiBegin.begin());
+    inline void writePySubarray(const Dataset & ds,
+                                const xt::pyarray<T> & in,
+                                const std::vector<size_t> & roiBegin,
+                                const int numberOfThreads) {
+        multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
     }
 
     template<class T>
-    inline void readPySubarray(const Dataset & ds, xt::pyarray<T> & out, const std::vector<size_t> & roiBegin) {
-        multiarray::readSubarray<T>(ds, out, roiBegin.begin());
+    inline void readPySubarray(const Dataset & ds,
+                               xt::pyarray<T> & out,
+                               const std::vector<size_t> & roiBegin,
+                               const int numberOfThreads) {
+        multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
     }
 
     template<class T>
     inline void writePyScalar(const Dataset & ds,
                               const std::vector<size_t> & roiBegin,
                               const std::vector<size_t> & roiShape,
-                              const T val) {
-        multiarray::writeScalar(ds, roiBegin.begin(), roiShape.begin(), val);
+                              const T val,
+                              const int numberOfThreads) {
+        multiarray::writeScalar<T>(ds, roiBegin.begin(), roiShape.begin(), val, numberOfThreads);
     }
 
     template<class T>
     inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
-                                       const xt::pyarray<T> & in) {
+                                                        const xt::pyarray<T> & in) {
         xt::pytensor<char, 1> out = xt::zeros<char>({1});
         multiarray::convertArrayToFormat<T>(ds, in, out);
         return out;
@@ -50,19 +57,19 @@ namespace z5 {
         // export writing subarrays
         module.def("write_subarray",
                    &writePySubarray<T>,
-                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
+                   py::arg("ds"),
+                   py::arg("in").noconvert(),
+                   py::arg("roi_begin"),
+                   py::arg("n_threads")=1,
                    py::call_guard<py::gil_scoped_release>());
 
         // export reading subarrays
         module.def("read_subarray",
                    &readPySubarray<T>,
-                   py::arg("ds"), py::arg("out").noconvert(), py::arg("roi_begin"),
-                   py::call_guard<py::gil_scoped_release>());
-
-        // export writing scalars
-        module.def("write_scalar",
-                   &writePyScalar<T>,
-                   py::arg("ds"), py::arg("roi_begin"), py::arg("roi_shape"), py::arg("val").noconvert(),
+                   py::arg("ds"),
+                   py::arg("out").noconvert(),
+                   py::arg("roi_begin"),
+                   py::arg("n_threads")=1,
                    py::call_guard<py::gil_scoped_release>());
 
         // export conversions
@@ -160,6 +167,70 @@ namespace z5 {
         // float types
         exportIoT<float>(module);
         exportIoT<double>(module);
+
+        // export writing scalars
+        // The overloads cannot be properly resolved,
+        // that's why we give the datatype as additional argument
+        // and then cast to the correct type
+        module.def("write_scalar", [](const Dataset & ds,
+                                      const std::vector<size_t> & roiBegin,
+                                      const std::vector<size_t> & roiShape,
+                                      const double val,
+                                      const std::string & dtype,
+                                      const int numberOfThreads) {
+                    auto internalDtype = types::Datatypes::n5ToDtype().at(dtype);
+                    switch(internalDtype) {
+                        case types::Datatype::int8 : writePyScalar<int8_t>(ds, roiBegin, roiShape,
+                                                                           static_cast<int8_t>(val),
+                                                                           numberOfThreads);
+                                                     break;
+                        case types::Datatype::int16 : writePyScalar<int16_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int16_t>(val),
+                                                                             numberOfThreads);
+                                                     break;
+                        case types::Datatype::int32 : writePyScalar<int32_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int32_t>(val),
+                                                                             numberOfThreads);
+                                                     break;
+                        case types::Datatype::int64 : writePyScalar<int64_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<int64_t>(val),
+                                                                             numberOfThreads);
+                                                     break;
+                        case types::Datatype::uint8 : writePyScalar<uint8_t>(ds, roiBegin, roiShape,
+                                                                             static_cast<uint8_t>(val),
+                                                                             numberOfThreads);
+                                                     break;
+                        case types::Datatype::uint16 : writePyScalar<uint16_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint16_t>(val),
+                                                                               numberOfThreads);
+                                                     break;
+                        case types::Datatype::uint32 : writePyScalar<uint32_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint32_t>(val),
+                                                                               numberOfThreads);
+                                                     break;
+                        case types::Datatype::uint64 : writePyScalar<uint64_t>(ds, roiBegin, roiShape,
+                                                                               static_cast<uint64_t>(val),
+                                                                               numberOfThreads);
+                                                     break;
+                        case types::Datatype::float32 : writePyScalar<float>(ds, roiBegin, roiShape,
+                                                                             static_cast<float>(val),
+                                                                             numberOfThreads);
+                                                        break;
+                        case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape,
+                                                                              static_cast<double>(val),
+                                                                              numberOfThreads);
+                                                        break;
+                        default: throw(std::runtime_error("Invalid datatype"));
+
+                    }
+                },py::arg("ds"),
+                  py::arg("roi_begin"),
+                  py::arg("roi_shape"),
+                  py::arg("val"),
+                  py::arg("dtype"),
+                  py::arg("n_threads")=1,
+                  py::call_guard<py::gil_scoped_release>());
+
     }
 
 

@@ -45,7 +45,7 @@ class Base(object):
     # TODO allow creating with data ?!
     def create_dataset(self, key, dtype, shape, chunks,
                        fill_value=0, compression='raw',
-                       **compression_options):
+                       n_threads=1, **compression_options):
         if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         if key in self:
@@ -54,7 +54,7 @@ class Base(object):
         return Dataset.create_dataset(path, dtype, shape,
                                       chunks, self.is_zarr,
                                       compression, compression_options,
-                                      fill_value, self._internal_mode)
+                                      n_threads, fill_value, self._internal_mode)
 
     def is_group(self, key):
         path = os.path.join(self.path, key)

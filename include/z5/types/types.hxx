@@ -15,7 +15,7 @@ namespace types {
     // Coordinates
     //
 
-    // TODO implement class that inherits froms std::vector and overloads useful operators (+, -, etc.)
+    // TODO implement class that inherits from std::vector and overloads useful operators (+, -, etc.)
     // TODO rename to coordinate type
     // type for array shapes
     typedef std::vector<size_t> ShapeType;
@@ -24,7 +24,6 @@ namespace types {
     // Datatypes
     //
 
-    // TODO add bool ?
     // dtype enum and map
     enum Datatype {
         int8, int16, int32, int64,
