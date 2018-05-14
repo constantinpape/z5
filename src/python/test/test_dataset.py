@@ -60,9 +60,10 @@ class DatasetTestMixin(object):
     def test_ds_dtypes(self):
         for dtype in self.dtypes:
             print("Running %s-Test for %s" % (self.data_format.title(), dtype))
-            ds = self.root_file.create_dataset(
-                'data_%s' % hash(dtype), dtype=dtype, shape=self.shape, chunks=(10, 10, 10)
-            )
+            ds = self.root_file.create_dataset('data_%s' % hash(dtype),
+                                               dtype=dtype,
+                                               shape=self.shape,
+                                               chunks=(10, 10, 10))
             in_array = 42 * np.ones(self.shape, dtype=dtype)
             ds[:] = in_array
             out_array = ds[:]
@@ -161,6 +162,18 @@ class DatasetTestMixin(object):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
         with self.assertRaises(TypeError):
             ds[0, 0, 0] = "hey, you're not a number"
+
+    def test_readwrite_multithreaded(self):
+        for n_threads in (1, 2, 4, 8):
+            ds = self.root_file.create_dataset('data_mthread_%i' % n_threads,
+                                               dtype='float64',
+                                               shape=self.shape,
+                                               chunks=(10, 10, 10),
+                                               n_threads=n_threads)
+            in_array = np.random.rand(*self.shape)
+            ds[:] = in_array
+            out_array = ds[:]
+            self.check_array(out_array, in_array)
 
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):

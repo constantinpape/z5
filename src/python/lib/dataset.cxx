@@ -18,13 +18,19 @@ namespace py = pybind11;
 namespace z5 {
 
     template<class T>
-    inline void writePySubarray(const Dataset & ds, const xt::pyarray<T> & in, const std::vector<size_t> & roiBegin) {
-        multiarray::writeSubarray<T>(ds, in, roiBegin.begin());
+    inline void writePySubarray(const Dataset & ds,
+                                const xt::pyarray<T> & in,
+                                const std::vector<size_t> & roiBegin,
+                                const int numberOfThreads) {
+        multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
     }
 
     template<class T>
-    inline void readPySubarray(const Dataset & ds, xt::pyarray<T> & out, const std::vector<size_t> & roiBegin) {
-        multiarray::readSubarray<T>(ds, out, roiBegin.begin());
+    inline void readPySubarray(const Dataset & ds,
+                               xt::pyarray<T> & out,
+                               const std::vector<size_t> & roiBegin,
+                               const int numberOfThreads) {
+        multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
     }
 
     template<class T>
@@ -50,19 +56,28 @@ namespace z5 {
         // export writing subarrays
         module.def("write_subarray",
                    &writePySubarray<T>,
-                   py::arg("ds"), py::arg("in").noconvert(), py::arg("roi_begin"),
+                   py::arg("ds"),
+                   py::arg("in").noconvert(),
+                   py::arg("roi_begin"),
+                   py::arg("n_threads")=1,
                    py::call_guard<py::gil_scoped_release>());
 
         // export reading subarrays
         module.def("read_subarray",
                    &readPySubarray<T>,
-                   py::arg("ds"), py::arg("out").noconvert(), py::arg("roi_begin"),
+                   py::arg("ds"),
+                   py::arg("out").noconvert(),
+                   py::arg("roi_begin"),
+                   py::arg("n_threads")=1,
                    py::call_guard<py::gil_scoped_release>());
 
         // export writing scalars
         module.def("write_scalar",
                    &writePyScalar<T>,
-                   py::arg("ds"), py::arg("roi_begin"), py::arg("roi_shape"), py::arg("val").noconvert(),
+                   py::arg("ds"),
+                   py::arg("roi_begin"),
+                   py::arg("roi_shape"),
+                   py::arg("val").noconvert(),
                    py::call_guard<py::gil_scoped_release>());
 
         // export conversions

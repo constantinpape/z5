@@ -42,10 +42,11 @@ class Dataset(object):
     zarr_default_compressor = 'blosc'
     n5_default_compressor = 'gzip'
 
-    def __init__(self, path, dset_impl):
+    def __init__(self, path, dset_impl, n_threads):
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
         self.path = path
+        self.n_threads = n_threads
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
@@ -166,7 +167,7 @@ class Dataset(object):
     def create_dataset(cls, path, dtype,
                        shape, chunks, is_zarr,
                        compression, compression_options,
-                       fill_value, mode):
+                       n_threads, fill_value, mode):
         if os.path.exists(path):
             raise RuntimeError("Cannot create existing dataset")
         if is_zarr and compression not in cls.compressors_zarr:
@@ -186,7 +187,7 @@ class Dataset(object):
                 raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
             cls._create_dataset_n5(path, parsed_dtype, shape, chunks,
                                    compression, compression_options)
-        return cls(path, open_dataset(path, mode))
+        return cls(path, open_dataset(path, mode), n_threads)
 
     @classmethod
     def open_dataset(cls, path, mode):
@@ -279,7 +280,9 @@ class Dataset(object):
         out = np.empty(shape, dtype=self.dtype)
         if 0 in shape:
             return out
-        read_subarray(self._impl, out, roi_begin)
+        read_subarray(self._impl,
+                      out, roi_begin,
+                      n_threads=self.n_threads)
         squeezed = out.squeeze()
         try:
             return squeezed.item()
@@ -313,8 +316,10 @@ class Dataset(object):
                 raise
 
         item_arr = rectify_shape(item_arr, shape)
-
-        write_subarray(self._impl, item_arr, roi_begin)
+        write_subarray(self._impl,
+                       item_arr,
+                       roi_begin,
+                       n_threads=self.n_threads)
 
     def find_minimum_coordinates(self, dim):
         return self._impl.findMinimumCoordinates(dim)
@@ -324,13 +329,16 @@ class Dataset(object):
 
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
-        write_subarray(self._impl, np.require(data, requirements='C'), start)
+        write_subarray(self._impl,
+                       np.require(data, requirements='C'),
+                       start,
+                       n_threads=self.n_threads)
 
     # expose the impl read subarray functionality
     def read_subarray(self, start, stop):
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
         out = np.empty(shape, dtype=self.dtype)
-        read_subarray(self._impl, out, start)
+        read_subarray(self._impl, out, start, n_threads=self.n_threads)
         return out
 
     def array_to_format(self, array):
