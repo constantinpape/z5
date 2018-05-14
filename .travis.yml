@@ -6,6 +6,9 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
+addons:
+  apt:
+    update: true
 
 before_script:
   # TODO conda 2 for python 2.7
@@ -20,7 +23,7 @@ before_script:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - source activate test-env
   # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
-  - conda install -c conda-forge libgcc
+  # - conda install -c conda-forge libgcc
   - conda install -c conda-forge xtensor=0.15.1
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2
