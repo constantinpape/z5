@@ -19,14 +19,14 @@ class DatasetTestMixin(object):
         self.shape = (100, 100, 100)
         self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
 
-        base_dtypes = [
+        self.base_dtypes = [
             'int8', 'int16', 'int32', 'int64',
             'uint8', 'uint16', 'uint32', 'uint64',
             'float32', 'float64'
         ]
         self.dtypes = tuple(
-            base_dtypes +
-            [np.dtype(s) for s in base_dtypes] +
+            self.base_dtypes +
+            [np.dtype(s) for s in self.base_dtypes] +
             [
                 '<i1', '<i2', '<i4', '<i8',
                 '<u1', '<u2', '<u4', '<u8',
@@ -50,9 +50,10 @@ class DatasetTestMixin(object):
         self.assertTrue(np.allclose(result, expected), msg)
 
     def test_ds_open_empty(self):
-        self.root_file.create_dataset(
-            'test', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
-        )
+        self.root_file.create_dataset('test',
+                                      dtype='float32',
+                                      shape=self.shape,
+                                      chunks=(10, 10, 10))
         ds = self.root_file['test']
         out = ds[:]
         self.check_array(out, np.zeros(self.shape))
@@ -111,19 +112,20 @@ class DatasetTestMixin(object):
         with self.assertRaises(TypeError):
             ds[1, 1, NotAnIndex()]
 
-    @unittest.expectedFailure
     def test_ds_scalar_broadcast(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
-        ds[:] = 1
-        self.check_ones(ds[:], self.shape)
+        for dtype in self.base_dtypes:
+            ds = self.root_file.create_dataset('ones_%s' % dtype,
+                                               dtype=dtype,
+                                               shape=self.shape,
+                                               chunks=(10, 10, 10))
+            ds[:] = 1
+            self.check_ones(ds[:], self.shape)
 
-    @unittest.expectedFailure
     def test_ds_scalar_broadcast_from_float(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
         ds[:] = float(1)
         self.check_ones(ds[:], self.shape)
 
-    @unittest.expectedFailure
     def test_ds_scalar_broadcast_from_bool(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
         ds[:] = True
@@ -187,9 +189,9 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     def test_ds_array_to_format(self):
         for dtype in self.dtypes:
             ds = self.root_file.create_dataset('data_%s' % hash(dtype),
-                                           dtype=dtype,
-                                           shape=self.shape,
-                                           chunks=(10, 10, 10))
+                                               dtype=dtype,
+                                               shape=self.shape,
+                                               chunks=(10, 10, 10))
             in_array = 42 * np.ones((10, 10, 10), dtype=dtype)
             ds[:10, :10, :10] = in_array
 

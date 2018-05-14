@@ -42,7 +42,7 @@ class Dataset(object):
     zarr_default_compressor = 'blosc'
     n5_default_compressor = 'gzip'
 
-    def __init__(self, path, dset_impl, n_threads):
+    def __init__(self, path, dset_impl, n_threads=1):
         self._impl = dset_impl
         self._attrs = AttributeManager(path, self._impl.is_zarr)
         self.path = path
@@ -297,8 +297,9 @@ class Dataset(object):
 
         # broadcast scalar
         if isinstance(item, (numbers.Number, np.number)):
-            # FIXME this seems to be broken; fails with RuntimeError('WrongRequest Shape')
-            write_scalar(self._impl, roi_begin, list(shape), item)
+            write_scalar(self._impl, roi_begin,
+                         list(shape), item,
+                         str(self.dtype))
             return
 
         try:
