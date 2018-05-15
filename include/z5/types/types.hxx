@@ -290,8 +290,8 @@ namespace types {
         switch(compressor) {
             // TODO blosc in n5
             #ifdef WITH_BLOSC
-            case blosc: jOpts["name"]   = boost::any_cast<std::string>(options.at("codec"));
-                        jOpts["level"]  = boost::any_cast<int>(options.at("level")); 
+            case blosc: jOpts["name"] = boost::any_cast<std::string>(options.at("codec"));
+                        jOpts["level"] = boost::any_cast<int>(options.at("level"));
                         jOpts["shuffle"] = boost::any_cast<int>(options.at("shuffle"));
                         break;
             #endif
@@ -300,7 +300,34 @@ namespace types {
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: jOpts["blockSize"]  = boost::any_cast<int>(options.at("level"));
+            case bzip2: jOpts["blockSize"] = boost::any_cast<int>(options.at("level"));
+                        break;
+            #endif
+            // raw compression has no parameters
+            default: break;
+        }
+    }
+
+
+    inline void defaultCompressionOptions(Compressor compressor,
+                                          CompressionOptions & options,
+                                          const bool isZarr) {
+
+        switch(compressor) {
+            #ifdef WITH_BLOSC
+            case blosc: if(options.find("name") == options.end()){options["name"] = "lzf";}
+                        if(options.find("level") == options.end()){options["level"] = 5;}
+                        if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
+                        break;
+            #endif
+            #ifdef WITH_ZLIB
+            case zlib: if(options.find("level") == options.end()){options["level"] = 5;}
+                       if(options.find("useZlib") == options.end()){options["useZlib"] = isZarr;}
+                       break;
+            #endif
+            #ifdef WITH_BZIP2
+            case bzip2: if(options.find("level") == options.end()){options["level"] = 5;}
+                        break;
             #endif
             // raw compression has no parameters
             default: break;

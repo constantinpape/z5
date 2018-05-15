@@ -475,7 +475,7 @@ namespace z5 {
                 #endif
                 #ifdef WITH_ZLIB
                 case types::zlib:
-            	    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
+                    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
                 #endif
                 #ifdef WITH_BZIP2
                 case types::bzip2:
