@@ -90,3 +90,7 @@ def rectify_shape(arr, required_shape):
         return arr.reshape(required_shape)
 
     raise ValueError(msg)
+
+
+def get_default_chunks(shape):
+    pass

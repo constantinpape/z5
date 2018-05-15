@@ -7,7 +7,7 @@ import numpy as np
 from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
 from .attribute_manager import AttributeManager
-from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
+from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape, get_default_chunks
 
 
 class Dataset(object):
@@ -163,31 +163,86 @@ class Dataset(object):
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
             json.dump(params, f)
 
+    # TODO
     @classmethod
-    def create_dataset(cls, path, dtype,
-                       shape, chunks, is_zarr,
-                       compression, compression_options,
-                       n_threads, fill_value, mode):
+    def require_dataset(cls, path, mode, n_threads):
         if os.path.exists(path):
-            raise RuntimeError("Cannot create existing dataset")
+            ds = cls(path, open_dataset(path, mode), n_threads)
+            # TODO check that arguments and
+            return ds
+
+        else:
+            return cls.create_dataset(path)
+
+    @classmethod
+    def create_dataset(cls, path, shape, dtype,
+                       data, chunks, compression,
+                       fillvalue, n_threads,
+                       compression_options, is_zarr,
+                       mode):
+        # check if this dataset already exists
+        if os.path.exists(path):
+            raise RuntimeError("Cannot create dataset (name already exists)")
+
+        # check shape, dtype and data
+        have_data = data is not None
+        if have_data:
+            if shape is None:
+                shape = data.shape
+            elif shape != data.shape:
+                raise ValueError("Shape Tuple is incompatible with data")
+            if dtype is None:
+                dtype = data.dtype
+            # NOTE In contrast to h5py, we don't do automatic type conversion
+            elif np.dtype(dtype) != data.dtype:
+                raise ValueError("Datatype is incompatible with data")
+        else:
+            if shape is None:
+                raise TypeError("One of shape or data must be specified")
+            # NOTE In contrast to h5py (and numpy), we DO NOT have float64
+            # as default data type, but require a data type if no data is given
+            if dtype is None:
+                raise TypeError("One of dtype or data must be specified")
+        parsed_dtype = np.dtype(dtype)
+
+        # get default chunks if necessary
+        # NOTE in contrast to h5py, datasets are chunked
+        # by default, with chunk size ~ 64**3
+        if chunks is None:
+            chunks = get_default_chunks(shape)
+
+        # check compression / get default compression
+        # if no compression is given
+        if compression is None:
+            compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
+        else:
+            valid_compression = compression in cls.compressors_zarr if is_zarr else\
+                compression in cls.compressos_n5
+            if not valid_compression:
+                raise ValueError("Compression filter \"%s\" is unavailable" % compression)
+
+        # get and check compression
         if is_zarr and compression not in cls.compressors_zarr:
             compression = cls.zarr_default_compressor
         elif not is_zarr and compression not in cls.compressors_n5:
             compression = cls.n5_default_compressor
 
-        parsed_dtype = np.dtype(dtype)
-
         if is_zarr:
             if parsed_dtype not in cls.zarr_dtype_dict:
                 raise ValueError("Invalid data type {} for zarr dataset".format(dtype))
             cls._create_dataset_zarr(path, parsed_dtype, shape, chunks,
-                                     compression, compression_options, fill_value)
+                                     compression, compression_options, fillvalue)
         else:
             if parsed_dtype not in cls.dtype_dict:
                 raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
             cls._create_dataset_n5(path, parsed_dtype, shape, chunks,
                                    compression, compression_options)
-        return cls(path, open_dataset(path, mode), n_threads)
+
+        # get the dataset and write data if necessary
+        ds = cls(path, open_dataset(path, mode), n_threads)
+        if have_data:
+            ds[:] = data
+        return ds
 
     @classmethod
     def open_dataset(cls, path, mode):

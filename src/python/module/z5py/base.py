@@ -6,6 +6,11 @@ from ._z5py import FileMode
 
 
 class Base(object):
+    """
+    Base class of the :class:``File`` and :class:``Group`` class.
+
+    This class should not be instantiated.
+    """
     # the python / h5py file modes and the corresponding internal types
     # TODO as far as I can tell there is no difference between 'w-' and 'x',
     # so for now they get mapped to the same internal type
@@ -42,19 +47,42 @@ class Base(object):
 
     # TODO open_dataset, open_group and close_group should also be implemented here
 
-    # TODO allow creating with data ?!
-    def create_dataset(self, key, dtype, shape, chunks,
-                       fill_value=0, compression='raw',
+    def create_dataset(self, name,
+                       shape=None, dtype=None,
+                       data=None, chunks=None,
+                       compression=None, fillvalue=0,
                        n_threads=1, **compression_options):
+        """Creates a new dataset.
+
+        :param name: name of the dataset
+        :type name: ``str``
+        :param shape: shape of the dataset, must be given unless created with data
+        :type shape: ``tuple`` or ``None``
+        :param dtype: dtype of the dataset, must be given unless created with data
+        :type dtype: ``str``, ``np.dtype`` or ``None``
+        :param data: optional data used to fill the dataset upon creation
+        :type data: ``np.ndarray`` or ``None``
+        :param chunks: size of the chunks for all axes
+        :type chunks: ``tuple`` or ``None``
+        :param compression: filter used to compress the chunks written to disc
+        :type compression: ``str`` or ``None``
+        :param fillvalue: default fillvalue to use for empty chunks (only supported by zarr)
+        :type fillvalue: ``float``
+        :param n_threads: number of threads used to read and write data
+        :type n_threads: ``int``
+        :rtype: :class:``Dataset``
+        """
+
         if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
-        if key in self:
-            raise KeyError("Dataset %s is already existing." % key)
-        path = os.path.join(self.path, key)
-        return Dataset.create_dataset(path, dtype, shape,
-                                      chunks, self.is_zarr,
-                                      compression, compression_options,
-                                      n_threads, fill_value, self._internal_mode)
+        if name in self:
+            raise KeyError("Dataset %s is already existing." % name)
+        path = os.path.join(self.path, name)
+        return Dataset.create_dataset(path, shape, dtype,
+                                      data, chunks, compression,
+                                      fillvalue, n_threads,
+                                      compression_options,
+                                      self.is_zarr, self._internal_mode)
 
     def is_group(self, key):
         path = os.path.join(self.path, key)
