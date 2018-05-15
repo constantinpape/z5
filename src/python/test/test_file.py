@@ -1,6 +1,8 @@
 import unittest
 import os
 from shutil import rmtree
+from six import add_metaclass
+from abc import ABCMeta
 
 import sys
 try:
@@ -10,74 +12,68 @@ except ImportError:
     import z5py
 
 
-class TestFile(unittest.TestCase):
+@add_metaclass(ABCMeta)
+class FileTestMixin(object):
     def setUp(self):
-        self.n5_path = 'array.n5'
-        self.zr_path = 'array.zr'
-        self.zarr_path = 'array.zarr'
+        self.path = 'file.%s' % self.data_format
 
     def tearDown(self):
-        if(os.path.exists(self.n5_path)):
-            rmtree(self.n5_path)
-        if(os.path.exists(self.zr_path)):
-            rmtree(self.zr_path)
-        if(os.path.exists(self.zarr_path)):
-            rmtree(self.zarr_path)
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
 
-    def test_context_manager_n5(self):
-        self.assertFalse(os.path.exists(self.n5_path))
+    def test_context_manager(self):
+        self.assertFalse(os.path.exists(self.path))
 
-        with z5py.File(self.n5_path, False) as f:
+        with z5py.File(self.path) as f:
             self.assertIsInstance(f, z5py.File)
+            if self.data_format == 'n5':
+                self.assertFalse(f.is_zarr)
+            else:
+                self.assertTrue(f.is_zarr)
+        self.assertTrue(os.path.exists(self.path))
+
+    def test_extension_detect(self):
+        self.assertFalse(os.path.exists(self.path))
+
+        f = z5py.File(self.path, None)
+        if self.data_format == 'n5':
             self.assertFalse(f.is_zarr)
-
-        self.assertTrue(os.path.exists(self.n5_path))
-
-    def test_context_manager_zarr(self):
-        self.assertFalse(os.path.exists(self.zr_path))
-
-        with z5py.File(self.zr_path, True) as f:
-            self.assertIsInstance(f, z5py.File)
+        else:
             self.assertTrue(f.is_zarr)
 
-        self.assertTrue(os.path.exists(self.zr_path))
-
-    def test_extension_detect_n5(self):
-        self.assertFalse(os.path.exists(self.n5_path))
-
-        f = z5py.File(self.n5_path, None)
-        self.assertFalse(f.is_zarr)
-
-    def test_extension_detect_zr(self):
-        self.assertFalse(os.path.exists(self.zr_path))
-
-        f = z5py.File(self.zr_path, None)
-        self.assertTrue(f.is_zarr)
-
-    def test_extension_detect_zarr(self):
-        self.assertFalse(os.path.exists(self.zarr_path))
-
-        f = z5py.File(self.zarr_path, None)
-        self.assertTrue(f.is_zarr)
-
-    def test_direct_constructor_n5(self):
-        self.assertFalse(os.path.exists(self.n5_path))
-
-        f = z5py.N5File(self.n5_path)
-        self.assertFalse(f.is_zarr)
-
-    def test_direct_constructor_zarr(self):
-        self.assertFalse(os.path.exists(self.zarr_path))
-
-        f = z5py.ZarrFile(self.zarr_path)
-        self.assertTrue(f.is_zarr)
-
     def test_wrong_ext_fails(self):
+        is_n5 = self.data_format == 'n5'
         with self.assertRaises(RuntimeError):
-            z5py.File(self.zarr_path, use_zarr_format=False)
+            z5py.File(self.path, use_zarr_format=is_n5)
 
-        with self.assertRaises(RuntimeError):
-            z5py.File(self.n5_path, use_zarr_format=True)
+
+class TestZarrFile(FileTestMixin, unittest.TestCase):
+    data_format = 'zarr'
+
+    def test_direct_constructor(self):
+        self.assertFalse(os.path.exists(self.path))
+        f = z5py.ZarrFile(self.path)
+        self.assertTrue(f.is_zarr)
+
+
+class TestZrFile(FileTestMixin, unittest.TestCase):
+    data_format = 'zr'
+
+    def test_direct_constructor(self):
+        self.assertFalse(os.path.exists(self.path))
+        f = z5py.ZarrFile(self.path)
+        self.assertTrue(f.is_zarr)
+
+
+class TestN5File(FileTestMixin, unittest.TestCase):
+    data_format = 'n5'
+
+    def test_direct_constructor(self):
+        self.assertFalse(os.path.exists(self.path))
+        f = z5py.N5File(self.path)
+        self.assertFalse(f.is_zarr)
 
 
 if __name__ == '__main__':
