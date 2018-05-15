@@ -3,7 +3,6 @@ import errno
 import json
 from shutil import rmtree
 
-from .base import Base
 from .group import Group
 from .dataset import Dataset
 
@@ -14,7 +13,7 @@ except ImportError:
     JSONDecodeError = ValueError
 
 
-class File(Base):
+class File(Group):
     zarr_exts = {'.zarr', '.zr'}
     n5_exts = {'.n5'}
 
@@ -50,7 +49,7 @@ class File(Base):
             use_zarr_format = is_zarr
 
         elif use_zarr_format:
-            if is_zarr == False:
+            if not is_zarr:
                 raise RuntimeError("N5 file cannot be opened in zarr format")
 
         else:
@@ -64,7 +63,7 @@ class File(Base):
             # throw error if the file must not exist according to file mode
             if self._permissions.must_not_exist():
                 raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), path)
-            # TODO I am unsure about this, an accidental 'w' could wreak a lot of havoc ...
+
             if self._permissions.should_truncate():
                 rmtree(path)
                 os.mkdir(path)
@@ -106,26 +105,7 @@ class File(Base):
         if have_version_tag:
             major_version = int(tag[0])
             if major_version > 2:
-                raise RuntimeError("z5py.File: Can't open n5 file with major version bigger than 2")
-
-    def create_group(self, key):
-        if key in self:
-            raise KeyError("Group %s is already existing" % key)
-        path = os.path.join(self.path, key)
-        return Group.make_group(path, self.is_zarr, self.mode)
-
-    def __getitem__(self, key):
-        if key not in self:
-            raise KeyError("Key %s does not exist" % key)
-        path = os.path.join(self.path, key)
-        if self.is_group(key):
-            return Group.open_group(path, self.is_zarr, self.mode)
-        else:
-            return Dataset.open_dataset(path, self._internal_mode)
-
-    # TODO setitem, delete datasets ?
-    # - setitem could be implemented with softlinks
-    # - delete item would remove the folder (or softlink)
+                raise RuntimeError("Can't open n5 file with major version bigger than 2")
 
     def __enter__(self):
         return self

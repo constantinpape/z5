@@ -1,8 +1,9 @@
 from __future__ import print_function
 
 import unittest
-import os
 from shutil import rmtree
+from six import add_metaclass
+from abc import ABCMeta
 
 import sys
 try:
@@ -12,7 +13,22 @@ except ImportError:
     import z5py
 
 
-class TestAttributes(unittest.TestCase):
+@add_metaclass(ABCMeta)
+class AttributesTestMixin(object):
+
+    def setUp(self):
+        self.shape = (100, 100, 100)
+
+        self.root_file = z5py.File('array.%s' % self.data_format)
+        self.root_file.create_dataset('ds', dtype='float32',
+                                      shape=self.shape, chunks=(10, 10, 10))
+        self.root_file.create_group('group')
+
+    def tearDown(self):
+        try:
+            rmtree('array.%s' % self.data_format)
+        except OSError:
+            pass
 
     def check_attrs(self, attrs):
         self.assertFalse('not_an_attr' in attrs)
@@ -36,62 +52,32 @@ class TestAttributes(unittest.TestCase):
             self.assertFalse(key in attrs)
             self.assertFalse(key in set(attrs))
 
-    def setUp(self):
-        self.shape = (100, 100, 100)
-
-        self.ff_zarr = z5py.File('array.zr', True)
-        self.ff_zarr.create_dataset(
-            'ds', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
-        )
-        self.ff_zarr.create_group('group')
-
-        self.ff_n5 = z5py.File('array.n5', False)
-        self.ff_n5.create_dataset(
-            'ds', dtype='float32', shape=self.shape, chunks=(10, 10, 10)
-        )
-        self.ff_n5.create_group('group')
-
-    def tearDown(self):
-        if(os.path.exists('array.zr')):
-            rmtree('array.zr')
-        if(os.path.exists('array.n5')):
-            rmtree('array.n5')
-
-    def test_attrs_zarr(self):
+    def test_attrs(self):
 
         # test file attributes
-        f_attrs = self.ff_zarr.attrs
-        print("Zarr: File Attribute Test")
+        f_attrs = self.root_file.attrs
+        print("File Attribute Test")
         self.check_attrs(f_attrs)
 
         # test group attributes
-        f_group = self.ff_zarr["group"].attrs
-        print("Zarr: Group Attribute Test")
+        f_group = self.root_file["group"].attrs
+        print("Group Attribute Test")
         self.check_attrs(f_group)
 
         # test ds attributes
-        f_ds = self.ff_zarr["ds"].attrs
-        print("Zarr: Dataset Attribute Test")
+        f_ds = self.root_file["ds"].attrs
+        print("Dataset Attribute Test")
         self.check_attrs(f_ds)
-        self.check_ds_attrs(f_ds)
+        if not self.root_file.is_zarr:
+            self.check_ds_attrs(f_ds)
 
-    def test_attrs_n5(self):
 
-        # test file attributes
-        print("N5: File Attribute Test")
-        f_attrs = self.ff_n5.attrs
-        self.check_attrs(f_attrs)
+class TestAttributesZarr(AttributesTestMixin, unittest.TestCase):
+    data_format = 'zarr'
 
-        # test group attributes
-        print("N5: Group Attribute Test")
-        f_group = self.ff_n5["group"].attrs
-        self.check_attrs(f_group)
 
-        # test ds attributes
-        print("N5: Dataset Attribute Test")
-        f_ds = self.ff_n5["ds"].attrs
-        self.check_attrs(f_ds)
-        self.check_ds_attrs(f_ds)
+class TestAttributesN5(AttributesTestMixin, unittest.TestCase):
+    data_format = 'n5'
 
 
 if __name__ == '__main__':

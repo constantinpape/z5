@@ -74,7 +74,11 @@ class TestFile(unittest.TestCase):
 
     def test_wrong_ext_fails(self):
         with self.assertRaises(RuntimeError):
-            f = z5py.File(self.zarr_path, use_zarr_format=False)
+            z5py.File(self.zarr_path, use_zarr_format=False)
 
         with self.assertRaises(RuntimeError):
-            f = z5py.File(self.n5_path, use_zarr_format=True)
+            z5py.File(self.n5_path, use_zarr_format=True)
+
+
+if __name__ == '__main__':
+    unittest.main()
