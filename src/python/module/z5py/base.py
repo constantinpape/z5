@@ -46,6 +46,14 @@ class Base(object):
         return os.path.exists(os.path.join(self.path, key))
 
     # TODO open_dataset, open_group and close_group should also be implemented here
+    def require_dataset(self, name, shape,
+                        dtype=None, chunks=None,
+                        n_threads=1, **kwargs):
+        if not self._permissions.can_write():
+            raise ValueError("Cannot create dataset with read-only permissions.")
+        path = os.path.join(self.path, name)
+        return Dataset.require_dataset(path, shape, dtype, chunks,
+                                       n_threads, self.is_zarr, self.mode)
 
     def create_dataset(self, name,
                        shape=None, dtype=None,

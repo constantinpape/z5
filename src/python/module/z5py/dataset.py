@@ -163,16 +163,33 @@ class Dataset(object):
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
             json.dump(params, f)
 
-    # TODO
+    # NOTE in contrast to h5py, we also check that the chunks match
+    # this is crucial, because different chunks can lead to subsequent incorrect
+    # code when relying on chunk-aligned access for parallel writing
     @classmethod
-    def require_dataset(cls, path, mode, n_threads):
+    def require_dataset(cls, path,
+                        shape, dtype,
+                        chunks, n_threads,
+                        is_zarr, mode, **kwargs):
         if os.path.exists(path):
             ds = cls(path, open_dataset(path, mode), n_threads)
-            # TODO check that arguments and
+            if shape != ds.shape:
+                raise TypeError("Shapes do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.shape)),
+                                                                                     ', '.join(map(str, shape))))
+            if chunks is not None:
+                if chunks != ds.chunks:
+                    raise TypeError("Chunks do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.chunks)),
+                                                                                         ', '.join(map(str, chunks))))
+            if dtype is not None:
+                if np.dtype(dtype) != ds.dtype:
+                    raise TypeError("Datatypes do not match (existing %s vs new %s)" % str(ds.dtype), str(dtype))
             return ds
-
         else:
-            return cls.create_dataset(path)
+            return cls.create_dataset(path, shape, dtype,
+                                      chunks=chunks,
+                                      n_threads=n_threads,
+                                      is_zarr=is_zarr,
+                                      mode=mode, **kwargs)
 
     @classmethod
     def create_dataset(cls, path, shape, dtype,
