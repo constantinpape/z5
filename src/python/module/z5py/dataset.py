@@ -142,7 +142,7 @@ class Dataset(object):
     def _create_dataset_zarr(path, dtype, shape, chunks,
                              compression, compression_options,
                              fill_value):
-        os.mkdir(path)
+        os.makedirs(path)
         params = {'dtype': Dataset.zarr_dtype_dict[np.dtype(dtype)],
                   'shape': shape,
                   'chunks': chunks,
@@ -155,7 +155,7 @@ class Dataset(object):
     @staticmethod
     def _create_dataset_n5(path, dtype, shape, chunks,
                            compression, compression_options):
-        os.mkdir(path)
+        os.makedirs(path)
         params = {'dataType': Dataset.dtype_dict[np.dtype(dtype)],
                   'dimensions': shape[::-1],
                   'blockSize': chunks[::-1],
@@ -199,10 +199,12 @@ class Dataset(object):
 
     @classmethod
     def create_dataset(cls, path, shape, dtype,
-                       data, chunks, compression,
-                       fillvalue, n_threads,
-                       compression_options, is_zarr,
-                       mode):
+                       data=None, chunks=None,
+                       compression=None,
+                       fillvalue=0, n_threads=1,
+                       compression_options={},
+                       is_zarr=True,
+                       mode=None):
         # check if this dataset already exists
         if os.path.exists(path):
             raise RuntimeError("Cannot create dataset (name already exists)")

@@ -137,4 +137,5 @@ class Group(object):
             raise ValueError("Cannot create dataset with read-only permissions.")
         path = os.path.join(self.path, name)
         return Dataset.require_dataset(path, shape, dtype, chunks,
-                                       n_threads, self.is_zarr, self.mode)
+                                       n_threads, self.is_zarr, self._internal_mode,
+                                       **kwargs)
