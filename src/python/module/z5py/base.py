@@ -54,6 +54,14 @@ class Base(object):
                        n_threads=1, **compression_options):
         """Creates a new dataset.
 
+        Create a new chunked dataset on disc. Syntax and behaviour similar to the
+        corresponding ``h5py`` function.
+        In contrast to ``h5py``, there is no option to store a dataset without chunking
+        (if no chunks are given, a default suitable for the dimension of the dataset will be used).
+        Also, if a dataset is created with data and a dtype that is different
+        from the data's is specified, the function throws a RuntimeError, instead
+        of converting the data.
+
         :param name: name of the dataset
         :type name: ``str``
         :param shape: shape of the dataset, must be given unless created with data

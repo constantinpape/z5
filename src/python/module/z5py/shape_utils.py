@@ -92,5 +92,12 @@ def rectify_shape(arr, required_shape):
     raise ValueError(msg)
 
 
+# TODO we should adjust chunk sizes better if some dimensions
+# are larger than the default chunks (e.g. shape (2, 2000, 2000)
+# should have chunks (1, 512, 512) instead of (2, 64, 64))
 def get_default_chunks(shape):
-    pass
+    # the default size is 64**3
+    default_size = 262144
+    ndim = len(shape)
+    default_dim = default_size ** (1. / ndim)
+    return tuple(min(default_dim, sh) for sh in shape)

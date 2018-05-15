@@ -217,7 +217,7 @@ class Dataset(object):
             compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
         else:
             valid_compression = compression in cls.compressors_zarr if is_zarr else\
-                compression in cls.compressos_n5
+                compression in cls.compressors_n5
             if not valid_compression:
                 raise ValueError("Compression filter \"%s\" is unavailable" % compression)
 
