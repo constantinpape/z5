@@ -5,29 +5,6 @@ from .attribute_manager import AttributeManager
 from .shape_utils import is_group
 
 
-class Z5KeysView(object):
-    def __init__(self, path):
-        self.path = path
-        self._keys = [f for f in os.listdir(path)
-                      if os.path.isdir(os.path.join(path, f))]
-        self.pos, self.end = 0, len(self._keys)
-
-    def __iter__(self):
-        return self
-
-    def __contains__(self, key):
-        return key in self._keys
-
-    def next(self):
-        if self.pos < self.end:
-            name = self._files[self.pos]
-            self.pos += 1
-            return name
-        else:
-            self.pos = 0
-            raise StopIteration()
-
-
 class Group(object):
     """
     Group in a N5 or zarr file.
@@ -72,11 +49,9 @@ class Group(object):
     def attrs(self):
         return self._attrs
 
-    # TODO implement as generator
-    # TODO exclude non-directories
     def keys(self):
-        return Z5KeysView(self.path)
-        # return os.listdir(self.path)
+        return [f for f in os.listdir(self.path)
+                if os.path.isdir(os.path.join(self.path, f))]
 
     #
     # Group functionality
@@ -162,4 +137,5 @@ class Group(object):
             raise ValueError("Cannot create dataset with read-only permissions.")
         path = os.path.join(self.path, name)
         return Dataset.require_dataset(path, shape, dtype, chunks,
-                                       n_threads, self.is_zarr, self.mode)
+                                       n_threads, self.is_zarr, self._internal_mode,
+                                       **kwargs)
