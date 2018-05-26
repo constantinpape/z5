@@ -1,6 +1,7 @@
 from __future__ import print_function
 from itertools import product
 from concurrent import futures
+import numpy as np
 
 from .file import File
 
@@ -53,7 +54,10 @@ def rechunk(in_path,
                                   **compression_opts)
 
     def write_single_chunk(roi):
-        ds_out[roi] = ds_in[roi].astype(dtype, copy=False)
+        data_in = ds_in[roi].astype(dtype, copy=False)
+        if np.sum(data_in) == 0:
+            return
+        ds_out[roi] = data_in
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         tasks = [tp.submit(write_single_chunk, roi)
