@@ -479,7 +479,7 @@ namespace z5 {
                 #endif
                 #ifdef WITH_BZIP2
                 case types::bzip2:
-            	    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
+                    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
                 #endif
             }
 

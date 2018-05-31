@@ -75,6 +75,8 @@ namespace compression {
 
             BZ2_bzCompressEnd(&bzs);
 
+            // FIXME this will fail if we break out from the loop above
+            // I don't know if this is actually an issue if the return value is larger than 0
     		if (ret != BZ_STREAM_END) {          // an error occurred that was not EOF
     		    std::ostringstream oss;
     		    oss << "Exception during bzip compression: (" << ret << ") ";
@@ -152,11 +154,12 @@ namespace compression {
             BZ2_bzDecompressEnd(&bzs);
 
             // FIXME this will fail if we break out from the loop above
-            //if(ret != BZ_STREAM_END) {
-    		//    std::ostringstream oss;
-    		//    oss << "Exception during bzip compression: (" << ret << ") ";
-    		//    throw(std::runtime_error(oss.str()));
-            //}
+            // I don't know if this is actually an issue if the return value is larger than 0
+            if(ret != BZ_STREAM_END) {
+    		    std::ostringstream oss;
+    		    oss << "Exception during bzip compression: (" << ret << ") ";
+    		    throw(std::runtime_error(oss.str()));
+            }
 
 		}
 

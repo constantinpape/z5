@@ -215,6 +215,9 @@ namespace types {
                        options["useZlib"] = true;
                        break;
             #endif
+            #ifdef WITH_BZIP2
+            case bzip2: options["level"] = static_cast<int>(jOpts["level"]);
+            #endif
             // raw compression has no parameters
             default: break;
         }

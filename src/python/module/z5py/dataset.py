@@ -35,11 +35,12 @@ class Dataset(object):
                        np.dtype('float32'): '<f4',
                        np.dtype('float64'): '<f8'}
 
-    # FIXME for now we hardcode all compressors
+    # TODO for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
-    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2']
-    compressors_n5 = ['raw', 'gzip', 'bzip2']
+    # FIXME bzip compression is broken
+    compressors_zarr = ['raw', 'blosc', 'zlib']  # , 'bzip2']
+    compressors_n5 = ['raw', 'gzip']  # , 'bzip2']
     zarr_default_compressor = 'blosc'
     n5_default_compressor = 'gzip'
 
@@ -131,11 +132,11 @@ class Dataset(object):
             opts['compression'] = 'bzip2'
             opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 5
         # TODO blosc in n5
-        # elif n5_opts['id'] == 'blosc':
-        #     opts['compression'] = 'blosc'
-        #     opts['level'] = n5_opts['clevel']
-        #     opts['shuffle'] = n5_opts['shuffle']
-        #     opts['codec'] = n5_opts['cname']
+        elif n5_opts['id'] == 'blosc':
+            opts['compression'] = 'blosc'
+            opts['level'] = n5_opts['clevel']
+            opts['shuffle'] = n5_opts['shuffle']
+            opts['codec'] = n5_opts['cname']
         return opts
 
     @staticmethod
