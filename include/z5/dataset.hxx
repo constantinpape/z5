@@ -511,8 +511,22 @@ namespace z5 {
             checkChunk(chunk);
 
             // get the correct chunk size and declare the out data
-            size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+            const size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
             std::vector<T> dataOut;
+
+            // check if the chunk is empty (i.e. all fillvalue)
+            // we need the remporary reference to capture in the lambda
+            const auto & fillValue = fillValue_;
+            const bool isEmpty = std::all_of(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize,
+                                             [fillValue](const T val){return val == fillValue;});
+            // if we have data on disc for the chunk, delete it
+            if(isEmpty) {
+                const auto & path = chunk.path();
+                if(fs::exists(path)) {
+                    fs::remove(path);
+                }
+                return;
+            }
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {

@@ -233,6 +233,23 @@ class DatasetTestMixin(object):
         out_array = ds[:]
         self.check_array(out_array, in_array, 'failed for non-contiguous data')
 
+    def test_empty_chunk(self):
+        ds = self.root_file.create_dataset('test',
+                                           dtype='float32',
+                                           shape=self.shape,
+                                           chunks=(10, 10, 10))
+        bb = np.s_[:10, :10, :10]
+        if ds.is_zarr:
+            chunk_path = os.path.join(ds.path, '0.0.0')
+        else:
+            chunk_path = os.path.join(ds.path, '0', '0', '0')
+        ds[bb] = 0
+        self.assertFalse(os.path.exists(chunk_path))
+        ds[bb] = 1
+        self.assertTrue(os.path.exists(chunk_path))
+        ds[bb] = 0
+        self.assertFalse(os.path.exists(chunk_path))
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
