@@ -1,11 +1,17 @@
 import os
+
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
+
 from ._z5py import create_group, FileMode
 from .dataset import Dataset
 from .attribute_manager import AttributeManager
 from .shape_utils import is_group
 
 
-class Group(object):
+class Group(Mapping):
     """
     Group in a N5 or zarr file.
     """
@@ -32,14 +38,22 @@ class Group(object):
     # Magic Methods, Attributes, Keys, Contains
     #
 
-    def __contains__(self, name):
-        path = os.path.join(self.path, name)
-        return os.path.exists(path) and os.path.isdir(path)
+    def __iter__(self):
+        for name in os.listdir(self.path):
+            if os.path.isdir(os.path.join(self.path, name)):
+                yield name
+
+    def __len__(self):
+        counter = 0
+        for _ in self:
+            counter += 1
+        return counter
 
     def __getitem__(self, name):
-        if name not in self:
-            raise KeyError("Key %s does not exist" % name)
         path = os.path.join(self.path, name)
+        if not os.path.isdir(path):
+            raise KeyError("Key %s does not exist" % name)
+
         if is_group(path, self.is_zarr):
             return Group.open_group(path, self.is_zarr, self.mode)
         else:
@@ -48,10 +62,6 @@ class Group(object):
     @property
     def attrs(self):
         return self._attrs
-
-    def keys(self):
-        return [f for f in os.listdir(self.path)
-                if os.path.isdir(os.path.join(self.path, f))]
 
     #
     # Group functionality
