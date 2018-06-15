@@ -34,8 +34,11 @@ namespace compression {
             dataOut.clear();
             dataOut.reserve(sizeIn);
 
-            // we need an outbuffer with magic chunk size
-            std::vector<T> outbuffer(32768);
+            // intermediate output buffer
+            // size set to 256 kb, which is recommended in the zlib usage example:
+            // http://www.gzip.org/zlib/zlib_how.html/
+            size_t bufferSize = 262144;
+            std::vector<T> outbuffer(bufferSize);
 
             // init the zlib stream
             if(useZlibEncoding_) {
@@ -43,7 +46,9 @@ namespace compression {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
             } else {
-                if(deflateInit2(&zs, clevel_, Z_DEFLATED, gzipWindowsize + 16, gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
+                if(deflateInit2(&zs, clevel_,
+                                Z_DEFLATED, gzipWindowsize + 16,
+                                gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
             }
@@ -72,7 +77,9 @@ namespace compression {
                 // FIXME this is probably slow.... we could do float division instead and then
                 // cast back ?!
                 endPosition = bytesCompressed / sizeof(T) + bytesCompressed % sizeof(T);
-                dataOut.insert(dataOut.end(), outbuffer.begin(), outbuffer.begin() + endPosition);
+                dataOut.insert(dataOut.end(),
+                               outbuffer.begin(),
+                               outbuffer.begin() + endPosition);
 
             } while(ret == Z_OK);
 
