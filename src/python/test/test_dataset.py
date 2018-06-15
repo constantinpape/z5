@@ -201,26 +201,6 @@ class DatasetTestMixin(object):
         out_array = ds[:]
         self.check_array(out_array, in_array)
 
-    def test_compression(self):
-        from z5py.dataset import Dataset
-        f = self.root_file
-        compressions = Dataset.compressors_n5 if self.data_format == 'n5' else\
-            Dataset.compressors_zarr
-        for compression in compressions:
-            for dtype in self.base_dtypes:
-
-                ds_name = "ds_%s_%s" % (compression, dtype)
-                in_array = np.random.rand(*self.shape).astype(dtype)
-                ds = f.create_dataset(ds_name,
-                                      data=in_array,
-                                      chunks=(10, 10, 10),
-                                      compression=compression)
-                out_array = ds[:]
-                self.check_array(out_array, in_array,
-                                 'failed for compression %s, dtype %s, format %s' % (compression,
-                                                                                     dtype,
-                                                                                     self.data_format))
-
     def test_non_contiguous(self):
         ds = self.root_file.create_dataset('test',
                                            dtype='float32',
