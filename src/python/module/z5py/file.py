@@ -4,7 +4,6 @@ import json
 from shutil import rmtree
 
 from .group import Group
-from .dataset import Dataset
 
 # set correct json error type for python 2 / 3
 try:
@@ -14,6 +13,18 @@ except ImportError:
 
 
 class File(Group):
+    """ File to access zarr or n5 containers on disc.
+
+    The container corresponds to a directory on the filesystem.
+    Group are subdirectories and datasets are subdirectories
+    that contain multi-dimensional data stored in binary format.
+
+    Args:
+        path (str): path on filesystem that holds the container
+        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None)
+        mode (str): file mode used to open / create the file
+    """
+
     zarr_exts = {'.zarr', '.zr'}
     n5_exts = {'.n5'}
 
@@ -115,10 +126,24 @@ class File(Group):
 
 
 class N5File(File):
+    """ File to access n5 containers on disc.
+
+    Args:
+        path (str): path on filesystem that holds the container
+        mode (str): file mode used to open / create the file
+    """
+
     def __init__(self, path, mode='a'):
         super(N5File, self).__init__(path=path, use_zarr_format=False, mode=mode)
 
 
 class ZarrFile(File):
+    """ File to access zarr containers on disc.
+
+    Args:
+        path (str): path on filesystem that holds the container
+        mode (str): file mode used to open / create the file
+    """
+
     def __init__(self, path, mode='a'):
         super(ZarrFile, self).__init__(path=path, use_zarr_format=True, mode=mode)

@@ -12,6 +12,12 @@ from .shape_utils import get_default_chunks, is_group
 
 
 class Dataset(object):
+    """ Dataset for access to data on disc.
+
+    This class should not be instantiated directly, but rather
+    be created or opened via the ``create_dataset``, ``require_dataset`` or
+    ``[]`` operators of File or Group.
+    """
 
     dtype_dict = {np.dtype('uint8'): 'uint8',
                   np.dtype('uint16'): 'uint16',
@@ -169,10 +175,10 @@ class Dataset(object):
     # this is crucial, because different chunks can lead to subsequent incorrect
     # code when relying on chunk-aligned access for parallel writing
     @classmethod
-    def require_dataset(cls, path,
-                        shape, dtype,
-                        chunks, n_threads,
-                        is_zarr, mode, **kwargs):
+    def _require_dataset(cls, path,
+                         shape, dtype,
+                         chunks, n_threads,
+                         is_zarr, mode, **kwargs):
         if os.path.exists(path):
 
             if is_group(path, is_zarr):
@@ -192,20 +198,20 @@ class Dataset(object):
             return ds
 
         else:
-            return cls.create_dataset(path, shape, dtype,
-                                      chunks=chunks,
-                                      n_threads=n_threads,
-                                      is_zarr=is_zarr,
-                                      mode=mode, **kwargs)
+            return cls._create_dataset(path, shape, dtype,
+                                       chunks=chunks,
+                                       n_threads=n_threads,
+                                       is_zarr=is_zarr,
+                                       mode=mode, **kwargs)
 
     @classmethod
-    def create_dataset(cls, path, shape, dtype,
-                       data=None, chunks=None,
-                       compression=None,
-                       fillvalue=0, n_threads=1,
-                       compression_options={},
-                       is_zarr=True,
-                       mode=None):
+    def _create_dataset(cls, path, shape, dtype,
+                        data=None, chunks=None,
+                        compression=None,
+                        fillvalue=0, n_threads=1,
+                        compression_options={},
+                        is_zarr=True,
+                        mode=None):
         # check if this dataset already exists
         if os.path.exists(path):
             raise RuntimeError("Cannot create dataset (name already exists)")
@@ -271,7 +277,7 @@ class Dataset(object):
         return ds
 
     @classmethod
-    def open_dataset(cls, path, mode):
+    def _open_dataset(cls, path, mode):
         return cls(path, open_dataset(path, mode))
 
     @property
