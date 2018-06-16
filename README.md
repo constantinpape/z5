@@ -2,6 +2,9 @@ Travis (Ubuntu builds)
 ----------------------
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
 
+Documentation
+-------------
+[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
 # z5
 
