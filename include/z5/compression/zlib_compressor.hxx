@@ -40,15 +40,18 @@ namespace compression {
             size_t bufferSize = 262144;
             std::vector<T> outbuffer(bufferSize);
 
-            // init the zlib stream
-            if(useZlibEncoding_) {
-                if(deflateInit(&zs, clevel_) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib deflate failed"));
-                }
-            } else {
+            // init the zlib or gzip stream
+            // note that the gzip format fails for very small input sizes (<= 22)
+            // so we use zlib for these no matter the input
+            // TODO this might lead to issues with other n5 implementations
+            if(!useZlibEncoding_ && sizeIn > 22) {
                 if(deflateInit2(&zs, clevel_,
                                 Z_DEFLATED, gzipWindowsize + 16,
                                 gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
+                    throw(std::runtime_error("Initializing zLib deflate failed"));
+                }
+            } else {
+                if(deflateInit(&zs, clevel_) != Z_OK){
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
             }
@@ -101,13 +104,13 @@ namespace compression {
             memset(&zs, 0, sizeof(zs));
 
             // init the zlib stream
-            if(useZlibEncoding_) {
+            if(!useZlibEncoding_ && sizeOut > 22) {
+                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){
+                    throw(std::runtime_error("Initializing zLib inflate failed"));}
+            } else {
                 if(inflateInit(&zs) != Z_OK){
                     throw(std::runtime_error("Initializing zLib inflate failed"));
                 }
-            } else {
-                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib inflate failed"));}
             }
 
             // set the stream input to the beginning of the input data

@@ -43,7 +43,12 @@ class CompressionTestMixin(object):
             for dtype in self.dtypes:
 
                 ds_name = "ds_%s_%s" % (compression, dtype)
+                # generate random data scaled to the range of the current datatype
+                min_val, max_val = self.dtype_min_max(dtype)
                 in_array = np.random.rand(*self.shape).astype(dtype)
+                np.multiply(in_array, max_val + abs(min_val), casting='unsafe')
+                in_array += min_val
+
                 ds = f.create_dataset(ds_name,
                                       data=in_array,
                                       chunks=(10, 10, 10),
@@ -80,6 +85,29 @@ class CompressionTestMixin(object):
             out_array = ds[:]
             self.check_array(out_array, in_array,
                              'gzip large values failed for, dtype %s, format %s' % (dtype,
+                                                                                    self.data_format))
+
+    def test_small_chunks_gzip(self):
+        f = self.root_file
+        # 22 is the chunk-size at which gzip compression fails
+        # (interestingly this is NOT the case for zlib encoding)
+        shape = (22,)
+        chunks = shape
+        compression = 'zlib' if f.is_zarr else 'gzip'
+        for dtype in self.dtypes:
+            ds_name = "ds_%s" % dtype
+            ds = f.create_dataset(ds_name, shape=shape, chunks=chunks,
+                                  compression=compression, dtype=dtype)
+            # generate random data scaled to the range of the current datatype
+            min_val, max_val = self.dtype_min_max(dtype)
+            in_array = np.random.rand(*shape).astype(dtype)
+            np.multiply(in_array, max_val + abs(min_val), casting='unsafe')
+            in_array += min_val
+
+            ds[:] = in_array
+            out = ds[:]
+            self.check_array(out, in_array,
+                             'gzip small chunks failed for, dtype %s, format %s' % (dtype,
                                                                                     self.data_format))
 
 
