@@ -67,6 +67,13 @@ class GroupTestMixin(object):
         g = self.root_file.require_group('group')
         self.assertEqual(g.path, os.path.join(self.root_file.path, 'group'))
 
+    def test_delete(self):
+        self.assertTrue('test' in self.root_file)
+        self.assertTrue('test/test' in self.root_file)
+        del self.root_file['test']
+        self.assertFalse('test' in self.root_file)
+        self.assertFalse('test/test' in self.root_file)
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'

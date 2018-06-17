@@ -27,13 +27,22 @@ def restrict_metadata_keys(fn):
 
 
 class AttributeManager(MutableMapping):
-    zarr_fname = '.zattributes'
-    n5_fname = 'attributes.json'
-    n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
+    """ Access custom user attributes
+
+    Manager to access custom user attributes. These attributes
+    will be saved as json in `attributes.json` for n5, `.zattributes` for zarr.
+    This class supports the default python dict api.
+
+    N5 stores the dataset attributes in the same file; these attributes are
+    NOT mutable via the AttributeManager.
+    """
+    _zarr_fname = '.zattributes'
+    _n5_fname = 'attributes.json'
+    _n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
 
     def __init__(self, path, is_zarr):
-        self.path = os.path.join(path, self.zarr_fname if is_zarr else self.n5_fname)
-        self.reserved_keys = frozenset() if is_zarr else self.n5_keys
+        self.path = os.path.join(path, self._zarr_fname if is_zarr else self._n5_fname)
+        self.reserved_keys = frozenset() if is_zarr else self._n5_keys
 
     def __getitem__(self, key):
         with self._open_attributes() as attributes:

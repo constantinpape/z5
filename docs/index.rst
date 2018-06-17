@@ -12,6 +12,7 @@ Welcome to z5py's documentation!
 
 .. automodule:: z5py
   :members:
+  :special-members: __getitem__, __setitem__
   :show-inheritance:
 
 

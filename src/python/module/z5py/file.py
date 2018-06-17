@@ -15,6 +15,8 @@ except ImportError:
 class File(Group):
     """ File to access zarr or n5 containers on disc.
 
+    Supports python dict api.
+
     The container corresponds to a directory on the filesystem.
     Group are subdirectories and datasets are subdirectories
     that contain multi-dimensional data stored in binary format.
@@ -25,14 +27,16 @@ class File(Group):
         mode (str): file mode used to open / create the file
     """
 
+    #: file extensions that are inferred as zarr file
     zarr_exts = {'.zarr', '.zr'}
+    #: file extensions that are inferred as n5 file
     n5_exts = {'.n5'}
 
     @classmethod
     def infer_format(cls, path):
-        """
-        Infer the file format from the path.
-        Return `True` for zarr, `False` for n5 and `None` if the format could not be infered.
+        """ Infer the file format from the file extension.
+
+            Returns: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
         """
         # if the path exists infer the format from the metadata
         if os.path.exists(path):
