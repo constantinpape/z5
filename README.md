@@ -1,4 +1,4 @@
-Travis (Ubuntu builds)
+Travis (Linux builds)
 ----------------------
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
 
@@ -95,27 +95,26 @@ baz = attributes['foo']
 ```
 
 There are convenience functions to convert n5 files to popular data formats.
-(TODO also zarr format, convert to from png, jpeg, tiff)
-
-So far, only h5 is supported.
+For now only hdf5 is supported.
+(TODO convert to from png, jpeg, tiff)
 
 ```python
 # convert existing h5 file to n5
 # this only works if h5py is available
-from z5py.converter import convert_h5_to_n5
+from z5py.converter import convert_from_h5
 
-h5_file = '/path/to/h5'
-n5_file = '/path/to/n5'
+h5_file = '/path/to/file.h5'
+n5_file = '/path/to/file.n5'
 h5_key = n5_key = 'data'
 target_chunks = (64, 64, 64)
 n_threads = 8
 
-convert_h5_to_n5(h5_file, n5_file,
-                 in_path_in_file=h5_key,
-                 out_path_in_file=n5_key,
-                 out_chunks=target_chunks,
-                 n_threads=n_threads,
-                 compression='gzip')
+convert_from_h5(h5_file, n5_file,
+                in_path_in_file=h5_key,
+                out_path_in_file=n5_key,
+                out_chunks=target_chunks,
+                n_threads=n_threads,
+                compression='gzip')
 ```
 
 ### C++
