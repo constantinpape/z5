@@ -8,7 +8,7 @@ from .file import File
 
 # ND blocking generator
 def blocking(shape, block_shape):
-    """ Generator for nd blocking
+    """ Generator for nd blocking.
     """
     if len(shape) != len(block_shape):
         raise RuntimeError("Invalid number of dimensions.")
@@ -31,26 +31,25 @@ def rechunk(in_path,
             dtype=None,
             use_zarr_format=None,
             **new_compression):
-    """ Copy and rechunk a dataset
+    """ Copy and rechunk a dataset.
 
-    Copy a given dataset and rechunk it.
+    The input dataset will be copied to the output dataset chunk by chunk.
     Allows to change datatype, file format and compression as well.
 
     Args:
-        in_path (str): path to the input file
-        out_path (str): path to the output file
-        in_path_in_file (str): name of input dataset
-        out_path_in_file (str): name of output dataset
-        out_chunks (tuple): chunks of the output dataset
-        n_threads (int): number of threads used for copying
+        in_path (str): path to the input file.
+        out_path (str): path to the output file.
+        in_path_in_file (str): name of input dataset.
+        out_path_in_file (str): name of output dataset.
+        out_chunks (tuple): chunks of the output dataset.
+        n_threads (int): number of threads used for copying.
         out_blocks (tuple): blocks used for copying. Must be a multiple
-                            of ``out_chunks``, which are used by default (default: None)
-        dtype (str): datatype of the output dataset, default does not change datatype (default: None)
+            of ``out_chunks``, which are used by default (default: None)
+        dtype (str): datatype of the output dataset, default does not change datatype (default: None).
         use_zarr_format (bool): file format of the output file,
-                                default does not change format (default: None)
-    Kwargs:
-        new_compression: compression library and options for output dataset. If not given,
-                         the same compression as in the input is used.
+            default does not change format (default: None).
+        **new_compression: compression library and options for output dataset. If not given,
+            the same compression as in the input is used.
 
     """
     f_in = File(in_path)

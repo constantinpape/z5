@@ -14,9 +14,9 @@ from .shape_utils import get_default_chunks, is_group
 class Dataset(object):
     """ Dataset for access to data on disc.
 
-    This class should not be instantiated directly, but rather
-    be created or opened via the ``create_dataset``, ``require_dataset`` or
-    ``[]`` operators of File or Group.
+    Should not be instantiated directly, but rather
+    be created or opened via ``create_dataset``, ``require_dataset`` or
+    the ``[]`` operator of File or Group.
     """
 
     _dtype_dict = {np.dtype('uint8'): 'uint8',
@@ -288,61 +288,61 @@ class Dataset(object):
 
     @property
     def is_zarr(self):
-        """ Returns true if this dataset is part of a zarr containerl, otherwise false
+        """ Flag to indicate zarr or n5 format of this dataset.
         """
         return self._impl.is_zarr
 
     @property
     def attrs(self):
-        """ The ``AttributeManager`` of this dataset
+        """ The ``AttributeManager`` of this dataset.
         """
         return self._attrs
 
     @property
     def shape(self):
-        """ Shape of this dataset
+        """ Shape of this dataset.
         """
         return tuple(self._impl.shape)
 
     @property
     def ndim(self):
-        """ Number of dimensions of this dataset
+        """ Number of dimensions of this dataset.
         """
         return self._impl.ndim
 
     @property
     def size(self):
-        """ Size / total number of elements of this dataset
+        """ Size (total number of elements) of this dataset.
         """
         return self._impl.size
 
     @property
     def chunks(self):
-        """ Chunks of this dataset
+        """ Chunks of this dataset.
         """
         return tuple(self._impl.chunks)
 
     @property
     def dtype(self):
-        """ Datatype of this dataset
+        """ Datatype of this dataset.
         """
         return np.dtype(self._impl.dtype)
 
     @property
     def chunks_per_dimension(self):
-        """ Number of chunks in each dimension of this dataset
+        """ Number of chunks in each dimension of this dataset.
         """
         return self._impl.chunks_per_dimension
 
     @property
     def number_of_chunks(self):
-        """ Number of chunks of this dataset
+        """ Total number of chunks of this dataset.
         """
         return self._impl.number_of_chunks
 
     @property
     def compression_options(self):
-        """ Options of the compression library of this dataset
+        """ Compression library options of this dataset.
         """
         return self._read_zarr_compression_options() if self._impl.is_zarr else \
             self._read_n5_compression_options()
@@ -351,17 +351,17 @@ class Dataset(object):
         return self._impl.len
 
     def index_to_roi(self, index):
-        """ Convert index to region of interest
+        """ Convert index to region of interest.
 
         Convert an index, which can be a slice or a tuple of slices / ellipsis to a
         region of interest. The roi consists of the region offset and the region shape.
 
         Args:
-            index (slice or tuple): index into dataset
+            index (slice or tuple): index into dataset.
 
         Returns:
-            roi_begin (tuple): offset of the region
-            roi_shape (tuple): shape of the region
+            tuple: offset of the region of interest.
+            tuple: shape of the region of interest.
         """
         type_msg = 'Advanced selection inappropriate. ' \
                    'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
@@ -448,42 +448,40 @@ class Dataset(object):
                        n_threads=self.n_threads)
 
     def find_minimum_coordinates(self, dim):
-        """ Find minimum coordinates of chunk with data.
+        """ Find coordinates of chunk with smallest coordinate along dimension.
 
-        Find the coordinates of the chunk with data which has the minumum
-        coordinate for the given dimension.
+        Only considers chunks that contain data.
 
         Args:
-            dim (int): query dimension
+            dim (int): query dimension.
         Returns:
-            tuple
+            tuple: start coordinates of the chunk.
         """
         return tuple(self._impl.findMinimumCoordinates(dim))
 
     def find_maximum_coordinates(self, dim):
-        """ Find maximum coordinates of chunk with data.
+        """ Find coordinates of chunk with largest coordinate along dimension.
 
-        Find the coordinates of the chunk with data which has the minumum
-        coordinate for the given dimension.
+        Only considers chunks that contain data.
 
         Args:
-            dim (int): query dimension
+            dim (int): query dimension.
         Returns:
-            tuple
+            tuple: start coordinates of the chunk.
         """
         return self._impl.findMaximumCoordinates(dim)
 
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
-        """ Write subarray to dataset
+        """ Write subarray to dataset.
 
-        Write given data to the dataset.
-        The specified roi must be in-bounds and the dataype
-        must accord with the dataset.
+        ``data`` is written to region of interest, defined by ``start``
+        and the shape of ``data``. The region of interest must be in
+        bounds of the dataset and the datatype must agree with the dataset.
 
         Args:
-            start (tuple): offset of the roi to write
-            data (np.ndarray): data to write; shape determines the roi shape
+            start (tuple): offset of the roi to write.
+            data (np.ndarray): data to write; shape determines the roi shape.
         """
         write_subarray(self._impl,
                        np.require(data, requirements='C'),
@@ -492,14 +490,14 @@ class Dataset(object):
 
     # expose the impl read subarray functionality
     def read_subarray(self, start, stop):
-        """ Read subarray of dataset
+        """ Read subarray from region of interest.
 
-        Read roi from dataset.
-        The specified roi must be in-bounds.
+        Region of interest is defined by ``start`` and ``stop``
+        and must be in bounds of the dataset.
 
         Args:
-            start (tuple): start coordinates of the roi to read
-            stop (tuple): stop coordinates of the roi to read
+            start (tuple): start coordinates of the roi.
+            stop (tuple): stop coordinates of the roi.
 
         Returns:
             np.ndarray
@@ -516,7 +514,7 @@ class Dataset(object):
         for the format of the dataset.
 
         Args:
-            array (np.ndarray): array to be converted to serialization
+            array (np.ndarray): array to be converted to serialization.
 
         Returns:
             np.ndarray
@@ -528,12 +526,12 @@ class Dataset(object):
         return convert_array_to_format(self._impl, np.require(array, requirements='C'))
 
     def chunk_exists(self, chunk_indices):
-        """ Check if chunk inidices exist
+        """ Check if chunk has data.
 
-        Check if the chunk for the given chunk indices is serialized on disc.
+        Check for the given indices if the chunk has data.
 
         Args:
-            chunk_indices (tuple): chunk indices
+            chunk_indices (tuple): chunk indices.
 
         Returns:
             bool

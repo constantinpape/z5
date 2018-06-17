@@ -14,8 +14,8 @@ __all__ = ['AttributeManager']
 
 
 def restrict_metadata_keys(fn):
-    """
-    Decorator for AttributeManager methods which checks that, if the manager is for N5, the key argument is not a
+    """ Decorator for AttributeManager methods which checks that,
+    if the manager is for N5, the key argument is not a
     reserved metadata name.
     """
     @wraps(fn)
@@ -27,12 +27,10 @@ def restrict_metadata_keys(fn):
 
 
 class AttributeManager(MutableMapping):
-    """ Access custom user attributes
+    """ Provides access to custom user attributes.
 
-    Manager to access custom user attributes. These attributes
-    will be saved as json in `attributes.json` for n5, `.zattributes` for zarr.
-    This class supports the default python dict api.
-
+    Attributes will be saved as json in `attributes.json` for n5, `.zattributes` for zarr.
+    Supports the default python dict api.
     N5 stores the dataset attributes in the same file; these attributes are
     NOT mutable via the AttributeManager.
     """

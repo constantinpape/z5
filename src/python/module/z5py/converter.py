@@ -26,24 +26,24 @@ if WITH_H5:
                       n_threads,
                       out_blocks=None,
                       **h5_kwargs):
-        """ Convert container to hdf5
+        """ Convert n5 ot zarr dataset to hdf5 dataset.
 
-        Convert n5 or zarr container to hdf5 container.
-        Chunks have to be specified. Datatype and compression can be specified,
-        otherwise defaults will be used.
+        The chunks of the output dataset must be spcified.
+        The dataset is converted to hdf5 in parallel over the chunks.
+        Note that hdf5 does not support parallel write access, so more threads
+        may not speed up the conversion.
+        Datatype and compression can be specified, otherwise defaults will be used.
 
         Args:
-            in_path (str): path to n5 or zarr file
-            out_path (str): path to output hdf5 file
-            in_path_in_file (str): name of input dataset
-            out_path_in_file (str): name of output dataset
-            out_chunks (tuple): chunks of output dataset
-            n_threads (int): number of threads used for converting
+            in_path (str): path to n5 or zarr file.
+            out_path (str): path to output hdf5 file.
+            in_path_in_file (str): name of input dataset.
+            out_path_in_file (str): name of output dataset.
+            out_chunks (tuple): chunks of output dataset.
+            n_threads (int): number of threads used for converting.
             out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
-                                If None, the chunk size will be used (default: None)
-
-        Kwargs:
-            h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression
+                If None, the chunk size will be used (default: None).
+            **h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
             raise RuntimeError("Path %s does not exist" % in_path)
@@ -86,27 +86,25 @@ if WITH_H5:
                         out_blocks=None,
                         use_zarr_format=None,
                         **z5_kwargs):
-        """ Convert hdf5 container to n5 or zarr
+        """ Convert hdf5 dataset to n5 or zarr dataset.
 
-        Convert hdf5 container to n5 or zarr container.
-        Chunks have to be specified. Datatype and compression can be specified,
-        otherwise defaults will be used.
+        The chunks of the output dataset must be spcified.
+        The dataset is converted in parallel over the chunks.
+        Datatype and compression can be specified, otherwise defaults will be used.
 
         Args:
-            in_path (str): path to n5 or zarr file
-            out_path (str): path to output hdf5 file
-            in_path_in_file (str): name of input dataset
-            out_path_in_file (str): name of output dataset
-            out_chunks (tuple): chunks of output dataset
-            n_threads (int): number of threads used for converting
+            in_path (str): path to hdf5 file.
+            out_path (str): path to output zarr or n5 file.
+            in_path_in_file (str): name of input dataset.
+            out_path_in_file (str): name of output dataset.
+            out_chunks (tuple): chunks of output dataset.
+            n_threads (int): number of threads used for converting.
             out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
-                                If None, the chunk size will be used (default: None)
-            use_zarr_format (bool): whether to use the zarr format. If None, an attempt will
-                                    be made to infer from file extension, otherwise zarr is used
-                                    (default: None)
-
-        Kwargs:
-            z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression
+                If None, the chunk size will be used (default: None).
+            use_zarr_format (bool): flag to indicate zarr format.
+                If None, an attempt will be made to infer the format from the file extension,
+                otherwise zarr will be used (default: None).
+            **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
             raise RuntimeError("Path %s does not exist" % in_path)

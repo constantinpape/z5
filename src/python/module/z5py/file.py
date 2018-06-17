@@ -15,16 +15,15 @@ except ImportError:
 class File(Group):
     """ File to access zarr or n5 containers on disc.
 
+    The container corresponds to a directory on the filesystem.
+    Groups are subdirectories and datasets are subdirectories
+    that contain multi-dimensional data stored in binary format.
     Supports python dict api.
 
-    The container corresponds to a directory on the filesystem.
-    Group are subdirectories and datasets are subdirectories
-    that contain multi-dimensional data stored in binary format.
-
     Args:
-        path (str): path on filesystem that holds the container
-        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None)
-        mode (str): file mode used to open / create the file
+        path (str): path on filesystem that holds the container.
+        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None).
+        mode (str): file mode used to open / create the file (default: 'a').
     """
 
     #: file extensions that are inferred as zarr file
@@ -36,7 +35,8 @@ class File(Group):
     def infer_format(cls, path):
         """ Infer the file format from the file extension.
 
-            Returns: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
+            Returns:
+                bool: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
         """
         # if the path exists infer the format from the metadata
         if os.path.exists(path):
@@ -133,8 +133,8 @@ class N5File(File):
     """ File to access n5 containers on disc.
 
     Args:
-        path (str): path on filesystem that holds the container
-        mode (str): file mode used to open / create the file
+        path (str): path on filesystem that holds the container.
+        mode (str): file mode used to open / create the file (default: 'a').
     """
 
     def __init__(self, path, mode='a'):
@@ -145,8 +145,8 @@ class ZarrFile(File):
     """ File to access zarr containers on disc.
 
     Args:
-        path (str): path on filesystem that holds the container
-        mode (str): file mode used to open / create the file
+        path (str): path on filesystem that holds the container.
+        mode (str): file mode used to open / create the file (default: 'a').
     """
 
     def __init__(self, path, mode='a'):
