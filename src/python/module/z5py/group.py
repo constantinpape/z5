@@ -1,4 +1,5 @@
 import os
+from shutil import rmtree
 
 try:
     from collections.abc import Mapping
@@ -14,6 +15,8 @@ from .shape_utils import is_group
 class Group(Mapping):
     """ Group object of z5py container.
 
+    Supports python dict api.
+
     This class should not be instantiated directly, but rather be created
     or opened via the `create_group`, `request_group` or `[]` operators
     of Group or File.
@@ -22,6 +25,8 @@ class Group(Mapping):
     # the python / h5py file modes and the corresponding internal types
     # as far as I can tell there is no difference between 'w-' and 'x',
     # so for now they get mapped to the same internal type
+
+    #: available modes for opening files. these correspond to the ``h5py`` file modes
     file_modes = {'a': FileMode.a, 'r': FileMode.r,
                   'r+': FileMode.r_p, 'w': FileMode.w,
                   'w-': FileMode.w_m, 'x': FileMode.w_m}
@@ -52,6 +57,12 @@ class Group(Mapping):
             counter += 1
         return counter
 
+    def __delitem__(self, name):
+        path_ = os.path.join(self.path, name)
+        if not os.path.exists(path_):
+            raise KeyError("%s does not exist" % name)
+        rmtree(path_)
+
     def __getitem__(self, name):
         """ Access group or dataset in the container.
 
@@ -62,7 +73,7 @@ class Group(Mapping):
             name (str): name of group or dataset in container
 
         Returns:
-            Group or Dataset
+            ``Group`` or ``Dataset``
         """
         path = os.path.join(self.path, name)
         if not os.path.isdir(path):
@@ -78,7 +89,7 @@ class Group(Mapping):
         """ Access additional attributes
 
         Returns:
-            AttributeManager
+            ``AttributeManager``
         """
         return self._attrs
 
