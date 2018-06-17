@@ -169,13 +169,13 @@ namespace z5 {
         virtual void dataToFormat(const void * data, std::vector<char> & format, const types::ShapeType & dataShape) const {
 
             // data size from the shape
-            size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
+            const size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
 
             // write header for N5
             if(!isZarr_) {
                 io_->writeHeader(dataShape, format);
             }
-
+            std::cout << format.size() << std::endl;;
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
@@ -188,13 +188,16 @@ namespace z5 {
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    format.insert(format.end(), (const char*) &dataTmp[0], (const char*) &dataTmp[0] + dataSize * sizeof(T));
+                    const size_t preSize = format.size();
+                    format.resize(preSize + dataTmp.size());
+                    memcpy(&format[preSize], &dataTmp[0], dataTmp.size());
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    std::vector<T> compressed;
+                    std::vector<char> compressed;
                     compressor_->compress(&dataTmp[0], compressed, dataSize);
-                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                    std::cout << compressed.size() << std::endl;
+                    format.insert(format.end(), compressed.begin(), compressed.end());
                 }
 
             } else {
@@ -204,15 +207,19 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    format.insert(format.end(), (const char *) data, (const char*) data + dataSize * sizeof(T));
+                    const size_t preSize = format.size();
+                    format.resize(preSize + dataSize * sizeof(T));
+                    memcpy(&format[preSize], (T*) data, dataSize * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    std::vector<T> compressed;
+                    std::vector<char> compressed;
                     compressor_->compress(static_cast<const T*>(data), compressed, dataSize);
-                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                    std::cout << compressed.size() << std::endl;
+                    format.insert(format.end(), compressed.begin(), compressed.end());
                 }
             }
+            std::cout << format.size() << std::endl;;
         }
 
         // TODO TODO
@@ -485,9 +492,9 @@ namespace z5 {
 
             // chunk writer
             if(isZarr_) {
-                io_.reset(new io::ChunkIoZarr<T>());
+                io_.reset(new io::ChunkIoZarr());
             } else {
-                io_.reset(new io::ChunkIoN5<T>(shape_, chunkShape_));
+                io_.reset(new io::ChunkIoN5(shape_, chunkShape_));
             }
 
             // get chunk specifications
@@ -496,9 +503,9 @@ namespace z5 {
                     shape_[d] / chunkShape_[d] + (shape_[d] % chunkShape_[d] == 0 ? 0 : 1)
                 );
             }
-            numberOfChunks_ = std::accumulate(
-                chunksPerDimension_.begin(), chunksPerDimension_.end(), 1, std::multiplies<size_t>()
-            );
+            numberOfChunks_ = std::accumulate(chunksPerDimension_.begin(),
+                                              chunksPerDimension_.end(),
+                                              1, std::multiplies<size_t>());
         }
 
 
@@ -512,12 +519,13 @@ namespace z5 {
 
             // get the correct chunk size and declare the out data
             const size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-            std::vector<T> dataOut;
+            std::vector<char> dataOut;
 
             // check if the chunk is empty (i.e. all fillvalue)
             // we need the remporary reference to capture in the lambda
             const auto & fillValue = fillValue_;
-            const bool isEmpty = std::all_of(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize,
+            const bool isEmpty = std::all_of(static_cast<const T*>(dataIn),
+                                             static_cast<const T*>(dataIn) + chunkSize,
                                              [fillValue](const T val){return val == fillValue;});
             // if we have data on disc for the chunk, delete it
             if(isEmpty) {
@@ -532,19 +540,20 @@ namespace z5 {
             if(sizeof(T) > 1 && !isZarr_) {
 
                 // copy the data and reverse endianness
-                std::vector<T> dataTmp(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize);
+                std::vector<T> dataTmp(static_cast<const T*>(dataIn),
+                                       static_cast<const T*>(dataIn) + chunkSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
 
                 // if we have raw compression (== no compression), we bypass the compression step
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, &dataTmp[0], dataTmp.size());
+                    io_->write(chunk, (const char *) &dataTmp[0], dataTmp.size() * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
                     compressor_->compress(&dataTmp[0], dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size());
+                    io_->write(chunk, &dataOut[0], dataOut.size() * sizeof(T));
                 }
 
             } else {
@@ -554,12 +563,12 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, (const T*) dataIn, chunkSize);
+                    io_->write(chunk, (const char*) dataIn, chunkSize * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
                     compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size());
+                    io_->write(chunk, &dataOut[0], dataOut.size() * sizeof(T));
                 }
             }
         }
@@ -571,8 +580,8 @@ namespace z5 {
             checkChunk(chunk);
 
             // read the data
-            std::vector<T> dataTmp;
-            auto chunkExists = io_->read(chunk, dataTmp);
+            std::vector<char> dataTmp;
+            const bool chunkExists = io_->read(chunk, dataTmp);
 
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
@@ -582,27 +591,26 @@ namespace z5 {
 
                 // we don't need to decompress for raw compression
                 if(compressor_->type() == 0) {
-                    // FIXME for some reason, we need to copy here
-                    // however, it turns out that the memcopys are orders of 
-                    // magnitude faster than anything else anyway
-                    std::copy(dataTmp.begin(), dataTmp.end(), static_cast<T*>(dataOut));
-                    //dataOut = &dataTmp[0];
+                    // mem-copy the binary data that was read to typed out data
+                    memcpy((T*) dataOut, &dataTmp[0], dataTmp.size());
                 } else {
                     compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
                 }
 
                 // reverse the endianness for N5 data
-                // TODO actually check that the file endianness is different than the system endianness
+                // TODO check that the file endianness is different than the system endianness
                 if(sizeof(T) > 1 && !isZarr_) { // we don't need to convert single bit numbers
-                    util::reverseEndiannessInplace<T>(
-                        static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize);
+                    util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
+                                                      static_cast<T*>(dataOut) + chunkSize);
                 }
 
             }
 
             else {
                 size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize, fillValue_);
+                std::fill(static_cast<T*>(dataOut),
+                          static_cast<T*>(dataOut) + chunkSize,
+                          fillValue_);
             }
         }
 
@@ -647,7 +655,7 @@ namespace z5 {
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 
         // unique prtr chunk writer
-        std::unique_ptr<io::ChunkIoBase<T>> io_;
+        std::unique_ptr<io::ChunkIoBase> io_;
 
         // flag to store whether the chunks are in zarr or n5 encoding
         bool isZarr_;

@@ -19,13 +19,13 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
 
             // resize the out data
             dataOut.clear();
             // the output buffer must be 1% + 600 bytes larger than the input
-            size_t outSize = sizeIn + static_cast<size_t>(0.01 * static_cast<float>(sizeIn));
-            outSize += (600 / sizeof(T));
+            size_t outSize = sizeof(T) * (sizeIn + static_cast<size_t>(0.01 * static_cast<float>(sizeIn)));
+            outSize += 600;
             dataOut.resize(outSize);
 
             // low - level API
@@ -42,9 +42,9 @@ namespace compression {
             // set the stream in-pointer to the input data and the input size
             // to the size of the input in bytes
             bzs.next_in = (char*) dataIn;
-            bzs.next_out = (char*) &dataOut[0];
+            bzs.next_out = &dataOut[0];
             bzs.avail_in = sizeIn * sizeof(T);
-            bzs.avail_out = outSize * sizeof(T);
+            bzs.avail_out = outSize;
 
             int ret = BZ2_bzCompress(&bzs, BZ_FINISH);
             BZ2_bzCompressEnd(&bzs);
@@ -56,13 +56,12 @@ namespace compression {
     		}
 
             // resize the output data
-            const size_t avail = bzs.avail_out / sizeof(T);
-            outSize -= avail;
+            outSize -= bzs.avail_out;;
             dataOut.resize(outSize);
         }
 
 
-        void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
 
             // create the bzip2 stream
             bz_stream bzs;
@@ -80,10 +79,10 @@ namespace compression {
             }
 
             // set the stream input to the beginning of the input data
-            bzs.next_in = (char*) &dataIn[0];
+            bzs.next_in = (char *) &dataIn[0];
             bzs.next_out = reinterpret_cast<char *>(dataOut);
 
-            bzs.avail_in = dataIn.size() * sizeof(T);
+            bzs.avail_in = dataIn.size();
             bzs.avail_out = sizeOut * sizeof(T);
 
             int ret = BZ2_bzDecompress(&bzs);

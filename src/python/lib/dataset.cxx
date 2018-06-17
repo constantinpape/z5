@@ -47,6 +47,7 @@ namespace z5 {
                                                         const xt::pyarray<T> & in) {
         xt::pytensor<char, 1> out = xt::zeros<char>({1});
         multiarray::convertArrayToFormat<T>(ds, in, out);
+        std::cout << out.size() << std::endl;
         return out;
     }
 

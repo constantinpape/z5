@@ -14,12 +14,12 @@ namespace compression {
         }
 
         // dummy implementation, this should never be called !
-        void compress(const T *, std::vector<T> &, size_t) const {
+        void compress(const T *, std::vector<char> &, size_t) const {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 
         // dummy implementation, this should never be called !
-        void decompress(const std::vector<T> &, T *, size_t) const {
+        void decompress(const std::vector<char> &, T *, size_t) const {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 
