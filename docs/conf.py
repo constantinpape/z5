@@ -12,9 +12,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import mock
+import sys
+z5py_path = os.path.join('..', 'src', 'python', 'module')
+sys.path.insert(0, z5py_path)
+
+
+# Include a mock `_z5py` module to enable importing the
+# z5py module
+sys.modules['z5py._z5py'] = mock.Mock()
 
 
 # -- Project information -----------------------------------------------------
@@ -24,9 +31,9 @@ copyright = '2018, Constantin Pape'
 author = 'Constantin Pape'
 
 # The short X.Y version
-version = ''
+version = '1.0'
 # The full version, including alpha/beta/rc tags
-release = '1.0'
+release = ''
 
 
 # -- General configuration ---------------------------------------------------
@@ -42,6 +49,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
+    'sphinx.ext.autodoc'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

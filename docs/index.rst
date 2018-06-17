@@ -10,6 +10,9 @@ Welcome to z5py's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+.. automodule:: z5py
+  :members:
+  :show-inheritance:
 
 
 Indices and tables
