@@ -9,7 +9,7 @@ try:
     import h5py
     WITH_H5 = True
 except ImportError:
-    print("h5py is not installed, conversions to h5 are not possible")
+    print("h5py is not installed, hdf5 converters not available")
     WITH_H5 = False
 
 from .file import File
@@ -18,21 +18,40 @@ from .util import blocking
 
 if WITH_H5:
 
-    def convert_n5_to_h5(in_path,
-                         out_path,
-                         in_path_in_file,
-                         out_path_in_file,
-                         out_chunks,
-                         n_threads,
-                         out_blocks=None,
-                         **h5_kwargs):
+    def convert_to_h5(in_path,
+                      out_path,
+                      in_path_in_file,
+                      out_path_in_file,
+                      out_chunks,
+                      n_threads,
+                      out_blocks=None,
+                      **h5_kwargs):
+        """ Convert container to hdf5
+
+        Convert n5 or zarr container to hdf5 container.
+        Chunks have to be specified. Datatype and compression can be specified,
+        otherwise defaults will be used.
+
+        Args:
+            in_path (str): path to n5 or zarr file
+            out_path (str): path to output hdf5 file
+            in_path_in_file (str): name of input dataset
+            out_path_in_file (str): name of output dataset
+            out_chunks (tuple): chunks of output dataset
+            n_threads (int): number of threads used for converting
+            out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
+                                If None, the chunk size will be used (default: None)
+
+        Kwargs:
+            h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression
+        """
         if not os.path.exists(in_path):
             raise RuntimeError("Path %s does not exist" % in_path)
-        f_n5 = File(in_path, use_zarr_format=False)
-        ds_n5 = f_n5[in_path_in_file]
-        shape = ds_n5.shape
+        f_z5 = File(in_path)
+        ds_z5 = f_z5[in_path_in_file]
+        shape = ds_z5.shape
         # modify h5 arguments
-        out_dtype = h5_kwargs.pop('dtype', ds_n5.dtype)
+        out_dtype = h5_kwargs.pop('dtype', ds_z5.dtype)
         if out_blocks is None:
             out_blocks = out_chunks
 
@@ -45,7 +64,7 @@ if WITH_H5:
 
             def convert_chunk(bb):
                 # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
-                ds_h5[bb] = ds_n5[bb].astype(out_dtype, copy=False)
+                ds_h5[bb] = ds_z5[bb].astype(out_dtype, copy=False)
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
@@ -54,41 +73,64 @@ if WITH_H5:
 
             # copy attributes
             h5_attrs = ds_h5.attrs
-            n5_attrs = ds_n5.attrs
-            for key, val in n5_attrs.items():
+            z5_attrs = ds_z5.attrs
+            for key, val in z5_attrs.items():
                 h5_attrs[key] = val
 
-    def convert_h5_to_n5(in_path,
-                         out_path,
-                         in_path_in_file,
-                         out_path_in_file,
-                         out_chunks,
-                         n_threads,
-                         out_blocks=None,
-                         **n5_kwargs):
+    def convert_from_h5(in_path,
+                        out_path,
+                        in_path_in_file,
+                        out_path_in_file,
+                        out_chunks,
+                        n_threads,
+                        out_blocks=None,
+                        use_zarr_format=None,
+                        **z5_kwargs):
+        """ Convert hdf5 container to n5 or zarr
+
+        Convert hdf5 container to n5 or zarr container.
+        Chunks have to be specified. Datatype and compression can be specified,
+        otherwise defaults will be used.
+
+        Args:
+            in_path (str): path to n5 or zarr file
+            out_path (str): path to output hdf5 file
+            in_path_in_file (str): name of input dataset
+            out_path_in_file (str): name of output dataset
+            out_chunks (tuple): chunks of output dataset
+            n_threads (int): number of threads used for converting
+            out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
+                                If None, the chunk size will be used (default: None)
+            use_zarr_format (bool): whether to use the zarr format. If None, an attempt will
+                                    be made to infer from file extension, otherwise zarr is used
+                                    (default: None)
+
+        Kwargs:
+            z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression
+        """
         if not os.path.exists(in_path):
             raise RuntimeError("Path %s does not exist" % in_path)
         if out_blocks is None:
             out_blocks = out_chunks
 
-        f_n5 = File(out_path, use_zarr_format=False)
+        f_z5 = File(out_path, use_zarr_format=use_zarr_format)
         with h5py.File(in_path, 'r') as f_h5:
             ds_h5 = f_h5[in_path_in_file]
             shape = ds_h5.shape
 
-            # modify n5 arguments
-            out_dtype = n5_kwargs.pop('dtype', ds_h5.dtype)
-            if 'compression' not in n5_kwargs:
-                n5_kwargs['compression'] = 'raw'
-            ds_n5 = f_n5.create_dataset(out_path_in_file,
+            # modify z5 arguments
+            out_dtype = z5_kwargs.pop('dtype', ds_h5.dtype)
+            if 'compression' not in z5_kwargs:
+                z5_kwargs['compression'] = 'raw'
+            ds_z5 = f_z5.create_dataset(out_path_in_file,
                                         dtype=out_dtype,
                                         shape=shape,
                                         chunks=out_chunks,
-                                        **n5_kwargs)
+                                        **z5_kwargs)
 
             def convert_chunk(bb):
                 # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
-                ds_n5[bb] = ds_h5[bb].astype(out_dtype, copy=False)
+                ds_z5[bb] = ds_h5[bb].astype(out_dtype, copy=False)
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
@@ -97,6 +139,6 @@ if WITH_H5:
 
             # copy attributes
             h5_attrs = ds_h5.attrs
-            n5_attrs = ds_n5.attrs
+            z5_attrs = ds_z5.attrs
             for key, val in h5_attrs.items():
-                n5_attrs[key] = val
+                z5_attrs[key] = val

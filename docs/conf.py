@@ -24,7 +24,7 @@ sys.path.insert(0, z5py_path)
 sys.modules['z5py._z5py'] = mock.Mock()
 
 # import more dependencies
-externals = ['numpy', 'concurrent.futures', 'h5py']
+externals = ['numpy', 'concurrent', 'concurrent.futures', 'h5py']
 for dep in externals:
     sys.modules[dep] = mock.Mock()
 
