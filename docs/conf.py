@@ -23,6 +23,11 @@ sys.path.insert(0, z5py_path)
 # z5py module
 sys.modules['z5py._z5py'] = mock.Mock()
 
+# import more dependencies
+externals = ['numpy']
+for dep in externals:
+    sys.modules[dep] = mock.Mock()
+
 
 # -- Project information -----------------------------------------------------
 
