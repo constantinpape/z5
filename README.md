@@ -58,7 +58,7 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Linked datasets (`my_file['new_ds'] = my_file['old_ds']`) are not supported
 - Broadcasting is only supported for scalars in `Dataset.__setitem__`
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
-- Compatibility of exception handling is a goal, but not necessarily a guarantee
+- Compatibility of exception handling is a goal, but not necessarily a guaranteed.
 
 Some examples:
 
@@ -94,9 +94,8 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-There are convenience functions to convert n5 files to popular data formats.
-For now only hdf5 is supported.
-(TODO convert to from png, jpeg, tiff)
+There are convenience functions to convert n5 and zarr files to and from hdf5.
+Additional data formats will follow.
 
 ```python
 # convert existing h5 file to n5
