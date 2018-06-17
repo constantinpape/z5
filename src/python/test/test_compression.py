@@ -46,7 +46,7 @@ class CompressionTestMixin(object):
                 # generate random data scaled to the range of the current datatype
                 min_val, max_val = self.dtype_min_max(dtype)
                 in_array = np.random.rand(*self.shape).astype(dtype)
-                np.multiply(in_array, max_val + abs(min_val), casting='unsafe')
+                np.multiply(in_array, max_val, casting='unsafe')
                 in_array += min_val
 
                 ds = f.create_dataset(ds_name,
@@ -101,7 +101,7 @@ class CompressionTestMixin(object):
             # generate random data scaled to the range of the current datatype
             min_val, max_val = self.dtype_min_max(dtype)
             in_array = np.random.rand(*shape).astype(dtype)
-            np.multiply(in_array, max_val + abs(min_val), casting='unsafe')
+            np.multiply(in_array, max_val, casting='unsafe')
             in_array += min_val
 
             ds[:] = in_array
