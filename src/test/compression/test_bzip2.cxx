@@ -24,7 +24,6 @@ namespace compression {
 
         ASSERT_TRUE(dataOut.size() < SIZE);
         std::cout << "Compression Int: " << dataOut.size() << " / " << SIZE << std::endl;
-
     }
 
 
@@ -40,7 +39,6 @@ namespace compression {
 
         ASSERT_TRUE(dataOut.size() < SIZE);
         std::cout << "Compression Float: " << dataOut.size() << " / " << SIZE << std::endl;
-
     }
 
 
@@ -79,7 +77,6 @@ namespace compression {
         for(size_t i = 0; i < SIZE; ++i) {
             ASSERT_EQ(dataTmp[i], dataFloat_[i]);
         }
-
     }
 
 }

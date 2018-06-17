@@ -47,12 +47,12 @@ class Dataset(object):
     # FIXME bzip compression is broken
 
     #: Compression libraries supported by zarr format
-    compressors_zarr = ['raw', 'blosc', 'zlib']  # , 'bzip2']
+    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2']
     #: Default compression for zarr format
     zarr_default_compressor = 'blosc'
 
     #: Compression libraries supported by n5 format
-    compressors_n5 = ['raw', 'gzip']  # , 'bzip2']
+    compressors_n5 = ['raw', 'gzip', 'bzip2']
     #: Default compression for n5 format
     n5_default_compressor = 'gzip'
 
