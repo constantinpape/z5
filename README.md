@@ -1,4 +1,4 @@
-Travis (Ubuntu builds)
+Travis (Linux builds)
 ----------------------
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
 
@@ -58,7 +58,7 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Linked datasets (`my_file['new_ds'] = my_file['old_ds']`) are not supported
 - Broadcasting is only supported for scalars in `Dataset.__setitem__`
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
-- Compatibility of exception handling is a goal, but not necessarily a guarantee
+- Compatibility of exception handling is a goal, but not necessarily a guaranteed.
 
 Some examples:
 
@@ -94,28 +94,26 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-There are convenience functions to convert n5 files to popular data formats.
-(TODO also zarr format, convert to from png, jpeg, tiff)
-
-So far, only h5 is supported.
+There are convenience functions to convert n5 and zarr files to and from hdf5.
+Additional data formats will follow.
 
 ```python
 # convert existing h5 file to n5
 # this only works if h5py is available
-from z5py.converter import convert_h5_to_n5
+from z5py.converter import convert_from_h5
 
-h5_file = '/path/to/h5'
-n5_file = '/path/to/n5'
+h5_file = '/path/to/file.h5'
+n5_file = '/path/to/file.n5'
 h5_key = n5_key = 'data'
 target_chunks = (64, 64, 64)
 n_threads = 8
 
-convert_h5_to_n5(h5_file, n5_file,
-                 in_path_in_file=h5_key,
-                 out_path_in_file=n5_key,
-                 out_chunks=target_chunks,
-                 n_threads=n_threads,
-                 compression='gzip')
+convert_from_h5(h5_file, n5_file,
+                in_path_in_file=h5_key,
+                out_path_in_file=n5_key,
+                out_chunks=target_chunks,
+                n_threads=n_threads,
+                compression='gzip')
 ```
 
 ### C++
