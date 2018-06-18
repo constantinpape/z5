@@ -33,7 +33,7 @@ before_script:
   # - conda install -c psi4 gcc-5
   - conda install -c conda-forge xtensor=0.15.1
   - conda install -c conda-forge xtensor-python
-  - conda install -c conda-forge boost c-blosc zlib bzip2
+  - conda install -c conda-forge boost c-blosc zlib bzip2 xz
   - conda install -c anaconda cmake
   - conda install six
 
@@ -61,6 +61,7 @@ script:
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
           -DWITH_BZIP2=ON
+          -DWITH_XZ=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
 
 
