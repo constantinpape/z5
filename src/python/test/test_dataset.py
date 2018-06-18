@@ -240,7 +240,7 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
 
     @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
     def test_ds_array_to_format(self):
-        for dtype in self.dtypes:
+        for dtype in self.base_dtypes:
             ds = self.root_file.create_dataset('data_%s' % hash(dtype),
                                                dtype=dtype,
                                                shape=self.shape,

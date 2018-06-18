@@ -175,7 +175,6 @@ namespace z5 {
             if(!isZarr_) {
                 io_->writeHeader(dataShape, format);
             }
-            std::cout << format.size() << std::endl;;
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
@@ -196,7 +195,6 @@ namespace z5 {
                 else {
                     std::vector<char> compressed;
                     compressor_->compress(&dataTmp[0], compressed, dataSize);
-                    std::cout << compressed.size() << std::endl;
                     format.insert(format.end(), compressed.begin(), compressed.end());
                 }
 
@@ -215,11 +213,9 @@ namespace z5 {
                 else {
                     std::vector<char> compressed;
                     compressor_->compress(static_cast<const T*>(data), compressed, dataSize);
-                    std::cout << compressed.size() << std::endl;
                     format.insert(format.end(), compressed.begin(), compressed.end());
                 }
             }
-            std::cout << format.size() << std::endl;;
         }
 
         // TODO TODO
@@ -553,7 +549,7 @@ namespace z5 {
                 // otherwise, we compress the data and then write to file
                 else {
                     compressor_->compress(&dataTmp[0], dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size() * sizeof(T));
+                    io_->write(chunk, &dataOut[0], dataOut.size());
                 }
 
             } else {
@@ -568,7 +564,7 @@ namespace z5 {
                 // otherwise, we compress the data and then write to file
                 else {
                     compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size() * sizeof(T));
+                    io_->write(chunk, &dataOut[0], dataOut.size());
                 }
             }
         }
