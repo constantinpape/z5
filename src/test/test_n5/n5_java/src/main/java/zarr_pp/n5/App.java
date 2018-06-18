@@ -40,6 +40,8 @@ public class App {
     static private String longSetGzip = "array_long_gzip.n5";
     static private String floatSetGzip = "array_float_gzip.n5";
     static private String doubleSetGzip = "array_double_gzip.n5";
+
+    // TODO tests for bzip2 and xz
         
     static byte[] byteBlock;
     static short[] shortBlock;
@@ -69,67 +71,8 @@ public class App {
             longBlock[i] = 42;
             floatBlock[i]  = 42;
             doubleBlock[i] = 42;
-            // TODO would be better to create random values, but it's a pain to get
-            // them to c++ consistently
-            //byteBlock[i] = (byte) rnd.nextInt();
-            //shortBlock[i] = (short) rnd.nextInt();
-            //intBlock[i] = rnd.nextInt();
-            //longBlock[i] = rnd.nextLong();
-            //floatBlock[i] = Float.intBitsToFloat(rnd.nextInt());
-            //doubleBlock[i] = Double.longBitsToDouble(rnd.nextLong());
         }
         
-        //// write it to a save to read format
-        //// byte
-        //final String byteName = "../n5_test_data/byte_data.in";
-        //BufferedWriter byteWriter = null;
-        //byteWriter = new BufferedWriter(new FileWriter(byteName));
-        //for(int i = 0; i < byteBlock.length; i++) {
-        //    byteWriter.write(Byte.toString(byteBlock[i]));
-        //    byteWriter.newLine();
-        //}
-        //// short
-        //final String shortName = "../n5_test_data/short_data.in";
-        //BufferedWriter shortWriter = null;
-        //shortWriter = new BufferedWriter(new FileWriter(shortName));
-        //for(int i = 0; i < shortBlock.length; i++) {
-        //    shortWriter.write(Short.toString(shortBlock[i]));
-        //    shortWriter.newLine();
-        //}
-        //// int
-        //final String intName = "../n5_test_data/int_data.in";
-        //BufferedWriter intWriter = null;
-        //intWriter = new BufferedWriter(new FileWriter(intName));
-        //for(int i = 0; i < intBlock.length; i++) {
-        //    intWriter.write(Integer.toString(intBlock[i]));
-        //    intWriter.newLine();
-        //}
-        //// long
-        //final String longName = "../n5_test_data/long_data.in";
-        //BufferedWriter longWriter = null;
-        //longWriter = new BufferedWriter(new FileWriter(longName));
-        //for(int i = 0; i < longBlock.length; i++) {
-        //    longWriter.write(Long.toString(longBlock[i]));
-        //    longWriter.newLine();
-        //}
-        //// float
-        //final String floatName = "../n5_test_data/float_data.in";
-        //BufferedWriter floatWriter = null;
-        //floatWriter = new BufferedWriter(new FileWriter(floatName));
-        //for(int i = 0; i < floatBlock.length; i++) {
-        //    floatWriter.write(Float.toString(floatBlock[i]));
-        //    floatWriter.newLine();
-        //}
-        //// double
-        //final String doubleName = "double_data.in";
-        //BufferedWriter doubleWriter = null;
-        //doubleWriter = new BufferedWriter(new FileWriter(doubleName));
-        //for(int i = 0; i < doubleBlock.length; i++) {
-        //    doubleWriter.write(Double.toString(doubleBlock[i]));
-        //    doubleWriter.newLine();
-        //}
-
-
         // byte set
         n5.createDataset(byteSetRaw, dimensions, blockSize, DataType.INT8, CompressionType.RAW);
         final DatasetAttributes attrsByte = n5.getDatasetAttributes(byteSetRaw);
