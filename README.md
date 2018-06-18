@@ -16,7 +16,8 @@ Offers support for the following compression codecs:
 - Blosc (https://github.com/Blosc/c-blosc)
 - Zlib / Gzip (https://zlib.net/)
 - Bzip2 (http://www.bzip.org/)
-- TODO: XY, LZ4, LZMA
+- XZ (https://tukaani.org/xz/)
+- LZ4 (https://github.com/lz4/lz4)
 
 ## Installation
 
