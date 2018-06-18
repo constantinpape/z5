@@ -39,6 +39,8 @@ class CompressionTestMixin(object):
         f = self.root_file
         compressions = Dataset.compressors_n5 if self.data_format == 'n5' else\
             Dataset.compressors_zarr
+
+        # iterate over the compression libraries
         for compression in compressions:
             for dtype in self.dtypes:
 

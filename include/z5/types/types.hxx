@@ -273,7 +273,10 @@ namespace types {
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: options["level"] = static_cast<int>(jOpts["blockSize"]);
+            case bzip2: options["level"] = static_cast<int>(jOpts["blockSize"]); break;
+            #endif
+            #ifdef WITH_XZ
+            case xz: options["level"] = static_cast<int>(jOpts["preset"]); break;
             #endif
             // raw compression has no parameters
             default: break;

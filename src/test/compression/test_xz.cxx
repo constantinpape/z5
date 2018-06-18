@@ -61,13 +61,12 @@ namespace compression {
     }
 
 
-    /*
-    TEST_F(CompressionTest, BzipDecompressFloat) {
+    TEST_F(CompressionTest, XzDecompressFloat) {
 
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressionOptions["level"] = 5;
-        Bzip2Compressor<float> compressor(metadata);
+        XzCompressor<float> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
@@ -79,7 +78,6 @@ namespace compression {
             ASSERT_EQ(dataTmp[i], dataFloat_[i]);
         }
     }
-    */
 
 }
 }
