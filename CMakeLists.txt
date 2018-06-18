@@ -39,6 +39,8 @@ add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
 option(WITH_BZIP2 ON)
+option(WITH_XZ ON)
+
 # marray multiarray
 option(WITH_MARRAY OFF)
 
@@ -128,6 +130,13 @@ if(WITH_BZIP2)
     include_directories(BZIP2_INCLUDE_DIRS)
     add_definitions(-DWITH_BZIP2)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BZIP2_LIBRARIES}")
+endif()
+
+if(WITH_XZ)
+    find_package(LibLZMA REQUIRED)
+    include_directories(LIBLZMA_INCLUDE_DIRS)
+    add_definitions(-DWITH_XZ)
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LIBLZMA_LIBRARIES}")
 endif()
 
 

@@ -37,7 +37,7 @@ namespace compression {
             // intermediate output buffer
             // size set to 256 kb, which is recommended in the zlib usage example:
             // http://www.gzip.org/zlib/zlib_how.html/
-            size_t bufferSize = 262144 * sizeof(T);
+            const size_t bufferSize = 262144;
             std::vector<Bytef> outbuffer(bufferSize);
 
             // init the zlib or gzip stream
@@ -63,9 +63,8 @@ namespace compression {
 
             // let zlib compress the bytes blockwise
             int ret;
-            //size_t currentPosition = 0;
             size_t prevOutBytes = 0;
-            size_t bytesCompressed, endPosition;
+            size_t bytesCompressed;
             do {
                 // set the stream out-pointer to the current position of the out-data
                 // and set the available out size to the remaining size in the vector not written at
@@ -117,7 +116,6 @@ namespace compression {
             // let zlib decompress the bytes blockwise
             int ret;
             size_t currentPosition = 0;
-            size_t currentLength;
             do {
                 // set the stream outout to the output dat at the current position
                 // and set the available size to the remaining bytes in the output data
