@@ -160,6 +160,6 @@ namespace compression {
     };
 
 } // namespace compression
-} // namespace zarr
+} // namespace z5
 
 #endif
