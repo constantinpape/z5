@@ -62,8 +62,8 @@ script:
           -DWITH_ZLIB=ON
           -DWITH_BZIP2=ON
           -DWITH_XZ=ON
-          # -DWITH_LZ4=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
+          # -DWITH_LZ4=ON
 
 
   ###############################################
