@@ -35,7 +35,6 @@ def set_up():
 
 def benchmark_writing_speed(data):
     n_blocks = 5
-    n_reps = 1
 
     shape = 3 * (n_blocks * 64,)
     chunks = 3 * (64,)
@@ -51,15 +50,14 @@ def benchmark_writing_speed(data):
                       j*64:(j + 1)*64,
                       k*64:(k + 1)*64] = data
 
-    for n in range(n_reps):
-        for compression in compression_methods:
-            t0 = time.time()
-            ds = f.create_dataset('ds_%s' % compression, shape=shape,
-                                  chunks=chunks, compression='gzip', dtype='uint8')
-            ds[:] = bdata
-            t1 = time.time()
-            t_diff = t1 - t0
-            print("%i : %s : %f s" % (n, compression, t_diff))
+    for compression in compression_methods:
+        t0 = time.time()
+        ds = f.create_dataset('ds_%s' % compression, shape=shape,
+                              chunks=chunks, compression=compression, dtype='uint8')
+        ds[:] = bdata
+        t1 = time.time()
+        t_diff = t1 - t0
+        print("%i : %s : %f s" % (1, compression, t_diff))
 
 
 def benchmark_parallel_writing_speed(data):
@@ -86,7 +84,7 @@ def benchmark_parallel_writing_speed(data):
 
             t0 = time.time()
             ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
-                                  chunks=chunks, compression='gzip', dtype='uint8',
+                                  chunks=chunks, compression=compression, dtype='uint8',
                                   n_threads=n_threads)
             ds[:] = bdata
 
