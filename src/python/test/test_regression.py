@@ -20,7 +20,7 @@ except ImportError:
 
 
 @add_metaclass(ABCMeta)
-class CompressionTestMixin(object):
+class RegressionTestMixin(object):
     @classmethod
     def setUpClass(cls):
         im_url = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
@@ -36,7 +36,7 @@ class CompressionTestMixin(object):
     def setUp(self):
         self.root_file = z5py.File('array.' + self.data_format)
         self.chunks = (64,) * 3
-        self.n_reps = 5
+        self.n_reps = 10
 
     def tearDown(self):
         try:
@@ -72,16 +72,20 @@ class CompressionTestMixin(object):
 
 
 # TODO might need to adjust values for travis
-class TestN5Compression(CompressionTestMixin, unittest.TestCase):
+class TestN5Regression(RegressionTestMixin, unittest.TestCase):
     data_format = 'n5'
-    compressions_read = {'raw': 0.0055, 'gzip': 0.085}
-    compressions_write = {'raw': 0.0085, 'gzip': 0.55}
+    # initial notebook values
+    # compressions_read = {'raw': 0.0055, 'gzip': 0.085}
+    # compressions_write = {'raw': 0.0085, 'gzip': 0.55}
+    # more lenient values for travis
+    compressions_read = {'raw': 0.01, 'gzip': 0.15}
+    compressions_write = {'raw': 0.015, 'gzip': 0.75}
 
 
-class TestZarrCompression(CompressionTestMixin, unittest.TestCase):
+class TestZarrRegression(RegressionTestMixin, unittest.TestCase):
     data_format = 'zarr'
-    compressions_read = {'raw': 0.0065, 'zlib': 0.15}
-    compressions_write = {'raw': 0.015, 'zlib': 0.55}
+    compressions_read = {'raw': 0.015, 'zlib': 0.15}
+    compressions_write = {'raw': 0.02, 'zlib': 0.75}
 
 
 if __name__ == '__main__':
