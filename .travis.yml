@@ -15,7 +15,7 @@ before_script:
   # get gcc 5
   - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
   - sudo apt-get --allow-unauthenticated update
-  - sudo apt-get -y install gcc-5 g++-5
+  - sudo apt-get --allow-unauthenticated -y install gcc-5 g++-5
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5
   # TODO conda 2 for python 2.7
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
