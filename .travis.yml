@@ -34,6 +34,7 @@ before_script:
   - conda install -c conda-forge xtensor=0.15.1
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2 xz
+  - conda install -c conda-forge scikit-image
   - conda install -c anaconda cmake
   - conda install six
 
