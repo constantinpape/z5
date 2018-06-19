@@ -2,10 +2,8 @@ import os
 import zipfile
 import time
 
-from concurrent import futures
 from subprocess import call
 from shutil import rmtree
-# from imageio import imread
 from skimage import io
 
 import numpy as np
@@ -45,17 +43,20 @@ def benchmark_writing_speed(data):
     compression_methods = Dataset.compressors_n5
     f = z5py.File(os.path.join(BENCH_DIR, 'f1.n5'))
 
+    bdata = np.zeros(shape, dtype='uint8')
+    for i in range(n_blocks):
+        for j in range(n_blocks):
+            for k in range(n_blocks):
+                bdata[i*64:(i + 1)*64,
+                      j*64:(j + 1)*64,
+                      k*64:(k + 1)*64] = data
+
     for n in range(n_reps):
         for compression in compression_methods:
             t0 = time.time()
             ds = f.create_dataset('ds_%s' % compression, shape=shape,
                                   chunks=chunks, compression='gzip', dtype='uint8')
-            for i in range(n_blocks):
-                for j in range(n_blocks):
-                    for k in range(n_blocks):
-                        ds[i*64:(i + 1)*64,
-                           j*64:(j + 1)*64,
-                           k*64:(k + 1)*64] = data
+            ds[:] = bdata
             t1 = time.time()
             t_diff = t1 - t0
             print("%i : %s : %f s" % (n, compression, t_diff))
@@ -70,6 +71,14 @@ def benchmark_parallel_writing_speed(data):
     compression_methods = Dataset.compressors_n5
     f = z5py.File(os.path.join(BENCH_DIR, 'f2.n5'))
 
+    bdata = np.zeros(shape, dtype='uint8')
+    for i in range(n_blocks):
+        for j in range(n_blocks):
+            for k in range(n_blocks):
+                bdata[i*64:(i + 1)*64,
+                      j*64:(j + 1)*64,
+                      k*64:(k + 1)*64] = data
+
     for n_threads in range(1, 9):
         n_threads *= 2
         print(n_threads, 'threads.')
@@ -77,17 +86,9 @@ def benchmark_parallel_writing_speed(data):
 
             t0 = time.time()
             ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
-                                  chunks=chunks, compression='gzip', dtype='uint8')
-
-            def write_chunk(i, j, k):
-                ds[i*64:(i + 1)*64,
-                   j*64:(j + 1)*64,
-                   k*64:(k + 1)*64] = data
-
-            with futures.ThreadPoolExecutor(n_threads) as tp:
-                tasks = [tp.submit(write_chunk, i, j, k) for i in range(n_blocks)
-                         for j in range(n_blocks) for k in range(n_blocks)]
-                [t.result() for t in tasks]
+                                  chunks=chunks, compression='gzip', dtype='uint8',
+                                  n_threads=n_threads)
+            ds[:] = bdata
 
             t1 = time.time()
             t_diff = t1 - t0
