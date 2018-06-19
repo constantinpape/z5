@@ -15,15 +15,14 @@ namespace fs = boost::filesystem;
 namespace z5 {
 namespace io {
 
-    template<typename T>
-    class ChunkIoZarr : public ChunkIoBase<T> {
+    class ChunkIoZarr : public ChunkIoBase {
 
     public:
 
         ChunkIoZarr() {
         }
 
-        inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
+        inline bool read(const handle::Chunk & chunk, std::vector<char> & data) const {
 
             // if the chunk exists, we read it
             if(chunk.exists()) {
@@ -33,15 +32,14 @@ namespace io {
                 // open input stream and read the filesize
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 file.seekg(0, std::ios::end);
-                size_t fileSize = file.tellg();
+                const size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
 
                 // resize the data vector
-                size_t vectorSize = fileSize / sizeof(T) + (fileSize % sizeof(T) == 0 ? 0 : sizeof(T));
-                data.resize(vectorSize);
+                data.resize(fileSize);
 
                 // read the file
-                file.read((char*) &data[0], fileSize);
+                file.read(&data[0], fileSize);
                 file.close();
 
                 // return true, because we have read an existing chunk
@@ -53,11 +51,11 @@ namespace io {
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const T * data, const size_t chunkSize) const {
+        inline void write(const handle::Chunk & chunk, const char * data, const size_t fileSize) const {
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
-            file.write((char*) data, chunkSize * sizeof(T));
+            file.write(data, fileSize);
             file.close();
         }
 

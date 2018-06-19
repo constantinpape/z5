@@ -24,7 +24,7 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<T> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
 
             // open the zlib stream
             z_stream zs;
@@ -32,13 +32,13 @@ namespace compression {
 
             // resize the out data to input size
             dataOut.clear();
-            dataOut.reserve(sizeIn);
+            dataOut.reserve(sizeIn * sizeof(T));
 
             // intermediate output buffer
             // size set to 256 kb, which is recommended in the zlib usage example:
             // http://www.gzip.org/zlib/zlib_how.html/
-            size_t bufferSize = 262144;
-            std::vector<T> outbuffer(bufferSize);
+            const size_t bufferSize = 262144;
+            std::vector<Bytef> outbuffer(bufferSize);
 
             // init the zlib or gzip stream
             // note that the gzip format fails for very small input sizes (<= 22)
@@ -63,26 +63,22 @@ namespace compression {
 
             // let zlib compress the bytes blockwise
             int ret;
-            //size_t currentPosition = 0;
             size_t prevOutBytes = 0;
-            size_t bytesCompressed, endPosition;
+            size_t bytesCompressed;
             do {
                 // set the stream out-pointer to the current position of the out-data
                 // and set the available out size to the remaining size in the vector not written at
 
-                zs.next_out = (Bytef*) &outbuffer[0];
-                zs.avail_out = outbuffer.size() * sizeof(T);
+                zs.next_out = &outbuffer[0];
+                zs.avail_out = outbuffer.size();
 
                 ret = deflate(&zs, Z_FINISH);
                 bytesCompressed = zs.total_out - prevOutBytes;
                 prevOutBytes = zs.total_out;
 
-                // FIXME this is probably slow.... we could do float division instead and then
-                // cast back ?!
-                endPosition = bytesCompressed / sizeof(T) + bytesCompressed % sizeof(T);
                 dataOut.insert(dataOut.end(),
                                outbuffer.begin(),
-                               outbuffer.begin() + endPosition);
+                               outbuffer.begin() + bytesCompressed);
 
             } while(ret == Z_OK);
 
@@ -97,7 +93,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<T> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
 
             // open the zlib stream
             z_stream zs;
@@ -115,12 +111,11 @@ namespace compression {
 
             // set the stream input to the beginning of the input data
             zs.next_in = (Bytef*) &dataIn[0];
-            zs.avail_in = dataIn.size() * sizeof(T);
+            zs.avail_in = dataIn.size();
 
             // let zlib decompress the bytes blockwise
             int ret;
             size_t currentPosition = 0;
-            size_t currentLength;
             do {
                 // set the stream outout to the output dat at the current position
                 // and set the available size to the remaining bytes in the output data
@@ -165,6 +160,6 @@ namespace compression {
     };
 
 } // namespace compression
-} // namespace zarr
+} // namespace z5
 
 #endif

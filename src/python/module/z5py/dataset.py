@@ -44,15 +44,15 @@ class Dataset(object):
     # TODO for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
-    # FIXME bzip compression is broken
 
     #: Compression libraries supported by zarr format
     compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2']
     #: Default compression for zarr format
     zarr_default_compressor = 'blosc'
 
+    # TODO support blosc in n5
     #: Compression libraries supported by n5 format
-    compressors_n5 = ['raw', 'gzip', 'bzip2']
+    compressors_n5 = ['raw', 'gzip', 'bzip2', 'xz', 'lz4']
     #: Default compression for n5 format
     n5_default_compressor = 'gzip'
 
@@ -104,12 +104,6 @@ class Dataset(object):
     @staticmethod
     def _to_n5_compression_options(compression, compression_options):
         opts = {}
-        # TODO blosc in n5
-        # if compression == 'blosc':
-        #     opts['type'] = 'blosc'
-        #     opts['codec'] = compression_options['codec']
-        #     opts['level'] = compression_options['level']
-        #     opts['shuffle'] = compression_options['shuffle']
         if compression == 'gzip':
             opts['type'] = 'gzip'
             opts['level'] = compression_options.get('level', 5)
@@ -118,6 +112,18 @@ class Dataset(object):
             opts['blockSize'] = compression_options.get('level', 5)
         elif compression == 'raw':
             opts['type'] = 'raw'
+        elif compression == 'xz':
+            opts['type'] = 'xz'
+            opts['preset'] = compression_options.get('level', 6)
+        elif compression == 'lz4':
+            opts['type'] = 'lz4'
+            opts['blockSize'] = compression_options.get('level', 6)
+        # TODO blosc in n5
+        # elif compression == 'blosc':
+        #     opts['type'] = 'blosc'
+        #     opts['codec'] = compression_options['codec']
+        #     opts['level'] = compression_options['level']
+        #     opts['shuffle'] = compression_options['shuffle']
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
         return opts
@@ -140,15 +146,21 @@ class Dataset(object):
         elif ctype == 'gzip':
             opts['compression'] = 'gzip'
             opts['level'] = n5_opts['compression']['level'] if new_compression else 5
-        elif ctype['compression'] == 'bzip2':
+        elif ctype == 'bzip2':
             opts['compression'] = 'bzip2'
             opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 5
+        elif ctype == 'xz':
+            opts['compression'] = 'xz'
+            opts['level'] = n5_opts['compression']['preset'] if new_compression else 6
+        elif ctype == 'lz4':
+            opts['compression'] = 'lz4'
+            opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 6
         # TODO blosc in n5
-        elif n5_opts['id'] == 'blosc':
-            opts['compression'] = 'blosc'
-            opts['level'] = n5_opts['clevel']
-            opts['shuffle'] = n5_opts['shuffle']
-            opts['codec'] = n5_opts['cname']
+        # elif n5_opts['id'] == 'blosc':
+        #     opts['compression'] = 'blosc'
+        #     opts['level'] = n5_opts['clevel']
+        #     opts['shuffle'] = n5_opts['shuffle']
+        #     opts['codec'] = n5_opts['cname']
         return opts
 
     @staticmethod

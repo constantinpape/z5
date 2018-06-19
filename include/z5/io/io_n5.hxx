@@ -23,8 +23,7 @@ namespace io {
     // in a streambuffer for boost::iostreams
     //
 
-    template<typename T>
-    class ChunkIoN5 : public ChunkIoBase<T> {
+    class ChunkIoN5 : public ChunkIoBase {
 
     public:
 
@@ -32,7 +31,7 @@ namespace io {
             shape_(shape), chunkShape_(chunkShape){
         }
 
-        inline bool read(const handle::Chunk & chunk, std::vector<T> & data) const {
+        inline bool read(const handle::Chunk & chunk, std::vector<char> & data) const {
 
             // if the chunk exists, we read it
             if(chunk.exists()) {
@@ -42,14 +41,13 @@ namespace io {
                 // open input stream and read the header
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 types::ShapeType chunkShape;
-                size_t fileSize = readHeader(file, chunkShape);
+                const size_t fileSize = readHeader(file, chunkShape);
 
                 // resize the data vector
-                size_t vectorSize = fileSize / sizeof(T) + (fileSize % sizeof(T) == 0 ? 0 : sizeof(T));
-                data.resize(vectorSize);
+                data.resize(fileSize);
 
                 // read the file
-                file.read((char*) &data[0], fileSize);
+                file.read(&data[0], fileSize);
                 file.close();
 
                 // return true, because we have read an existing chunk
@@ -62,7 +60,7 @@ namespace io {
         }
 
 
-        inline void write(const handle::Chunk & chunk, const T * data, const size_t chunkSize) const {
+        inline void write(const handle::Chunk & chunk, const char * data, const size_t fileSize) const {
             // create the parent folder
             chunk.createTopDir();
             // this might speed up the I/O by decoupling C++ buffers from C buffers
@@ -70,7 +68,7 @@ namespace io {
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file);
-            file.write((char*) data, chunkSize * sizeof(T));
+            file.write(data, fileSize);
             file.close();
         }
 
@@ -327,10 +325,14 @@ namespace io {
         // TODO allow for reading the mode
         inline size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
 
+            /// keep track of the header length
+            size_t headerLen = 0;
+
             // read the mode
             uint16_t mode;
             file.read((char *) &mode, 2);
             util::reverseEndiannessInplace(mode);
+            headerLen += 2;
 
             // TODO support varlength mode
             if(mode != 0) {
@@ -341,6 +343,7 @@ namespace io {
             uint16_t nDims;
             file.read((char *) &nDims, 2);
             util::reverseEndiannessInplace(nDims);
+            headerLen += 2;
 
             // read tempory shape with uint32 entries
             std::vector<uint32_t> shapeTmp(nDims);
@@ -348,6 +351,7 @@ namespace io {
                 file.read((char *) &shapeTmp[d], 4);
             }
             util::reverseEndiannessInplace<uint32_t>(shapeTmp.begin(), shapeTmp.end());
+            headerLen += 4 * nDims;
 
             // N5-Axis order: we need to reverse the chunk shape read from the header
             std::reverse(shapeTmp.begin(), shapeTmp.end());
@@ -356,10 +360,19 @@ namespace io {
             shape.resize(nDims);
             std::copy(shapeTmp.begin(), shapeTmp.end(), shape.begin());
 
-            // TODO need to read the actual size if we allow for varlength mode
-            // calculate the file size
-            size_t fileSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
-            return fileSize * sizeof(T);
+            // TODO support varlen
+            // if(mode != 0) {
+            //     headerLen += ;
+            // }
+
+            // get the file length in byte (need to substract header len)
+            file.seekg(0, std::ios::end);
+            const size_t fileSize = static_cast<size_t>(file.tellg()) - headerLen;
+
+            // move file back to the end of the header
+            file.seekg(headerLen);
+
+            return fileSize;
         }
 
         inline void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {

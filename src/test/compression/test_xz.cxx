@@ -2,7 +2,7 @@
 
 #include <random>
 
-#include "z5/compression/bzip2_compressor.hxx"
+#include "z5/compression/xz_compressor.hxx"
 #include "z5/metadata.hxx"
 
 #include "test_helper.hxx"
@@ -12,12 +12,12 @@ namespace z5 {
 namespace compression {
 
 
-    TEST_F(CompressionTest, BzipCompressInt) {
+    TEST_F(CompressionTest, XzCompressInt) {
 
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressionOptions["level"] = 5;
-        Bzip2Compressor<int> compressor(metadata);
+        XzCompressor<int> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -27,12 +27,12 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, BzipCompressFloat) {
+    TEST_F(CompressionTest, XzCompressFloat) {
 
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressionOptions["level"] = 5;
-        Bzip2Compressor<float> compressor(metadata);
+        XzCompressor<float> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
@@ -42,12 +42,12 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, BzipDecompressInt) {
+    TEST_F(CompressionTest, XzDecompressInt) {
 
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressionOptions["level"] = 5;
-        Bzip2Compressor<int> compressor(metadata);
+        XzCompressor<int> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
@@ -61,12 +61,12 @@ namespace compression {
     }
 
 
-    TEST_F(CompressionTest, BzipDecompressFloat) {
+    TEST_F(CompressionTest, XzDecompressFloat) {
 
         // Test compression with default values
         DatasetMetadata metadata;
         metadata.compressionOptions["level"] = 5;
-        Bzip2Compressor<float> compressor(metadata);
+        XzCompressor<float> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);

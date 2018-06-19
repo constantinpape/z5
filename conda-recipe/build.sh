@@ -49,6 +49,7 @@ cmake .. \
         -DWITH_BLOSC=ON \
         -DWITH_ZLIB=ON \
         -DWITH_BZIP2=ON \
+        -DWITH_XZ=ON \
 \
         -DPYTHON_EXECUTABLE=${PYTHON} \
         -DPYTHON_LIBRARY=${PREFIX}/lib/libpython${PY_ABI}.${DYLIB} \
