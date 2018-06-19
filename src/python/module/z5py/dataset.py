@@ -52,7 +52,7 @@ class Dataset(object):
 
     # TODO support blosc in n5
     #: Compression libraries supported by n5 format
-    compressors_n5 = ['raw', 'gzip', 'bzip2', 'xz']
+    compressors_n5 = ['raw', 'gzip', 'bzip2', 'xz', 'lz4']
     #: Default compression for n5 format
     n5_default_compressor = 'gzip'
 
@@ -115,6 +115,9 @@ class Dataset(object):
         elif compression == 'xz':
             opts['type'] = 'xz'
             opts['preset'] = compression_options.get('level', 6)
+        elif compression == 'lz4':
+            opts['type'] = 'lz4'
+            opts['blockSize'] = compression_options.get('level', 6)
         # TODO blosc in n5
         # elif compression == 'blosc':
         #     opts['type'] = 'blosc'
@@ -149,6 +152,9 @@ class Dataset(object):
         elif ctype == 'xz':
             opts['compression'] = 'xz'
             opts['level'] = n5_opts['compression']['preset'] if new_compression else 6
+        elif ctype == 'lz4':
+            opts['compression'] = 'lz4'
+            opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 6
         # TODO blosc in n5
         # elif n5_opts['id'] == 'blosc':
         #     opts['compression'] = 'blosc'

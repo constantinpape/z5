@@ -13,6 +13,7 @@
 #include "z5/compression/zlib_compressor.hxx"
 #include "z5/compression/bzip2_compressor.hxx"
 #include "z5/compression/xz_compressor.hxx"
+#include "z5/compression/lz4_compressor.hxx"
 
 // different io backends
 #include "z5/io/io_zarr.hxx"
@@ -488,6 +489,10 @@ namespace z5 {
                 #ifdef WITH_XZ
                 case types::xz:
                     compressor_.reset(new compression::XzCompressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_LZ4
+                case types::lz4:
+                    compressor_.reset(new compression::Lz4Compressor<T>(metadata)); break;
                 #endif
             }
 

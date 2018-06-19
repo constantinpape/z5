@@ -40,6 +40,7 @@ option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
 option(WITH_BZIP2 ON)
 option(WITH_XZ ON)
+option(WITH_LZ4 ON)
 
 # marray multiarray
 option(WITH_MARRAY OFF)
@@ -137,6 +138,13 @@ if(WITH_XZ)
     include_directories(LIBLZMA_INCLUDE_DIRS)
     add_definitions(-DWITH_XZ)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LIBLZMA_LIBRARIES}")
+endif()
+
+if(WITH_LZ4)
+    find_package(LZ4 REQUIRED)
+    include_directories(LZ4_INCLUDE_DIR)
+    add_definitions(-DWITH_LZ4)
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
 endif()
 
 

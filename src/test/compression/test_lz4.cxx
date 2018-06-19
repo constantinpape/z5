@@ -27,7 +27,6 @@ namespace compression {
     }
 
 
-    /*
     TEST_F(CompressionTest, Lz4CompressFloat) {
 
         // Test compression with default values
@@ -38,8 +37,9 @@ namespace compression {
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
         std::cout << "Compression Float: " << dataOut.size() / sizeof(float) << " / " << SIZE << std::endl;
+        // FIXME float compression does not compress properly
+        // ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
     }
 
 
@@ -71,7 +71,8 @@ namespace compression {
 
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
-        ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
+        // FIXME float compression does not compress properly
+        // ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
 
         float dataTmp[SIZE];
         compressor.decompress(dataOut, dataTmp, SIZE);
@@ -79,7 +80,6 @@ namespace compression {
             ASSERT_EQ(dataTmp[i], dataFloat_[i]);
         }
     }
-    */
 
 }
 }

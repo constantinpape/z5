@@ -25,3 +25,9 @@ if(WITH_XZ)
     add_executable(test_xz test_xz.cxx)
     target_link_libraries(test_xz ${TEST_LIBS} ${LIBLZMA_LIBRARIES})
 endif()
+
+# add lz4 tests
+if(WITH_LZ4)
+    add_executable(test_lz4 test_lz4.cxx)
+    target_link_libraries(test_lz4 ${TEST_LIBS} ${LZ4_LIBRARY})
+endif()

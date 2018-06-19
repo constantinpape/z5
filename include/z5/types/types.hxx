@@ -167,7 +167,10 @@ namespace types {
                 {"bzip2", bzip2},
                 #endif
                 #ifdef WITH_XZ
-                {"xz", xz}
+                {"xz", xz},
+                #endif
+                #ifdef WITH_LZ4
+                {"lz4", lz4}
                 #endif
             }});
             return cMap;
@@ -183,7 +186,10 @@ namespace types {
                 {bzip2, "bzip2"},
                 #endif
                 #ifdef WITH_XZ
-                {xz, "xz"}
+                {xz, "xz"},
+                #endif
+                #ifdef WITH_LZ4
+                {lz4, "lz4"}
                 #endif
             }});
             return cMap;
@@ -278,6 +284,9 @@ namespace types {
             #ifdef WITH_XZ
             case xz: options["level"] = static_cast<int>(jOpts["preset"]); break;
             #endif
+            #ifdef WITH_LZ4
+            case lz4: options["level"] = static_cast<int>(jOpts["blockSize"]); break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
@@ -308,6 +317,12 @@ namespace types {
             #ifdef WITH_BZIP2
             case bzip2: jOpts["blockSize"] = boost::any_cast<int>(options.at("level"));
                         break;
+            #endif
+            #ifdef WITH_XZ
+            case xz: jOpts["preset"] = boost::any_cast<int>(options.at("level")); break;
+            #endif
+            #ifdef WITH_LZ4
+            case lz4: jOpts["blockSize"] = boost::any_cast<int>(options.at("level")); break;
             #endif
             // raw compression has no parameters
             default: break;
