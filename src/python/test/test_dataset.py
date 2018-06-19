@@ -230,6 +230,16 @@ class DatasetTestMixin(object):
         ds[bb] = 0
         self.assertFalse(os.path.exists(chunk_path))
 
+    def test_invalid_options(self):
+        with self.assertRaises(RuntimeError):
+            self.root_file.create_dataset('test1', shape=self.shape, dtype='float32',
+                                          chunks=(10, 10, 10), compression='raw',
+                                          level=5)
+        with self.assertRaises(RuntimeError):
+            self.root_file.create_dataset('test2', shape=self.shape, dtype='float32',
+                                          chunks=(10, 10, 10), compression='bzip2',
+                                          level=5, blub='blob')
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'

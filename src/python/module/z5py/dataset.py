@@ -64,23 +64,29 @@ class Dataset(object):
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
-        opts = {}
         if compression == 'blosc':
-            opts['id'] = 'blosc'
-            opts['cname'] = compression_options.get('codec', 'lz4')
-            opts['clevel'] = compression_options.get('level', 5)
-            opts['shuffle'] = compression_options.get('shuffle', 1)
+            default_opts = {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1}
         elif compression == 'zlib':
-            opts['id'] = 'zlib'
-            opts['level'] = compression_options.get('level', 5)
+            default_opts = {'id': 'zlib', 'level': 5}
         elif compression == 'bzip2':
-            opts['id'] = 'bzip2'
-            opts['level'] = compression_options.get('level', 5)
+            default_opts = {'id': 'bzip2', 'level': 5}
         elif compression == 'raw':
-            opts = None
+            default_opts = {}
         else:
             raise RuntimeError("Compression %s is not supported in zarr format" % compression)
-        return opts
+
+        # check for invalid options
+        extra_args = set(compression_options) - set(default_opts)
+        if extra_args:
+            raise RuntimeError("Invalid options for %s compression: %s" % (compression, ' '.join(list(extra_args))))
+
+        # return none for raw compression
+        if not default_opts:
+            return None
+
+        # update the default options
+        default_opts.update(compression_options)
+        return default_opts
 
     def _read_zarr_compression_options(self):
         opts = {}
@@ -103,30 +109,41 @@ class Dataset(object):
 
     @staticmethod
     def _to_n5_compression_options(compression, compression_options):
-        opts = {}
         if compression == 'gzip':
-            opts['type'] = 'gzip'
-            opts['level'] = compression_options.get('level', 5)
+            default_opts = {'type': 'gzip', 'level': 5}
+            level_key = None  # for several compressors, we need to change the parameter key
         elif compression == 'bzip2':
-            opts['type'] = 'bzip2'
-            opts['blockSize'] = compression_options.get('level', 5)
+            default_opts = {'type': 'bzip2', 'level': 5}
+            level_key = 'blockSize'
         elif compression == 'raw':
-            opts['type'] = 'raw'
+            default_opts = {'type': 'raw'}
+            level_key = None
         elif compression == 'xz':
-            opts['type'] = 'xz'
-            opts['preset'] = compression_options.get('level', 6)
+            default_opts = {'type': 'xz', 'level': 6}
+            level_key = 'preset'
         elif compression == 'lz4':
-            opts['type'] = 'lz4'
-            opts['blockSize'] = compression_options.get('level', 6)
+            default_opts = {'type': 'lz4', 'level': 6}
+            level_key = 'blockSize'
         # TODO blosc in n5
         # elif compression == 'blosc':
-        #     opts['type'] = 'blosc'
-        #     opts['codec'] = compression_options['codec']
-        #     opts['level'] = compression_options['level']
-        #     opts['shuffle'] = compression_options['shuffle']
+        #    default_otps = {'type': 'blosc', 'codec': 'lz4', 'level': 5, 'shuffle': 1}
+        #    level_key = None
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
-        return opts
+
+        # check for invalid options
+        extra_args = set(compression_options) - set(default_opts)
+        if extra_args:
+            raise RuntimeError("Invalid options for %s compression: %s" % (compression, ' '.join(list(extra_args))))
+
+        # update the default options
+        default_opts.update(compression_options)
+
+        # rectify the level option for compressions which have a key different than level
+        if level_key is not None:
+            default_opts[level_key] = default_opts.pop('level')
+
+        return default_opts
 
     def _read_n5_compression_options(self):
         opts = {}
