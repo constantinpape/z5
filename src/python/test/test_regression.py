@@ -78,7 +78,7 @@ class TestN5Regression(RegressionTestMixin, unittest.TestCase):
     # compressions_read = {'raw': 0.0055, 'gzip': 0.085}
     # compressions_write = {'raw': 0.0085, 'gzip': 0.55}
     # more lenient values for travis
-    compressions_read = {'raw': 0.01, 'gzip': 0.15}
+    compressions_read = {'raw': 0.015, 'gzip': 0.15}
     compressions_write = {'raw': 0.015, 'gzip': 0.75}
 
 
