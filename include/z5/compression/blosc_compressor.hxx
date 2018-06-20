@@ -17,9 +17,9 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
 
-            const size_t sizeOut = sizeIn * sizeof(T) + BLOSC_MAX_OVERHEAD;
+            const std::size_t sizeOut = sizeIn * sizeof(T) + BLOSC_MAX_OVERHEAD;
             dataOut.clear();
             dataOut.resize(sizeOut);
 
@@ -43,7 +43,7 @@ namespace compression {
             dataOut.resize(sizeCompressed + BLOSC_MAX_OVERHEAD);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
 
             // decompress the data
             int sizeDecompressed = blosc_decompress_ctx(

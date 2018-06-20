@@ -58,29 +58,29 @@ namespace z5 {
             types::ShapeType &) const = 0;
 
         // find chunk index of coordinate
-        virtual size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
+        virtual std::size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
         // get offset of chunk
 
         // size and shape of an actual chunk
-        virtual size_t getChunkSize(const types::ShapeType &) const = 0;
+        virtual std::size_t getChunkSize(const types::ShapeType &) const = 0;
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
-        virtual size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
+        virtual std::size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
         virtual void getChunkOffset(const types::ShapeType &, types::ShapeType &) const = 0;
 
         // maximal chunk size and shape
-        virtual size_t maxChunkSize() const = 0;
+        virtual std::size_t maxChunkSize() const = 0;
         virtual const types::ShapeType & maxChunkShape() const = 0;
-        virtual size_t maxChunkShape(const unsigned) const = 0;
+        virtual std::size_t maxChunkShape(const unsigned) const = 0;
 
         // shapes and dimension
         virtual unsigned dimension() const = 0;
         virtual const types::ShapeType & shape() const = 0;
-        virtual size_t shape(const unsigned) const = 0;
-        virtual size_t size() const = 0;
+        virtual std::size_t shape(const unsigned) const = 0;
+        virtual std::size_t size() const = 0;
 
-        virtual size_t numberOfChunks() const = 0;
+        virtual std::size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
-        virtual size_t chunksPerDimension(const unsigned) const = 0;
+        virtual std::size_t chunksPerDimension(const unsigned) const = 0;
 
         // dtype and compression options
         virtual types::Datatype getDtype() const = 0;
@@ -171,7 +171,7 @@ namespace z5 {
         virtual void dataToFormat(const void * data, std::vector<char> & format, const types::ShapeType & dataShape) const {
 
             // data size from the shape
-            const size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
+            const std::size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<std::size_t>());
 
             // write header for N5
             if(!isZarr_) {
@@ -189,7 +189,7 @@ namespace z5 {
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    const size_t preSize = format.size();
+                    const std::size_t preSize = format.size();
                     format.resize(preSize + dataTmp.size());
                     memcpy(&format[preSize], &dataTmp[0], dataTmp.size());
                 }
@@ -207,7 +207,7 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    const size_t preSize = format.size();
+                    const std::size_t preSize = format.size();
                     format.resize(preSize + dataSize * sizeof(T));
                     memcpy(&format[preSize], (T*) data, dataSize * sizeof(T));
                 }
@@ -255,11 +255,11 @@ namespace z5 {
             const types::ShapeType & shape,
             std::vector<types::ShapeType> & chunkRequests) const {
 
-            size_t nDim = offset.size();
+            std::size_t nDim = offset.size();
             // iterate over the dimension and find the min and max chunk ids
             types::ShapeType minChunkIds(nDim);
             types::ShapeType maxChunkIds(nDim);
-            size_t endCoordinate, endId;
+            std::size_t endCoordinate, endId;
             for(int d = 0; d < nDim; ++d) {
                 // integer division is ok for both min and max-id, because
                 // the chunk is labeled by it's lowest coordinate
@@ -288,7 +288,7 @@ namespace z5 {
             getChunkShape(chunkId, chunkShape);
 
             bool completeOvlp = true;
-            size_t chunkBegin, chunkEnd, requestEnd;
+            std::size_t chunkBegin, chunkEnd, requestEnd;
             int offDiff, endDiff;
             for(int d = 0; d < offset.size(); ++d) {
 
@@ -343,7 +343,7 @@ namespace z5 {
         }
 
         // get individual chunk shape from indices
-        virtual size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+        virtual std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkShape(chunk, dim);
         }
@@ -360,12 +360,12 @@ namespace z5 {
         }
 
         // get individual chunk shape from handle
-        inline size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
+        inline std::size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
             // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
             if(isZarr_) {
                 return maxChunkShape(dim);
             } else {
-                std::vector<size_t> tmpShape;
+                std::vector<std::size_t> tmpShape;
                 getChunkShape(chunk, tmpShape);
                 return tmpShape[dim];
             }
@@ -378,14 +378,14 @@ namespace z5 {
             }
         }
 
-        inline size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
+        inline std::size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
             chunkId.resize(shape_.size());
             for(unsigned dim = 0; dim < shape_.size(); ++dim) {
                chunkId[dim] = coordinate[dim] / chunkShape_[dim];
             }
         }
 
-        virtual size_t getChunkSize(const types::ShapeType & chunkId) const {
+        virtual std::size_t getChunkSize(const types::ShapeType & chunkId) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkSize(chunk);
         }
@@ -393,16 +393,16 @@ namespace z5 {
         // shapes and dimension
         virtual unsigned dimension() const {return shape_.size();}
         virtual const types::ShapeType & shape() const {return shape_;}
-        virtual size_t shape(const unsigned d) const {return shape_[d];}
+        virtual std::size_t shape(const unsigned d) const {return shape_[d];}
         virtual const types::ShapeType & maxChunkShape() const {return chunkShape_;}
-        virtual size_t maxChunkShape(const unsigned d) const {return chunkShape_[d];}
+        virtual std::size_t maxChunkShape(const unsigned d) const {return chunkShape_[d];}
 
-        virtual size_t numberOfChunks() const {return numberOfChunks_;}
+        virtual std::size_t numberOfChunks() const {return numberOfChunks_;}
         virtual const types::ShapeType & chunksPerDimension() const {return chunksPerDimension_;}
-        virtual size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
-        virtual size_t maxChunkSize() const {return chunkSize_;}
-        virtual size_t size() const {
-            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<size_t>());
+        virtual std::size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
+        virtual std::size_t maxChunkSize() const {return chunkSize_;}
+        virtual std::size_t size() const {
+            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
         }
 
         // datatype, format and handle
@@ -466,7 +466,7 @@ namespace z5 {
             chunkShape_ = metadata.chunkShape;
 
             chunkSize_ = std::accumulate(
-                chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
+                chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>()
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
 
@@ -504,14 +504,14 @@ namespace z5 {
             }
 
             // get chunk specifications
-            for(size_t d = 0; d < shape_.size(); ++d) {
+            for(std::size_t d = 0; d < shape_.size(); ++d) {
                 chunksPerDimension_.push_back(
                     shape_[d] / chunkShape_[d] + (shape_[d] % chunkShape_[d] == 0 ? 0 : 1)
                 );
             }
             numberOfChunks_ = std::accumulate(chunksPerDimension_.begin(),
                                               chunksPerDimension_.end(),
-                                              1, std::multiplies<size_t>());
+                                              1, std::multiplies<std::size_t>());
         }
 
 
@@ -524,7 +524,7 @@ namespace z5 {
             checkChunk(chunk);
 
             // get the correct chunk size and declare the out data
-            const size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+            const std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
             std::vector<char> dataOut;
 
             // check if the chunk is empty (i.e. all fillvalue)
@@ -593,7 +593,7 @@ namespace z5 {
             // otherwise we return the chunk with fill value
             if(chunkExists) {
 
-                size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
 
                 // we don't need to decompress for raw compression
                 if(compressor_->type() == 0) {
@@ -613,7 +613,7 @@ namespace z5 {
             }
 
             else {
-                size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
                 std::fill(static_cast<T*>(dataOut),
                           static_cast<T*>(dataOut) + chunkSize,
                           fillValue_);
@@ -638,14 +638,14 @@ namespace z5 {
         }
 
 
-        inline size_t getChunkSize(const handle::Chunk & chunk) const {
+        inline std::size_t getChunkSize(const handle::Chunk & chunk) const {
             // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
             if(isZarr_) {
                 return maxChunkSize();
             } else {
-                std::vector<size_t> tmpShape;
+                std::vector<std::size_t> tmpShape;
                 getChunkShape(chunk, tmpShape);
-                return std::accumulate(tmpShape.begin(), tmpShape.end(), 1, std::multiplies<size_t>());
+                return std::accumulate(tmpShape.begin(), tmpShape.end(), 1, std::multiplies<std::size_t>());
             }
         }
 
@@ -673,11 +673,11 @@ namespace z5 {
         // the chunk-shape of the arrays
         types::ShapeType chunkShape_;
         // the chunk size and the chunk size in bytes
-        size_t chunkSize_;
+        std::size_t chunkSize_;
         // the fill value
         T fillValue_;
         // the number of chunks and chunks per dimension
-        size_t numberOfChunks_;
+        std::size_t numberOfChunks_;
         types::ShapeType chunksPerDimension_;
     };
 

@@ -53,13 +53,13 @@ namespace multiarray {
     }
 
 
-    inline size_t offsetAndStridesFromRoi(const types::ShapeType & outStrides,
+    inline std::size_t offsetAndStridesFromRoi(const types::ShapeType & outStrides,
                                           const types::ShapeType & requestShape,
                                           const types::ShapeType & offsetInRequest,
                                           types::ShapeType & requestStrides) {
         // first, calculate the flat offset
         // -> sum( coordinate_offset * out_strides )
-        size_t flatOffset = 1;
+        std::size_t flatOffset = 1;
         for(int d = 0; d < outStrides.size(); ++d) {
             flatOffset += (outStrides[d] * offsetInRequest[d]);
         }
@@ -68,7 +68,7 @@ namespace multiarray {
         // next, calculate the new strides
         requestStrides.resize(requestShape.size());
         for(int d = 0; d < requestShape.size(); ++d) {
-            requestStrides[d] = std::accumulate(requestShape.rbegin(), requestShape.rbegin() + d, 1, std::multiplies<size_t>());
+            requestStrides[d] = std::accumulate(requestShape.rbegin(), requestShape.rbegin() + d, 1, std::multiplies<std::size_t>());
         }
         std::reverse(requestStrides.begin(), requestStrides.end());
 
@@ -81,17 +81,17 @@ namespace multiarray {
                                    xt::xexpression<VIEW> & viewExperession,
                                    const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
-        const size_t dim = view.dimension();
-        size_t bufferOffset = 0;
-        size_t viewOffset = 0;
+        const std::size_t dim = view.dimension();
+        std::size_t bufferOffset = 0;
+        std::size_t viewOffset = 0;
         types::ShapeType dimPositions(dim);
-        const size_t bufSize = buffer.size();
+        const std::size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
         // THIS ASSUMES C-ORDER
         // -> memory is consecutive along the last axis
-        const size_t memLen = viewShape[dim - 1];
+        const std::size_t memLen = viewShape[dim - 1];
 
-        size_t covered = 0;
+        std::size_t covered = 0;
 
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
@@ -163,17 +163,17 @@ namespace multiarray {
                                   std::vector<T> & buffer,
                                   const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
-        const size_t dim = view.dimension();
-        size_t bufferOffset = 0;
-        size_t viewOffset = 0;
+        const std::size_t dim = view.dimension();
+        std::size_t bufferOffset = 0;
+        std::size_t viewOffset = 0;
         types::ShapeType dimPositions(dim);
-        const size_t bufSize = buffer.size();
+        const std::size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
         // THIS ASSUMES C-ORDER
         // -> memory is consecutive along the last axis
-        const size_t memLen = viewShape[dim - 1];
+        const std::size_t memLen = viewShape[dim - 1];
 
-        size_t covered = 0;
+        std::size_t covered = 0;
 
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer

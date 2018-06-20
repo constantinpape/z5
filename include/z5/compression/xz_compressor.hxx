@@ -25,7 +25,7 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
 
             // create lzma stream
             lzma_stream lzs;
@@ -39,7 +39,7 @@ namespace compression {
 
             // temporary outbuffer
             // TODO buffersize ?!
-            const size_t bufferSize = 262144;
+            const std::size_t bufferSize = 262144;
             std::vector<uint8_t> outbuffer(bufferSize);
 
             lzs.next_in = (uint8_t *) dataIn;
@@ -48,8 +48,8 @@ namespace compression {
             // settings for compression
             auto action = LZMA_RUN;
             lzma_ret ret = LZMA_OK;
-            size_t prevOutBytes = 0;
-            size_t bytesCompressed;
+            std::size_t prevOutBytes = 0;
+            std::size_t bytesCompressed;
 
             do {
 
@@ -81,7 +81,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
 
             // create lzma stream
             lzma_stream lzs;
@@ -97,7 +97,7 @@ namespace compression {
             // let xz decompress the bytes blockwise
             lzma_ret ret = LZMA_OK;
             auto action = LZMA_RUN;
-            size_t currentPosition = 0;
+            std::size_t currentPosition = 0;
             do {
                 // set the stream outout to the output dat at the current position
                 // and set the available size to the remaining bytes in the output data

@@ -28,7 +28,7 @@ namespace io {
             std::default_random_engine generator;
             std::uniform_int_distribution<int> distribution(0, 1000);
             auto draw = std::bind(distribution, generator);
-            for(size_t i = 0; i < SIZE; ++i) {
+            for(std::size_t i = 0; i < SIZE; ++i) {
                 data_[i] = draw();
             }
 

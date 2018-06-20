@@ -41,7 +41,7 @@ namespace io {
                 // open input stream and read the header
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 types::ShapeType chunkShape;
-                const size_t fileSize = readHeader(file, chunkShape);
+                const std::size_t fileSize = readHeader(file, chunkShape);
 
                 // resize the data vector
                 data.resize(fileSize);
@@ -60,7 +60,7 @@ namespace io {
         }
 
 
-        inline void write(const handle::Chunk & chunk, const char * data, const size_t fileSize) const {
+        inline void write(const handle::Chunk & chunk, const char * data, const std::size_t fileSize) const {
             // create the parent folder
             chunk.createTopDir();
             // this might speed up the I/O by decoupling C++ buffers from C buffers
@@ -87,15 +87,15 @@ namespace io {
         }
 
 
-        inline size_t getChunkSize(const handle::Chunk & chunk) const {
+        inline std::size_t getChunkSize(const handle::Chunk & chunk) const {
             types::ShapeType shape;
             getChunkShape(chunk, shape);
-            return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<size_t>());
+            return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<std::size_t>());
         }
 
 
         // TODO do we need to invert dim due to N5 axis conventions ?
-        inline void findMinimumChunk(const unsigned dim, const fs::path & dsDir, const size_t nChunksTotal, types::ShapeType & minOut) const {
+        inline void findMinimumChunk(const unsigned dim, const fs::path & dsDir, const std::size_t nChunksTotal, types::ShapeType & minOut) const {
             minOut.clear();
             fs::path chunkDir(dsDir);
 
@@ -132,7 +132,7 @@ namespace io {
             }
 
             // we need to wrap std::min in a lambda and a std::function to pass it to `iterateChunks`
-            std::function<size_t (size_t, size_t)> minComp = [](size_t a, size_t b) {
+            std::function<std::size_t (std::size_t, std::size_t)> minComp = [](std::size_t a, std::size_t b) {
                 return std::min(a, b);
             };
 
@@ -141,7 +141,7 @@ namespace io {
             while(true) {
                 // we need to pass something that is definetely bigger than any chunk id
                 // as initial value here
-                size_t chunkId = iterateChunks(chunkDir, nChunksTotal, minComp);
+                std::size_t chunkId = iterateChunks(chunkDir, nChunksTotal, minComp);
                 minOut.push_back(chunkId);
                 chunkDir /= std::to_string(chunkId);
                 // we need to check if the next chunkDir is still a directory
@@ -195,7 +195,7 @@ namespace io {
             }
 
             // we need to wrap std::max in a lambda and a std::function to pass it to `iterateChunks`
-            std::function<size_t (size_t, size_t)> maxComp = [](size_t a, size_t b) {
+            std::function<std::size_t (std::size_t, std::size_t)> maxComp = [](std::size_t a, std::size_t b) {
                 return std::max(a, b);
             };
 
@@ -204,7 +204,7 @@ namespace io {
             while(true) {
                 // we need to pass something that is definetely bigger than any chunk id
                 // as initial value here
-                size_t chunkId = iterateChunks(chunkDir, 0, maxComp);
+                std::size_t chunkId = iterateChunks(chunkDir, 0, maxComp);
                 maxOut.push_back(chunkId);
                 chunkDir /= std::to_string(chunkId);
                 // we need to check if the next chunkDir is still a directory
@@ -221,7 +221,7 @@ namespace io {
             std::reverse(maxOut.begin(), maxOut.end());
         }
 
-        inline size_t writeHeader(const types::ShapeType & shape, std::vector<char> & data) const {
+        inline std::size_t writeHeader(const types::ShapeType & shape, std::vector<char> & data) const {
 
             // write the mode
             uint16_t mode = 0; // TODO support the varlength mode as well
@@ -307,9 +307,9 @@ namespace io {
         }
 
         // go through all chunks in this directory and return the chunk that is optimal w.r.t compare (max or min)
-        inline size_t iterateChunks(const fs::path & chunkDir, const size_t init, std::function<size_t (size_t, size_t)> compare) const {
+        inline std::size_t iterateChunks(const fs::path & chunkDir, const std::size_t init, std::function<std::size_t (std::size_t, std::size_t)> compare) const {
             fs::directory_iterator it(chunkDir);
-            size_t ret = init;
+            std::size_t ret = init;
             for(; it != fs::directory_iterator(); ++it) {
                 // we try to compare to this chunk index, however the file might not be
                 // a chunk folder / file, in that case stoull will fail, and we just continue
@@ -323,10 +323,10 @@ namespace io {
         }
 
         // TODO allow for reading the mode
-        inline size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
+        inline std::size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
 
             /// keep track of the header length
-            size_t headerLen = 0;
+            std::size_t headerLen = 0;
 
             // read the mode
             uint16_t mode;
@@ -367,7 +367,7 @@ namespace io {
 
             // get the file length in byte (need to substract header len)
             file.seekg(0, std::ios::end);
-            const size_t fileSize = static_cast<size_t>(file.tellg()) - headerLen;
+            const std::size_t fileSize = static_cast<std::size_t>(file.tellg()) - headerLen;
 
             // move file back to the end of the header
             file.seekg(headerLen);

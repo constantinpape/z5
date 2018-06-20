@@ -19,15 +19,15 @@ namespace z5 {
                 ASSERT_EQ(array->maxChunkShape(d), 10);
             }
 
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
 
                         std::fill(dataOut.begin(), dataOut.end(), 0);
                         types::ShapeType chunk({z, y, x});
                         array->readChunk(chunk, &dataOut[0]);
                         ASSERT_EQ(dataOut.size(), array->maxChunkSize());
-                        for(size_t i = 0; i < dataOut.size(); i++) {
+                        for(std::size_t i = 0; i < dataOut.size(); i++) {
                             ASSERT_EQ(dataOut[i], 42);
                         }
 
@@ -51,15 +51,15 @@ namespace z5 {
                 ASSERT_EQ(array->maxChunkShape(d), 10);
             }
 
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
 
                         std::fill(dataOut.begin(), dataOut.end(), 0);
                         types::ShapeType chunk({z, y, x});
                         array->readChunk(chunk, &dataOut[0]);
                         ASSERT_EQ(dataOut.size(), array->maxChunkSize());
-                        for(size_t i = 0; i < dataOut.size(); i++) {
+                        for(std::size_t i = 0; i < dataOut.size(); i++) {
                             ASSERT_EQ(dataOut[i], 42);
                         }
 
@@ -81,13 +81,13 @@ namespace z5 {
             ASSERT_EQ(array->maxChunkShape(d), 10);
         }
 
-        for(size_t z = 0; z < chunks[0]; ++z) {
-            for(size_t y = 0; y < chunks[1]; ++y) {
-                for(size_t x = 0; x < chunks[2]; ++x) {
+        for(std::size_t z = 0; z < chunks[0]; ++z) {
+            for(std::size_t y = 0; y < chunks[1]; ++y) {
+                for(std::size_t x = 0; x < chunks[2]; ++x) {
                     std::fill(dataOut.begin(), dataOut.end(), 0);
                     array->readChunk(types::ShapeType({z, y, x}), &dataOut[0]);
                     ASSERT_EQ(dataOut.size(), array->maxChunkSize());
-                    for(size_t i = 0; i < dataOut.size(); i++) {
+                    for(std::size_t i = 0; i < dataOut.size(); i++) {
                         ASSERT_EQ(dataOut[i], 42);
                     }
                 }
@@ -113,9 +113,9 @@ namespace z5 {
             auto chunks = array->chunksPerDimension();
             std::vector<double> data(array->maxChunkSize(), 42.);
 
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
                         array->writeChunk(types::ShapeType({z, y, x}),&data[0]);
                     }
                 }
@@ -132,9 +132,9 @@ namespace z5 {
             auto chunks = array->chunksPerDimension();
             std::vector<double> data(array->maxChunkSize(), 42.);
 
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
                         array->writeChunk(types::ShapeType({z, y, x}),&data[0]);
                     }
                 }

@@ -32,7 +32,7 @@ namespace io {
                 // open input stream and read the filesize
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 file.seekg(0, std::ios::end);
-                const size_t fileSize = file.tellg();
+                const std::size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
 
                 // resize the data vector
@@ -51,7 +51,7 @@ namespace io {
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const char * data, const size_t fileSize) const {
+        inline void write(const handle::Chunk & chunk, const char * data, const std::size_t fileSize) const {
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
@@ -60,9 +60,9 @@ namespace io {
         }
 
         inline void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
-        inline size_t getChunkSize(const handle::Chunk &) const {}
+        inline std::size_t getChunkSize(const handle::Chunk &) const {}
 
-        inline void findMinimumChunk(const unsigned, const fs::path &, const size_t, types::ShapeType & minOut) const {
+        inline void findMinimumChunk(const unsigned, const fs::path &, const std::size_t, types::ShapeType & minOut) const {
             std::cout << "WARNING: findMinimumChunk not implemented for zarr, returning zeros" << std::endl;
             minOut.push_back(0);
         }

@@ -21,10 +21,10 @@ namespace multiarray {
         XtensorNDTest() : path_("test.n5"), size_(100), chunkSize_(10){
         }
 
-        auto writeData(const size_t dim) {
-            // std::vector<size_t> shape(dim, (dim < 5) ? size_ : 20);
-            std::vector<size_t> shape(dim, size_);
-            std::vector<size_t> chunkShape(dim, chunkSize_);
+        auto writeData(const std::size_t dim) {
+            // std::vector<std::size_t> shape(dim, (dim < 5) ? size_ : 20);
+            std::vector<std::size_t> shape(dim, size_);
+            std::vector<std::size_t> chunkShape(dim, chunkSize_);
             // create the dataset
             auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
             // write the data
@@ -47,7 +47,7 @@ namespace multiarray {
             return ds;
         }
 
-        void testArrayRead(const size_t dim) {
+        void testArrayRead(const std::size_t dim) {
             typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             auto ds = writeData(dim);
             const auto & shape = ds->shape();
@@ -85,13 +85,13 @@ namespace multiarray {
         }
 
 
-        void testArrayWriteRead(const size_t dim) {
+        void testArrayWriteRead(const std::size_t dim) {
 
             typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             // create the dataset
             ArrayShape shape(dim, size_);
             types::ShapeType dsShape(dim, size_);
-            std::vector<size_t> chunkShape(dim, chunkSize_);
+            std::vector<std::size_t> chunkShape(dim, chunkSize_);
             auto ds = createDataset(path_, "int32", dsShape, chunkShape, false, "raw");
 
             // random number generator
@@ -146,12 +146,12 @@ namespace multiarray {
         }
 
         std::string path_;
-        size_t size_;
-        size_t chunkSize_;
+        std::size_t size_;
+        std::size_t chunkSize_;
     };
 
     TEST_F(XtensorNDTest, TestRead) {
-        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
+        for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
             // remove array
             fs::path path(path_);
@@ -160,7 +160,7 @@ namespace multiarray {
     }
 
     TEST_F(XtensorNDTest, TestWriteRead) {
-        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
+        for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);
             // remove array
             fs::path path(path_);

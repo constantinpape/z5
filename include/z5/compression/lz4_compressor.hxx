@@ -22,7 +22,7 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
             const int outSize = LZ4_compressBound(sizeIn * sizeof(T));
             dataOut.resize(outSize);
             // the default compression (fast mode)
@@ -52,7 +52,7 @@ namespace compression {
             dataOut.resize(compressed);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
             const int compressed = LZ4_decompress_fast(&dataIn[0], (char *) dataOut,
                                                        sizeOut * sizeof(T));
             if(compressed <= 0) {

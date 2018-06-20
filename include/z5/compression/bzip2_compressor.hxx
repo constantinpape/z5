@@ -19,12 +19,12 @@ namespace compression {
             init(metadata);
         }
 
-        void compress(const T * dataIn, std::vector<char> & dataOut, size_t sizeIn) const {
+        void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
 
             // resize the out data
             dataOut.clear();
             // the output buffer must be 1% + 600 bytes larger than the input
-            size_t outSize = sizeof(T) * (sizeIn + static_cast<size_t>(0.01 * static_cast<float>(sizeIn)));
+            std::size_t outSize = sizeof(T) * (sizeIn + static_cast<std::size_t>(0.01 * static_cast<float>(sizeIn)));
             outSize += 600;
             dataOut.resize(outSize);
 
@@ -61,7 +61,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, size_t sizeOut) const {
+        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
 
             // create the bzip2 stream
             bz_stream bzs;

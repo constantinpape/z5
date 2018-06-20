@@ -18,7 +18,7 @@ namespace types {
     // TODO implement class that inherits from std::vector and overloads useful operators (+, -, etc.)
     // TODO rename to coordinate type
     // type for array shapes
-    typedef std::vector<size_t> ShapeType;
+    typedef std::vector<std::size_t> ShapeType;
 
     //
     // Datatypes

@@ -20,7 +20,7 @@ namespace multiarray {
 
         types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
         // out buffer holding data for a single chunk
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize, val);
 
         // iterate over the chunks and write the buffer
@@ -35,7 +35,7 @@ namespace multiarray {
 
 
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // reshape buffer if necessary
             if(buffer.size() != chunkSize) {
@@ -82,13 +82,13 @@ namespace multiarray {
         const int nThreads = tp.nThreads();
 
         // out buffer holding data for a single chunk
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize, val));
 
         // write scalar to the chunks in parallel
-        const size_t nChunks = chunkRequests.size();
-        util::parallel_foreach(tp, nChunks, [&](const int tId, const size_t chunkIndex){
+        const std::size_t nChunks = chunkRequests.size();
+        util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
 
             const auto & chunkId = chunkRequests[chunkIndex];
             auto & buffer = threadBuffers[tId];
@@ -103,7 +103,7 @@ namespace multiarray {
 
 
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // reshape buffer if necessary
             if(buffer.size() != chunkSize) {
