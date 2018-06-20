@@ -28,6 +28,7 @@ add_subdirectory(io)
 add_subdirectory(multiarray)
 add_subdirectory(test_zarr)
 add_subdirectory(test_n5)
+add_subdirectory(util)
 
 add_custom_command(
         TARGET test_attributes POST_BUILD
