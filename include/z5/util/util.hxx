@@ -20,10 +20,12 @@ namespace util {
 
     // make regular grid betwee `minCoords` and `maxCoords` with step size 1.
     // uses imglib trick for ND code.
-    inline void makeRegularGrid(const types::ShapeType & minCoords, const types::ShapeType & maxCoords, std::vector<types::ShapeType> & grid) {
+    inline void makeRegularGrid(const types::ShapeType & minCoords,
+                                const types::ShapeType & maxCoords,
+                                std::vector<types::ShapeType> & grid) {
         // get the number of dims and initialize the positions
         // at the min coordinates
-        std::size_t nDim = minCoords.size();
+        const std::size_t nDim = minCoords.size();
         types::ShapeType positions = minCoords;
 
         // start iteration in highest dimension

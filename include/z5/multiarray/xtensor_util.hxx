@@ -75,31 +75,32 @@ namespace multiarray {
         return flatOffset;
     }
 
-    // FIXME N > 3 is segfaulting
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToViewND(const std::vector<T> & buffer,
                                    xt::xexpression<VIEW> & viewExperession,
                                    const SHAPE_TYPE & arrayStrides) {
+        // get the view into the out array and the number of dimension
         auto & view = viewExperession.derived_cast();
         const std::size_t dim = view.dimension();
-        std::size_t bufferOffset = 0;
-        std::size_t viewOffset = 0;
-        types::ShapeType dimPositions(dim);
+        // buffer size and view shape
         const std::size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
+        // initialize the (1d) offset into the buffer and view
+        std::size_t bufferOffset = 0;
+        std::size_t viewOffset = 0;
+        // vector to keep track along the position along each dimension
+        types::ShapeType dimPositions(dim);
         // THIS ASSUMES C-ORDER
         // -> memory is consecutive along the last axis
         const std::size_t memLen = viewShape[dim - 1];
 
-        std::size_t covered = 0;
-
         // we copy data to consecutive pieces of memory in the view
         // until we have exhausted the buffer
 
-        // we start out loop at the second from last dimension
+        // we start the outer loop at the second from last dimension
         // (last dimension is the fastest moving and consecutive in memory)
         for(int d = dim - 2; d >= 0;) {
-            // copy the peace of buffer that is consectuve to our view
+            // copy the piece of buffer that is consectuve to our view
             std::copy(buffer.begin() + bufferOffset,
                       buffer.begin() + bufferOffset + memLen,
                       &view(0) + viewOffset);
@@ -120,34 +121,51 @@ namespace multiarray {
                     break;
                 // otherwise, decrease the dimension
                 } else {
+
                     // reset the position in this dimension
                     dimPositions[d] = 0;
 
-                    // increase the viewOffset to jump to the next point in memory
-                    // -> we will decrease the axis, so we need to
-                    // correct for the positions we have changed in a lower dimension
-                    covered = (viewOffset - covered);
-                    viewOffset -= covered;
+                    // we don't need to increase the view offset if we are at
+                    // the end of the next lower dim !
                     if(d > 0) {
-                        viewOffset += arrayStrides[d - 1];
+                        if(dimPositions[d - 1] + 1 == viewShape[d - 1]) {
+                            continue;
+                        }
                     }
-                    covered = viewOffset;
+
+                    // increase the viewOffset to jump to the next point in memory
+                    // for this, we increase by the stride of the next lower dimension
+                    // but need to correct to jump back to the front of the view
+                    // in that dimension
+                    if(d > 0) {
+
+                        // the correction to jump back to the front of the view
+                        // in the next dim
+                        std::size_t correction = 0;
+                        for(int dd = dim - 2; dd >= d; --dd) {
+                            correction += arrayStrides[dd] * (viewShape[dd] - 1);
+                        }
+                        // further correction because we incremented 
+                        // one time to much
+                        correction += arrayStrides[dim - 2];
+
+                        // increase the view offset
+                        viewOffset += (arrayStrides[d - 1] - correction);
+                    }
                 }
             }
         }
     }
 
 
-    // FIXME this only works for row-major (C) memory layout
+    // TODO this only works for row-major (C) memory layout
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToView(const std::vector<T> & buffer,
                                  xt::xexpression<VIEW> & viewExperession,
                                  const SHAPE_TYPE & arrayStrides) {
         auto & view = viewExperession.derived_cast();
         // ND impl doesn't work for 1D
-        // Also, N > 3 is not working yet, so we default to std::copy
-        // FIXME fix ND copy for N > 3
-        if(view.dimension() == 1 || view.dimension() > 3) {
+        if(view.dimension() == 1) {
             // std::copy(buffer.begin(), buffer.end(), view.begin());
             const auto bufferView = xt::adapt(buffer, view.shape());
             view = bufferView;
@@ -157,28 +175,29 @@ namespace multiarray {
     }
 
 
-    // FIXME N > 3 is segfaulting
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBufferND(const xt::xexpression<VIEW> & viewExperession,
                                   std::vector<T> & buffer,
                                   const SHAPE_TYPE & arrayStrides) {
-        auto & view = viewExperession.derived_cast();
+        // get the view into the out array and the number of dimension
+        const auto & view = viewExperession.derived_cast();
         const std::size_t dim = view.dimension();
-        std::size_t bufferOffset = 0;
-        std::size_t viewOffset = 0;
-        types::ShapeType dimPositions(dim);
+        // buffer size and view shape
         const std::size_t bufSize = buffer.size();
         const auto & viewShape = view.shape();
+        // initialize the (1d) offset into the buffer and view
+        std::size_t bufferOffset = 0;
+        std::size_t viewOffset = 0;
+        // vector to keep track along the position along each dimension
+        types::ShapeType dimPositions(dim);
         // THIS ASSUMES C-ORDER
         // -> memory is consecutive along the last axis
         const std::size_t memLen = viewShape[dim - 1];
 
-        std::size_t covered = 0;
+        // we copy data that is consecutive in the view to the buffer
+        // until we have exhausted the iew
 
-        // we copy data to consecutive pieces of memory in the view
-        // until we have exhausted the buffer
-
-        // we start out loop at the second from last dimension
+        // we start the outer loop at the second from last dimension
         // (last dimension is the fastest moving and consecutive in memory)
         for(int d = dim - 2; d >= 0;) {
             // copy the piece of buffer that is consectuve to our view
@@ -202,36 +221,52 @@ namespace multiarray {
                     break;
                 // otherwise, decrease the dimension
                 } else {
+
                     // reset the position in this dimension
                     dimPositions[d] = 0;
 
-                    // increase the viewOffset to jump to the next point in memory
-                    // -> we will decrease the axis, so we need to
-                    // correct for the positions we have changed in a lower dimension
-                    covered = (viewOffset - covered);
-                    viewOffset -= covered;
+                    // we don't need to increase the view offset if we are at
+                    // the end of the next lower dim !
                     if(d > 0) {
-                        viewOffset += arrayStrides[d - 1];
+                        if(dimPositions[d - 1] + 1 == viewShape[d - 1]) {
+                            continue;
+                        }
                     }
-                    covered = viewOffset;
+
+                    // increase the viewOffset to jump to the next point in memory
+                    // for this, we increase by the stride of the next lower dimension
+                    // but need to correct to jump back to the front of the view
+                    // in that dimension
+                    if(d > 0) {
+
+                        // the correction to jump back to the front of the view
+                        // in the next dim
+                        std::size_t correction = 0;
+                        for(int dd = dim - 2; dd >= d; --dd) {
+                            correction += arrayStrides[dd] * (viewShape[dd] - 1);
+                        }
+                        // further correction because we incremented 
+                        // one time to much
+                        correction += arrayStrides[dim - 2];
+
+                        // increase the view offset
+                        viewOffset += (arrayStrides[d - 1] - correction);
+                    }
                 }
             }
         }
     }
 
 
-    // FIXME this only works for row-major (C) memory layout
+    // TODO this only works for row-major (C) memory layout
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyViewToBuffer(const xt::xexpression<VIEW> & viewExperession,
                                  std::vector<T> & buffer,
                                  const SHAPE_TYPE & arrayStrides) {
         const auto & view = viewExperession.derived_cast();
-        // can't use the ND implementation in 1d, hence we resort to std::copy,
+        // can't use the ND implementation in 1d, hence we resort to xtensor
         // which should be fine in 1D
-
-        // Also, N > 3 is not working yet, so we default to std::copy
-        // FIXME fix ND copy for N > 3
-        if(view.dimension() == 1 || view.dimension() > 3) {
+        if(view.dimension() == 1) {
             // std::copy(view.begin(), view.end(), buffer.begin());
             auto bufferView = xt::adapt(buffer, view.shape());
             bufferView = view;
