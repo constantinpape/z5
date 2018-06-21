@@ -39,11 +39,6 @@ cd multiarray
 ./test_xtnd
 cd ..
 
-echo "Running Zarr Tests"
-cd test_zarr
-./run_test.bash
-cd ..
-
 echo "Running N5 Tests"
 cd test_n5
 ./run_test.bash
