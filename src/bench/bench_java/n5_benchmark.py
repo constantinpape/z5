@@ -1,16 +1,12 @@
 import os
-import zipfile
 
-from subprocess import call
 from shutil import rmtree
-from skimage import io
 
 import numpy as np
 import z5py
 from z5py.dataset import Dataset
 
 BENCH_DIR = 'bench_dir'
-IM_URL = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
 
 
 def set_up():
@@ -21,15 +17,8 @@ def set_up():
         rmtree(BENCH_DIR)
     os.mkdir(BENCH_DIR)
 
-    im_file = os.path.join(BENCH_DIR, 'im.zip')
-    call(['wget', '-O', im_file, IM_URL])
-
-    with zipfile.ZipFile(im_file) as f:
-        f.extract('JeffT1_le.tif', BENCH_DIR)
-
-    im_file = os.path.join(BENCH_DIR, 'JeffT1_le.tif')
-    im = np.array(io.imread(im_file))
-    return im[30:94, 100:164, 100:164].astype('uint8')
+    im = z5py.util.fetch_test_data()
+    return im[30:94, 100:164, 100:164]
 
 
 def benchmark_writing_speed(data):

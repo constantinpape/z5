@@ -1,15 +1,11 @@
-import os
 import sys
 import unittest
-import zipfile
 
-from subprocess import call
 from shutil import rmtree
 from six import add_metaclass
 from abc import ABCMeta
 
 import numpy as np
-from skimage import io
 
 try:
     import z5py
@@ -22,15 +18,7 @@ except ImportError:
 class RegressionTestMixin(object):
     @classmethod
     def setUpClass(cls):
-        im_url = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
-        call(['wget', '-O', 'test.zip', im_url])
-
-        with zipfile.ZipFile('test.zip') as f:
-            f.extract('JeffT1_le.tif')
-
-        cls.data = np.array(io.imread('JeffT1_le.tif')).astype('uint8')
-        os.remove('JeffT1_le.tif')
-        os.remove('test.zip')
+        cls.data = z5py.util.fetch_test_data()
 
     def setUp(self):
         self.root_file = z5py.File('array.' + self.data_format)
