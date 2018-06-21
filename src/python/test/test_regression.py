@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import unittest
 import zipfile
 
@@ -51,9 +50,9 @@ class RegressionTestMixin(object):
                                                compression=compression)
             times = []
             for _ in range(self.n_reps):
-                t0 = time.time()
-                ds[:]
-                times.append(time.time() - t0)
+                with z5py.util.Timer() as t:
+                    ds[:]
+                times.append(t.elapsed)
             mint = np.min(times)
             self.assertLess(mint, expected)
 
@@ -62,10 +61,11 @@ class RegressionTestMixin(object):
             key = 'ds_%s' % compression
             times = []
             for _ in range(self.n_reps):
-                t0 = time.time()
-                self.root_file.create_dataset(key, data=self.data, chunks=self.chunks,
-                                              compression=compression)
-                times.append(time.time() - t0)
+                with z5py.util.Timer() as t:
+                    self.root_file.create_dataset(
+                        key, data=self.data, chunks=self.chunks, compression=compression
+                    )
+                times.append(t.elapsed)
                 del self.root_file[key]
             mint = np.min(times)
             self.assertLess(mint, expected)

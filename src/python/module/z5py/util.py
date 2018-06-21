@@ -1,6 +1,7 @@
 from __future__ import print_function
 from itertools import product
 from concurrent import futures
+from datetime import datetime
 import numpy as np
 
 from .file import File
@@ -93,3 +94,31 @@ def rechunk(in_path,
     out_attrs = ds_out.attrs
     for key, val in in_attrs.items():
         out_attrs[key] = val
+
+
+class Timer(object):
+    def __init__(self):
+        self.start_time = None
+        self.stop_time = None
+
+    @property
+    def elapsed(self):
+        try:
+            return (self.stop_time - self.start_time).total_seconds()
+        except TypeError as e:
+            if "'NoneType'" in str(e):
+                raise RuntimeError("{} either not started, or not stopped".format(self))
+
+    def start(self):
+        self.start_time = datetime.utcnow()
+
+    def stop(self):
+        self.stop_time = datetime.utcnow()
+        return self.elapsed
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()

@@ -1,6 +1,5 @@
 import os
 import zipfile
-import time
 
 from subprocess import call
 from shutil import rmtree
@@ -51,13 +50,11 @@ def benchmark_writing_speed(data):
                       k*64:(k + 1)*64] = data
 
     for compression in compression_methods:
-        t0 = time.time()
-        ds = f.create_dataset('ds_%s' % compression, shape=shape,
-                              chunks=chunks, compression=compression, dtype='uint8')
-        ds[:] = bdata
-        t1 = time.time()
-        t_diff = t1 - t0
-        print("%i : %s : %f s" % (1, compression, t_diff))
+        with z5py.util.Timer() as t:
+            ds = f.create_dataset('ds_%s' % compression, shape=shape,
+                                  chunks=chunks, compression=compression, dtype='uint8')
+            ds[:] = bdata
+        print("%i : %s : %f s" % (1, compression, t.elapsed))
 
 
 def benchmark_parallel_writing_speed(data):
@@ -81,16 +78,13 @@ def benchmark_parallel_writing_speed(data):
         n_threads *= 2
         print(n_threads, 'threads.')
         for compression in compression_methods:
+            with z5py.util.Timer() as t:
+                ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
+                                      chunks=chunks, compression=compression, dtype='uint8',
+                                      n_threads=n_threads)
+                ds[:] = bdata
 
-            t0 = time.time()
-            ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
-                                  chunks=chunks, compression=compression, dtype='uint8',
-                                  n_threads=n_threads)
-            ds[:] = bdata
-
-            t1 = time.time()
-            t_diff = t1 - t0
-            print("%i : %s : %f s" % (n_threads, compression, t_diff))
+            print("%i : %s : %f s" % (n_threads, compression, t.elapsed))
 
 
 def clean_up():
