@@ -35,6 +35,8 @@ before_script:
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2 xz
   - conda install -c conda-forge imageio
+  - conda install -c conda-forge zarr
+  - conda install -c conda-forge h5py
   - conda install -c anaconda cmake
   - conda install six
 
