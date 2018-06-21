@@ -1,17 +1,13 @@
 import os
-import zipfile
-import time
 
-from subprocess import call
 from shutil import rmtree
-from skimage import io
 
 import numpy as np
 import z5py
 from z5py.dataset import Dataset
+import z5py.util
 
 BENCH_DIR = 'bench_dir'
-IM_URL = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
 
 
 def set_up():
@@ -22,15 +18,8 @@ def set_up():
         rmtree(BENCH_DIR)
     os.mkdir(BENCH_DIR)
 
-    im_file = os.path.join(BENCH_DIR, 'im.zip')
-    call(['wget', '-O', im_file, IM_URL])
-
-    with zipfile.ZipFile(im_file) as f:
-        f.extract('JeffT1_le.tif', BENCH_DIR)
-
-    im_file = os.path.join(BENCH_DIR, 'JeffT1_le.tif')
-    im = np.array(io.imread(im_file))
-    return im[30:94, 100:164, 100:164].astype('uint8')
+    im = z5py.util.fetch_test_data()
+    return im[30:94, 100:164, 100:164]
 
 
 def benchmark_writing_speed(data):
@@ -51,13 +40,11 @@ def benchmark_writing_speed(data):
                       k*64:(k + 1)*64] = data
 
     for compression in compression_methods:
-        t0 = time.time()
-        ds = f.create_dataset('ds_%s' % compression, shape=shape,
-                              chunks=chunks, compression=compression, dtype='uint8')
-        ds[:] = bdata
-        t1 = time.time()
-        t_diff = t1 - t0
-        print("%i : %s : %f s" % (1, compression, t_diff))
+        with z5py.util.Timer() as t:
+            ds = f.create_dataset('ds_%s' % compression, shape=shape,
+                                  chunks=chunks, compression=compression, dtype='uint8')
+            ds[:] = bdata
+        print("%i : %s : %f s" % (1, compression, t.elapsed))
 
 
 def benchmark_parallel_writing_speed(data):
@@ -81,16 +68,13 @@ def benchmark_parallel_writing_speed(data):
         n_threads *= 2
         print(n_threads, 'threads.')
         for compression in compression_methods:
+            with z5py.util.Timer() as t:
+                ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
+                                      chunks=chunks, compression=compression, dtype='uint8',
+                                      n_threads=n_threads)
+                ds[:] = bdata
 
-            t0 = time.time()
-            ds = f.create_dataset('ds_%s_%i' % (compression, n_threads), shape=shape,
-                                  chunks=chunks, compression=compression, dtype='uint8',
-                                  n_threads=n_threads)
-            ds[:] = bdata
-
-            t1 = time.time()
-            t_diff = t1 - t0
-            print("%i : %s : %f s" % (n_threads, compression, t_diff))
+            print("%i : %s : %f s" % (n_threads, compression, t.elapsed))
 
 
 def clean_up():

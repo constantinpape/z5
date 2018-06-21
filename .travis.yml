@@ -34,7 +34,10 @@ before_script:
   - conda install -c conda-forge xtensor=0.15.1
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2 xz
-  - conda install -c conda-forge scikit-image
+  - conda install -c conda-forge imageio
+  - conda install -c conda-forge zarr
+  - conda install -c conda-forge h5py
+  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
   - conda install -c anaconda cmake
   - conda install six
 

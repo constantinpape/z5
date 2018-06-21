@@ -1,6 +1,7 @@
 from __future__ import print_function
 from itertools import product
 from concurrent import futures
+from datetime import datetime
 import numpy as np
 
 from .file import File
@@ -93,3 +94,65 @@ def rechunk(in_path,
     out_attrs = ds_out.attrs
     for key, val in in_attrs.items():
         out_attrs[key] = val
+
+
+class Timer(object):
+    def __init__(self):
+        self.start_time = None
+        self.stop_time = None
+
+    @property
+    def elapsed(self):
+        try:
+            return (self.stop_time - self.start_time).total_seconds()
+        except TypeError as e:
+            if "'NoneType'" in str(e):
+                raise RuntimeError("{} either not started, or not stopped".format(self))
+
+    def start(self):
+        self.start_time = datetime.utcnow()
+
+    def stop(self):
+        self.stop_time = datetime.utcnow()
+        return self.elapsed
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+
+
+def fetch_test_data_stent():
+    from imageio import volread
+    data_i16 = volread('imageio:stent.npz')
+    return (data_i16 / data_i16.max() * 255).astype(np.uint8)
+
+
+def fetch_test_data():
+    try:
+        from urllib.request import urlopen
+    except ImportError:
+        from urllib2 import urlopen
+
+    try:
+        from io import BytesIO as Buffer
+    except ImportError:
+        from StringIO import StringIO as Buffer
+
+    import zipfile
+    from imageio import volread
+
+    im_url = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
+
+    with urlopen(im_url) as response:
+        if response.status != 200:
+            raise RuntimeError("Test data could not be found at {}, status code {}".format(
+                im_url, response.status
+            ))
+        zip_buffer = Buffer(response.read())
+
+    with zipfile.ZipFile(zip_buffer) as zf:
+        tif_buffer = Buffer(zf.read('JeffT1_le.tif'))
+        return np.asarray(volread(tif_buffer, format='tif'), dtype=np.uint8)

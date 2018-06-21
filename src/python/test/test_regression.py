@@ -1,37 +1,25 @@
-import os
 import sys
-import time
 import unittest
-import zipfile
 
-from subprocess import call
 from shutil import rmtree
 from six import add_metaclass
 from abc import ABCMeta
 
 import numpy as np
-from skimage import io
 
 try:
     import z5py
 except ImportError:
     sys.path.append('..')
     import z5py
+import z5py.util
 
 
 @add_metaclass(ABCMeta)
 class RegressionTestMixin(object):
     @classmethod
     def setUpClass(cls):
-        im_url = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
-        call(['wget', '-O', 'test.zip', im_url])
-
-        with zipfile.ZipFile('test.zip') as f:
-            f.extract('JeffT1_le.tif')
-
-        cls.data = np.array(io.imread('JeffT1_le.tif')).astype('uint8')
-        os.remove('JeffT1_le.tif')
-        os.remove('test.zip')
+        cls.data = z5py.util.fetch_test_data()
 
     def setUp(self):
         self.root_file = z5py.File('array.' + self.data_format)
@@ -51,9 +39,9 @@ class RegressionTestMixin(object):
                                                compression=compression)
             times = []
             for _ in range(self.n_reps):
-                t0 = time.time()
-                ds[:]
-                times.append(time.time() - t0)
+                with z5py.util.Timer() as t:
+                    ds[:]
+                times.append(t.elapsed)
             mint = np.min(times)
             self.assertLess(mint, expected)
 
@@ -62,10 +50,11 @@ class RegressionTestMixin(object):
             key = 'ds_%s' % compression
             times = []
             for _ in range(self.n_reps):
-                t0 = time.time()
-                self.root_file.create_dataset(key, data=self.data, chunks=self.chunks,
-                                              compression=compression)
-                times.append(time.time() - t0)
+                with z5py.util.Timer() as t:
+                    self.root_file.create_dataset(
+                        key, data=self.data, chunks=self.chunks, compression=compression
+                    )
+                times.append(t.elapsed)
                 del self.root_file[key]
             mint = np.min(times)
             self.assertLess(mint, expected)
