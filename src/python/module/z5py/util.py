@@ -1,6 +1,7 @@
 from __future__ import print_function
 from itertools import product
 from concurrent import futures
+from contextlib import closing
 from datetime import datetime
 import numpy as np
 
@@ -146,7 +147,7 @@ def fetch_test_data():
 
     im_url = "https://imagej.nih.gov/ij/images/t1-head-raw.zip"
 
-    with urlopen(im_url) as response:
+    with closing(urlopen(im_url)) as response:
         if response.status != 200:
             raise RuntimeError("Test data could not be found at {}, status code {}".format(
                 im_url, response.status
