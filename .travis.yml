@@ -37,6 +37,7 @@ before_script:
   - conda install -c conda-forge imageio
   - conda install -c conda-forge zarr
   - conda install -c conda-forge h5py
+  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
   - conda install -c anaconda cmake
   - conda install six
 

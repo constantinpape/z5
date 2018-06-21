@@ -12,6 +12,7 @@ try:
 except ImportError:
     sys.path.append('..')
     import z5py
+import z5py.util
 
 
 @add_metaclass(ABCMeta)

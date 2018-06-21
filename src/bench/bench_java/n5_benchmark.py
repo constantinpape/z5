@@ -5,6 +5,7 @@ from shutil import rmtree
 import numpy as np
 import z5py
 from z5py.dataset import Dataset
+import z5py.util
 
 BENCH_DIR = 'bench_dir'
 
