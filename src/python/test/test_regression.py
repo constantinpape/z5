@@ -42,10 +42,10 @@ class RegressionTestMixin(object):
                 with z5py.util.Timer() as t:
                     ds[:]
                 times.append(t.elapsed)
-            # mint = np.min(times)
-            # self.assertLess(mint, expected)
-            maxt = np.max(times)
-            print(self.data_format, compression, maxt)
+            mint = np.min(times)
+            self.assertLess(mint, expected)
+            # maxt = np.max(times)
+            # print(self.data_format, compression, maxt)
 
     def test_regression_write(self):
         for compression, expected in self.compressions_write.items():
@@ -58,26 +58,22 @@ class RegressionTestMixin(object):
                     )
                 times.append(t.elapsed)
                 del self.root_file[key]
-            # mint = np.min(times)
-            # self.assertLess(mint, expected)
-            maxt = np.max(times)
-            print(self.data_format, compression, maxt)
+            mint = np.min(times)
+            self.assertLess(mint, expected)
+            # maxt = np.max(times)
+            # print(self.data_format, compression, maxt)
 
 
 class TestN5Regression(RegressionTestMixin, unittest.TestCase):
     data_format = 'n5'
-    # initial notebook values
-    # compressions_read = {'raw': 0.0055, 'gzip': 0.085}
-    # compressions_write = {'raw': 0.0085, 'gzip': 0.55}
-    # more lenient values for travis
-    compressions_read = {'raw': 0.015, 'gzip': 0.15}
-    compressions_write = {'raw': 0.015, 'gzip': 0.75}
+    compressions_read = {'raw': 0.005, 'gzip': 0.04}
+    compressions_write = {'raw': 0.006, 'gzip': 0.4}
 
 
 class TestZarrRegression(RegressionTestMixin, unittest.TestCase):
     data_format = 'zarr'
-    compressions_read = {'raw': 0.015, 'zlib': 0.15}
-    compressions_write = {'raw': 0.02, 'zlib': 0.75}
+    compressions_read = {'raw': 0.004, 'zlib': 0.05}
+    compressions_write = {'raw': 0.005, 'zlib': 0.4}
 
 
 if __name__ == '__main__':
