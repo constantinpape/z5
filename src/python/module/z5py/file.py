@@ -38,20 +38,19 @@ class File(Group):
             Returns:
                 bool: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
         """
-        # if the path exists infer the format from the metadata
-        if os.path.exists(path):
+        # first, try to infer the format from the file ending
+        is_zarr = None
+        _, ext = os.path.splitext(path)
+        if ext.lower() in cls.zarr_exts:
+            is_zarr = True
+        elif ext.lower() in cls.n5_exts:
+            is_zarr = False
+        # otherwise, infer from the existence of zarr attribute files
+        if is_zarr is None:
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
-            return os.path.exists(zarr_group) or os.path.exists(zarr_array)
-        # otherwise check if we can infer it from the file ending
-        else:
-            is_zarr = None
-            _, ext = os.path.splitext(path)
-            if ext.lower() in cls.zarr_exts:
-                is_zarr = True
-            elif ext.lower() in cls.n5_exts:
-                is_zarr = False
-            return is_zarr
+            is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
+        return is_zarr
 
     def __init__(self, path, use_zarr_format=None, mode='a'):
 

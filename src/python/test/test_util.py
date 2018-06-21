@@ -90,6 +90,33 @@ class TestUtil(unittest.TestCase):
                 self.assertEqual(ds_out.chunks, new_chunks)
                 self.assertTrue(np.allclose(data, data_out))
 
+    # TODO finish blocking tests
+    def simple_blocking(self, shape, block_shape):
+        blocking = []
+        ndim = len(shape)
+        for x in range(0, shape[0], block_shape[0]):
+            blocking.append((x, min(x + block_shape[0], shape[0])))
+            if ndim > 1:
+                block = blocking.pop()
+                for y in range(0, shape[1], block_shape[1]):
+                    blocking.append(block + min(y + block_shape[1], shape[1]))
+
+    def _test_blocking(self):
+        from z5py.util import blocking
+        n_reps = 10
+
+        for dim in range(1, 6):
+            for _ in range(n_reps):
+                shape = tuple(np.random.randint(0, 1000) for ii in range(dim))
+                block_shape = tuple(min(np.random.randint(0, 100), sh)
+                                    for ii, sh in zip(range(dim), shape))
+                blocking1 = [(block.start, block.stop)
+                             for block in blocking(shape, block_shape)]
+                blocking2 = self.simple_blocking(shape, block_shape)
+                sorted(blocking1)
+                sorted(blocking2)
+                self.assertEqual(blocking1, blocking2)
+
 
 if __name__ == '__main__':
     unittest.main()

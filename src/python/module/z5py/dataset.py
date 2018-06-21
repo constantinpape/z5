@@ -30,11 +30,11 @@ class Dataset(object):
                    np.dtype('float32'): 'float32',
                    np.dtype('float64'): 'float64'}
 
-    _zarr_dtype_dict = {np.dtype('uint8'): '<u1',
+    _zarr_dtype_dict = {np.dtype('uint8'): '|u1',
                         np.dtype('uint16'): '<u2',
                         np.dtype('uint32'): '<u4',
                         np.dtype('uint64'): '<u8',
-                        np.dtype('int8'): '<i1',
+                        np.dtype('int8'): '|i1',
                         np.dtype('int16'): '<i2',
                         np.dtype('int32'): '<i4',
                         np.dtype('int64'): '<i8',
@@ -69,7 +69,7 @@ class Dataset(object):
         elif compression == 'zlib':
             default_opts = {'id': 'zlib', 'level': 5}
         elif compression == 'bzip2':
-            default_opts = {'id': 'bzip2', 'level': 5}
+            default_opts = {'id': 'bz2', 'level': 5}
         elif compression == 'raw':
             default_opts = {}
         else:
@@ -102,7 +102,7 @@ class Dataset(object):
         elif zarr_opts['id'] == 'zlib':
             opts['compression'] = 'zlib'
             opts['level'] = zarr_opts['level']
-        elif zarr_opts['id'] == 'bzip2':
+        elif zarr_opts['id'] == 'bz2':
             opts['compression'] = 'bzip2'
             opts['level'] = zarr_opts['level']
         return opts
@@ -189,6 +189,9 @@ class Dataset(object):
                   'shape': shape,
                   'chunks': chunks,
                   'fill_value': fill_value,
+                  'zarr_format': 2,
+                  'order': 'C',
+                  'filters': None,
                   'compressor': Dataset._to_zarr_compression_options(compression,
                                                                      compression_options)}
         with open(os.path.join(path, '.zarray'), 'w') as f:
