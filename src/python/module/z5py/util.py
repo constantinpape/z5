@@ -1,4 +1,6 @@
 from __future__ import print_function
+
+import os
 from itertools import product
 from concurrent import futures
 from contextlib import closing
@@ -157,3 +159,13 @@ def fetch_test_data():
     with zipfile.ZipFile(zip_buffer) as zf:
         tif_buffer = Buffer(zf.read('JeffT1_le.tif'))
         return np.asarray(volread(tif_buffer, format='tif'), dtype=np.uint8)
+
+
+def get_block_path(dataset, voxel_idx):
+    """Find the path to the block in which the given voxel index lies"""
+    block_idx = (np.array(voxel_idx) // np.array(dataset.chunks)).astype(int)
+
+    if dataset.is_zarr:
+        return os.path.join(dataset.path, '.'.join(str(i) for i in block_idx))
+    else:
+        return os.path.join(dataset.path, *[str(i) for i in block_idx[::-1]])
