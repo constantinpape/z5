@@ -33,14 +33,14 @@ namespace z5 {
             // fill 'dataInt_' with random values
             std::uniform_int_distribution<int> distributionInt(0, 1000);
             auto drawInt = std::bind(distributionInt, generator);
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 dataInt_[i] = drawInt();
             }
 
             // fill 'dataFloat_' with random values
             std::uniform_real_distribution<float> distributionFloat(0., 1.);
             auto drawFloat = std::bind(distributionFloat, generator);
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 dataFloat_[i] = drawFloat();
             }
 
@@ -79,7 +79,7 @@ namespace z5 {
         nlohmann::json jInt_;
         nlohmann::json jFloat_;
 
-        const static size_t size_ = 10*10*10;
+        const static std::size_t size_ = 10*10*10;
         int dataInt_[size_];
         float dataFloat_[size_];
 
@@ -97,7 +97,7 @@ namespace z5 {
         int dataTmp[size_];
         array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
         // check
-        for(size_t i = 0; i < size_; ++i) {
+        for(std::size_t i = 0; i < size_; ++i) {
             ASSERT_EQ(dataTmp[i], 42);
         }
 
@@ -106,7 +106,7 @@ namespace z5 {
             // get a random chunk
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
-                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
@@ -117,7 +117,7 @@ namespace z5 {
             array.readChunk(chunkId, dataTmp);
 
             // check
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 ASSERT_EQ(dataTmp[i], dataInt_[i]);
             }
         }
@@ -139,7 +139,7 @@ namespace z5 {
         int dataTmp[size_];
         array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
         // check
-        for(size_t i = 0; i < size_; ++i) {
+        for(std::size_t i = 0; i < size_; ++i) {
             ASSERT_EQ(dataTmp[i], 42);
         }
 
@@ -148,7 +148,7 @@ namespace z5 {
             // get a random chunk
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
-                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
@@ -159,7 +159,7 @@ namespace z5 {
             array.readChunk(chunkId, dataTmp);
 
             // check
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 ASSERT_EQ(dataTmp[i], dataInt_[i]);
             }
         }
@@ -177,7 +177,7 @@ namespace z5 {
         float dataTmp[size_];
         array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
         // check
-        for(size_t i = 0; i < size_; ++i) {
+        for(std::size_t i = 0; i < size_; ++i) {
             ASSERT_EQ(dataTmp[i], 42.);
         }
 
@@ -187,7 +187,7 @@ namespace z5 {
             // get a random chunk
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
-                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
@@ -198,7 +198,7 @@ namespace z5 {
             array.readChunk(chunkId, dataTmp);
 
             // check
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 ASSERT_EQ(dataTmp[i], dataFloat_[i]);
             }
         }
@@ -220,7 +220,7 @@ namespace z5 {
         float dataTmp[size_];
         array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
         // check
-        for(size_t i = 0; i < size_; ++i) {
+        for(std::size_t i = 0; i < size_; ++i) {
             ASSERT_EQ(dataTmp[i], 42.);
         }
 
@@ -230,7 +230,7 @@ namespace z5 {
             // get a random chunk
             types::ShapeType chunkId(array.dimension());
             for(unsigned d = 0; d < array.dimension(); ++d) {
-                std::uniform_int_distribution<size_t> distr(0, chunksPerDim[d] - 1);
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
@@ -241,7 +241,7 @@ namespace z5 {
             array.readChunk(chunkId, dataTmp);
 
             // check
-            for(size_t i = 0; i < size_; ++i) {
+            for(std::size_t i = 0; i < size_; ++i) {
                 ASSERT_EQ(dataTmp[i], dataFloat_[i]);
             }
         }

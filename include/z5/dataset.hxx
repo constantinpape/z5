@@ -12,6 +12,8 @@
 #include "z5/compression/blosc_compressor.hxx"
 #include "z5/compression/zlib_compressor.hxx"
 #include "z5/compression/bzip2_compressor.hxx"
+#include "z5/compression/xz_compressor.hxx"
+#include "z5/compression/lz4_compressor.hxx"
 
 // different io backends
 #include "z5/io/io_zarr.hxx"
@@ -56,29 +58,29 @@ namespace z5 {
             types::ShapeType &) const = 0;
 
         // find chunk index of coordinate
-        virtual size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
+        virtual std::size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
         // get offset of chunk
 
         // size and shape of an actual chunk
-        virtual size_t getChunkSize(const types::ShapeType &) const = 0;
+        virtual std::size_t getChunkSize(const types::ShapeType &) const = 0;
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
-        virtual size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
+        virtual std::size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
         virtual void getChunkOffset(const types::ShapeType &, types::ShapeType &) const = 0;
 
         // maximal chunk size and shape
-        virtual size_t maxChunkSize() const = 0;
+        virtual std::size_t maxChunkSize() const = 0;
         virtual const types::ShapeType & maxChunkShape() const = 0;
-        virtual size_t maxChunkShape(const unsigned) const = 0;
+        virtual std::size_t maxChunkShape(const unsigned) const = 0;
 
         // shapes and dimension
         virtual unsigned dimension() const = 0;
         virtual const types::ShapeType & shape() const = 0;
-        virtual size_t shape(const unsigned) const = 0;
-        virtual size_t size() const = 0;
+        virtual std::size_t shape(const unsigned) const = 0;
+        virtual std::size_t size() const = 0;
 
-        virtual size_t numberOfChunks() const = 0;
+        virtual std::size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
-        virtual size_t chunksPerDimension(const unsigned) const = 0;
+        virtual std::size_t chunksPerDimension(const unsigned) const = 0;
 
         // dtype and compression options
         virtual types::Datatype getDtype() const = 0;
@@ -169,13 +171,12 @@ namespace z5 {
         virtual void dataToFormat(const void * data, std::vector<char> & format, const types::ShapeType & dataShape) const {
 
             // data size from the shape
-            size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<size_t>());
+            const std::size_t dataSize = std::accumulate(dataShape.begin(), dataShape.end(), 1, std::multiplies<std::size_t>());
 
             // write header for N5
             if(!isZarr_) {
                 io_->writeHeader(dataShape, format);
             }
-
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
@@ -188,13 +189,15 @@ namespace z5 {
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    format.insert(format.end(), (const char*) &dataTmp[0], (const char*) &dataTmp[0] + dataSize * sizeof(T));
+                    const std::size_t preSize = format.size();
+                    format.resize(preSize + dataTmp.size());
+                    memcpy(&format[preSize], &dataTmp[0], dataTmp.size());
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    std::vector<T> compressed;
+                    std::vector<char> compressed;
                     compressor_->compress(&dataTmp[0], compressed, dataSize);
-                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                    format.insert(format.end(), compressed.begin(), compressed.end());
                 }
 
             } else {
@@ -204,13 +207,15 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    format.insert(format.end(), (const char *) data, (const char*) data + dataSize * sizeof(T));
+                    const std::size_t preSize = format.size();
+                    format.resize(preSize + dataSize * sizeof(T));
+                    memcpy(&format[preSize], (T*) data, dataSize * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    std::vector<T> compressed;
+                    std::vector<char> compressed;
                     compressor_->compress(static_cast<const T*>(data), compressed, dataSize);
-                    format.insert(format.end(), (const char*) &compressed[0], (const char*) &compressed[0] + compressed.size() * sizeof(T));
+                    format.insert(format.end(), compressed.begin(), compressed.end());
                 }
             }
         }
@@ -250,11 +255,11 @@ namespace z5 {
             const types::ShapeType & shape,
             std::vector<types::ShapeType> & chunkRequests) const {
 
-            size_t nDim = offset.size();
+            std::size_t nDim = offset.size();
             // iterate over the dimension and find the min and max chunk ids
             types::ShapeType minChunkIds(nDim);
             types::ShapeType maxChunkIds(nDim);
-            size_t endCoordinate, endId;
+            std::size_t endCoordinate, endId;
             for(int d = 0; d < nDim; ++d) {
                 // integer division is ok for both min and max-id, because
                 // the chunk is labeled by it's lowest coordinate
@@ -283,7 +288,7 @@ namespace z5 {
             getChunkShape(chunkId, chunkShape);
 
             bool completeOvlp = true;
-            size_t chunkBegin, chunkEnd, requestEnd;
+            std::size_t chunkBegin, chunkEnd, requestEnd;
             int offDiff, endDiff;
             for(int d = 0; d < offset.size(); ++d) {
 
@@ -338,7 +343,7 @@ namespace z5 {
         }
 
         // get individual chunk shape from indices
-        virtual size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+        virtual std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkShape(chunk, dim);
         }
@@ -355,12 +360,12 @@ namespace z5 {
         }
 
         // get individual chunk shape from handle
-        inline size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
+        inline std::size_t getChunkShape(const handle::Chunk & chunk, const unsigned dim) const {
             // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
             if(isZarr_) {
                 return maxChunkShape(dim);
             } else {
-                std::vector<size_t> tmpShape;
+                std::vector<std::size_t> tmpShape;
                 getChunkShape(chunk, tmpShape);
                 return tmpShape[dim];
             }
@@ -373,14 +378,14 @@ namespace z5 {
             }
         }
 
-        inline size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
+        inline std::size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
             chunkId.resize(shape_.size());
             for(unsigned dim = 0; dim < shape_.size(); ++dim) {
                chunkId[dim] = coordinate[dim] / chunkShape_[dim];
             }
         }
 
-        virtual size_t getChunkSize(const types::ShapeType & chunkId) const {
+        virtual std::size_t getChunkSize(const types::ShapeType & chunkId) const {
             handle::Chunk chunk(handle_, chunkId, isZarr_);
             return getChunkSize(chunk);
         }
@@ -388,16 +393,16 @@ namespace z5 {
         // shapes and dimension
         virtual unsigned dimension() const {return shape_.size();}
         virtual const types::ShapeType & shape() const {return shape_;}
-        virtual size_t shape(const unsigned d) const {return shape_[d];}
+        virtual std::size_t shape(const unsigned d) const {return shape_[d];}
         virtual const types::ShapeType & maxChunkShape() const {return chunkShape_;}
-        virtual size_t maxChunkShape(const unsigned d) const {return chunkShape_[d];}
+        virtual std::size_t maxChunkShape(const unsigned d) const {return chunkShape_[d];}
 
-        virtual size_t numberOfChunks() const {return numberOfChunks_;}
+        virtual std::size_t numberOfChunks() const {return numberOfChunks_;}
         virtual const types::ShapeType & chunksPerDimension() const {return chunksPerDimension_;}
-        virtual size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
-        virtual size_t maxChunkSize() const {return chunkSize_;}
-        virtual size_t size() const {
-            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<size_t>());
+        virtual std::size_t chunksPerDimension(const unsigned d) const {return chunksPerDimension_[d];}
+        virtual std::size_t maxChunkSize() const {return chunkSize_;}
+        virtual std::size_t size() const {
+            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
         }
 
         // datatype, format and handle
@@ -461,7 +466,7 @@ namespace z5 {
             chunkShape_ = metadata.chunkShape;
 
             chunkSize_ = std::accumulate(
-                chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<size_t>()
+                chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>()
             );
             fillValue_ = static_cast<T>(metadata.fillValue);
 
@@ -479,26 +484,34 @@ namespace z5 {
                 #endif
                 #ifdef WITH_BZIP2
                 case types::bzip2:
-            	    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
+                    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_XZ
+                case types::xz:
+                    compressor_.reset(new compression::XzCompressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_LZ4
+                case types::lz4:
+                    compressor_.reset(new compression::Lz4Compressor<T>(metadata)); break;
                 #endif
             }
 
             // chunk writer
             if(isZarr_) {
-                io_.reset(new io::ChunkIoZarr<T>());
+                io_.reset(new io::ChunkIoZarr());
             } else {
-                io_.reset(new io::ChunkIoN5<T>(shape_, chunkShape_));
+                io_.reset(new io::ChunkIoN5(shape_, chunkShape_));
             }
 
             // get chunk specifications
-            for(size_t d = 0; d < shape_.size(); ++d) {
+            for(std::size_t d = 0; d < shape_.size(); ++d) {
                 chunksPerDimension_.push_back(
                     shape_[d] / chunkShape_[d] + (shape_[d] % chunkShape_[d] == 0 ? 0 : 1)
                 );
             }
-            numberOfChunks_ = std::accumulate(
-                chunksPerDimension_.begin(), chunksPerDimension_.end(), 1, std::multiplies<size_t>()
-            );
+            numberOfChunks_ = std::accumulate(chunksPerDimension_.begin(),
+                                              chunksPerDimension_.end(),
+                                              1, std::multiplies<std::size_t>());
         }
 
 
@@ -511,21 +524,37 @@ namespace z5 {
             checkChunk(chunk);
 
             // get the correct chunk size and declare the out data
-            size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-            std::vector<T> dataOut;
+            const std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+            std::vector<char> dataOut;
+
+            // check if the chunk is empty (i.e. all fillvalue)
+            // we need the remporary reference to capture in the lambda
+            const auto & fillValue = fillValue_;
+            const bool isEmpty = std::all_of(static_cast<const T*>(dataIn),
+                                             static_cast<const T*>(dataIn) + chunkSize,
+                                             [fillValue](const T val){return val == fillValue;});
+            // if we have data on disc for the chunk, delete it
+            if(isEmpty) {
+                const auto & path = chunk.path();
+                if(fs::exists(path)) {
+                    fs::remove(path);
+                }
+                return;
+            }
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
 
                 // copy the data and reverse endianness
-                std::vector<T> dataTmp(static_cast<const T*>(dataIn), static_cast<const T*>(dataIn) + chunkSize);
+                std::vector<T> dataTmp(static_cast<const T*>(dataIn),
+                                       static_cast<const T*>(dataIn) + chunkSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
 
                 // if we have raw compression (== no compression), we bypass the compression step
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, &dataTmp[0], dataTmp.size());
+                    io_->write(chunk, (const char *) &dataTmp[0], dataTmp.size() * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
@@ -540,7 +569,7 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, (const T*) dataIn, chunkSize);
+                    io_->write(chunk, (const char*) dataIn, chunkSize * sizeof(T));
                 }
                 // otherwise, we compress the data and then write to file
                 else {
@@ -557,38 +586,37 @@ namespace z5 {
             checkChunk(chunk);
 
             // read the data
-            std::vector<T> dataTmp;
-            auto chunkExists = io_->read(chunk, dataTmp);
+            std::vector<char> dataTmp;
+            const bool chunkExists = io_->read(chunk, dataTmp);
 
             // if the chunk exists, decompress it
             // otherwise we return the chunk with fill value
             if(chunkExists) {
 
-                size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
 
                 // we don't need to decompress for raw compression
                 if(compressor_->type() == 0) {
-                    // FIXME for some reason, we need to copy here
-                    // however, it turns out that the memcopys are orders of 
-                    // magnitude faster than anything else anyway
-                    std::copy(dataTmp.begin(), dataTmp.end(), static_cast<T*>(dataOut));
-                    //dataOut = &dataTmp[0];
+                    // mem-copy the binary data that was read to typed out data
+                    memcpy((T*) dataOut, &dataTmp[0], dataTmp.size());
                 } else {
                     compressor_->decompress(dataTmp, static_cast<T*>(dataOut), chunkSize);
                 }
 
                 // reverse the endianness for N5 data
-                // TODO actually check that the file endianness is different than the system endianness
+                // TODO check that the file endianness is different than the system endianness
                 if(sizeof(T) > 1 && !isZarr_) { // we don't need to convert single bit numbers
-                    util::reverseEndiannessInplace<T>(
-                        static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize);
+                    util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
+                                                      static_cast<T*>(dataOut) + chunkSize);
                 }
 
             }
 
             else {
-                size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-                std::fill(static_cast<T*>(dataOut), static_cast<T*>(dataOut) + chunkSize, fillValue_);
+                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                std::fill(static_cast<T*>(dataOut),
+                          static_cast<T*>(dataOut) + chunkSize,
+                          fillValue_);
             }
         }
 
@@ -610,14 +638,14 @@ namespace z5 {
         }
 
 
-        inline size_t getChunkSize(const handle::Chunk & chunk) const {
+        inline std::size_t getChunkSize(const handle::Chunk & chunk) const {
             // zarr has a fixed chunkShpae, whereas n5 has variable chunk shape
             if(isZarr_) {
                 return maxChunkSize();
             } else {
-                std::vector<size_t> tmpShape;
+                std::vector<std::size_t> tmpShape;
                 getChunkShape(chunk, tmpShape);
-                return std::accumulate(tmpShape.begin(), tmpShape.end(), 1, std::multiplies<size_t>());
+                return std::accumulate(tmpShape.begin(), tmpShape.end(), 1, std::multiplies<std::size_t>());
             }
         }
 
@@ -633,7 +661,7 @@ namespace z5 {
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 
         // unique prtr chunk writer
-        std::unique_ptr<io::ChunkIoBase<T>> io_;
+        std::unique_ptr<io::ChunkIoBase> io_;
 
         // flag to store whether the chunks are in zarr or n5 encoding
         bool isZarr_;
@@ -645,11 +673,11 @@ namespace z5 {
         // the chunk-shape of the arrays
         types::ShapeType chunkShape_;
         // the chunk size and the chunk size in bytes
-        size_t chunkSize_;
+        std::size_t chunkSize_;
         // the fill value
         T fillValue_;
         // the number of chunks and chunks per dimension
-        size_t numberOfChunks_;
+        std::size_t numberOfChunks_;
         types::ShapeType chunksPerDimension_;
     };
 

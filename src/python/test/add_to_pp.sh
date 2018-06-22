@@ -1,1 +1,1 @@
-export PYTHONPATH=$PYTHONPATH:$HOME/Work/orojects_phd/z5/bld/python
+export PYTHONPATH=$PYTHONPATH:$HOME/Work/software/bld/z5/python

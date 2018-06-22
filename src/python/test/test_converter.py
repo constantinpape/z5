@@ -5,10 +5,14 @@ import os
 from shutil import rmtree
 
 try:
-    import h5py
-    WITH_H5 = True
+    from concurrent import futures
 except ImportError:
-    WITH_H5 = False
+    futures = False
+
+try:
+    import h5py
+except ImportError:
+    h5py = False
 
 try:
     import z5py
@@ -33,9 +37,10 @@ class TestConverter(unittest.TestCase):
         if os.path.exists(self.tmp_dir):
             rmtree(self.tmp_dir)
 
-    @unittest.skipUnless(WITH_H5, 'Requires h5py')
+    @unittest.skipUnless(h5py, 'Requires h5py')
+    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_h5_to_n5(self):
-        from z5py.converter import convert_h5_to_n5
+        from z5py.converter import convert_from_h5
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
         n5_file = os.path.join(self.tmp_dir, 'tmp.n5')
 
@@ -54,18 +59,19 @@ class TestConverter(unittest.TestCase):
                 data = np.arange(ds.size).reshape(ds.shape).astype(ds.dtype)
                 ds[:] = data
 
-            convert_h5_to_n5(h5_file, n5_file,
-                             key, key, self.chunks,
-                             n_threads=8, compression=compression_b)
+            convert_from_h5(h5_file, n5_file,
+                            key, key, self.chunks,
+                            n_threads=8, compression=compression_b)
 
             fn5 = z5py.File(n5_file)
             data_n5 = fn5[key][:]
             self.assertTrue(np.allclose(data, data_n5))
         print("Test h5 to n5 passed")
 
-    @unittest.skipUnless(WITH_H5, 'Requires h5py')
+    @unittest.skipUnless(h5py, 'Requires h5py')
+    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_n5_to_h5(self):
-        from z5py.converter import convert_n5_to_h5
+        from z5py.converter import convert_to_h5
         n5_file = os.path.join(self.tmp_dir, 'tmp.n5')
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
         f = z5py.File(n5_file, use_zarr_format=False)
@@ -85,9 +91,9 @@ class TestConverter(unittest.TestCase):
             ds[:] = data
 
             compression_b = None if compression_b == 'raw' else compression_b
-            convert_n5_to_h5(n5_file, h5_file,
-                             key, key, self.chunks,
-                             n_threads=1, compression=compression_b)
+            convert_to_h5(n5_file, h5_file,
+                          key, key, self.chunks,
+                          n_threads=1, compression=compression_b)
 
             with h5py.File(h5_file, 'r') as fh5:
                 data_h5 = fh5[key][:]

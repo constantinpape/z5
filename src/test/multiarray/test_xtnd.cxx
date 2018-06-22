@@ -9,7 +9,7 @@
 namespace fs = boost::filesystem;
 
 #define MIN_DIM 1
-#define MAX_DIM 4
+#define MAX_DIM 6
 
 namespace z5 {
 namespace multiarray {
@@ -21,10 +21,18 @@ namespace multiarray {
         XtensorNDTest() : path_("test.n5"), size_(100), chunkSize_(10){
         }
 
-        auto writeData(const size_t dim) {
-            // std::vector<size_t> shape(dim, (dim < 5) ? size_ : 20);
-            std::vector<size_t> shape(dim, size_);
-            std::vector<size_t> chunkShape(dim, chunkSize_);
+        auto writeData(const std::size_t dim) {
+            // need smaller shapes for dim > 3
+            std::vector<std::size_t> shape, chunkShape;
+            if(dim < 4) {
+                shape = std::vector<std::size_t>(dim, size_);
+                chunkShape = std::vector<size_t>(dim, chunkSize_);
+            } else {
+                for(int d = 0; d < dim; ++d) {
+                    shape.push_back((d < 3) ? size_ : 3);
+                    chunkShape.push_back((d < 3) ? chunkSize_ : 1);
+                }
+            }
             // create the dataset
             auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
             // write the data
@@ -47,29 +55,31 @@ namespace multiarray {
             return ds;
         }
 
-        void testArrayRead(const size_t dim) {
+        void testArrayRead(const std::size_t dim) {
             typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             auto ds = writeData(dim);
             const auto & shape = ds->shape();
             ArrayShape arrayShape(shape.begin(), shape.end());
 
-            std::cout << "Run test data " << dim << " d" << std::endl;
+            std::cout << "d: " << dim << std::endl;
             // load a completely overlapping array consisting of 8 chunks
             {
                 types::ShapeType offset(dim, 0);
                 ArrayShape subShape(dim, 20);
+                if(dim > 3) {
+                    for(int d = 3; d < dim; ++d) {
+                        subShape[d] = 2;
+                    }
+                }
+
                 xt::xarray<int32_t> data(subShape);
-                //std::cout << "Read..." << std::endl;
                 readSubarray<int32_t>(ds, data, offset.begin());
-                //std::cout << "... done" << std::endl;
 
                 for(const auto elem: data) {
                     ASSERT_EQ(elem, 42);
                 }
             }
-            std::cout << "done" << std::endl;
 
-            std::cout << "Run test data full" << dim << " d" << std::endl;
             // load the complete array
             {
                 types::ShapeType offset(dim, 0);
@@ -80,19 +90,29 @@ namespace multiarray {
                     ASSERT_EQ(elem, 42);
                 }
             }
-            std::cout << "done" << std::endl;
 
         }
 
 
-        void testArrayWriteRead(const size_t dim) {
+        void testArrayWriteRead(const std::size_t dim) {
 
+            std::cout << "d: " << dim << std::endl;
             typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
+
+            // need smaller shapes for dim > 3
+            std::vector<std::size_t> shape, chunkShape;
+            if(dim < 4) {
+                shape = std::vector<std::size_t>(dim, size_);
+                chunkShape = std::vector<size_t>(dim, chunkSize_);
+            } else {
+                for(int d = 0; d < dim; ++d) {
+                    shape.push_back((d < 3) ? size_ : 3);
+                    chunkShape.push_back((d < 3) ? chunkSize_ : 1);
+                }
+            }
+
             // create the dataset
-            ArrayShape shape(dim, size_);
-            types::ShapeType dsShape(dim, size_);
-            std::vector<size_t> chunkShape(dim, chunkSize_);
-            auto ds = createDataset(path_, "int32", dsShape, chunkShape, false, "raw");
+            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
 
             // random number generator
             std::uniform_int_distribution<int32_t> distr;
@@ -103,6 +123,11 @@ namespace multiarray {
             {
                 types::ShapeType offset(dim, 0);
                 ArrayShape subShape(dim, 20);
+                if(dim > 3) {
+                    for(int d = 3; d < dim; ++d) {
+                        subShape[d] = 2;
+                    }
+                }
 
                 // generate random in data
                 xt::xarray<int32_t> dataIn(subShape);
@@ -146,12 +171,12 @@ namespace multiarray {
         }
 
         std::string path_;
-        size_t size_;
-        size_t chunkSize_;
+        std::size_t size_;
+        std::size_t chunkSize_;
     };
 
     TEST_F(XtensorNDTest, TestRead) {
-        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
+        for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
             // remove array
             fs::path path(path_);
@@ -160,7 +185,7 @@ namespace multiarray {
     }
 
     TEST_F(XtensorNDTest, TestWriteRead) {
-        for(size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
+        for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);
             // remove array
             fs::path path(path_);

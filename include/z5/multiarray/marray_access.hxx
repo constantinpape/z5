@@ -16,8 +16,8 @@ namespace multiarray {
     void copy_to_view(const std::vector<T> & buffer, andres::View<T> & view) {
         types::ShapeType shape(view.shapeBegin(), view.shapeEnd());
         //types::ShapeType strides(view.stridesBegin(), view.stridesEnd());
-        size_t offset;
-        for(size_t index = 0; index < view.size(); ++index) {
+        std::size_t offset;
+        for(std::size_t index = 0; index < view.size(); ++index) {
             // TODO if this does not work, use coordinate instead
             view.indexToOffset(index, offset);
             *(&view(0) + offset) = buffer[index];
@@ -55,7 +55,7 @@ namespace multiarray {
         }
         andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
         // buffer size
-        auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<size_t>());
+        auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<std::size_t>());
         //std::vector<T> buffer(bufferSize);
 
         // iterate over the chunks

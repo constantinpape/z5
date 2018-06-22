@@ -60,15 +60,15 @@ class DatasetTestMixin(object):
 
     def test_ds_dtypes(self):
         for dtype in self.dtypes:
-            print("Running %s-Test for %s" % (self.data_format.title(), dtype))
             ds = self.root_file.create_dataset('data_%s' % hash(dtype),
                                                dtype=dtype,
                                                shape=self.shape,
                                                chunks=(10, 10, 10))
-            in_array = 42 * np.ones(self.shape, dtype=dtype)
+            in_array = np.random.rand(*self.shape).astype(dtype)
             ds[:] = in_array
             out_array = ds[:]
-            self.check_array(out_array, in_array)
+            self.check_array(out_array, in_array,
+                             'datatype %s failed for format %s' % (self.data_format.title(), dtype))
 
     def check_ones(self, sliced_ones, expected_shape, msg=None):
         self.check_array(sliced_ones, np.ones(expected_shape, dtype=np.uint8), msg)
@@ -177,6 +177,69 @@ class DatasetTestMixin(object):
             out_array = ds[:]
             self.check_array(out_array, in_array)
 
+    def test_create_nested_dataset(self):
+        ds = self.root_file.create_dataset('group/sub_group/data',
+                                           shape=self.shape,
+                                           dtype='float64',
+                                           chunks=(10, 10, 10))
+        self.assertEqual(ds.path, os.path.join(self.root_file.path, 'group/sub_group/data'))
+
+    def test_create_with_data(self):
+        in_array = np.random.rand(*self.shape)
+        ds = self.root_file.create_dataset('data', data=in_array)
+        out_array = ds[:]
+        self.check_array(out_array, in_array)
+
+    def test_require_dataset(self):
+        in_array = np.random.rand(*self.shape)
+        self.root_file.require_dataset('data', data=in_array,
+                                       shape=in_array.shape,
+                                       dtype=in_array.dtype)
+        ds = self.root_file.require_dataset('data',
+                                            shape=in_array.shape,
+                                            dtype=in_array.dtype)
+        out_array = ds[:]
+        self.check_array(out_array, in_array)
+
+    def test_non_contiguous(self):
+        ds = self.root_file.create_dataset('test',
+                                           dtype='float32',
+                                           shape=self.shape,
+                                           chunks=(10, 10, 10))
+        # make a non-contiguous 3d array of the correct shape (100)^3
+        vol = np.arange(200**3).astype('float32').reshape((200, 200, 200))
+        in_array = vol[::2, ::2, ::2]
+        ds[:] = in_array
+        out_array = ds[:]
+        self.check_array(out_array, in_array, 'failed for non-contiguous data')
+
+    def test_empty_chunk(self):
+        ds = self.root_file.create_dataset('test',
+                                           dtype='float32',
+                                           shape=self.shape,
+                                           chunks=(10, 10, 10))
+        bb = np.s_[:10, :10, :10]
+        if ds.is_zarr:
+            chunk_path = os.path.join(ds.path, '0.0.0')
+        else:
+            chunk_path = os.path.join(ds.path, '0', '0', '0')
+        ds[bb] = 0
+        self.assertFalse(os.path.exists(chunk_path))
+        ds[bb] = 1
+        self.assertTrue(os.path.exists(chunk_path))
+        ds[bb] = 0
+        self.assertFalse(os.path.exists(chunk_path))
+
+    def test_invalid_options(self):
+        with self.assertRaises(RuntimeError):
+            self.root_file.create_dataset('test1', shape=self.shape, dtype='float32',
+                                          chunks=(10, 10, 10), compression='raw',
+                                          level=5)
+        with self.assertRaises(RuntimeError):
+            self.root_file.create_dataset('test2', shape=self.shape, dtype='float32',
+                                          chunks=(10, 10, 10), compression='bzip2',
+                                          level=5, blub='blob')
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
@@ -187,7 +250,7 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
 
     @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
     def test_ds_array_to_format(self):
-        for dtype in self.dtypes:
+        for dtype in self.base_dtypes:
             ds = self.root_file.create_dataset('data_%s' % hash(dtype),
                                                dtype=dtype,
                                                shape=self.shape,

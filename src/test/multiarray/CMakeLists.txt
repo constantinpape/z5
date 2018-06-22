@@ -10,6 +10,10 @@ target_link_libraries(test_broadcast ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 add_executable(test_xtnd test_xtnd.cxx)
 target_link_libraries(test_xtnd ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
+# add xtensor util
+add_executable(test_xtutil test_xtutil.cxx)
+target_link_libraries(test_xtutil ${TEST_LIBS})
+
 # add marray test
 if(WITH_MARRAY)
     add_executable(test_marray test_marray.cxx)

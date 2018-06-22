@@ -33,17 +33,17 @@ namespace z5 {
             ASSERT_EQ(ds->maxChunkShape(2), 17);
 
             auto chunks = ds->chunksPerDimension();
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
 
-                        size_t chunkSize = ds->getChunkSize({z, y, x});
+                        std::size_t chunkSize = ds->getChunkSize({z, y, x});
                         std::vector<T> dataOut(chunkSize);
 
                         // read chunk and make sure it agrees
                         types::ShapeType chunk({z, y, x});
                         ds->readChunk(chunk, &dataOut[0]);
-                        for(size_t i = 0; i < dataOut.size(); i++) {
+                        for(std::size_t i = 0; i < dataOut.size(); i++) {
                             ASSERT_EQ(dataOut[i], expectedValue);
                         }
 
@@ -72,9 +72,9 @@ namespace z5 {
             auto chunks = ds->chunksPerDimension();
             std::vector<T> data(ds->maxChunkSize(), value);
 
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
                         types::ShapeType chunk({z, y, x});
                         ds->writeChunk(chunk, &data[0]);
                     }

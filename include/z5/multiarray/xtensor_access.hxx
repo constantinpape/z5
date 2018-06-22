@@ -27,7 +27,7 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
         // iterate over the chunks
@@ -48,7 +48,7 @@ namespace multiarray {
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -94,13 +94,13 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
 
         // read the chunks in parallel
-        const size_t nChunks = chunkRequests.size();
-        util::parallel_foreach(tp, nChunks, [&](const int tId, const size_t chunkIndex){
+        const std::size_t nChunks = chunkRequests.size();
+        util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
 
             const auto & chunkId = chunkRequests[chunkIndex];
             auto & buffer = threadBuffers[tId];
@@ -123,7 +123,7 @@ namespace multiarray {
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -194,7 +194,7 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
         // iterate over the chunks
@@ -202,7 +202,7 @@ namespace multiarray {
 
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice(in);
@@ -259,13 +259,13 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
 
         // write the chunks in parallel
-        const size_t nChunks = chunkRequests.size();
-        util::parallel_foreach(tp, nChunks, [&](const int tId, const size_t chunkIndex){
+        const std::size_t nChunks = chunkRequests.size();
+        util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
 
             const auto & chunkId = chunkRequests[chunkIndex];
             auto & buffer = threadBuffers[tId];
@@ -275,7 +275,7 @@ namespace multiarray {
 
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice(in);
