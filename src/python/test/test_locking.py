@@ -27,14 +27,16 @@ logger = logging.getLogger(__name__)
 
 
 SEED = 0
+TIMEOUT = 10
 
 
 class OtherLock(mp.Process):
-    def __init__(self, path):
+    def __init__(self, path, timeout=TIMEOUT):
         super(OtherLock, self).__init__()
         self.path = path
         self.start_event = mp.Event()
         self.stop_event = mp.Event()
+        self.timeout = timeout
         self.daemon = True
 
     def run(self):
@@ -42,7 +44,8 @@ class OtherLock(mp.Process):
             fd = f.fileno()
             fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             self.start_event.set()
-            self.stop_event.wait()
+            assert self.stop_event.wait(self.timeout), \
+                "OtherLock timed out after {}s".format(self.timeout)
             fcntl.lockf(fd, fcntl.LOCK_UN)
 
     def __enter__(self):
