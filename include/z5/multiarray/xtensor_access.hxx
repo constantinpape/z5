@@ -42,9 +42,9 @@ namespace multiarray {
                                                            offsetInChunk);
 
             // get the view in our array
-            xt::slice_vector offsetSlice(out);
+            xt::slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            auto view = xt::dynamic_view(out, offsetSlice);
+            auto view = xt::strided_view(out, offsetSlice);
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
@@ -68,9 +68,9 @@ namespace multiarray {
             else {
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
@@ -117,9 +117,9 @@ namespace multiarray {
                                                            offsetInChunk);
 
             // get the view in our array
-            xt::slice_vector offsetSlice(out);
+            xt::slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            auto view = xt::dynamic_view(out, offsetSlice);
+            auto view = xt::strided_view(out, offsetSlice);
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
@@ -143,9 +143,9 @@ namespace multiarray {
             else {
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
@@ -205,9 +205,9 @@ namespace multiarray {
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::slice_vector offsetSlice(in);
+            xt::slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            const auto view = xt::dynamic_view(in, offsetSlice);
+            const auto view = xt::strided_view(in, offsetSlice);
 
             // resize buffer if necessary
             if(chunkSize != buffer.size()) {
@@ -230,9 +230,9 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
@@ -278,9 +278,9 @@ namespace multiarray {
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::slice_vector offsetSlice(in);
+            xt::slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            const auto view = xt::dynamic_view(in, offsetSlice);
+            const auto view = xt::strided_view(in, offsetSlice);
 
             // resize buffer if necessary
             if(chunkSize != buffer.size()) {
@@ -303,9 +303,9 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization

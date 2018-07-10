@@ -4,40 +4,6 @@
 #include "xtensor/xadapt.hpp"
 #include "xtensor/xstrided_view.hpp"
 
-// FIXME this does not work as expected either...
-// copied from xtensor-blas:
-// https://github.com/QuantStack/xtensor-blas/blob/master/include/xtensor-blas/xblas_utils.hpp#L17-L42
-namespace xt {
-
-    template <layout_type L = layout_type::row_major, class T>
-    inline auto view_eval(T&& t)
-        -> std::enable_if_t<has_raw_data_interface<T>::value && std::decay_t<T>::static_layout == L, T&&>
-    {
-        return std::forward<T>(t);
-    }
-
-    template <layout_type L = layout_type::row_major, class T, class I = std::decay_t<T>>
-    inline auto view_eval(T&& t)
-        -> std::enable_if_t<(!has_raw_data_interface<T>::value || I::static_layout != L)
-                                && detail::is_array<typename I::shape_type>::value,
-                            xtensor<typename I::value_type, std::tuple_size<typename I::shape_type>::value, L>>
-    {
-        xtensor<typename I::value_type, std::tuple_size<typename I::shape_type>::value, L> ret = t;
-        return ret;
-    }
-
-    template <layout_type L = layout_type::row_major, class T, class I = std::decay_t<T>>
-    inline auto view_eval(T&& t)
-        -> std::enable_if_t<(!has_raw_data_interface<T>::value || I::static_layout != L) &&
-                                !detail::is_array<typename I::shape_type>::value,
-                            xarray<typename I::value_type, L>>
-    {
-        xarray<typename I::value_type, L> ret = t;
-        return ret;
-	}
-}
-
-
 namespace z5 {
 namespace multiarray {
 

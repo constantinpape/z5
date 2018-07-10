@@ -56,9 +56,9 @@ namespace multiarray {
                 ds.readChunk(chunkId, &buffer[0]);
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
                 bufView = val;
                 ds.writeChunk(chunkId, &buffer[0]);
 
@@ -124,9 +124,9 @@ namespace multiarray {
                 ds.readChunk(chunkId, &buffer[0]);
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice(fullBuffView);
+                xt::slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::dynamic_view(fullBuffView, bufSlice);
+                auto bufView = xt::strided_view(fullBuffView, bufSlice);
                 bufView = val;
                 ds.writeChunk(chunkId, &buffer[0]);
 

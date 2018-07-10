@@ -39,9 +39,9 @@ namespace multiarray {
 
             // make the big array and view
             xt::xarray<int> array = xt::zeros<int>(shape);
-            xt::slice_vector slice(array);
+            xt::slice_vector slice;
             sliceFromRoi(slice, viewOffset, viewShape);
-            auto view = xt::dynamic_view(array, slice);
+            auto view = xt::strided_view(array, slice);
 
             // make 1D buffer
             std::vector<int> buffer(view.size());
@@ -84,9 +84,9 @@ namespace multiarray {
 
             // make the big array and view
             xt::xarray<int> array = xt::zeros<int>(shape);
-            xt::slice_vector slice(array);
+            xt::slice_vector slice;
             sliceFromRoi(slice, viewOffset, viewShape);
-            auto view = xt::dynamic_view(array, slice);
+            auto view = xt::strided_view(array, slice);
             std::iota(view.begin(), view.end(), 0);
 
             // make 1D buffer
