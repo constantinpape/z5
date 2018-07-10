@@ -31,7 +31,6 @@ before_script:
   # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
   # - conda install -c conda-forge libgcc
   # - conda install -c psi4 gcc-5
-  - conda install -c conda-forge xtensor=0.15.1
   - conda install -c conda-forge xtensor-python
   - conda install -c conda-forge boost c-blosc zlib bzip2 xz
   - conda install -c conda-forge imageio
