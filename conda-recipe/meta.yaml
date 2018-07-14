@@ -27,8 +27,8 @@ requirements:
     - zlib
     - bzip2
     - xz
-    - xtensor 0.15.1
-    - xtensor-python 0.17.0
+    - xtensor
+    - xtensor-python
     - pybind11 >=2.2.1
   run:
     - python {{PY_VER}}*
