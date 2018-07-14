@@ -65,20 +65,20 @@ include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
 # Set up conda env
 ###############################
     
-
-# older conda versions (before 4.4, I think) need the following command:
-# execute_process(
-#     COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
-#     OUTPUT_VARIABLE CMAKE_PREFIX_PATH
-# )
-
 # This does not work within travis for some reason
 if(NOT WITHIN_TRAVIS)
     # Find the current conda env and set it as CMAKE_PREFIX_PATH
-    execute_process(
-        COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
-        OUTPUT_VARIABLE CMAKE_PREFIX_PATH
-    )
+    execute_process(COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
+                    OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
+    
+    # older conda versions don't work with the above command
+    if ("${CMAKE_PREFIX_PATH}" STREQUAL "")
+        execute_process(
+            COMMAND bash -c "conda info | grep 'default environment' | awk '{print $4}'"
+            OUTPUT_VARIABLE CMAKE_PREFIX_PATH
+        )
+    endif()
+
     string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
 endif()
 
