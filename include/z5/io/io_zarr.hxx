@@ -59,9 +59,6 @@ namespace io {
             file.close();
         }
 
-        inline void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
-        inline std::size_t getChunkSize(const handle::Chunk &) const {}
-
         inline void findMinimumChunk(const unsigned, const fs::path &, const std::size_t, types::ShapeType & minOut) const {
             std::cout << "WARNING: findMinimumChunk not implemented for zarr, returning zeros" << std::endl;
             minOut.push_back(0);
