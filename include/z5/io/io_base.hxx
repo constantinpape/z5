@@ -18,8 +18,8 @@ namespace io {
     public:
         virtual bool read(const handle::Chunk &, std::vector<char> &) const = 0;
         virtual void write(const handle::Chunk &, const char *, const std::size_t) const = 0;
-        virtual void getChunkShape(const handle::Chunk &, types::ShapeType &) const = 0;
-        virtual std::size_t getChunkSize(const handle::Chunk &) const = 0;
+        virtual void getChunkShape(const handle::Chunk &, types::ShapeType &) const {}
+        virtual std::size_t getChunkSize(const handle::Chunk &) const {return 0;}
         virtual void findMinimumChunk(const unsigned, const fs::path &, const std::size_t, types::ShapeType &) const = 0;
         virtual void findMaximumChunk(const unsigned, const fs::path &, types::ShapeType &) const = 0;
         // dummy implementation for no header
