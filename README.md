@@ -21,7 +21,7 @@ Offers support for the following compression codecs:
 
 ## Installation
 
-### Python
+### Conda
 
 You can install the package via conda (only Linux for now):
 
@@ -29,23 +29,27 @@ You can install the package via conda (only Linux for now):
 $ conda install -c conda-forge -c cpape z5py
 ```
 
-### C++
+### From Source
 
-The library itself is header-only, however you need to link against the relevant compression codecs.
-The easiest way to build the library itself from source is from a conda-environment with all necessary dependencies:
+The easiest way to build the library from source is from a conda-environment with all necessary dependencies.
+You can find the necessary set-up for conda environments for python 2.7 / 3.6
+in `requirements27.yml`, `requirements36.yml`.
 
+To set up the conda environment and install the package (python 3.6):
 ```
-Either create new environment or install relevant packages to an existing one
-$ conda create -n z5-env -c conda-forge xtensor-python c-blosc
-$ source activate z5-env
-$ mkdir z5-bld
-$ cd z5-bld
-Activate the relevant compressions via WITH_BLOSC, WITH_BZIP2, WITH_ZLIB
-$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON /path/to/z5
+$ conda env create -f requirements36.yml
+$ source activate z5-36
+$ mkdir bld
+$ cd bld
+$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON ..
 $ make
 ```
-(Note that there is no `make install` yet).
 
+Note that there is no `make install` yet.
+Also, note that in the CMakeLists.txt, we try to infer the active conda-environment automatically to load the relevant dependencies.
+If this does fail, you can set it manually via `cmake -DCMAKE_PREFIX_PATH=/path/to/conda-env`.
+
+If you want to include z5 in another C++ project, note that the library itself is header-only, however you need to link against the relevant compression codecs.
 
 ## Examples / Usage
 

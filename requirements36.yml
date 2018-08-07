@@ -1,0 +1,13 @@
+name: z5-36
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - xtensor-python
+  - c-blosc
+  - boost
+  - c-blosc
+  - bzip2
+  - xz
+  - lz4
+  - six
