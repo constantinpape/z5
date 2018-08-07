@@ -4,7 +4,7 @@ SET(TEST_LIBS
     ${Boost_SYSTEM_LIBRARY}    
     gtest
     gtest_main
-    pthread
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 # add metadata test

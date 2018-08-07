@@ -9,5 +9,5 @@ addPythonModule(
         ${COMPRESSION_LIBRARIES} 
         ${Boost_FILESYSTEM_LIBRARY}    
         ${Boost_SYSTEM_LIBRARY}    
-        pthread
+        ${CMAKE_THREAD_LIBS_INIT}
 )

@@ -9,29 +9,29 @@ clone_script:
 
 environment:
   matrix:
-    - PY_VERSION: "3.6"
-      VC_VERSION: "14"
+    - MINICONDA: C:\z5-conda
+
+init:
+  - "ECHO %MINICONDA%"
+  - set VCVARPATH="C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+  - set VCARGUMENT=%PLATFORM%
+  - echo "%VCVARPATH% %VCARGUMENT%"
+  - "%VCVARPATH% %VCARGUMENT%"
+  - ps: if($env:Platform -eq "x64"){Start-FileDownload 'http://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe' C:\Miniconda.exe; echo "Done"}
+  - ps: if($env:Platform -eq "x86"){Start-FileDownload 'http://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86.exe' C:\Miniconda.exe; echo "Done"}
+  - cmd: C:\Miniconda.exe /S /D=C:\z5-conda
+  - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%MINICONDA%\\Library\\bin;%PATH%"
+
 
 build_script:
-    # This is a small script that takes the PATH variable and transforms its entries
-    # into their short-path (DOS-like) counterparts. The new path is written into the file path.txt,
-    # from which it is then loaded. This allows to shorten the overall length of the PATH variable,
-    # thus avoiding an issue with conda. See also:
-    # https://github.com/conda/conda/issues/1923
-    # It might be that this will be solved in future conda versions.
-  - config\\shorten_path.bat > path.txt
-  - set /p PATH=<path.txt
   # we may want to support more python versions in the future
-  - if "%PY_VERSION%" == "3.6" set PATH=C:\\Miniconda3-x64\\Scripts;%PATH%
-  - if "%PY_VERSION%" == "3.6" conda create -c conda-forge -q --yes -n python python=%PY_VERSION%
+  - conda create -c conda-forge -q --yes -n python python=3.6 xtensor-python c-blosc boost bzip2
   - activate python
-  - set CONDA_ACTIVE_ENV=C:\\Miniconda3-x64\\envs\\python
+  - set CONDA_ACTIVE_ENV=%MINICONDA%\envs\python
+  - dir %CONDA_ACTIVE_ENV%
   - set BOOST_INCLUDE=%CONDA_ACTIVE_ENV%\\Library\\include
-  - echo "BOOST_ROOT:" 
-  - echo "%BOOST_ROOT%"
-  - conda install -c conda-forge --yes xtensor-python c-blosc boost bzip2
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
-  - cmake .. -G "Visual Studio %VC_VERSION% Win64" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR=%BOOST_INCLUDE%
-  - cmake --build .
+  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR=%BOOST_INCLUDE% -DDISABLE_VS2017=ON
+  - cmake --build . --config Release
