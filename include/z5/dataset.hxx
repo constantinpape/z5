@@ -58,7 +58,7 @@ namespace z5 {
             types::ShapeType &) const = 0;
 
         // find chunk index of coordinate
-        virtual std::size_t coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
+        virtual void coordinateToChunkId(const types::ShapeType &, types::ShapeType &) const = 0;
         // get offset of chunk
 
         // size and shape of an actual chunk
@@ -378,7 +378,7 @@ namespace z5 {
             }
         }
 
-        inline std::size_t coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
+        inline void coordinateToChunkId(const types::ShapeType & coordinate, types::ShapeType & chunkId) const {
             chunkId.resize(shape_.size());
             for(unsigned dim = 0; dim < shape_.size(); ++dim) {
                chunkId[dim] = coordinate[dim] / chunkShape_[dim];
