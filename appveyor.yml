@@ -1,37 +1,39 @@
+build: false
+
 platform:
   - x64
+#  - x86
 
-clone_script:
-  - cmd: git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
-  - cmd: cd %APPVEYOR_BUILD_FOLDER%
-  - cmd: git checkout -qf %APPVEYOR_REPO_COMMIT%
-  - cmd: git submodule update --init
+image:
+  - Visual Studio 2017
+#  - Visual Studio 2015
 
 environment:
   matrix:
-    - MINICONDA: C:\z5-conda
+    - MINICONDA: C:\xtensor-conda
 
 init:
   - "ECHO %MINICONDA%"
-  - set VCVARPATH="C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
-  - set VCARGUMENT=%PLATFORM%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2015" set VCVARPATH="C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2015" set VCARGUMENT=%PLATFORM%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" if "%PLATFORM%" == "x64" set VCVARPATH="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" if "%PLATFORM%" == "x86" set VCVARPATH="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat"
   - echo "%VCVARPATH% %VCARGUMENT%"
   - "%VCVARPATH% %VCARGUMENT%"
   - ps: if($env:Platform -eq "x64"){Start-FileDownload 'http://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe' C:\Miniconda.exe; echo "Done"}
   - ps: if($env:Platform -eq "x86"){Start-FileDownload 'http://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86.exe' C:\Miniconda.exe; echo "Done"}
-  - cmd: C:\Miniconda.exe /S /D=C:\z5-conda
+  - cmd: C:\Miniconda.exe /S /D=C:\xtensor-conda
   - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%MINICONDA%\\Library\\bin;%PATH%"
 
-
-build_script:
-  # we may want to support more python versions in the future
-  - conda create -c conda-forge -q --yes -n python python=3.6 xtensor-python c-blosc boost bzip2
-  - activate python
-  - set CONDA_ACTIVE_ENV=%MINICONDA%\envs\python
-  - dir %CONDA_ACTIVE_ENV%
+install:
+  - set CONDA_ACTIVE_ENV=%MINICONDA%
   - set BOOST_INCLUDE=%CONDA_ACTIVE_ENV%\\Library\\include
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update conda
+  # - conda info -a
+  - conda install -c conda-forge xtensor-python boost bzip2 # c-blosc 
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
-  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR=%BOOST_INCLUDE% -DDISABLE_VS2017=ON
+  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR="%BOOST_INCLUDE%" -DBUILD_TESTS=OFF
   - cmake --build . --config Release

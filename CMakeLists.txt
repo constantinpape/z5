@@ -50,14 +50,19 @@ option(WITH_MARRAY OFF)
 # adaptions to travis build
 option(WITHIN_TRAVIS OFF)
 
+# build c++ tests
+option(BUILD_TESTS OFF)
+
 
 ###############################
 # Include git submodules
 ###############################
 
-# add gtest external project and include the directories
-add_subdirectory(external/googletest/googletest)
-include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+if(BUILD_TESTS)
+    # add gtest external project and include the directories
+    add_subdirectory(external/googletest/googletest)
+    include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+endif()
 
 # include json external library
 include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
