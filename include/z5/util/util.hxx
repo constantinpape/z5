@@ -25,7 +25,7 @@ namespace util {
                                 std::vector<types::ShapeType> & grid) {
         // get the number of dims and initialize the positions
         // at the min coordinates
-        const std::size_t nDim = minCoords.size();
+        const int nDim = minCoords.size();
         types::ShapeType positions = minCoords;
 
         // start iteration in highest dimension

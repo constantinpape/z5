@@ -1,5 +1,7 @@
 #pragma once
 
+#include <math.h>
+
 #include "z5/dataset.hxx"
 #include "z5/types/types.hxx"
 #include "z5/multiarray/xtensor_util.hxx"
@@ -9,8 +11,6 @@
 #include "xtensor/xstrided_view.hpp"
 #include "xtensor/xadapt.hpp"
 
-// free functions to read and write from xtensor multiarrays
-// (it's hard to have these as members due to dynamic type inference)
 
 namespace z5 {
 namespace multiarray {

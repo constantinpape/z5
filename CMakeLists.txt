@@ -9,14 +9,16 @@ project(z5)
 # Check and enable C++ 14
 ##############################
 
-include(CheckCXXCompilerFlag)
 # make sure the compiler supports c++14
-# FIXME I think this won't work for MSVC
-CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
-if(NOT HAS_CPP14_FLAG)
-    message(FATAL_ERROR "Unsupported compiler -- z5 requires C++14 support!")
+include(CheckCXXCompilerFlag)
+# NOTE this does not work for MSVC 14 (which does have c++ 14 support)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
+    if(NOT HAS_CPP14_FLAG)
+        message(FATAL_ERROR "Unsupported compiler -- z5 requires C++14 support!")
+    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 
 # set default build type
@@ -48,14 +50,19 @@ option(WITH_MARRAY OFF)
 # adaptions to travis build
 option(WITHIN_TRAVIS OFF)
 
+# build c++ tests
+option(BUILD_TESTS OFF)
+
 
 ###############################
 # Include git submodules
 ###############################
 
-# add gtest external project and include the directories
-add_subdirectory(external/googletest/googletest)
-include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+if(BUILD_TESTS)
+    # add gtest external project and include the directories
+    add_subdirectory(external/googletest/googletest)
+    include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+endif()
 
 # include json external library
 include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
@@ -65,7 +72,9 @@ include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
 # Set up conda env
 ###############################
     
-# This does not work within travis for some reason
+# This does not work within travis or appveyor, because 
+# we set the CMAKE_PREFIX_PATH
+# TODO rename this to USE_CONDA_PREFIX or similar
 if(NOT WITHIN_TRAVIS)
     # Find the current conda env and set it as CMAKE_PREFIX_PATH
     execute_process(COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
@@ -82,6 +91,8 @@ if(NOT WITHIN_TRAVIS)
     string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
 endif()
 
+MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
+
 # Set CMAKE_PREFIX_PATH to the conda env, but allow changing it
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
 
@@ -93,10 +104,8 @@ include_directories("${CMAKE_PREFIX_PATH}/include")
 # Include system / conda libs
 ###############################
 
-# TODO I don't really see why we need libthreads here
 # find libraries - pthread
 find_package(Threads)
-# TODO do we need RT ?!
 
 # boost
 SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}")

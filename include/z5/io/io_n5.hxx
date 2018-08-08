@@ -133,7 +133,7 @@ namespace io {
 
             // we need to wrap std::min in a lambda and a std::function to pass it to `iterateChunks`
             std::function<std::size_t (std::size_t, std::size_t)> minComp = [](std::size_t a, std::size_t b) {
-                return std::min(a, b);
+                return (std::min)(a, b);
             };
 
             // starting from our current chunk position, find the downstream chunk with
@@ -196,7 +196,7 @@ namespace io {
 
             // we need to wrap std::max in a lambda and a std::function to pass it to `iterateChunks`
             std::function<std::size_t (std::size_t, std::size_t)> maxComp = [](std::size_t a, std::size_t b) {
-                return std::max(a, b);
+                return (std::max)(a, b);
             };
 
             // starting from our current chunk position, find the downstream chunk with
@@ -231,7 +231,7 @@ namespace io {
             offset += 2;
 
             // write the number of dimensions
-            uint16_t nDimsOut = shape.size();
+            uint16_t nDimsOut = static_cast<uint16_t>(shape.size());
             util::reverseEndiannessInplace(nDimsOut);
             data.insert(data.begin() + offset, (char*) &nDimsOut, (char*) &nDimsOut + 2);
             offset += 2;
