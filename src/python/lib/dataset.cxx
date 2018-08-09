@@ -19,7 +19,7 @@ namespace z5 {
 
     template<class T>
     inline void writePySubarray(const Dataset & ds,
-                                const xt::pyarray<T> & in,
+                                const xt::pyarray<T, xt::layout_type::row_major> & in,
                                 const std::vector<size_t> & roiBegin,
                                 const int numberOfThreads) {
         multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
@@ -27,7 +27,7 @@ namespace z5 {
 
     template<class T>
     inline void readPySubarray(const Dataset & ds,
-                               xt::pyarray<T> & out,
+                               xt::pyarray<T, xt::layout_type::row_major> & out,
                                const std::vector<size_t> & roiBegin,
                                const int numberOfThreads) {
         multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
@@ -43,9 +43,9 @@ namespace z5 {
     }
 
     template<class T>
-    inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
-                                                        const xt::pyarray<T> & in) {
-        xt::pytensor<char, 1> out = xt::zeros<char>({1});
+    inline xt::pytensor<char, 1, xt::layout_type::row_major> convertPyArrayToFormat(const Dataset & ds,
+                                                                                    const xt::pyarray<T, xt::layout_type::row_major> & in) {
+        xt::pytensor<char, 1, xt::layout_type::row_major> out = xt::zeros<char>({1});
         multiarray::convertArrayToFormat<T>(ds, in, out);
         return out;
     }
