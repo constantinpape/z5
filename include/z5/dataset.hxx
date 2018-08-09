@@ -406,13 +406,15 @@ namespace z5 {
             return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
         }
 
-        // TODO TODO
         // flat chunk index to chunk coordinate tuple
-        virtual void chunkIndexToTuple(const size_t chunkIndex, types::ShapeType & chunkTuple) const {
+        virtual void chunkIndexToTuple(const std::size_t chunkIndex, types::ShapeType & chunkTuple) const {
             const unsigned ndim = dimension();
             chunkTuple.resize(ndim);
-            for(unsigned d = 0; d < ndim; ++d) {
 
+            std::size_t index = chunkIndex;
+            for(unsigned d = 0; d < ndim; ++d) {
+                chunkTuple[d] = index / chunkStrides_[d];
+                index -= chunkTuple[d] * chunkStrides_[d];
             }
         }
 
@@ -515,7 +517,8 @@ namespace z5 {
             }
 
             // get chunk specifications
-            for(std::size_t d = 0; d < shape_.size(); ++d) {
+            const int ndim = shape_.size();
+            for(int d = 0; d < ndim; ++d) {
                 chunksPerDimension_.push_back(
                     shape_[d] / chunkShape_[d] + (shape_[d] % chunkShape_[d] == 0 ? 0 : 1)
                 );
@@ -523,6 +526,12 @@ namespace z5 {
             numberOfChunks_ = std::accumulate(chunksPerDimension_.begin(),
                                               chunksPerDimension_.end(),
                                               1, std::multiplies<std::size_t>());
+            // get the chunk strides
+            chunkStrides_.resize(shape_.size());
+            chunkStrides_[ndim - 1] = 1;
+            for(int d = ndim - 2; d >= 0; --d) {
+                chunkStrides_[d] = chunkStrides_[d + 1] * chunkShape_[d + 1];
+            }
         }
 
 
@@ -690,6 +699,8 @@ namespace z5 {
         // the number of chunks and chunks per dimension
         std::size_t numberOfChunks_;
         types::ShapeType chunksPerDimension_;
+        // the chunk strides
+        types::ShapeType chunkStrides_;
     };
 
 } // namespace::z5

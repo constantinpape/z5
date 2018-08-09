@@ -5,6 +5,7 @@ from contextlib import closing
 from datetime import datetime
 import numpy as np
 
+from . import _z5py as z5_impl
 from .file import File
 
 
@@ -157,3 +158,41 @@ def fetch_test_data():
     with zipfile.ZipFile(zip_buffer) as zf:
         tif_buffer = Buffer(zf.read('JeffT1_le.tif'))
         return np.asarray(volread(tif_buffer, format='tif'), dtype=np.uint8)
+
+
+def remove_trivial_chunks(dataset, n_threads,
+                          remove_specific_value=None):
+    """ Remove chunks that only contain a single value.
+
+    The input dataset will be copied to the output dataset chunk by chunk.
+    Allows to change datatype, file format and compression as well.
+
+    Args:
+        dataset (z5py.Dataset)
+        n_threads (int): number of threads
+        remove_specific_value (int or float): only remove chunks that contain (only) this specific value (default: None)
+
+    """
+
+    dtype = dataset.dtype
+    function = eval('z5_impl.remove_trivial_chunks_%s' % dtype)
+    remove_specific = remove_specific_value is not None
+    value = remove_specific_value if remove_specific else 0
+    function(dataset._impl, n_threads, remove_specific, value)
+
+
+def unique(dataset, n_threads, return_counts=False):
+    """ Find unique values in dataset.
+
+    Args:
+        dataset (z5py.Dataset)
+        n_threads (int): number of threads
+        return_counts (bool): return counts of unique values (default: False)
+
+    """
+    dtype = dataset.dtype
+    if return_counts:
+        function = eval('z5_impl.unique_with_counts_%s' % dtype)
+    else:
+        function = eval('z5_impl.unique_%s' % dtype)
+    return function(dataset._impl, n_threads)
