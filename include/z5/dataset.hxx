@@ -81,6 +81,7 @@ namespace z5 {
         virtual std::size_t numberOfChunks() const = 0;
         virtual const types::ShapeType & chunksPerDimension() const = 0;
         virtual std::size_t chunksPerDimension(const unsigned) const = 0;
+        virtual void chunkIndexToTuple(const size_t, types::ShapeType &) const = 0;
 
         // dtype and compression options
         virtual types::Datatype getDtype() const = 0;
@@ -403,6 +404,16 @@ namespace z5 {
         virtual std::size_t maxChunkSize() const {return chunkSize_;}
         virtual std::size_t size() const {
             return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
+        }
+
+        // TODO TODO
+        // flat chunk index to chunk coordinate tuple
+        virtual void chunkIndexToTuple(const size_t chunkIndex, types::ShapeType & chunkTuple) const {
+            const unsigned ndim = dimension();
+            chunkTuple.resize(ndim);
+            for(unsigned d = 0; d < ndim; ++d) {
+
+            }
         }
 
         // datatype, format and handle
