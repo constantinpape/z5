@@ -71,15 +71,15 @@ include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
 ###############################
 # Set up conda env
 ###############################
-    
-# This does not work within travis or appveyor, because 
+
+# This does not work within travis or appveyor, because
 # we set the CMAKE_PREFIX_PATH
 # TODO rename this to USE_CONDA_PREFIX or similar
 if(NOT WITHIN_TRAVIS)
     # Find the current conda env and set it as CMAKE_PREFIX_PATH
     execute_process(COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
                     OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
-    
+
     # older conda versions don't work with the above command
     if ("${CMAKE_PREFIX_PATH}" STREQUAL "")
         execute_process(
@@ -97,8 +97,11 @@ MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
 
 MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
-include_directories("${CMAKE_PREFIX_PATH}/include")
-
+if (MSVC)
+    include_directories("${CMAKE_PREFIX_PATH}/Library/include")
+else()
+    include_directories("${CMAKE_PREFIX_PATH}/include")
+endif()
 
 ###############################
 # Include system / conda libs
@@ -108,8 +111,13 @@ include_directories("${CMAKE_PREFIX_PATH}/include")
 find_package(Threads)
 
 # boost
-SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}")
-SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/lib")
+if (MSVC)
+    SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}/Library")
+    SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/Library/lib")
+else()
+    SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}")
+    SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/lib")
+endif()
 SET(Boost_NO_SYSTEM_PATHS ON)
 find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
