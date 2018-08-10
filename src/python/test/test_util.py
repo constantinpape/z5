@@ -156,7 +156,6 @@ class TestUtil(unittest.TestCase):
                                     np.arange(100).reshape(chunks)))
 
 
-    # FIXME this segfaults!
     def test_unique(self):
         from z5py.util import unique
         path = './tmp_dir/data.n5'

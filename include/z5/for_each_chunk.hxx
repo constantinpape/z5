@@ -38,6 +38,9 @@ namespace z5 {
                                                     value](const int tid,
                                                            const Dataset & ds,
                                                            const types::ShapeType & chunk) {
+            if(!ds.chunkExists(chunk)) {
+                return;
+            }
             const size_t chunkSize = ds.getChunkSize(chunk);
             std::vector<T> data(chunkSize);
             ds.readChunk(chunk, &data[0]);
@@ -66,7 +69,7 @@ namespace z5 {
             const size_t chunkSize = ds.getChunkSize(chunk);
             std::vector<T> data(chunkSize);
             ds.readChunk(chunk, &data[0]);
-            auto & threadSet = (tid == 0) ? uniques : threadData[tid];
+            auto & threadSet = (tid == 0) ? uniques : threadData[tid - 1];
             threadSet.insert(data.begin(), data.end());
         });
 
@@ -92,7 +95,7 @@ namespace z5 {
             const size_t chunkSize = ds.getChunkSize(chunk);
             std::vector<T> data(chunkSize);
             ds.readChunk(chunk, &data[0]);
-            auto & threadMap = (tid == 0) ? uniques : threadData[tid];
+            auto & threadMap = (tid == 0) ? uniques : threadData[tid - 1];
             for(const T val : data) {
                 auto mIt = threadMap.find(val);
                 if(mIt == threadMap.end()) {
