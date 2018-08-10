@@ -176,6 +176,18 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(np.allclose(uniques, exp_uniques))
         self.assertTrue(np.allclose(counts, exp_counts))
 
+    def test_remove_dataset(self):
+        from z5py.util import remove_dataset
+        path = './tmp_dir/data.n5'
+        f = z5py.File(path)
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        ds = f.create_dataset('data', dtype='float64',
+                              data=np.ones(shape), chunks=chunks)
+        remove_dataset(ds, 4)
+        self.assertFalse(os.path.exists(os.path.join(path, 'data')))
+
 
 if __name__ == '__main__':
     unittest.main()

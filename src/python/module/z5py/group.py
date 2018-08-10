@@ -57,7 +57,10 @@ class Group(Mapping):
             counter += 1
         return counter
 
+    # TODO can use `util.removeDataset` here
     def __delitem__(self, name):
+        if not self._permissions.can_write():
+            raise ValueError("Cannot call delete on file not opened with write permissions.")
         path_ = os.path.join(self.path, name)
         if not os.path.exists(path_):
             raise KeyError("%s does not exist" % name)
@@ -181,7 +184,7 @@ class Group(Mapping):
             ``Dataset``: the new dataset.
         """
 
-        if not self._permissions.can_write():
+        if not self._permissions.can_create():
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
@@ -214,7 +217,7 @@ class Group(Mapping):
         Returns:
             ``Dataset``: the required dataset.
         """
-        if not self._permissions.can_write():
+        if not self._permissions.can_create():
             raise ValueError("Cannot create dataset with read-only permissions.")
         path = os.path.join(self.path, name)
         return Dataset._require_dataset(path, shape, dtype, chunks,

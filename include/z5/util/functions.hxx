@@ -1,39 +1,33 @@
 #pragma once
 
-#include <memory>
-
 #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
 #endif
 #include <boost/filesystem.hpp>
 
-#include "z5/dataset.hxx"
-#include "z5/util/threadpool.hxx"
+#include "z5/util/for_each.hxx"
 
 namespace fs = boost::filesystem;
 
 
 namespace z5 {
-
-
-    // TODO implement chunks in subvolume
-    template<class F>
-    void parallel_for_each_chunk(const Dataset & dataset, const int nThreads,  F && f) {
-        const auto & chunksPerDim = dataset.chunksPerDimension();
-        util::parallel_foreach(nThreads, dataset.numberOfChunks(), [&](const int tid, const size_t chunkId){
-            types::ShapeType chunkCoord;
-            dataset.chunkIndexToTuple(chunkId, chunkCoord);
-            f(tid, dataset, chunkCoord);
-        });
-    }
+namespace util {
 
 
     // remove chunks which contain only a single value
     // -> this is often some background value, that might`
     // be different from the global background value
     template<class T>
-    void remove_trivial_chunks(const Dataset & dataset, const int nThreads,
-                               const bool removeSpecificValue=false, const T value=0) {
+    void removeTrivialChunks(const Dataset & dataset, const int nThreads,
+                             const bool removeSpecificValue=false, const T value=0) {
+
+        // check if we are allowed to delete
+        if(!dataset.handle().mode().canWrite()) {
+            const std::string err = "Cannot delete chunks in a dataset that was not opened with write permissions.";
+            throw std::invalid_argument(err.c_str());
+        }
+
+        // delete trivial chunks in parallel
         parallel_for_each_chunk(dataset, nThreads, [removeSpecificValue,
                                                     value](const int tid,
                                                            const Dataset & ds,
@@ -55,12 +49,45 @@ namespace z5 {
     }
 
 
+    // remove dataset multithreaded
+    inline void removeDataset(const Dataset & dataset, const int nThreads) {
+
+        // check if we are allowed to delete
+        if(!dataset.handle().mode().canWrite()) {
+            const std::string err = "Cannot delete dataset that was not opened with write permissions.";
+            throw std::invalid_argument(err.c_str());
+        }
+
+        // delete chunks in parallel
+        parallel_for_each_chunk(dataset, nThreads, [](const int tid,
+                                                      const Dataset & ds,
+                                                      const types::ShapeType & chunk) {
+            if(!ds.chunkExists(chunk)) {
+                return;
+            }
+            const auto handle = handle::Chunk(ds.handle(), chunk, ds.isZarr());
+            // const auto & path = handle.path();
+            fs::remove(handle.path());
+            // TODO instead of removing directories in the end, we could check
+            // if the chunks directory is empty here adn then delete it
+            // howeve, this would require some locking, as we don't want to deletes
+            // of a folder at the same time
+        });
+
+        // delete all empty directories
+        fs::remove_all(dataset.handle().path());
+    }
+
+
+    // TODO add option to ignore fill value
     // TODO maybe it would be benefitial to have intermediate unordered sets
     template<class T>
     void unique(const Dataset & dataset, const int nThreads, std::set<T> & uniques) {
         // allocate the per thread data
-        // TODO need to get actual number of threads here
-        std::vector<std::set<T>> threadData(nThreads - 1);
+        // need to get actual number of threads here
+        ParallelOptions pOpts(nThreads);
+        const int nActualThreads = pOpts.getActualNumThreads();
+        std::vector<std::set<T>> threadData(nActualThreads - 1);
 
         // iterate over all chunks
         parallel_for_each_chunk(dataset, nThreads, [&threadData, &uniques](const int tid,
@@ -81,12 +108,14 @@ namespace z5 {
     }
 
 
+    // TODO add option to ignore fill value
     // TODO maybe it would be benefitial to have intermediate unordered maps
     template<class T>
     void uniqueWithCounts(const Dataset & dataset, const int nThreads, std::map<T, size_t> & uniques) {
         // allocate the per thread data
-        // TODO need to get actual number of threads here
-        std::vector<std::map<T, size_t>> threadData(nThreads - 1);
+        ParallelOptions pOpts(nThreads);
+        const int nActualThreads = pOpts.getActualNumThreads();
+        std::vector<std::map<T, size_t>> threadData(nActualThreads - 1);
 
         // iterate over all chunks
         parallel_for_each_chunk(dataset, nThreads, [&threadData, &uniques](const int tid,
@@ -120,4 +149,6 @@ namespace z5 {
         }
     }
 
+
+}
 }

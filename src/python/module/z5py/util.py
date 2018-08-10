@@ -181,6 +181,13 @@ def remove_trivial_chunks(dataset, n_threads,
     function(dataset._impl, n_threads, remove_specific, value)
 
 
+def remove_dataset(dataset, n_threads):
+    """
+    Remvoe dataset multi-threaded.
+    """
+    z5_impl.remove_dataset(dataset._impl, n_threads)
+
+
 def unique(dataset, n_threads, return_counts=False):
     """ Find unique values in dataset.
 
