@@ -202,7 +202,8 @@ namespace multiarray {
 
             bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice;
@@ -383,7 +384,9 @@ namespace multiarray {
     }
 
     template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
-    inline auto convertArrayToFormat(std::unique_ptr<Dataset> & ds, const xt::xexpression<ARRAY_IN> & in, xt::xexpression<ARRAY_OUT> & out) {
+    inline auto convertArrayToFormat(std::unique_ptr<Dataset> & ds,
+                                     const xt::xexpression<ARRAY_IN> & in,
+                                     xt::xexpression<ARRAY_OUT> & out) {
         return convertArrayToFormat<T>(*ds, in, out);
     }
 

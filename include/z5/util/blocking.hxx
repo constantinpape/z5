@@ -1,6 +1,7 @@
 #pragma once
 
 #include "z5/types/types.hxx"
+#include "z5/util/util.hxx"
 
 
 namespace z5 {
@@ -19,6 +20,7 @@ namespace util {
         //
         inline size_t numberOfBlocks() const {return numberOfBlocks_;}
         inline const types::ShapeType & blocksPerDimension() const {return blocksPerDimension_;}
+        inline const types::ShapeType & blockShape() const {return blockShape_;}
         inline const types::ShapeType & shape() const {return shape_;}
 
         //
@@ -34,9 +36,23 @@ namespace util {
             }
         }
 
-        // TODO
         inline size_t blockCoordinatesToBlockId(const types::ShapeType & blockCoordinate) const {
+            size_t blockId = 1;
+            for(unsigned d = 0; d < shape_.size() ; ++d) {
+                blockId *= blockStrides_[d] * blockCoordinate[d];
+            }
+            return blockId;
+        }
 
+        //
+        // return block coordinate that maps to the global coordinate
+        //
+        inline void coordinateToBlockCoordinate(const types::ShapeType & coordinate,
+                                                types::ShapeType & blockCoordinate) const {
+            blockCoordinate.resize(shape_.size());
+            for(unsigned d = 0; d < shape_.size(); ++d) {
+               blockCoordinate[d] = coordinate[d] / blockShape_[d];
+            }
         }
 
         //
@@ -53,6 +69,12 @@ namespace util {
         inline void getBlockBeginAndShape(const types::ShapeType & blockCoordinate,
                                           types::ShapeType & blockBegin,
                                           types::ShapeType & blockShape) const {
+            blockBegin.resize(shape_.size());
+            blockShape.resize(shape_.size());
+            for(unsigned d = 0; d < shape_.size(); ++d) {
+                blockBegin[d] = blockCoordinate[d] * blockShape_[d];
+                blockShape[d] = (std::min)((blockCoordinate[d] + 1) * blockShape_[d], shape_[d]) - blockBegin[d];
+            }
         }
 
         inline void getBlockBeginAndEnd(const size_t blockId,
@@ -66,11 +88,111 @@ namespace util {
         inline void getBlockBeginAndEnd(const types::ShapeType & blockCoordinate,
                                         types::ShapeType & blockBegin,
                                         types::ShapeType & blockEnd) const {
+            blockBegin.resize(shape_.size());
+            blockEnd.resize(shape_.size());
+            for(unsigned d = 0; d < shape_.size(); ++d) {
+                blockBegin[d] = blockCoordinate[d] * blockShape_[d];
+                blockEnd[d] = (std::min)((blockCoordinate[d] + 1) * blockShape_[d], shape_[d]);
+            }
         }
 
         //
         // overlap of blocks and rois
         //
+
+        // return all blocks overlapping with roi
+        inline void getBlocksOverlappingRoi(const types::ShapeType & roiBegin,
+                                            const types::ShapeType & roiShape,
+                                            std::vector<types::ShapeType> & blockList) const {
+
+            std::size_t nDim = roiBegin.size();
+            // iterate over the dimension and find the min and max chunk ids
+            types::ShapeType minBlockIds(nDim);
+            types::ShapeType maxBlockIds(nDim);
+            std::size_t endCoordinate, endId;
+            for(unsigned d = 0; d < nDim; ++d) {
+                // integer division is ok for both min and max-id, because
+                // the chunk is labeled by it's lowest coordinate
+                minBlockIds[d] = roiBegin[d] / blockShape_[d];
+                endCoordinate = (roiBegin[d] + roiShape[d]);
+                endId = endCoordinate / blockShape_[d];
+                maxBlockIds[d] = (endCoordinate % blockShape_[d] == 0) ? endId - 1 : endId;
+            }
+
+            util::makeRegularGrid(minBlockIds, maxBlockIds, blockList);
+        }
+
+        // TODO
+        // return all blocks strictly in roi
+        inline void getBlocksInRoi(const types::ShapeType & roiBegin,
+                                   const types::ShapeType & roiShape,
+                                   std::vector<types::ShapeType> & blockList) const {
+        }
+
+        //
+        // get the offset, shape of the block inside of the ROI as well as the offset of the ROI in chunk
+        //
+        inline bool getCoordinatesInRoi(const types::ShapeType & blockCoordinate,
+                                        const types::ShapeType & roiBegin,
+                                        const types::ShapeType & roiShape,
+                                        types::ShapeType & beginInRoi,
+                                        types::ShapeType & shapeInRoi,
+                                        types::ShapeType & beginInBlock) const {
+
+            const unsigned nDim = roiBegin.size();
+            beginInRoi.resize(nDim);
+            shapeInRoi.resize(nDim);
+            beginInBlock.resize(nDim);
+
+            types::ShapeType blockBegin, blockShape;
+            getBlockBeginAndShape(blockCoordinate, blockBegin, blockShape);
+
+            bool completeOvlp = true;
+            std::size_t blockEnd, roiEnd;
+            int offDiff, endDiff;
+            for(unsigned d = 0; d < nDim; ++d) {
+
+                // first we calculate the block end coordinate
+                blockEnd = blockBegin[d] + blockShape[d];
+                // next the roi end
+                roiEnd = roiBegin[d] + roiShape[d];
+                // then we calculate the difference between the block begin / end
+                // and the request begin / end
+                offDiff = blockBegin[d] - roiBegin[d];
+                endDiff = roiEnd - blockEnd;
+
+                // if the offset difference is negative, we are at a starting block
+                // that is not completely overlapping
+                // -> set all values accordingly
+                if(offDiff < 0) {
+                    beginInRoi[d] = 0; // start block -> no local offset
+                    beginInBlock[d] = -offDiff;
+                    completeOvlp = false;
+                    // if this block is the beginning block as well as the end block,
+                    // we need to adjust the local shape accordingly
+                    shapeInRoi[d] = (blockEnd <= roiEnd) ? blockEnd - roiBegin[d] : roiEnd - roiBegin[d];
+                }
+
+                // if the end difference is negative, we are at a last block
+                // that is not completely overlapping
+                // -> set all values accordingly
+                else if(endDiff < 0) {
+                    beginInRoi[d] = blockBegin[d] - roiBegin[d];
+                    beginInBlock[d] = 0;
+                    completeOvlp = false;
+                    shapeInRoi[d] = roiEnd - blockBegin[d];
+                }
+
+                // otherwise we are at a completely overlapping block
+                else {
+                    beginInRoi[d] = blockBegin[d] - roiBegin[d];
+                    beginInBlock[d] = 0;
+                    shapeInRoi[d] = blockShape[d];
+                }
+
+            }
+            return completeOvlp;
+        }
 
     private:
         void init() {
@@ -98,7 +220,6 @@ namespace util {
         types::ShapeType blockStrides_;
         size_t numberOfBlocks_;
     };
-
 
 }
 }

@@ -21,17 +21,17 @@ namespace util {
 
 
     template<class F>
-    void parallel_for_each_chunk_in_bb(const Dataset & dataset,
-                                       const types::ShapeType & bb_start,
-                                       const types::ShapeType & bb_stop,
-                                       const int nThreads, F && f) {
+    void parallel_for_each_chunk_in_roi(const Dataset & dataset,
+                                        const types::ShapeType & roiBegin,
+                                        const types::ShapeType & roiEnd,
+                                        const int nThreads, F && f) {
         // get the (coordinate) chunk ids that overlap with the request
         std::vector<types::ShapeType> chunks;
-        types::ShapeType bb_shape(bb_stop);
-        for(unsigned d = 0; d < bb_shape.size(); ++d) {
-            bb_shape[d] -= bb_start[d];
+        types::ShapeType roiShape(roiEnd);
+        for(unsigned d = 0; d < roiShape.size(); ++d) {
+            roiShape[d] -= roiBegin[d];
         }
-        dataset.getChunkRequests(bb_start, bb_shape, chunks);
+        dataset.getChunkRequests(roiBegin, roiShape, chunks);
 
         // loop over chunks in parallel and call lambda
         const size_t nChunks = chunks.size();
@@ -41,7 +41,6 @@ namespace util {
     }
 
 
-    // TODO
     template<class F>
     void parallel_for_each_block(const Dataset & dataset, const types::ShapeType & blockShape,
                                  const int nThreads, F && f) {
@@ -57,12 +56,29 @@ namespace util {
     }
 
 
-    // TODO
     template<class F>
-    void parallel_for_each_block_in_bb(const Dataset & dataset, const types::ShapeType & blockShape,
-                                       const types::ShapeType & bb_start,
-                                       const types::ShapeType & bb_stop,
-                                       const int nThreads, F && f) {
+    void parallel_for_each_block_in_roi(const Dataset & dataset, const types::ShapeType & blockShape,
+                                        const types::ShapeType & roiBegin,
+                                        const types::ShapeType & roiEnd,
+                                        const int nThreads, F && f) {
+        // get the roi shape
+        types::ShapeType roiShape(roiEnd);
+        for(unsigned d = 0; d < roiShape.size(); ++d) {
+            roiShape[d] -= roiBegin[d];
+        }
+
+        // get blocks overlapping the roi
+        const Blocking blocking(dataset.shape(), blockShape);
+        std::vector<types::ShapeType> blockList;
+        blocking.getBlocksOverlappingRoi(roiBegin, roiShape, blockList);
+        const size_t nBlocks = blockList.size();
+
+        // loop over blocks in parallel
+        util::parallel_foreach(nThreads, nBlocks, [&](const int tid, const size_t blockId){
+            types::ShapeType blockBegin, blockShape;
+            blocking.getBlockBeginAndShape(blockList[blockId], blockBegin, blockShape);
+            f(tid, dataset, blockBegin, blockShape);
+        });
 
     }
 
