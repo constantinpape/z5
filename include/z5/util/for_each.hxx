@@ -3,9 +3,11 @@
 
 #include "z5/dataset.hxx"
 #include "z5/util/threadpool.hxx"
+#include "z5/util/blocking.hxx"
 
 
 namespace z5 {
+namespace util {
 
 
     template<class F>
@@ -43,9 +45,15 @@ namespace z5 {
     template<class F>
     void parallel_for_each_block(const Dataset & dataset, const types::ShapeType & blockShape,
                                  const int nThreads, F && f) {
-        // get blocking for this block shape
+        const Blocking blocking(dataset.shape(), blockShape);
+        const size_t nBlocks = blocking.numberOfBlocks();
 
         // loop over blocks in parallel
+        util::parallel_foreach(nThreads, nBlocks, [&](const int tid, const size_t blockId){
+            types::ShapeType blockBegin, blockShape;
+            blocking.getBlockBeginAndShape(blockId, blockBegin, blockShape);
+            f(tid, dataset, blockBegin, blockShape);
+        });
     }
 
 
@@ -58,4 +66,5 @@ namespace z5 {
 
     }
 
+}
 }
