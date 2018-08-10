@@ -12,9 +12,10 @@ namespace util {
 
     template<class F>
     void parallel_for_each_chunk(const Dataset & dataset, const int nThreads, F && f) {
+        const auto & chunking = dataset.chunking();
         util::parallel_foreach(nThreads, dataset.numberOfChunks(), [&](const int tid, const size_t chunkId){
             types::ShapeType chunkCoord;
-            dataset.chunkIndexToTuple(chunkId, chunkCoord);
+            chunking.blockIdToBlockCoordinate(chunkId, chunkCoord);
             f(tid, dataset, chunkCoord);
         });
     }
@@ -25,13 +26,16 @@ namespace util {
                                         const types::ShapeType & roiBegin,
                                         const types::ShapeType & roiEnd,
                                         const int nThreads, F && f) {
-        // get the (coordinate) chunk ids that overlap with the request
-        std::vector<types::ShapeType> chunks;
+        // get roi shape
         types::ShapeType roiShape(roiEnd);
         for(unsigned d = 0; d < roiShape.size(); ++d) {
             roiShape[d] -= roiBegin[d];
         }
-        dataset.getChunkRequests(roiBegin, roiShape, chunks);
+
+        // get the (coordinate) chunk ids that overlap with the roi
+        std::vector<types::ShapeType> chunks;
+        const auto & chunking = dataset.chunking();
+        chunking.getBlocksOverlappingRoi(roiBegin, roiShape, chunks);
 
         // loop over chunks in parallel and call lambda
         const size_t nChunks = chunks.size();

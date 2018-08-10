@@ -23,15 +23,17 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize, val);
 
+        const auto & chunking = ds.chunking();
+
         // iterate over the chunks and write the buffer
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
-                                                           offset,
-                                                           shape,
-                                                           offsetInRequest,
-                                                           requestShape,
-                                                           offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                                   offset,
+                                                                   shape,
+                                                                   offsetInRequest,
+                                                                   requestShape,
+                                                                   offsetInChunk);
 
 
             ds.getChunkShape(chunkId, chunkShape);
@@ -86,6 +88,8 @@ namespace multiarray {
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize, val));
 
+        const auto & chunking = ds.chunking();
+
         // write scalar to the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
         util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
@@ -94,12 +98,12 @@ namespace multiarray {
             auto & buffer = threadBuffers[tId];
 
             types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
-                                                           offset,
-                                                           shape,
-                                                           offsetInRequest,
-                                                           requestShape,
-                                                           offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                                   offset,
+                                                                   shape,
+                                                                   offsetInRequest,
+                                                                   requestShape,
+                                                                   offsetInChunk);
 
 
             ds.getChunkShape(chunkId, chunkShape);
@@ -151,7 +155,8 @@ namespace multiarray {
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
-        ds.getChunkRequests(offset, shape, chunkRequests);
+        const auto & chunking = ds.chunking();
+        chunking.getBlocksOverlappingRoi(offset, shape, chunkRequests);
 
         // write scalar single or multi-threaded
         if(numberOfThreads == 1) {

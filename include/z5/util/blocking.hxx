@@ -15,6 +15,11 @@ namespace util {
             init();
         }
 
+        // empty constructor, leaves things uninitialized !
+        // only implemented to allow having as member that is 
+        // not assigned in initializer list, but needs
+        Blocking(){}
+
         //
         // get member variables
         //
@@ -192,6 +197,22 @@ namespace util {
 
             }
             return completeOvlp;
+        }
+
+        // check that the block coordinate is valid
+        inline bool checkBlockCoordinate(const types::ShapeType & blockCoordinate) const {
+            // check dimension
+            if(blockCoordinate.size() != shape_.size()) {
+                return false;
+            }
+
+            // check block dimensions
+            for(int d = 0; d < shape_.size(); ++d) {
+                if(blockCoordinate[d] >= blocksPerDimension_[d]) {
+                    return false;
+                }
+            }
+            return true;
         }
 
     private:
