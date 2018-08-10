@@ -530,7 +530,7 @@ namespace z5 {
             chunkStrides_.resize(shape_.size());
             chunkStrides_[ndim - 1] = 1;
             for(int d = ndim - 2; d >= 0; --d) {
-                chunkStrides_[d] = chunkStrides_[d + 1] * chunkShape_[d + 1];
+                chunkStrides_[d] = chunkStrides_[d + 1] * chunksPerDimension_[d + 1];
             }
         }
 

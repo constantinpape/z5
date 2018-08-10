@@ -83,6 +83,7 @@ namespace util {
     // TODO maybe it would be benefitial to have intermediate unordered sets
     template<class T>
     void unique(const Dataset & dataset, const int nThreads, std::set<T> & uniques) {
+
         // allocate the per thread data
         // need to get actual number of threads here
         ParallelOptions pOpts(nThreads);
