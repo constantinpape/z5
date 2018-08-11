@@ -178,7 +178,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake/pybind11")
 include(pybind11Tools)
 
 # numpy
-set(PYBIND11_CPP_STANDARD -std=c++14)
+if(MSVC)
+    set(PYBIND11_CPP_STANDARD /std=c++14)
+else()
+    set(PYBIND11_CPP_STANDARD -std=c++14)
+endif()
 find_package(NumPy REQUIRED)
 include_directories(${NUMPY_INCLUDE_DIRS})
 message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
