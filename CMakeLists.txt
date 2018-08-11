@@ -9,17 +9,11 @@ project(z5)
 # Check and enable C++ 14
 ##############################
 
+set(CMAKE_CXX_STANDARD 14)
 # make sure the compiler supports c++14
-include(CheckCXXCompilerFlag)
-# NOTE this does not work for MSVC 14 (which does have c++ 14 support)
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    CHECK_CXX_COMPILER_FLAG("-std=c++14" HAS_CPP14_FLAG)
-    if(NOT HAS_CPP14_FLAG)
-        message(FATAL_ERROR "Unsupported compiler -- z5 requires C++14 support!")
-    endif()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-endif()
-
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Not sure if we should set this flag
+# set(CMAKE_CXX_EXTENSIONS OFF)
 
 # set default build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
