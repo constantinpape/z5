@@ -179,7 +179,7 @@ include(pybind11Tools)
 
 # numpy
 if(MSVC)
-    set(PYBIND11_CPP_STANDARD /std=c++14)
+    set(PYBIND11_CPP_STANDARD /std:c++14)
 else()
     set(PYBIND11_CPP_STANDARD -std=c++14)
 endif()
