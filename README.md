@@ -1,6 +1,12 @@
-Travis (Linux builds)
+CI Status
 ----------------------
+Travis (Linux Builds)
+
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
+
+Appveyor (Windows Builds)
+
+[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
 
 Documentation
 -------------

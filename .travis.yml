@@ -12,33 +12,23 @@ addons:
     update: true
 
 before_script:
-  # get gcc 5
-  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-  - sudo apt-get --allow-unauthenticated update
-  - sudo apt-get --allow-unauthenticated -y install gcc-5 g++-5
-  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5
-  # TODO conda 2 for python 2.7
+  # install conda
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
+  # update conda
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  # create the test environment
-  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
+  # create the test environment with anaconda cloud gcc-7.2 compilers
+  - conda create -q -n test-env -c conda-forge -c defaults python=$TRAVIS_PYTHON_VERSION cmake gcc_linux-64 gxx_linux-64
+  # activate env
   - source activate test-env
-  # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
-  # - conda install -c conda-forge libgcc
-  # - conda install -c psi4 gcc-5
-  - conda install -c conda-forge xtensor-python
-  - conda install -c conda-forge boost c-blosc zlib bzip2 xz
-  - conda install -c conda-forge imageio
-  - conda install -c conda-forge zarr
-  - conda install -c conda-forge h5py
+  # install additional dependencies
+  - conda install -c conda-forge boost-cpp=1.67 bzip2 xz zlib
+  - conda install -c conda-forge xtensor-python c-blosc imageio h5py six
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
-  - conda install -c anaconda cmake
-  - conda install six
 
 script:
 
@@ -49,12 +39,13 @@ script:
   - source activate test-env
   - export ENV_ROOT="$HOME/miniconda/envs/test-env"
   - export ENV_BIN=$ENV_ROOT/bin
+  - export PY_BIN=$ENV_BIN/python
 
   ###############################################
-  # setup compiler
+  # setup compilers
   ###############################################
-  - export CXX=/usr/bin/g++
-  - export CC=/usr/bin/gcc
+  - export CC="$ENV_BIN/x86_64-conda_cos6-linux-gnu-cc"
+  - export CXX="$ENV_BIN/x86_64-conda_cos6-linux-gnu-c++"
 
   ###############################################
   # configure cmake
@@ -66,6 +57,7 @@ script:
           -DWITH_BZIP2=ON
           -DWITH_XZ=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
+          -DPYTHON_EXECUTABLE="$PY_BIN"
           # -DWITH_LZ4=ON
 
 
@@ -77,29 +69,7 @@ script:
   ###############################################
   # test the project
   ###############################################
-  # cpp tests TODO this is not elegant...
-  # FIXME this is not working
-  #- cd src/test
-  #- ./test_metadata
-  #- ./test_dataset
-  #- ./test_factories
-  #- ./test_attributes
-  #- ./compression/test_raw
-  #- ./compression/test_zlib
-  #- ./compression/test_bzip2
-  #- ./compression/test_blosc
-  #- ./io/test_io_n5
-  #- ./io/test_io_zarr
-  #- ./multiarray/test_broadcast
-  #- ./multiarray/test_xtensor
-  ## FIXME fix this !
-  ## - ./multiarray/test_xtnd
-  #- cd ../..
-
   # python tests
   - export PYTHONPATH="./python:$PYTHONPATH"
-  # TODO install additional dependencies for converter
-  # - hdf5, dvid
   # run all python unittests
   - $ENV_BIN/python -m unittest discover -v python/test
-  # - $ENV_BIN/python python/test/test_dataset.py

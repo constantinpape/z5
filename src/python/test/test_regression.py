@@ -32,7 +32,7 @@ class RegressionTestMixin(object):
         except OSError:
             pass
 
-    def test_regression_read(self):
+    def _test_regression_read(self):
         for compression, expected in self.compressions_read.items():
             key = 'ds_%s' % compression
             ds = self.root_file.create_dataset(key, data=self.data, chunks=self.chunks,
@@ -47,7 +47,7 @@ class RegressionTestMixin(object):
             # maxt = np.max(times)
             # print(self.data_format, compression, maxt)
 
-    def test_regression_write(self):
+    def _test_regression_write(self):
         for compression, expected in self.compressions_write.items():
             key = 'ds_%s' % compression
             times = []
