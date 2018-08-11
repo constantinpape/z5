@@ -120,6 +120,8 @@ class Group(Mapping):
         Returns:
             ``Group``: group of the requested name.
         """
+        if not self._permissions.can_write():
+            raise ValueError("Cannot create group with read-only permissions.")
         if name in self:
             raise KeyError("Group %s is already existing" % name)
         path = os.path.join(self.path, name)
@@ -184,7 +186,7 @@ class Group(Mapping):
             ``Dataset``: the new dataset.
         """
 
-        if not self._permissions.can_create():
+        if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
@@ -217,7 +219,7 @@ class Group(Mapping):
         Returns:
             ``Dataset``: the required dataset.
         """
-        if not self._permissions.can_create():
+        if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         path = os.path.join(self.path, name)
         return Dataset._require_dataset(path, shape, dtype, chunks,
