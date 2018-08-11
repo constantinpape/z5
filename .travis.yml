@@ -25,9 +25,9 @@ before_script:
   - conda update -q conda
   - conda info -a
   # create the test environment
-  - conda create -q -n test-env -c conda-forge python=$TRAVIS_PYTHON_VERSION cmake
+  - conda create -q -n test-env -c conda-forge python=$TRAVIS_PYTHON_VERSION cmake boost-cpp=1.67 bzip2 xz zlib
   - source activate test-env
-  - conda install -c conda-forge xtensor-python bost-cpp=1.67 c-blosc zlib bzip2 xz imageio h5py six
+  - conda install -c conda-forge xtensor-python c-blosc imageio h5py six
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
 
 script:
