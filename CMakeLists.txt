@@ -27,6 +27,10 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 # Old ABI to be compatible with boost
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
+if(MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -NOMINMAX")
+endif()
+
 
 ##############################
 # Build options
