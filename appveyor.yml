@@ -37,9 +37,15 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
   # - conda info -a
-  - conda install -c conda-forge xtensor-python boost-cpp=1.67 bzip2 # c-blosc 
+  - conda install -c conda-forge xtensor-python boost-cpp=1.67 bzip2 c-blosc 
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
-  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR="%BOOST_INCLUDE%" -DBUILD_TESTS=OFF
+  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_BLOSC=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR="%BOOST_INCLUDE%" -DBUILD_TESTS=OFF
   - cmake --build . --config Release
+
+before_test:
+  - set PYTHONPATH=.\python;%PYTHONPATH%
+
+test_script:
+  - python -m unittest discover -v python/test 
