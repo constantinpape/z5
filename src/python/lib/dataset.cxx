@@ -19,7 +19,10 @@ namespace z5 {
 
     template<class T>
     inline void writePySubarray(const Dataset & ds,
-                                const xt::pyarray<T, xt::layout_type::row_major> & in,
+                               // TODO specifying the strides might speed provide some speed-up
+                               // TODO but it prevents singleton dimensions in the shapes
+                                // const xt::pyarray<T, xt::layout_type::row_major> & in,
+                                const xt::pyarray<T> & in,
                                 const std::vector<size_t> & roiBegin,
                                 const int numberOfThreads) {
         multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
@@ -27,7 +30,10 @@ namespace z5 {
 
     template<class T>
     inline void readPySubarray(const Dataset & ds,
-                               xt::pyarray<T, xt::layout_type::row_major> & out,
+                               // TODO specifying the strides might speed provide some speed-up
+                               // TODO but it prevents singleton dimensions in the shapes
+                               // xt::pyarray<T, xt::layout_type::row_major> & out,
+                               xt::pyarray<T> & out,
                                const std::vector<size_t> & roiBegin,
                                const int numberOfThreads) {
         multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
