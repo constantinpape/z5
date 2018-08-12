@@ -45,8 +45,13 @@ namespace z5 {
     template<class T>
     inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
                                                         const xt::pyarray<T> & in) {
-        xt::pytensor<char, 1> out = xt::zeros<char>({1});
-        multiarray::convertArrayToFormat<T>(ds, in, out);
+        std::vector<char> tmp;
+        multiarray::convertArrayToFormat<T>(ds, in, tmp);
+        typedef xt::pytensor<char, 1>::shape_type ShapeType;
+        const ShapeType outShape = {static_cast<int64_t>(tmp.size())};
+        xt::pytensor<char, 1> out = xt::zeros<char>(outShape);
+        // TODO can we use xt::adapt here instead of std::copy?
+        std::copy(tmp.begin(), tmp.end(), out.begin());
         return out;
     }
 
