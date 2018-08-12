@@ -50,9 +50,17 @@ namespace z5 {
 
     template<class T>
     inline xt::pytensor<char, 1, xt::layout_type::row_major> convertPyArrayToFormat(const Dataset & ds,
-                                                                                    const xt::pyarray<T, xt::layout_type::row_major> & in) {
-        xt::pytensor<char, 1, xt::layout_type::row_major> out = xt::zeros<char>({1});
-        multiarray::convertArrayToFormat<T>(ds, in, out);
+                                                                                    // TODO specifying the strides might speed provide some speed-up
+                                                                                    // TODO but it prevents singleton dimensions in the shapes
+                                                                                    // const xt::pyarray<T, xt::layout_type::row_major> & in) {
+                                                                                    const xt::pyarray<T> & in) {
+        std::vector<char> tmp;
+        multiarray::convertArrayToFormat<T>(ds, in, tmp);
+        typedef xt::pytensor<char, 1, xt::layout_type::row_major>::shape_type ShapeType;
+        const ShapeType outShape = {static_cast<int64_t>(tmp.size())};
+        xt::pytensor<char, 1> out = xt::zeros<char>(outShape);
+        // TODO can we use xt::adapt here instead of std::copy?
+        std::copy(tmp.begin(), tmp.end(), out.begin());
         return out;
     }
 

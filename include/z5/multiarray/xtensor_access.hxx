@@ -381,20 +381,13 @@ namespace multiarray {
     }
 
 
-    template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
+    template<typename T, typename ARRAY_IN>
     void convertArrayToFormat(const Dataset & ds,
                               const xt::xexpression<ARRAY_IN> & inExpression,
-                              xt::xexpression<ARRAY_OUT> & outExpression) {
+                              std::vector<char> & out) {
         const auto & in = inExpression.derived_cast();
-        auto & out = outExpression.derived_cast();
-
-        std::vector<char> tmp;
         types::ShapeType shape(in.shape().begin(), in.shape().end());
-        ds.dataToFormat(&in(0), tmp, shape);
-
-        out.resize({(int64_t) tmp.size()});
-        // TODO use xadapt instead
-        std::copy(tmp.begin(), tmp.end(), out.begin());
+        ds.dataToFormat(&in(0), out, shape);
     }
 
     template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
