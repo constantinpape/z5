@@ -13,6 +13,7 @@ namespace z5 {
     void exportDataset(py::module &);
     void exportGroups(py::module &);
     void exportFileMode(py::module &);
+    void exportUtils(py::module &);
 }
 
 
@@ -25,4 +26,5 @@ PYBIND11_MODULE(_z5py, module) {
     exportDataset(module);
     exportGroups(module);
     exportFileMode(module);
+    exportUtils(module);
 }

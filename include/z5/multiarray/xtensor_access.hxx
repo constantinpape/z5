@@ -30,16 +30,18 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
+        const auto & chunking = ds.chunking();
+
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
             //std::cout << "Reading chunk " << chunkId << std::endl;
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
-                                                           offset,
-                                                           shape,
-                                                           offsetInRequest,
-                                                           requestShape,
-                                                           offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                                   offset,
+                                                                   shape,
+                                                                   offsetInRequest,
+                                                                   requestShape,
+                                                                   offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice;
@@ -97,6 +99,8 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
+        
+        const auto & chunking = ds.chunking();
 
         // read the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
@@ -109,12 +113,12 @@ namespace multiarray {
             types::ShapeType offsetInChunk;
 
             //std::cout << "Reading chunk " << chunkId << std::endl;
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId,
-                                                           offset,
-                                                           shape,
-                                                           offsetInRequest,
-                                                           requestShape,
-                                                           offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                                   offset,
+                                                                   shape,
+                                                                   offsetInRequest,
+                                                                   requestShape,
+                                                                   offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice;
@@ -172,7 +176,8 @@ namespace multiarray {
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
-        ds.getChunkRequests(offset, shape, chunkRequests);
+        const auto & chunking = ds.chunking();
+        chunking.getBlocksOverlappingRoi(offset, shape, chunkRequests);
 
         // read single or multi-threaded
         if(numberOfThreads == 1) {
@@ -197,12 +202,17 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         std::vector<T> buffer(chunkSize);
 
+        const auto & chunking = ds.chunking();
+
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                                   shape, offsetInRequest,
+                                                                   requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice;
@@ -262,6 +272,8 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
+        
+        const auto & chunking = ds.chunking();
 
         // write the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
@@ -273,7 +285,9 @@ namespace multiarray {
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, requestShape, offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                                   shape, offsetInRequest,
+                                                                   requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
@@ -335,7 +349,8 @@ namespace multiarray {
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
-        ds.getChunkRequests(offset, shape, chunkRequests);
+        const auto & chunking = ds.chunking();
+        chunking.getBlocksOverlappingRoi(offset, shape, chunkRequests);
 
         // write data multi or single threaded
         if(numberOfThreads == 1) {
@@ -376,7 +391,9 @@ namespace multiarray {
     }
 
     template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
-    inline auto convertArrayToFormat(std::unique_ptr<Dataset> & ds, const xt::xexpression<ARRAY_IN> & in, xt::xexpression<ARRAY_OUT> & out) {
+    inline auto convertArrayToFormat(std::unique_ptr<Dataset> & ds,
+                                     const xt::xexpression<ARRAY_IN> & in,
+                                     xt::xexpression<ARRAY_OUT> & out) {
         return convertArrayToFormat<T>(*ds, in, out);
     }
 

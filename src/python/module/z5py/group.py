@@ -57,7 +57,10 @@ class Group(Mapping):
             counter += 1
         return counter
 
+    # TODO can use `util.removeDataset` here
     def __delitem__(self, name):
+        if not self._permissions.can_write():
+            raise ValueError("Cannot call delete on file not opened with write permissions.")
         path_ = os.path.join(self.path, name)
         if not os.path.exists(path_):
             raise KeyError("%s does not exist" % name)
@@ -117,6 +120,8 @@ class Group(Mapping):
         Returns:
             ``Group``: group of the requested name.
         """
+        if not self._permissions.can_write():
+            raise ValueError("Cannot create group with read-only permissions.")
         if name in self:
             raise KeyError("Group %s is already existing" % name)
         path = os.path.join(self.path, name)

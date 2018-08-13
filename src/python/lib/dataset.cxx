@@ -19,6 +19,9 @@ namespace z5 {
 
     template<class T>
     inline void writePySubarray(const Dataset & ds,
+                               // TODO specifying the strides might speed provide some speed-up
+                               // TODO but it prevents singleton dimensions in the shapes
+                                // const xt::pyarray<T, xt::layout_type::row_major> & in,
                                 const xt::pyarray<T> & in,
                                 const std::vector<size_t> & roiBegin,
                                 const int numberOfThreads) {
@@ -27,6 +30,9 @@ namespace z5 {
 
     template<class T>
     inline void readPySubarray(const Dataset & ds,
+                               // TODO specifying the strides might speed provide some speed-up
+                               // TODO but it prevents singleton dimensions in the shapes
+                               // xt::pyarray<T, xt::layout_type::row_major> & out,
                                xt::pyarray<T> & out,
                                const std::vector<size_t> & roiBegin,
                                const int numberOfThreads) {
@@ -43,11 +49,14 @@ namespace z5 {
     }
 
     template<class T>
-    inline xt::pytensor<char, 1> convertPyArrayToFormat(const Dataset & ds,
-                                                        const xt::pyarray<T> & in) {
+    inline xt::pytensor<char, 1, xt::layout_type::row_major> convertPyArrayToFormat(const Dataset & ds,
+                                                                                    // TODO specifying the strides might speed provide some speed-up
+                                                                                    // TODO but it prevents singleton dimensions in the shapes
+                                                                                    // const xt::pyarray<T, xt::layout_type::row_major> & in) {
+                                                                                    const xt::pyarray<T> & in) {
         std::vector<char> tmp;
         multiarray::convertArrayToFormat<T>(ds, in, tmp);
-        typedef xt::pytensor<char, 1>::shape_type ShapeType;
+        typedef xt::pytensor<char, 1, xt::layout_type::row_major>::shape_type ShapeType;
         const ShapeType outShape = {static_cast<int64_t>(tmp.size())};
         xt::pytensor<char, 1> out = xt::zeros<char>(outShape);
         // TODO can we use xt::adapt here instead of std::copy?
@@ -252,7 +261,7 @@ namespace z5 {
     }
 
 
-    // TODO expose file mode to python
+    // expose file mode to python
     void exportFileMode(py::module & module) {
         py::class_<FileMode> pyFileMode(module, "FileMode");
 

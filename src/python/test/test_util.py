@@ -122,6 +122,72 @@ class TestUtil(unittest.TestCase):
                 sorted(blocking2)
                 self.assertEqual(blocking1, blocking2)
 
+    def test_remove_trivial_chunks(self):
+        from z5py.util import remove_trivial_chunks
+        path = './tmp_dir/data.n5'
+        f = z5py.File(path)
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        a = np.zeros(shape)
+        a[10:20, 10:20] = 1
+        a[20:30, 20:30] = 2
+        a[50:60, 50:60] = np.arange(100).reshape(chunks)
+
+        ds = f.create_dataset('data', dtype='float64',
+                              shape=shape, chunks=chunks)
+
+        ds[:] = a
+        remove_trivial_chunks(ds, n_threads=4)
+        b = ds[:]
+
+        self.assertTrue(np.allclose(b[10:20, 10:20], 0))
+        self.assertTrue(np.allclose(b[20:30, 20:30], 0))
+        self.assertTrue(np.allclose(b[50:60, 50:60],
+                                    np.arange(100).reshape(chunks)))
+
+        ds[:] = a
+        remove_trivial_chunks(ds, n_threads=4, remove_specific_value=1)
+        c = ds[:]
+
+        self.assertTrue(np.allclose(c[10:20, 10:20], 0))
+        self.assertTrue(np.allclose(c[20:30, 20:30], 2))
+        self.assertTrue(np.allclose(c[50:60, 50:60],
+                                    np.arange(100).reshape(chunks)))
+
+
+    def test_unique(self):
+        from z5py.util import unique
+        path = './tmp_dir/data.n5'
+        f = z5py.File(path)
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        ds = f.create_dataset('data', dtype='int32',
+                              shape=shape, chunks=chunks)
+        data = np.random.randint(0, 100, size=shape).astype('int32')
+        ds[:] = data
+
+        exp_uniques, exp_counts  = np.unique(data, return_counts=True)
+        uniques = unique(ds, n_threads=4)
+        self.assertTrue(np.allclose(uniques, exp_uniques))
+
+        uniques, counts = unique(ds, n_threads=4, return_counts=True)
+        self.assertTrue(np.allclose(uniques, exp_uniques))
+        self.assertTrue(np.allclose(counts, exp_counts))
+
+    def test_remove_dataset(self):
+        from z5py.util import remove_dataset
+        path = './tmp_dir/data.n5'
+        f = z5py.File(path)
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        ds = f.create_dataset('data', dtype='float64',
+                              data=np.ones(shape), chunks=chunks)
+        remove_dataset(ds, 4)
+        self.assertFalse(os.path.exists(os.path.join(path, 'data')))
+
 
 if __name__ == '__main__':
     unittest.main()
