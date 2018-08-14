@@ -89,12 +89,10 @@ if(NOT WITHIN_TRAVIS)
     string(REGEX REPLACE "\n$" "" CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}")
 endif()
 
-MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
-
 # Set CMAKE_PREFIX_PATH to the conda env, but allow changing it
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
-
 MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
+
 if (MSVC)
     include_directories("${CMAKE_PREFIX_PATH}/Library/include")
 else()
@@ -178,8 +176,10 @@ endif()
 # Python-bindings
 ###############################
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake/pybind11")
-include(pybind11Tools)
+# list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake/pybind11")
+# include(pybind11Tools)
+
+find_package(pybind11 REQUIRED)
 
 # numpy
 if(MSVC)
