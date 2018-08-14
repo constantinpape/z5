@@ -36,7 +36,10 @@ namespace z5 {
                                      const int n_threads){
             std::set<T> unique_set;
             util::unique(ds, n_threads, unique_set);
-            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>({unique_set.size()});
+
+            typedef typename xt::pytensor<T, 1, xt::layout_type::row_major>::shape_type ShapeType;
+            const ShapeType shape = {static_cast<int64_t>(unique_set.size())};
+            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>(shape);
             std::copy(unique_set.begin(), unique_set.end(), uniques.begin());
             return uniques;
         }, py::arg("ds"), py::arg("n_threads"));
@@ -48,8 +51,11 @@ namespace z5 {
                                      const int n_threads){
             std::map<T, std::size_t> unique_map;
             util::uniqueWithCounts(ds, n_threads, unique_map);
-            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>({unique_map.size()});
-            xt::pytensor<std::size_t, 1, xt::layout_type::row_major> counts = xt::zeros<std::size_t>({unique_map.size()});
+            typedef typename xt::pytensor<T, 1, xt::layout_type::row_major>::shape_type ShapeType;
+            const ShapeType shape = {static_cast<int64_t>(unique_map.size())};
+
+            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>(shape);
+            xt::pytensor<std::size_t, 1, xt::layout_type::row_major> counts = xt::zeros<std::size_t>(shape);
             std::size_t index = 0;
             for(auto it = unique_map.begin(); it != unique_map.end(); ++it, ++index) {
                 uniques[index] = it->first;
