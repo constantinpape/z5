@@ -14,10 +14,9 @@ Documentation
 
 # z5
 
-Lightweight C++ and Python wrapper for reading and writing zarr 
-(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) arrays to / from disc.
+Lightweight C++ and Python wrapper for reading and writing files in zarr 
+(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) format.
 
-Read and write compressed chunked arrays on filesystem.
 Offers support for the following compression codecs:
 - Blosc (https://github.com/Blosc/c-blosc)
 - Zlib / Gzip (https://zlib.net/)
@@ -41,7 +40,7 @@ The easiest way to build the library from source is from a conda-environment wit
 You can find the necessary set-up for conda environments for python 2.7 / 3.6
 in `requirements27.yml`, `requirements36.yml`.
 
-To set up the conda environment and install the package (python 3.6):
+To set up the conda environment and install the package (for python 3.6):
 ```
 $ conda env create -f requirements36.yml
 $ source activate z5-36
@@ -52,19 +51,19 @@ $ make install
 ```
 
 Note that in the CMakeLists.txt, we try to infer the active conda-environment automatically to load the relevant dependencies.
-If this does fail, you can set it manually via `cmake -DCMAKE_PREFIX_PATH=/path/to/conda-env`.
+If this fails, you can set it manually via `-DCMAKE_PREFIX_PATH=/path/to/conda-env`.
 To specify where to install the package, set:
 
 - `CMAKE_INSTALL_PREFIX`: where to install the C++ headers
 - `PYTHON_MODULE_INSTALL_DIR`: where to install the python package (set to `site-packages` of active conda env by default)
 
-If you want to include z5 in another C++ project, note that the library itself is header-only, however you need to link against the relevant compression codecs.
+If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the relevant compression codecs.
 
 ## Examples / Usage
 
 ### Python
 
-The Python API is very similar to h5py.
+The Python API is very similar to `h5py`.
 Some differences are: 
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
@@ -72,7 +71,7 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Linked datasets (`my_file['new_ds'] = my_file['old_ds']`) are not supported
 - Broadcasting is only supported for scalars in `Dataset.__setitem__`
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
-- Compatibility of exception handling is a goal, but not necessarily a guaranteed.
+- Compatibility of exception handling is a goal, but not necessarily guaranteed.
 
 Some examples:
 
@@ -193,7 +192,7 @@ I recommend to use these implementations, which are more thoroughly tested.
 
 - No thread / process synchonization -> writing to the same chunk in parallel will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
-- Supports only little endianness for the zarr format.
+- Supports only little endianness and C-order for the zarr format.
 
 
 ## A note on axis ordering
