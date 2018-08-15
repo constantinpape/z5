@@ -13,3 +13,4 @@ dependencies:
   - six
   - future
   - futures
+  - nlohmann_json
