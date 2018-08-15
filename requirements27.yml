@@ -5,7 +5,7 @@ dependencies:
   - python=2.7
   - xtensor-python
   - c-blosc
-  - boost
+  - boost=1.67
   - c-blosc
   - bzip2
   - xz
