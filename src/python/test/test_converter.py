@@ -34,8 +34,10 @@ class TestConverter(unittest.TestCase):
             os.mkdir(self.tmp_dir)
 
     def tearDown(self):
-        if os.path.exists(self.tmp_dir):
+        try:
             rmtree(self.tmp_dir)
+        except OSError:
+            pass
 
     @unittest.skipUnless(h5py, 'Requires h5py')
     @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')

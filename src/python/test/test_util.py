@@ -26,8 +26,10 @@ class TestUtil(unittest.TestCase):
             os.mkdir(self.tmp_dir)
 
     def tearDown(self):
-        if os.path.exists(self.tmp_dir):
+        try:
             rmtree(self.tmp_dir)
+        except OSError:
+            pass
 
     @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_rechunk_default(self):
