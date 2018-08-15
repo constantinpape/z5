@@ -29,10 +29,10 @@ Offers support for the following compression codecs:
 
 ### Conda
 
-You can install the package via conda (only Linux for now):
+Conda packages for the relevant systems and python versions (except python2.7 on windows) are hosted on conda-forge:
 
 ```
-$ conda install -c conda-forge -c cpape z5py
+$ conda install -c conda-forge z5py
 ```
 
 ### From Source
@@ -55,8 +55,8 @@ Note that in the CMakeLists.txt, we try to infer the active conda-environment au
 If this does fail, you can set it manually via `cmake -DCMAKE_PREFIX_PATH=/path/to/conda-env`.
 To specify where to install the package, set:
 
-- CMAKE_INSTALL_PREFIX: where to install the C++ headers
-- PYTHON_MODULE_INSTALL_DIR: where to install the python package (set to `site-packages` of active conda env by default)
+- `CMAKE_INSTALL_PREFIX`: where to install the C++ headers
+- `PYTHON_MODULE_INSTALL_DIR`: where to install the python package (set to `site-packages` of active conda env by default)
 
 If you want to include z5 in another C++ project, note that the library itself is header-only, however you need to link against the relevant compression codecs.
 
