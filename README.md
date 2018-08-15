@@ -47,7 +47,7 @@ $ conda env create -f requirements36.yml
 $ source activate z5-36
 $ mkdir bld
 $ cd bld
-$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DCMAKE_INSTALL_PREFIX=/path/to/install
+$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DCMAKE_INSTALL_PREFIX=/path/to/install ..
 $ make install
 ```
 
