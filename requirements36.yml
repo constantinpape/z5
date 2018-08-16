@@ -11,4 +11,4 @@ dependencies:
   - xz
   - lz4
   - six
-  - nlohman_json
+  - nlohmann_json

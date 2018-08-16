@@ -36,11 +36,11 @@ $ conda install -c conda-forge z5py
 
 ### From Source
 
-The easiest way to build the library from source is from a conda-environment with all necessary dependencies.
+The easiest way to build the library from source is using a conda-environment with all necessary dependencies.
 You can find the necessary set-up for conda environments for python 2.7 / 3.6
 in `requirements27.yml`, `requirements36.yml`.
 
-To set up the conda environment and install the package (for python 3.6):
+To set up the conda environment and install the package on Unix (for python 3.6):
 ```
 $ conda env create -f requirements36.yml
 $ source activate z5-36
@@ -50,14 +50,14 @@ $ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DCMAKE_INSTALL_PREFIX=/path/to/install .
 $ make install
 ```
 
-Note that in the CMakeLists.txt, we try to infer the active conda-environment automatically to load the relevant dependencies.
+Note that in the CMakeLists.txt, we try to infer the active conda-environment automatically.
 If this fails, you can set it manually via `-DCMAKE_PREFIX_PATH=/path/to/conda-env`.
 To specify where to install the package, set:
 
 - `CMAKE_INSTALL_PREFIX`: where to install the C++ headers
 - `PYTHON_MODULE_INSTALL_DIR`: where to install the python package (set to `site-packages` of active conda env by default)
 
-If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the relevant compression codecs.
+If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the compression codecs that you use.
 
 ## Examples / Usage
 
