@@ -37,7 +37,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
   # - conda info -a
-  - conda install -c conda-forge xtensor-python boost-cpp=1.67 bzip2 blosc 
+  - conda install -c conda-forge xtensor>=0.17.1 xtensor-python boost-cpp=1.67 bzip2 blosc 
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
