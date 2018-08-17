@@ -6,7 +6,7 @@ platform:
 
 image:
   - Visual Studio 2017
-#  - Visual Studio 2015
+  - Visual Studio 2015
 
 environment:
   matrix:
@@ -37,7 +37,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
   # - conda info -a
-  - conda install -c conda-forge xtensor-python boost-cpp=1.67 bzip2 c-blosc 
+  - conda install -c conda-forge xtensor-python boost-cpp=1.67 bzip2 blosc 
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build

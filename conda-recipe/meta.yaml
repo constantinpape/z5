@@ -23,7 +23,7 @@ requirements:
     - python {{PY_VER}}*
     - cmake
     - boost 1.66.0  # the boost version needs to be fixed, because we are linking against specific shared objects
-    - c-blosc
+    - blosc
     - zlib
     - bzip2
     - xz
@@ -35,7 +35,7 @@ requirements:
     - boost 1.66.0
     - numpy # do not need to constrain np version
     - six
-    - c-blosc
+    - blosc
     - zlib
     - bzip2
 

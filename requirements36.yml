@@ -4,11 +4,11 @@ channels:
 dependencies:
   - python=3.6
   - xtensor-python
-  - c-blosc
   - boost=1.67
-  - c-blosc
+  - blosc
   - bzip2
-  - xz
   - lz4
+  - xz
+  - zlib
   - six
   - nlohmann_json
