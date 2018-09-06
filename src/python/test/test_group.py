@@ -74,6 +74,13 @@ class GroupTestMixin(object):
         self.assertFalse('test' in self.root_file)
         self.assertFalse('test/test' in self.root_file)
 
+    def test_leading_slash(self):
+        # make sure that we can read slashes
+        g = self.root_file['/test']
+        ds1 = g['/test']
+        ds2 = self.root_file['/test/test']
+        self.assertTrue(np.allclose(ds1[:], ds2[:]))
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'

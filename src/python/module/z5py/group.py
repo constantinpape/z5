@@ -77,7 +77,7 @@ class Group(Mapping):
         Returns:
             ``Group`` or ``Dataset``.
         """
-        path = os.path.join(self.path, name)
+        path = os.path.join(self.path, name.lstrip('/'))
         if not os.path.isdir(path):
             raise KeyError("Key %s does not exist" % name)
 
