@@ -32,6 +32,12 @@ class GroupTestMixin(object):
         except OSError:
             pass
 
+    def test_contains(self):
+        self.assertTrue('test' in self.root_file)
+        self.assertTrue('/test' in self.root_file)
+        self.assertTrue('/test/test' in self.root_file)
+        self.assertFalse('fake' in self.root_file)
+
     def test_open_group(self):
         g = self.root_file['test']
         ds = g['test']

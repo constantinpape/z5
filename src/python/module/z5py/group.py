@@ -57,6 +57,9 @@ class Group(Mapping):
             counter += 1
         return counter
 
+    def __contains__(self, name):
+        return super(Group, self).__contains__(name.lstrip('/'))
+
     # TODO can use `util.removeDataset` here
     def __delitem__(self, name):
         if not self._permissions.can_write():
@@ -123,8 +126,8 @@ class Group(Mapping):
         if not self._permissions.can_write():
             raise ValueError("Cannot create group with read-only permissions.")
         if name in self:
-            raise KeyError("Group %s is already existing" % name)
-        path = os.path.join(self.path, name)
+            raise KeyError("Group %s already exists" % name)
+        path = os.path.join(self.path, name.lstrip('/'))
         return Group._create_group(path, self.is_zarr, self.mode)
 
     def require_group(self, name):
@@ -139,7 +142,7 @@ class Group(Mapping):
         Returns:
             ``Group``: group of the requested name.
         """
-        path = os.path.join(self.path, name)
+        path = os.path.join(self.path, name.lstrip('/'))
         if os.path.exists(path):
             if not is_group(path, self.is_zarr):
                 raise TypeError("Incompatible object (Dataset) already exists")
@@ -190,7 +193,7 @@ class Group(Mapping):
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
-        path = os.path.join(self.path, name)
+        path = os.path.join(self.path, name.lstrip('/'))
         return Dataset._create_dataset(path, shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,
@@ -221,7 +224,7 @@ class Group(Mapping):
         """
         if not self._permissions.can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
-        path = os.path.join(self.path, name)
+        path = os.path.join(self.path, name.lstrip('/'))
         return Dataset._require_dataset(path, shape, dtype, chunks,
                                         n_threads, self.is_zarr, self._internal_mode,
                                         **kwargs)
