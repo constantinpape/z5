@@ -31,7 +31,7 @@ class DecoratingDecoder(json.JSONDecoder):
                                   *args, **kwargs)
 
     def object_hook(self, obj):
-        return {k: '_' + v + '_' if isinstance(v, str) else v
+        return {k: 'a' + v + 'e' if isinstance(v, str) else v
                 for k, v in obj.items()}
 
 
@@ -119,8 +119,8 @@ class AttributesTestMixin(object):
             z5py.set_json_decoder(Dummy)
 
         def _check():
-            self.root_file.attrs['a'] = 'bcde'
-            self.assertEqual(self.root_file.attrs['a'], '_bcde_')
+            self.root_file.attrs['x'] = 'bcd'
+            self.assertEqual(self.root_file.attrs['x'], 'abcde')
 
         # check that the decoder is used
         z5py.set_json_decoder(DecoratingDecoder)
