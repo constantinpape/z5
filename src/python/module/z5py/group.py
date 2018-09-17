@@ -228,3 +228,43 @@ class Group(Mapping):
         return Dataset._require_dataset(path, shape, dtype, chunks,
                                         n_threads, self.is_zarr, self._internal_mode,
                                         **kwargs)
+
+    def visititems(self, func, path):
+        """ Recursively visit names and objects in this group.
+
+        You supply a callable (function, method or callable object); it
+        will be called exactly once for each link in this group and every
+        group below it. Your callable must conform to the signature:
+
+            func(<member name>, <object>) => <None or return value>
+
+        Returning None continues iteration, returning anything else stops
+        and immediately returns that value from the visit method.  No
+        particular order of iteration within groups is guranteed.
+
+        calls the function @param func with the found items, appended to @param path
+
+        Example:
+
+        # Get a list of all datasets in the file
+        >>> mylist = []
+        >>> def func(name, obj):
+        ...     if isinstance(obj, Dataset):
+        ...         mylist.append(name)
+        ...
+        >>> f = File('foo.n5')
+        >>> f.visititems(func,'')
+        """
+        items = self.items()
+        for item in items:
+            if type(item[1]) == Group:
+                if item[1].visititems(func, item[0] + '/') is False:
+                    return False
+            elif type(item[1]) == Dataset:
+                if func(path + item[0], self[item[0]]) is not None:
+                    return False
+        return True
+
+    def close(self):
+        # This function exists just for conformity with the standard file-handling procedure.
+        return True
