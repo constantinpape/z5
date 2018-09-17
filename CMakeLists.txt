@@ -176,9 +176,6 @@ endif()
 # Python-bindings
 ###############################
 
-# list(APPEND CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/share/cmake/pybind11")
-# include(pybind11Tools)
-
 find_package(pybind11 REQUIRED)
 
 # numpy
