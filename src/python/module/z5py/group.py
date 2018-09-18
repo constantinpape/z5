@@ -229,7 +229,7 @@ class Group(Mapping):
                                         n_threads, self.is_zarr, self._internal_mode,
                                         **kwargs)
 
-    def visititems(self, func, path):
+    def visititems(self, func):
         """ Recursively visit names and objects in this group.
 
         You supply a callable (function, method or callable object); it
