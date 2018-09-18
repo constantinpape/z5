@@ -253,7 +253,7 @@ class Group(Mapping):
         ...         mylist.append(name)
         ...
         >>> f = File('foo.n5')
-        >>> f.visititems(func,'')
+        >>> f.visititems(func)
         """
         for item in self.items():
             if isinstance(item[1],Group):
@@ -261,6 +261,6 @@ class Group(Mapping):
                 if func_ret is not None:
                     return func_ret
             else:
-                func_ret = func(os.path.join(self.path, item[0]), self[item[0]])
+                func_ret = func(os.path.join(self.path, item[0]), item[1])
                 if func_ret is not None:
                     return func_ret
