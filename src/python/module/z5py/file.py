@@ -121,6 +121,10 @@ class File(Group):
             if major_version > 2:
                 raise RuntimeError("Can't open n5 file with major version bigger than 2")
 
+    def close(self):
+        # This function exists just for conformity with the standard file-handling procedure.
+        pass
+
     def __enter__(self):
         return self
 
