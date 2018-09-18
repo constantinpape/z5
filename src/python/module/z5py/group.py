@@ -255,16 +255,12 @@ class Group(Mapping):
         >>> f = File('foo.n5')
         >>> f.visititems(func,'')
         """
-        items = self.items()
-        for item in items:
-            if type(item[1]) == Group:
-                if item[1].visititems(func, item[0] + '/') is False:
-                    return False
-            elif type(item[1]) == Dataset:
-                if func(path + item[0], self[item[0]]) is not None:
-                    return False
-        return True
-
-    def close(self):
-        # This function exists just for conformity with the standard file-handling procedure.
-        return True
+        for item in self.items():
+            if isinstance(item[1],Group):
+                func_ret = item[1].visititems(func)
+                if func_ret is not None:
+                    return func_ret
+            else:
+                func_ret = func(os.path.join(self.path, item[0]), self[item[0]])
+                if func_ret is not None:
+                    return func_ret
