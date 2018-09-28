@@ -167,12 +167,15 @@ if WITH_IMIO:
     # TODO use proper regex
     def default_index_parser(fname):
         # get rid of the postfix
-        parsed = '_'.join(fname.split('.')[:-1])
+        parsed = os.path.splitext(fname)[0]
+        # try to convert to interger directly
+        if is_int(parsed):
+            return int(parsed)
         # try to split at '_'
         parsed = parsed.split('_')
         if len(parsed) == 1:
             # otherwise try to split at '-'
-            parsed = parsed.split('-')
+            parsed = parsed[0].split('-')
             if len(parsed) == 1 and not is_int(parsed[0]):
                 raise ValueError("Cannot parse file with default parser")
         # convert the parsed strings to int
@@ -206,7 +209,8 @@ if WITH_IMIO:
     def convert_from_tif(in_path, out_path,
                          out_path_in_file, chunks,
                          n_threads, use_zarr_format=None,
-                         parser=None, **z5_kwargs):
+                         parser=None, preprocess=None,
+                         **z5_kwargs):
         """ Convert tif stack or folder of tifs to n5 or zarr dataset.
 
         The chunks of the output dataset must be specified.
@@ -224,9 +228,13 @@ if WITH_IMIO:
                 otherwise zarr will be used (default: None).
             parser (callable): function to parse the image indices for tifs in a folder.
                 If None, some default patterns are tried (default: None)
+            process (callable): function to preprocess chunks before wrting to n5/zarr
+                Must take np.ndarray and int as arguments. (default: None)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
         parser_ = default_index_parser if parser is None else parser
+        if preprocess is not None:
+            assert callable(preprocess)
 
         if os.path.isdir(in_path):
             file_names = [pp for pp in os.listdir(in_path)
@@ -261,7 +269,9 @@ if WITH_IMIO:
             slice_ = (slice(i0, i1),) + len(shape[1:]) * (slice(None),)
             chunk = np.zeros(cshape, dtype=dtype)
             for z, i in enumerate(range(i0, i1)):
-                chunk[z] = imageio.imread(os.path.join(in_path, file_names[i]))
+                chunk[z] = imageio.imread(os.path.join(in_path, file_names[i]))\
+                    if preprocess is None else preprocess(imageio.imread(os.path.join(in_path, file_names[i])), i)
+
             ds_z5[slice_] = chunk.astype(dtype, copy=False)
 
         n_blocks = int(ceil(shape[0] / chunks[0]))
