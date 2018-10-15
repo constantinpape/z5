@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <iomanip>
 
 #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
