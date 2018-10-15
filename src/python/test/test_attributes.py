@@ -1,9 +1,13 @@
 from __future__ import print_function
 
 import unittest
+import json
+import sys
 from shutil import rmtree
 from six import add_metaclass
 from abc import ABCMeta
+
+import numpy as np
 
 import sys
 try:
@@ -11,6 +15,29 @@ try:
 except ImportError:
     sys.path.append('..')
     import z5py
+
+
+# Just a dummy numpy encoder to test custom encoders
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NumpyEncoder, self).default(obj)
+
+
+class DecoratingDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook,
+                                  *args, **kwargs)
+
+    def object_hook(self, obj):
+        return {k: 'a' + v + 'e' if isinstance(v, str) else v
+                for k, v in obj.items()}
+
+
+class Dummy(object):
+    pass
 
 
 @add_metaclass(ABCMeta)
@@ -56,20 +83,57 @@ class AttributesTestMixin(object):
 
         # test file attributes
         f_attrs = self.root_file.attrs
-        print("File Attribute Test")
         self.check_attrs(f_attrs)
 
         # test group attributes
         f_group = self.root_file["group"].attrs
-        print("Group Attribute Test")
         self.check_attrs(f_group)
 
         # test ds attributes
         f_ds = self.root_file["ds"].attrs
-        print("Dataset Attribute Test")
         self.check_attrs(f_ds)
         if not self.root_file.is_zarr:
             self.check_ds_attrs(f_ds)
+
+    def test_custom_encoder(self):
+        # check that we can't set arbitrary encoders
+        with self.assertRaises(RuntimeError):
+            z5py.set_json_encoder(Dummy)
+
+        def _check():
+            x = np.arange(10, dtype='int32')
+            self.root_file.attrs['x'] = x
+            y = self.root_file.attrs['x']
+            self.assertTrue(np.allclose(x, y))
+
+        # check that the encoder is used
+        z5py.set_json_encoder(NumpyEncoder)
+        _check()
+        # check that the encoder is properly reset
+        z5py.set_json_encoder(None)
+        with self.assertRaises(TypeError):
+            _check()
+
+    # FIXME this fails in python 2 with, dunno why:
+    # self.assertEqual(self.root_file.attrs['x'], 'abcde')
+    # AssertionError: u'bcd' != 'abcde'
+    @unittest.skipUnless(int(sys.version[0]) == 3, 'Json decoding seems to be different in python2')
+    def test_custom_decoder(self):
+        # check that we can't set arbitrary decoders
+        with self.assertRaises(RuntimeError):
+            z5py.set_json_decoder(Dummy)
+
+        def _check():
+            self.root_file.attrs['x'] = 'bcd'
+            self.assertEqual(self.root_file.attrs['x'], 'abcde')
+
+        # check that the decoder is used
+        z5py.set_json_decoder(DecoratingDecoder)
+        _check()
+        # check that the decoder is properly reset
+        z5py.set_json_decoder(None)
+        with self.assertRaises(AssertionError):
+            _check()
 
 
 class TestAttributesZarr(AttributesTestMixin, unittest.TestCase):

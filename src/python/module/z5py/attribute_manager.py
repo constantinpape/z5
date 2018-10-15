@@ -13,6 +13,36 @@ except ImportError:
 __all__ = ['AttributeManager']
 
 
+# json encoders and decoder
+# if None, the default encoder / decoders are used
+_JSON_ENCODER = None
+_JSON_DECODER = None
+
+
+def set_json_encoder(encoder):
+    """ Set the encoder to be used in `json.dump` for attribute serialization.
+    """
+    global _JSON_ENCODER
+    if encoder is None:
+        _JSON_ENCODER = None
+        return
+    if not isinstance(encoder(), json.JSONEncoder):
+        raise RuntimeError("Encoder must inherit from JSONEncoder")
+    _JSON_ENCODER = encoder
+
+
+def set_json_decoder(decoder):
+    """ Set the decoder to be used in `json.load` for attribute de-serialization.
+    """
+    global _JSON_DECODER
+    if decoder is None:
+        _JSON_DECODER = None
+        return
+    if not isinstance(decoder(), json.JSONDecoder):
+        raise RuntimeError("Decoder must inherit from JSONDecoder")
+    _JSON_DECODER = decoder
+
+
 def restrict_metadata_keys(fn):
     """ Decorator for AttributeManager methods which checks that,
     if the manager is for N5, the key argument is not a
@@ -70,9 +100,10 @@ class AttributeManager(MutableMapping):
 
     def _read_attributes(self):
         """Return dict from JSON attribute store. Caller needs to distinguish between valid and N5 metadata keys."""
+        global _JSON_DECODER
         try:
             with open(self.path, 'r') as f:
-                attributes = json.load(f)
+                attributes = json.load(f, cls=_JSON_DECODER)
         except ValueError:
             attributes = {}
         except IOError as e:
@@ -85,8 +116,9 @@ class AttributeManager(MutableMapping):
 
     def _write_attributes(self, attributes):
         """Dump ``attributes`` to JSON. Potentially dangerous for N5 metadata."""
+        global _JSON_ENCODER
         with open(self.path, 'w') as f:
-            json.dump(attributes, f)
+            json.dump(attributes, f, cls=_JSON_ENCODER)
 
     def __iter__(self):
         with self._open_attributes() as attributes:
