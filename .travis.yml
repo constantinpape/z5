@@ -27,7 +27,7 @@ before_script:
   - source activate test-env
   # install additional dependencies
   - conda install -c conda-forge boost-cpp=1.67 bzip2 xz zlib
-  - conda install -c conda-forge xtensor-python=0.19.1 blosc imageio h5py zarr six
+  - conda install -c conda-forge xtensor-python=0.21.0 xtensor=0.18.1 blosc imageio h5py zarr six
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
 
 script:
