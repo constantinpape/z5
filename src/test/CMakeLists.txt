@@ -4,7 +4,7 @@ SET(TEST_LIBS
     ${Boost_SYSTEM_LIBRARY}    
     gtest
     gtest_main
-    pthread
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 # add metadata test
@@ -26,8 +26,8 @@ target_link_libraries(test_attributes ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 add_subdirectory(compression)
 add_subdirectory(io)
 add_subdirectory(multiarray)
-add_subdirectory(test_zarr)
 add_subdirectory(test_n5)
+add_subdirectory(util)
 
 add_custom_command(
         TARGET test_attributes POST_BUILD

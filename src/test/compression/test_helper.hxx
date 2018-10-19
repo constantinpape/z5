@@ -26,14 +26,14 @@ namespace compression {
             // fill 'dataInt_' with random values
             std::uniform_int_distribution<int> distributionInt(0, 1000);
             auto drawInt = std::bind(distributionInt, generator);
-            for(size_t i = 0; i < SIZE; ++i) {
+            for(std::size_t i = 0; i < SIZE; ++i) {
                 dataInt_[i] = drawInt();
             }
 
             // fill 'dataFloat_' with random values
             std::uniform_real_distribution<float> distributionFloat(0., 1.);
             auto drawFloat = std::bind(distributionFloat, generator);
-            for(size_t i = 0; i < SIZE; ++i) {
+            for(std::size_t i = 0; i < SIZE; ++i) {
                 dataFloat_[i] = drawFloat();
             }
         }

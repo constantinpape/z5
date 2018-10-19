@@ -1,31 +1,35 @@
 # TODO osx
 os: linux
 dist: trusty
+sudo: required
 language: python
 python:
   - "2.7"
   - "3.5"
   - "3.6"
+addons:
+  apt:
+    update: true
 
 before_script:
-  # TODO conda 2 for python 2.7
+  # install conda
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
+  # update conda
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  # create the test environment
-  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
+  # create the test environment with anaconda cloud gcc-7.2 compilers
+  - conda create -q -n test-env -c conda-forge -c defaults python=$TRAVIS_PYTHON_VERSION cmake gcc_linux-64 gxx_linux-64
+  # activate env
   - source activate test-env
-  # install all dependencies TODO would be nice not to hard-code this, but get from meta.yml
-  - conda install -c conda-forge xtensor=0.15.1
-  - conda install -c conda-forge xtensor-python
-  - conda install -c conda-forge boost c-blosc zlib bzip2
-  - conda install -c anaconda cmake
-  - conda install -c psi4 gcc-5
-  - conda install six
+  # install additional dependencies
+  - conda install boost-cpp=1.67
+  - conda install -c conda-forge bzip2 xz zlib
+  - conda install -c conda-forge xtensor-python=0.21.0 xtensor=0.18.1 blosc imageio h5py zarr six
+  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
 
 script:
 
@@ -36,12 +40,13 @@ script:
   - source activate test-env
   - export ENV_ROOT="$HOME/miniconda/envs/test-env"
   - export ENV_BIN=$ENV_ROOT/bin
+  - export PY_BIN=$ENV_BIN/python
 
   ###############################################
-  # setup compiler
+  # setup compilers
   ###############################################
-  - export CXX="$ENV_BIN/g++"
-  - export CC="$ENV_BIN/gcc"
+  - export CC="$ENV_BIN/x86_64-conda_cos6-linux-gnu-cc"
+  - export CXX="$ENV_BIN/x86_64-conda_cos6-linux-gnu-c++"
 
   ###############################################
   # configure cmake
@@ -51,7 +56,10 @@ script:
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
           -DWITH_BZIP2=ON
+          -DWITH_XZ=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
+          -DPYTHON_EXECUTABLE="$PY_BIN"
+          # -DWITH_LZ4=ON
 
 
   ###############################################
@@ -62,29 +70,7 @@ script:
   ###############################################
   # test the project
   ###############################################
-  # cpp tests TODO this is not elegant...
-  # FIXME this is not working
-  #- cd src/test
-  #- ./test_metadata
-  #- ./test_dataset
-  #- ./test_factories
-  #- ./test_attributes
-  #- ./compression/test_raw
-  #- ./compression/test_zlib
-  #- ./compression/test_bzip2
-  #- ./compression/test_blosc
-  #- ./io/test_io_n5
-  #- ./io/test_io_zarr
-  #- ./multiarray/test_broadcast
-  #- ./multiarray/test_xtensor
-  ## FIXME fix this !
-  ## - ./multiarray/test_xtnd
-  #- cd ../..
-
   # python tests
   - export PYTHONPATH="./python:$PYTHONPATH"
-  # TODO install additional dependencies for converter
-  # - hdf5, dvid
   # run all python unittests
   - $ENV_BIN/python -m unittest discover -v python/test
-  # - $ENV_BIN/python python/test/test_dataset.py

@@ -1,0 +1,14 @@
+name: z5-36
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - xtensor-python
+  - boost=1.67
+  - blosc
+  - bzip2
+  - lz4
+  - xz
+  - zlib
+  - six
+  - nlohmann_json

@@ -10,7 +10,6 @@ namespace z5 {
     // factory function to open an existing zarr-array
     inline std::unique_ptr<Dataset> openDataset(const std::string & path, const FileMode::modes mode=FileMode::a) {
 
-        // TODO only read the datarype here
         // read the data type from the metadata
         handle::Dataset h(path, mode);
         auto dtype = readDatatype(h);
@@ -53,7 +52,6 @@ namespace z5 {
     }
 
 
-
     inline std::unique_ptr<Dataset> createDataset(
         const std::string & path,
         const std::string & dtype,
@@ -73,6 +71,7 @@ namespace z5 {
             throw std::runtime_error("z5py.createDataset: Invalid dtype for dataset");
         }
 
+        // get the compressor
         types::Compressor internalCompressor;
         try {
             internalCompressor = types::Compressors::stringToCompressor().at(compressor);
@@ -80,11 +79,17 @@ namespace z5 {
             throw std::runtime_error("z5py.createDataset: Invalid compressor for dataset");
         }
 
+        // add the default compression options if necessary
+        // we need to make a compy of the compression options, because
+        // they are const
+        auto internalCompressionOptions = compressionOptions;
+        types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
+
         // make metadata
         DatasetMetadata metadata(
             internalDtype, shape,
             chunkShape, createAsZarr,
-            internalCompressor, compressionOptions,
+            internalCompressor, internalCompressionOptions,
             fillValue);
 
         // make array handle

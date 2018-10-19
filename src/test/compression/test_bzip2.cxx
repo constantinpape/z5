@@ -19,12 +19,11 @@ namespace compression {
         metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<int> compressor(metadata);
 
-        std::vector<int> dataOut;
+        std::vector<char> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < SIZE);
-        std::cout << "Compression Int: " << dataOut.size() << " / " << SIZE << std::endl;
-
+        ASSERT_TRUE(dataOut.size() / sizeof(int) < SIZE);
+        std::cout << "Compression Int: " << dataOut.size() / sizeof(int) << " / " << SIZE << std::endl;
     }
 
 
@@ -35,12 +34,11 @@ namespace compression {
         metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<float> compressor(metadata);
 
-        std::vector<float> dataOut;
+        std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
 
-        ASSERT_TRUE(dataOut.size() < SIZE);
-        std::cout << "Compression Float: " << dataOut.size() << " / " << SIZE << std::endl;
-
+        ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
+        std::cout << "Compression Float: " << dataOut.size() / sizeof(float) << " / " << SIZE << std::endl;
     }
 
 
@@ -51,13 +49,13 @@ namespace compression {
         metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<int> compressor(metadata);
 
-        std::vector<int> dataOut;
+        std::vector<char> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
-        ASSERT_TRUE(dataOut.size() < SIZE);
+        ASSERT_TRUE(dataOut.size() / sizeof(int) < SIZE);
 
         int dataTmp[SIZE];
         compressor.decompress(dataOut, dataTmp, SIZE);
-        for(size_t i = 0; i < SIZE; ++i) {
+        for(std::size_t i = 0; i < SIZE; ++i) {
             ASSERT_EQ(dataTmp[i], dataInt_[i]);
         }
     }
@@ -70,16 +68,15 @@ namespace compression {
         metadata.compressionOptions["level"] = 5;
         Bzip2Compressor<float> compressor(metadata);
 
-        std::vector<float> dataOut;
+        std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
-        ASSERT_TRUE(dataOut.size() < SIZE);
+        ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
 
         float dataTmp[SIZE];
         compressor.decompress(dataOut, dataTmp, SIZE);
-        for(size_t i = 0; i < SIZE; ++i) {
+        for(std::size_t i = 0; i < SIZE; ++i) {
             ASSERT_EQ(dataTmp[i], dataFloat_[i]);
         }
-
     }
 
 }

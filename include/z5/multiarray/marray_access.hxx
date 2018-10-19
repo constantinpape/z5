@@ -16,8 +16,8 @@ namespace multiarray {
     void copy_to_view(const std::vector<T> & buffer, andres::View<T> & view) {
         types::ShapeType shape(view.shapeBegin(), view.shapeEnd());
         //types::ShapeType strides(view.stridesBegin(), view.stridesEnd());
-        size_t offset;
-        for(size_t index = 0; index < view.size(); ++index) {
+        std::size_t offset;
+        for(std::size_t index = 0; index < view.size(); ++index) {
             // TODO if this does not work, use coordinate instead
             view.indexToOffset(index, offset);
             *(&view(0) + offset) = buffer[index];
@@ -38,7 +38,8 @@ namespace multiarray {
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
 
-        ds.getChunkRequests(offset, shape, chunkRequests);
+        const auto & chunking = ds.chunking();
+        chunking.getBlocksOverlappingRoi(offset, shape, chunkRequests);
 
         types::ShapeType offsetInRequest, shapeInRequest, chunkShape, offsetInChunk;
 
@@ -54,14 +55,16 @@ namespace multiarray {
            bufferShape = types::ShapeType(ds.maxChunkShape().rbegin(), ds.maxChunkShape().rend());
         }
         andres::Marray<T> buffer(andres::SkipInitialization, bufferShape.begin(), bufferShape.end());
+
         // buffer size
-        auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<size_t>());
-        //std::vector<T> buffer(bufferSize);
+        auto bufferSize = std::accumulate(bufferShape.begin(), bufferShape.end(), 1, std::multiplies<std::size_t>());
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, offsetInRequest, shapeInRequest, offsetInChunk);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                                   shape, offsetInRequest,
+                                                                   shapeInRequest, offsetInChunk);
             auto view = out.view(offsetInRequest.begin(), shapeInRequest.begin());
 
             // get the current chunk-shape and resize the buffer if necessary
@@ -126,7 +129,8 @@ namespace multiarray {
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
-        ds.getChunkRequests(offset, shape, chunkRequests);
+        const auto & chunking = ds.chunking();
+        chunking.getBlocksOverlappingRoi(offset, shape, chunkRequests);
 
         types::ShapeType localOffset, localShape, chunkShape;
         types::ShapeType inChunkOffset;
@@ -145,7 +149,9 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = ds.getCoordinatesInRequest(chunkId, offset, shape, localOffset, localShape, inChunkOffset);
+            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                                   shape, localOffset,
+                                                                   localShape, inChunkOffset);
             ds.getChunkShape(chunkId, chunkShape);
 
             auto view = in.constView(localOffset.begin(), localShape.begin());

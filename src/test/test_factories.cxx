@@ -43,7 +43,7 @@ namespace z5 {
             array->writeChunk(types::ShapeType({0, 0, 0}), data);
             T dataOut[SIZE];
             array->readChunk(types::ShapeType({0, 0, 0}), dataOut);
-            for(size_t i = 0; i < SIZE; ++i) {
+            for(std::size_t i = 0; i < SIZE; ++i) {
                 ASSERT_EQ(data[i], dataOut[i]);
             }
         }

@@ -42,6 +42,7 @@ namespace z5 {
                 case FileMode::w: return "w";
                 case FileMode::w_m: return "w-";
                 case FileMode::a: return "a";
+                default: throw std::runtime_error("Invalid file mode");
             }
         }
 

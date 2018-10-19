@@ -32,9 +32,9 @@ namespace multiarray {
             const auto & chunks = ds->chunksPerDimension();
             const auto & chunkShape = ds->maxChunkShape();
             std::vector<T> data(ds->maxChunkSize(), 42);
-            for(size_t z = 0; z < chunks[0]; ++z) {
-                for(size_t y = 0; y < chunks[1]; ++y) {
-                    for(size_t x = 0; x < chunks[2]; ++x) {
+            for(std::size_t z = 0; z < chunks[0]; ++z) {
+                for(std::size_t y = 0; y < chunks[1]; ++y) {
+                    for(std::size_t x = 0; x < chunks[2]; ++x) {
                         ds->writeChunk(types::ShapeType({z, y, x}), &data[0]);
                     }
                 }
@@ -137,12 +137,12 @@ namespace multiarray {
             // load 25 random valid chunks and make sure that they
             // contain the correct data
             std::default_random_engine gen;
-            std::uniform_int_distribution<size_t> xx(0, shape[0] - 2);
-            std::uniform_int_distribution<size_t> yy(0, shape[1] - 2);
-            std::uniform_int_distribution<size_t> zz(0, shape[2] - 2);
-            size_t N = 25;
-            size_t x, y, z;
-            size_t sx, sy, sz;
+            std::uniform_int_distribution<std::size_t> xx(0, shape[0] - 2);
+            std::uniform_int_distribution<std::size_t> yy(0, shape[1] - 2);
+            std::uniform_int_distribution<std::size_t> zz(0, shape[2] - 2);
+            std::size_t N = 25;
+            std::size_t x, y, z;
+            std::size_t sx, sy, sz;
             for(int t = 0; t < N; ++t) {
 
                 // draw the offset coordinates
@@ -153,9 +153,9 @@ namespace multiarray {
                 //types::ShapeType offset({20, 30, 34});
 
                 // draw the shape coordinates
-                std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
-                std::uniform_int_distribution<size_t> shape_yy(1, shape[1] - y);
-                std::uniform_int_distribution<size_t> shape_zz(1, shape[2] - z);
+                std::uniform_int_distribution<std::size_t> shape_xx(1, shape[0] - x);
+                std::uniform_int_distribution<std::size_t> shape_yy(1, shape[1] - y);
+                std::uniform_int_distribution<std::size_t> shape_zz(1, shape[2] - z);
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
@@ -243,12 +243,12 @@ namespace multiarray {
 
             // load 25 random valid chunks and make sure that they
             // contain the correct data
-            std::uniform_int_distribution<size_t> xx(0, shape[0] - 2);
-            std::uniform_int_distribution<size_t> yy(0, shape[1] - 2);
-            std::uniform_int_distribution<size_t> zz(0, shape[2] - 2);
-            size_t N = 25;
-            size_t x, y, z;
-            size_t sx, sy, sz;
+            std::uniform_int_distribution<std::size_t> xx(0, shape[0] - 2);
+            std::uniform_int_distribution<std::size_t> yy(0, shape[1] - 2);
+            std::uniform_int_distribution<std::size_t> zz(0, shape[2] - 2);
+            std::size_t N = 25;
+            std::size_t x, y, z;
+            std::size_t sx, sy, sz;
             for(int t = 0; t < N; ++t) {
 
                 // draw the offset coordinates
@@ -258,9 +258,9 @@ namespace multiarray {
                 types::ShapeType offset({x, y, z});
 
                 // draw the shape coordinates
-                std::uniform_int_distribution<size_t> shape_xx(1, shape[0] - x);
-                std::uniform_int_distribution<size_t> shape_yy(1, shape[1] - y);
-                std::uniform_int_distribution<size_t> shape_zz(1, shape[2] - z);
+                std::uniform_int_distribution<std::size_t> shape_xx(1, shape[0] - x);
+                std::uniform_int_distribution<std::size_t> shape_yy(1, shape[1] - y);
+                std::uniform_int_distribution<std::size_t> shape_zz(1, shape[2] - z);
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);

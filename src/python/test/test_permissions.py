@@ -21,10 +21,14 @@ class TestPermissions(unittest.TestCase):
         f.create_dataset('data', dtype='uint8', shape=(10, 10), chunks=(10, 10))
 
     def tearDown(self):
-        if(os.path.exists(self.path1)):
+        try:
             rmtree(self.path1)
-        if(os.path.exists(self.path2)):
+        except OSError:
+            pass
+        try:
             rmtree(self.path2)
+        except OSError:
+            pass
 
     # test read permissions ('r')
     def test_read_permission(self):

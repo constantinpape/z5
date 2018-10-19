@@ -13,9 +13,39 @@ except ImportError:
 __all__ = ['AttributeManager']
 
 
-def restrict_metadata_keys(fn):
+# json encoders and decoder
+# if None, the default encoder / decoders are used
+_JSON_ENCODER = None
+_JSON_DECODER = None
+
+
+def set_json_encoder(encoder):
+    """ Set the encoder to be used in `json.dump` for attribute serialization.
     """
-    Decorator for AttributeManager methods which checks that, if the manager is for N5, the key argument is not a
+    global _JSON_ENCODER
+    if encoder is None:
+        _JSON_ENCODER = None
+        return
+    if not isinstance(encoder(), json.JSONEncoder):
+        raise RuntimeError("Encoder must inherit from JSONEncoder")
+    _JSON_ENCODER = encoder
+
+
+def set_json_decoder(decoder):
+    """ Set the decoder to be used in `json.load` for attribute de-serialization.
+    """
+    global _JSON_DECODER
+    if decoder is None:
+        _JSON_DECODER = None
+        return
+    if not isinstance(decoder(), json.JSONDecoder):
+        raise RuntimeError("Decoder must inherit from JSONDecoder")
+    _JSON_DECODER = decoder
+
+
+def restrict_metadata_keys(fn):
+    """ Decorator for AttributeManager methods which checks that,
+    if the manager is for N5, the key argument is not a
     reserved metadata name.
     """
     @wraps(fn)
@@ -27,13 +57,20 @@ def restrict_metadata_keys(fn):
 
 
 class AttributeManager(MutableMapping):
-    zarr_fname = '.zattributes'
-    n5_fname = 'attributes.json'
-    n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
+    """ Provides access to custom user attributes.
+
+    Attributes will be saved as json in `attributes.json` for n5, `.zattributes` for zarr.
+    Supports the default python dict api.
+    N5 stores the dataset attributes in the same file; these attributes are
+    NOT mutable via the AttributeManager.
+    """
+    _zarr_fname = '.zattributes'
+    _n5_fname = 'attributes.json'
+    _n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
 
     def __init__(self, path, is_zarr):
-        self.path = os.path.join(path, self.zarr_fname if is_zarr else self.n5_fname)
-        self.reserved_keys = frozenset() if is_zarr else self.n5_keys
+        self.path = os.path.join(path, self._zarr_fname if is_zarr else self._n5_fname)
+        self.reserved_keys = frozenset() if is_zarr else self._n5_keys
 
     def __getitem__(self, key):
         with self._open_attributes() as attributes:
@@ -63,9 +100,10 @@ class AttributeManager(MutableMapping):
 
     def _read_attributes(self):
         """Return dict from JSON attribute store. Caller needs to distinguish between valid and N5 metadata keys."""
+        global _JSON_DECODER
         try:
             with open(self.path, 'r') as f:
-                attributes = json.load(f)
+                attributes = json.load(f, cls=_JSON_DECODER)
         except ValueError:
             attributes = {}
         except IOError as e:
@@ -78,8 +116,9 @@ class AttributeManager(MutableMapping):
 
     def _write_attributes(self, attributes):
         """Dump ``attributes`` to JSON. Potentially dangerous for N5 metadata."""
+        global _JSON_ENCODER
         with open(self.path, 'w') as f:
-            json.dump(attributes, f)
+            json.dump(attributes, f, cls=_JSON_ENCODER)
 
     def __iter__(self):
         with self._open_attributes() as attributes:

@@ -23,8 +23,10 @@ class TestPickle(unittest.TestCase):
         self.ff = z5py.File('array.n5', False)
 
     def tearDown(self):
-        if(os.path.exists('array.n5')):
+        try:
             rmtree('array.n5')
+        except OSError:
+            pass
 
     @unittest.skipIf(sys.version_info.major < 3, "Pickle test segfaults in python 2")
     def test_pickle(self):

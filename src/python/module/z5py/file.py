@@ -3,9 +3,7 @@ import errno
 import json
 from shutil import rmtree
 
-from .base import Base
 from .group import Group
-from .dataset import Dataset
 
 # set correct json error type for python 2 / 3
 try:
@@ -14,30 +12,45 @@ except ImportError:
     JSONDecodeError = ValueError
 
 
-class File(Base):
+class File(Group):
+    """ File to access zarr or n5 containers on disc.
+
+    The container corresponds to a directory on the filesystem.
+    Groups are subdirectories and datasets are subdirectories
+    that contain multi-dimensional data stored in binary format.
+    Supports python dict api.
+
+    Args:
+        path (str): path on filesystem that holds the container.
+        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None).
+        mode (str): file mode used to open / create the file (default: 'a').
+    """
+
+    #: file extensions that are inferred as zarr file
     zarr_exts = {'.zarr', '.zr'}
+    #: file extensions that are inferred as n5 file
     n5_exts = {'.n5'}
 
     @classmethod
     def infer_format(cls, path):
+        """ Infer the file format from the file extension.
+
+            Returns:
+                bool: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
         """
-        Infer the file format from the path.
-        Return `True` for zarr, `False` for n5 and `None` if the format could not be infered.
-        """
-        # if the path exists infer the format from the metadata
-        if os.path.exists(path):
+        # first, try to infer the format from the file ending
+        is_zarr = None
+        _, ext = os.path.splitext(path)
+        if ext.lower() in cls.zarr_exts:
+            is_zarr = True
+        elif ext.lower() in cls.n5_exts:
+            is_zarr = False
+        # otherwise, infer from the existence of zarr attribute files
+        if is_zarr is None:
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
-            return os.path.exists(zarr_group) or os.path.exists(zarr_array)
-        # otherwise check if we can infer it from the file ending
-        else:
-            is_zarr = None
-            _, ext = os.path.splitext(path)
-            if ext.lower() in cls.zarr_exts:
-                is_zarr = True
-            elif ext.lower() in cls.n5_exts:
-                is_zarr = False
-            return is_zarr
+            is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
+        return is_zarr
 
     def __init__(self, path, use_zarr_format=None, mode='a'):
 
@@ -50,7 +63,7 @@ class File(Base):
             use_zarr_format = is_zarr
 
         elif use_zarr_format:
-            if is_zarr == False:
+            if not is_zarr:
                 raise RuntimeError("N5 file cannot be opened in zarr format")
 
         else:
@@ -64,7 +77,7 @@ class File(Base):
             # throw error if the file must not exist according to file mode
             if self._permissions.must_not_exist():
                 raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), path)
-            # TODO I am unsure about this, an accidental 'w' could wreak a lot of havoc ...
+
             if self._permissions.should_truncate():
                 rmtree(path)
                 os.mkdir(path)
@@ -106,26 +119,11 @@ class File(Base):
         if have_version_tag:
             major_version = int(tag[0])
             if major_version > 2:
-                raise RuntimeError("z5py.File: Can't open n5 file with major version bigger than 2")
+                raise RuntimeError("Can't open n5 file with major version bigger than 2")
 
-    def create_group(self, key):
-        if key in self:
-            raise KeyError("Group %s is already existing" % key)
-        path = os.path.join(self.path, key)
-        return Group.make_group(path, self.is_zarr, self.mode)
-
-    def __getitem__(self, key):
-        if key not in self:
-            raise KeyError("Key %s does not exist" % key)
-        path = os.path.join(self.path, key)
-        if self.is_group(key):
-            return Group.open_group(path, self.is_zarr, self.mode)
-        else:
-            return Dataset.open_dataset(path, self._internal_mode)
-
-    # TODO setitem, delete datasets ?
-    # - setitem could be implemented with softlinks
-    # - delete item would remove the folder (or softlink)
+    def close(self):
+        # This function exists just for conformity with the standard file-handling procedure.
+        pass
 
     def __enter__(self):
         return self
@@ -135,10 +133,24 @@ class File(Base):
 
 
 class N5File(File):
+    """ File to access n5 containers on disc.
+
+    Args:
+        path (str): path on filesystem that holds the container.
+        mode (str): file mode used to open / create the file (default: 'a').
+    """
+
     def __init__(self, path, mode='a'):
         super(N5File, self).__init__(path=path, use_zarr_format=False, mode=mode)
 
 
 class ZarrFile(File):
+    """ File to access zarr containers on disc.
+
+    Args:
+        path (str): path on filesystem that holds the container.
+        mode (str): file mode used to open / create the file (default: 'a').
+    """
+
     def __init__(self, path, mode='a'):
         super(ZarrFile, self).__init__(path=path, use_zarr_format=True, mode=mode)

@@ -1,53 +1,69 @@
-Travis (Ubuntu builds)
+CI Status
 ----------------------
+Travis (Linux Builds)
+
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
 
+Appveyor (Windows Builds)
+
+[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
+
+Documentation
+-------------
+[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
 # z5
 
-Lightweight C++ and Python wrapper for reading and writing zarr 
-(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) arrays to / from disc.
+Lightweight C++ and Python wrapper for reading and writing files in zarr 
+(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) format.
 
-Read and write compressed chunked arrays on filesystem.
 Offers support for the following compression codecs:
 - Blosc (https://github.com/Blosc/c-blosc)
 - Zlib / Gzip (https://zlib.net/)
 - Bzip2 (http://www.bzip.org/)
-- TODO: XY, LZ4, LZMA
+- XZ (https://tukaani.org/xz/)
+- LZ4 (https://github.com/lz4/lz4)
 
 ## Installation
 
-### Python
+### Conda
 
-You can install the package via conda (only Linux for now):
-
-```
-$ conda install -c conda-forge -c cpape z5py
-```
-
-### C++
-
-The library itself is header-only, however you need to link against the relevant compression codecs.
-The easiest way to build the library itself from source is from a conda-environment with all necessary dependencies:
+Conda packages for the relevant systems and python versions (except python2.7 on windows) are hosted on conda-forge:
 
 ```
-Either create new environment or install relevant packages to an existing one
-$ conda create -n z5-env -c conda-forge xtensor-python c-blosc
-$ source activate z5-env
-$ mkdir z5-bld
-$ cd z5-bld
-Activate the relevant compressions via WITH_BLOSC, WITH_BZIP2, WITH_ZLIB
-$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON /path/to/z5
-$ make
+$ conda install -c conda-forge z5py
 ```
-(Note that there is no `make install` yet).
 
+### From Source
+
+The easiest way to build the library from source is using a conda-environment with all necessary dependencies.
+You can find the necessary set-up for conda environments for python 2.7 / 3.6
+in `requirements27.yml`, `requirements36.yml`.
+
+To set up the conda environment and install the package on Unix (for python 3.6):
+```
+$ conda env create -f requirements36.yml
+$ source activate z5-36
+$ mkdir bld
+$ cd bld
+$ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DCMAKE_INSTALL_PREFIX=/path/to/install ..
+$ make install
+```
+
+Note that in the CMakeLists.txt, we try to infer the active conda-environment automatically.
+If this fails, you can set it manually via `-DCMAKE_PREFIX_PATH=/path/to/conda-env`.
+To specify where to install the package, set:
+
+- `CMAKE_INSTALL_PREFIX`: where to install the C++ headers
+- `PYTHON_MODULE_INSTALL_DIR`: where to install the python package (set to `site-packages` of active conda env by default)
+
+If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the compression codecs that you use.
 
 ## Examples / Usage
 
 ### Python
 
-The Python API is very similar to h5py.
+The Python API is very similar to `h5py`.
 Some differences are: 
 - The constructor of `File` takes the boolean argument `use_zarr_format`, which determines whether
 the zarr or N5 format is used (if set to `None`, an attempt is made to automatically infer the format).
@@ -55,7 +71,7 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Linked datasets (`my_file['new_ds'] = my_file['old_ds']`) are not supported
 - Broadcasting is only supported for scalars in `Dataset.__setitem__`
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
-- Compatibility of exception handling is a goal, but not necessarily a guarantee
+- Compatibility of exception handling is a goal, but not necessarily guaranteed.
 
 Some examples:
 
@@ -91,28 +107,26 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-There are convenience functions to convert n5 files to popular data formats.
-(TODO also zarr format, convert to from png, jpeg, tiff)
-
-So far, only h5 is supported.
+There are convenience functions to convert n5 and zarr files to and from hdf5.
+Additional data formats will follow.
 
 ```python
 # convert existing h5 file to n5
 # this only works if h5py is available
-from z5py.converter import convert_n5_to_h5
+from z5py.converter import convert_from_h5
 
-h5_file = '/path/to/h5'
-n5_file = '/path/to/n5'
+h5_file = '/path/to/file.h5'
+n5_file = '/path/to/file.n5'
 h5_key = n5_key = 'data'
 target_chunks = (64, 64, 64)
 n_threads = 8
 
-convert_h5_to_n5(h5_file, n5_file,
-                 in_path_in_file=h5_key,
-                 out_path_in_file=n5_key,
-                 out_chunks=target_chunks,
-                 n_threads=n_threads,
-                 compressor='gzip')
+convert_from_h5(h5_file, n5_file,
+                in_path_in_file=h5_key,
+                out_path_in_file=n5_key,
+                out_chunks=target_chunks,
+                n_threads=n_threads,
+                compression='gzip')
 ```
 
 ### C++
@@ -178,7 +192,7 @@ I recommend to use these implementations, which are more thoroughly tested.
 
 - No thread / process synchonization -> writing to the same chunk in parallel will lead to undefined behavior.
 - The N5 varlength array is not supported yet.
-- Supports only little endianness for the zarr format.
+- Supports only little endianness and C-order for the zarr format.
 
 
 ## A note on axis ordering
