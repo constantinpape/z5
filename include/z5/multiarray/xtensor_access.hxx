@@ -99,7 +99,7 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
-        
+
         const auto & chunking = ds.chunking();
 
         // read the chunks in parallel
