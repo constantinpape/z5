@@ -9,6 +9,7 @@ from . import _z5py as z5_impl
 from .file import File
 
 
+# TODO support roi
 # ND blocking generator
 def blocking(shape, block_shape):
     """ Generator for nd blocking.

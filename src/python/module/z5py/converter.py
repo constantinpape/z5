@@ -85,6 +85,7 @@ if WITH_H5:
             for key, val in z5_attrs.items():
                 h5_attrs[key] = val
 
+
     def convert_from_h5(in_path,
                         out_path,
                         in_path_in_file,
