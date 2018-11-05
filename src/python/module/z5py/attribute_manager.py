@@ -30,6 +30,8 @@ def set_json_encoder(encoder):
         raise RuntimeError("Encoder must inherit from JSONEncoder")
     _JSON_ENCODER = encoder
 
+def get_json_encoder():
+    return _JSON_ENCODER
 
 def set_json_decoder(decoder):
     """ Set the decoder to be used in `json.load` for attribute de-serialization.

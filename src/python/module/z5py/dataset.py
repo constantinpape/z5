@@ -6,7 +6,7 @@ import numpy as np
 
 from ._z5py import open_dataset
 from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
-from .attribute_manager import AttributeManager
+from .attribute_manager import AttributeManager, get_json_encoder
 from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
 from .shape_utils import get_default_chunks, is_group
 
@@ -195,7 +195,7 @@ class Dataset(object):
                   'compressor': Dataset._to_zarr_compression_options(compression,
                                                                      compression_options)}
         with open(os.path.join(path, '.zarray'), 'w') as f:
-            json.dump(params, f)
+            json.dump(params, f, cls=get_json_encoder())
 
     @staticmethod
     def _create_dataset_n5(path, dtype, shape, chunks,
@@ -207,7 +207,7 @@ class Dataset(object):
                   'compression': Dataset._to_n5_compression_options(compression,
                                                                     compression_options)}
         with open(os.path.join(path, 'attributes.json'), 'w') as f:
-            json.dump(params, f)
+            json.dump(params, f, cls=get_json_encoder())
 
     # NOTE in contrast to h5py, we also check that the chunks match
     # this is crucial, because different chunks can lead to subsequent incorrect
