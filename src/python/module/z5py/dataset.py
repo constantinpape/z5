@@ -448,11 +448,10 @@ class Dataset(object):
         read_subarray(self._impl,
                       out, roi_begin,
                       n_threads=self.n_threads)
-        squeezed = out.squeeze()
         try:
-            return squeezed.item()
+            return out.item()
         except ValueError:
-            return squeezed
+            return out
 
     # most checks are done in c++
     def __setitem__(self, index, item):
