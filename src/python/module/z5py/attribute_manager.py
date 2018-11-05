@@ -30,8 +30,10 @@ def set_json_encoder(encoder):
         raise RuntimeError("Encoder must inherit from JSONEncoder")
     _JSON_ENCODER = encoder
 
+
 def get_json_encoder():
     return _JSON_ENCODER
+
 
 def set_json_decoder(decoder):
     """ Set the decoder to be used in `json.load` for attribute de-serialization.
@@ -68,7 +70,8 @@ class AttributeManager(MutableMapping):
     """
     _zarr_fname = '.zattributes'
     _n5_fname = 'attributes.json'
-    _n5_keys = frozenset(('dimensions', 'blockSize', 'dataType', 'compressionType', 'compression'))
+    _n5_keys = frozenset(('dimensions', 'blockSize',
+                          'dataType', 'compressionType', 'compression'))
 
     def __init__(self, path, is_zarr):
         self.path = os.path.join(path, self._zarr_fname if is_zarr else self._n5_fname)
@@ -94,14 +97,16 @@ class AttributeManager(MutableMapping):
 
         Set ``write`` to True to dump out changes."""
         attributes = self._read_attributes()
-        hidden_attrs = {key: attributes.pop(key) for key in self.reserved_keys.intersection(attributes)}
+        hidden_attrs = {key: attributes.pop(key)
+                        for key in self.reserved_keys.intersection(attributes)}
         yield attributes
         if write:
             hidden_attrs.update(attributes)
             self._write_attributes(hidden_attrs)
 
     def _read_attributes(self):
-        """Return dict from JSON attribute store. Caller needs to distinguish between valid and N5 metadata keys."""
+        """Return dict from JSON attribute store.
+        Caller needs to distinguish between valid and N5 metadata keys."""
         global _JSON_DECODER
         try:
             with open(self.path, 'r') as f:
