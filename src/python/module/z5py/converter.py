@@ -72,7 +72,11 @@ if WITH_H5:
 
             def convert_chunk(bb):
                 # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
-                ds_h5[bb] = ds_z5[bb].astype(out_dtype, copy=False)
+                # don't copy empty data
+                chunk_data = ds_z5[bb].astype(out_dtype, copy=False)
+                if chunk_data.sum() == 0:
+                    return
+                ds_h5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
