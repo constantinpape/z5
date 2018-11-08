@@ -22,11 +22,11 @@ before_script:
   - conda update -q conda
   - conda info -a
   # create the test environment with anaconda cloud gcc-7.2 compilers
-  - conda create -q -n test-env -c conda-forge/label/gcc-7 -c defaults python=$TRAVIS_PYTHON_VERSION cmake gcc_linux-64 gxx_linux-64
+  - conda create -q -n test-env -c conda-forge/label/gcc7 -c defaults python=$TRAVIS_PYTHON_VERSION cmake gcc_linux-64 gxx_linux-64
   # activate env
   - source activate test-env
   # install additional dependencies
-  - conda install -c conda-forge/label/gcc-7 bzip2 xz zlib boost-cpp=1.68 xtensor-python=0.21.0 xtensor=0.18.1 blosc imageio h5py
+  - conda install -c conda-forge/label/gcc7 bzip2 xz zlib boost-cpp=1.68 xtensor-python=0.21.0 xtensor=0.18.1 blosc imageio h5py
   - conda install -c conda-forge zarr six
   - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
 
