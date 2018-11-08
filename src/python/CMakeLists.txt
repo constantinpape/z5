@@ -84,9 +84,17 @@ macro(addPythonModule)
     # link additional libraries
     target_link_libraries(_${MODULE_NAME}
         PUBLIC
-        ${PYTHON_LIBRARIES}
         ${ADD_PY_MOD_LIBRRARIES}
     )
+
+    IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        set_target_properties(_${MODULE_NAME} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+        target_link_libraries(_${MODULE_NAME}
+            PUBLIC
+            ${PYTHON_LIBRARIES}
+        )
+    ENDIF()
 
     # create module dir
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/${ADD_PY_MOD_NESTED_NAME})

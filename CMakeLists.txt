@@ -9,7 +9,9 @@ project(z5)
 # Check and enable C++ 14
 ##############################
 
-set(CMAKE_CXX_STANDARD 14)
+if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17")
+    set(CMAKE_CXX_STANDARD 14)
+endif()
 # make sure the compiler supports c++14
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Not sure if we should set this flag
@@ -27,7 +29,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 # NOTE whether we need to enable the old ABI depends
 # on which ABI boost is compiled with.
 # If you get boost linker errors, comment the line below.
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+# add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 if(MSVC)
     add_definitions(/DNOMINMAX)
@@ -180,12 +182,21 @@ endif()
 
 find_package(pybind11 REQUIRED)
 
-# numpy
-if(MSVC)
-    set(PYBIND11_CPP_STANDARD /std:c++14)
+
+if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17")
+    if(MSVC)
+        set(PYBIND11_CPP_STANDARD /std:c++14)
+    else()
+        set(PYBIND11_CPP_STANDARD -std=c++14)
+    endif()
 else()
-    set(PYBIND11_CPP_STANDARD -std=c++14)
+    if(MSVC)
+        set(PYBIND11_CPP_STANDARD /std:c++17)
+    else()
+        set(PYBIND11_CPP_STANDARD -std=c++17)
+    endif()
 endif()
+# numpy
 find_package(NumPy REQUIRED)
 include_directories(${NUMPY_INCLUDE_DIRS})
 message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
