@@ -97,8 +97,9 @@ class CompressionTestMixin(object):
     # this fails for different minimal chunk sizes depending on the
     # zlib version. For now we skip this to not make unittest fail
     # when this version changes.
-    @unittest.skip
-    def test_small_chunks_gzip(self):
+    # FIXME unittest skip is broken in python 2.7 for mixin pattern
+    # @unittest.skip
+    def _test_small_chunks_gzip(self):
         f = self.root_file
         # 22 is the chunk-size at which gzip compression fails
         # (interestingly this is NOT the case for zlib encoding)
