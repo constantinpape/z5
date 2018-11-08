@@ -15,6 +15,7 @@
 namespace z5 {
 namespace multiarray {
 
+
     template<typename T, typename ARRAY>
     inline void readSubarraySingleThreaded(const Dataset & ds,
                                            xt::xexpression<ARRAY> & outExpression,
@@ -35,7 +36,7 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            //std::cout << "Reading chunk " << chunkId << std::endl;
+            // std::cout << "Reading chunk " << chunkId << std::endl;
             const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
                                                                    offset,
                                                                    shape,
@@ -50,7 +51,8 @@ namespace multiarray {
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -58,12 +60,10 @@ namespace multiarray {
             // read the current chunk into the buffer
             ds.readChunk(chunkId, &buffer[0]);
 
-            // request and chunk completely overlap
+            // request and chunk overlap completely
             // -> we can read all the data from the chunk
             if(completeOvlp) {
                 copyBufferToView(buffer, view, out.strides());
-                //auto bufferView = xt::adapt(buffer, view.shape());
-                //view = bufferView;
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
@@ -71,12 +71,15 @@ namespace multiarray {
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice;
+
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
-                // could also implement smart view for this,
-                // but this would be kind of hard and premature optimization
-                view = bufView;
+                // could also implement fast copy for this
+                // but this would be harder and might be premature optimization
+                // FIXME assigning the views fails with std::bad_alloc in c++ 17
+                // view = bufView;
+                std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
@@ -127,7 +130,8 @@ namespace multiarray {
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -135,12 +139,11 @@ namespace multiarray {
             // read the current chunk into the buffer
             ds.readChunk(chunkId, &buffer[0]);
 
-            // request and chunk completely overlap
+            // request and chunk overlap completely
             // -> we can read all the data from the chunk
             if(completeOvlp) {
+                // fast copy implementation
                 copyBufferToView(buffer, view, out.strides());
-                //auto bufferView = xt::adapt(buffer, view.shape());
-                //view = bufferView;
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
@@ -153,7 +156,9 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                view = bufView;
+                // FIXME assigning the views fails with std::bad_alloc in c++ 17
+                // view = bufView;
+                std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         });
     }
@@ -246,7 +251,9 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                bufView = view;
+                // FIXME assigning the views fails with std::bad_alloc in c++ 17
+                // bufView = view;
+                std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
@@ -272,7 +279,7 @@ namespace multiarray {
         std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
-        
+
         const auto & chunking = ds.chunking();
 
         // write the chunks in parallel
@@ -323,7 +330,9 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                bufView = view;
+                // FIXME assigning the views fails with std::bad_alloc in c++ 17
+                // bufView = view;
+                std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
