@@ -17,7 +17,8 @@ except ImportError:
 class DatasetTestMixin(object):
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
+        self.root_file = z5py.File('array.' + self.data_format,
+                                   use_zarr_format=self.data_format == 'zarr')
 
         self.base_dtypes = [
             'int8', 'int16', 'int32', 'int64',
@@ -68,17 +69,20 @@ class DatasetTestMixin(object):
             ds[:] = in_array
             out_array = ds[:]
             self.check_array(out_array, in_array,
-                             'datatype %s failed for format %s' % (self.data_format.title(), dtype))
+                             'datatype %s failed for format %s' % (self.data_format.title(),
+                                                                   dtype))
 
     def check_ones(self, sliced_ones, expected_shape, msg=None):
         self.check_array(sliced_ones, np.ones(expected_shape, dtype=np.uint8), msg)
 
     def test_ds_simple_write(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = np.ones(self.shape, np.uint8)
 
     def test_ds_indexing(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = np.ones(self.shape, np.uint8)
 
         self.check_ones(ds[:], self.shape, 'full index failed')
@@ -122,12 +126,14 @@ class DatasetTestMixin(object):
             self.check_ones(ds[:], self.shape)
 
     def test_ds_scalar_broadcast_from_float(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = float(1)
         self.check_ones(ds[:], self.shape)
 
     def test_ds_scalar_broadcast_from_bool(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = True
         self.check_ones(ds[:], self.shape)
 
@@ -138,22 +144,26 @@ class DatasetTestMixin(object):
         self.check_ones(ds[0, :2, :2], (1, 2, 2))
 
     def test_ds_set_from_float(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = np.ones(self.shape, dtype=float)
         self.check_ones(ds[:], self.shape)
 
     def test_ds_set_from_bool(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         ds[:] = np.ones(self.shape, dtype=bool)
         self.check_ones(ds[:], self.shape)
 
     def test_ds_fancy_broadcast_fails(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         with self.assertRaises(ValueError):
             ds[0, :10, :10] = np.ones(10, dtype=np.uint8)
 
     def test_ds_write_object_fails(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
 
         class ArbitraryObject(object):
             pass
@@ -162,7 +172,8 @@ class DatasetTestMixin(object):
             ds[0, 0, :2] = [ArbitraryObject(), ArbitraryObject()]
 
     def test_ds_write_flexible_fails(self):
-        ds = self.root_file.create_dataset('ones', dtype=np.uint8, shape=self.shape, chunks=(10, 10, 10))
+        ds = self.root_file.create_dataset('ones', dtype=np.uint8,
+                                           shape=self.shape, chunks=(10, 10, 10))
         with self.assertRaises(TypeError):
             ds[0, 0, 0] = "hey, you're not a number"
 
@@ -241,9 +252,43 @@ class DatasetTestMixin(object):
                                           chunks=(10, 10, 10), compression='bzip2',
                                           level=5, blub='blob')
 
+    def test_readwrite_chunk(self):
+        shape = (100, 100)
+        chunks = (10, 10)
+        for dtype in self.base_dtypes:
+            ds = self.root_file.create_dataset('test_%s' % dtype, dtype=dtype,
+                                               shape=shape, chunks=chunks,
+                                               compression='raw')
+            # test empty chunk
+            out = ds.read_chunk((0, 0))
+            self.assertEqual(out, None)
+
+            # test read/write
+            chunks_per_dim = ds.chunks_per_dimension
+            for x in range(chunks_per_dim[0]):
+                for y in range(chunks_per_dim[1]):
+                    data = np.random.rand(*chunks)
+                    if dtype not in ('float32', 'float64'):
+                        data *= 128
+                    data = data.astype(dtype)
+                    ds.write_chunk((x, y), data)
+                    out = ds.read_chunk((x, y))
+                    self.assertEqual(data.shape, out.shape)
+                    self.assertTrue(np.allclose(data, out))
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
+
+    def test_varlen(self):
+        shape = (100, 100)
+        chunks = (10, 10)
+        ds = self.root_file.create_dataset('varlen', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+        with self.assertRaises(RuntimeError):
+            ds.write_chunk((0, 0), np.random.rand(10), True)
+
 
 
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
@@ -267,6 +312,25 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
 
             self.assertEqual(len(read_from_file), len(converted_data))
             self.assertTrue(np.allclose(read_from_file, converted_data))
+
+    def test_varlen(self):
+        shape = (100, 100)
+        chunks = (10, 10)
+        ds = self.root_file.create_dataset('varlen', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+
+        # max_len = 100
+        max_len = 10
+        chunks_per_dim = ds.chunks_per_dimension
+        for x in range(chunks_per_dim[0]):
+            for y in range(chunks_per_dim[1]):
+                test_data = np.random.rand(np.random.randint(0, max_len))
+                ds.write_chunk((x, y), test_data, True)
+                out = ds.read_chunk((x, y))
+                self.assertEqual(test_data.shape, out.shape)
+                self.assertTrue(np.allclose(test_data, out))
+
 
 
 if __name__ == '__main__':

@@ -28,6 +28,7 @@ namespace z5 {
         multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
     }
 
+
     template<class T>
     inline void readPySubarray(const Dataset & ds,
                                // TODO specifying the strides might speed provide some speed-up
@@ -39,6 +40,7 @@ namespace z5 {
         multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
     }
 
+
     template<class T>
     inline void writePyScalar(const Dataset & ds,
                               const std::vector<size_t> & roiBegin,
@@ -48,11 +50,12 @@ namespace z5 {
         multiarray::writeScalar<T>(ds, roiBegin.begin(), roiShape.begin(), val, numberOfThreads);
     }
 
+
     template<class T>
     inline xt::pytensor<char, 1, xt::layout_type::row_major> convertPyArrayToFormat(const Dataset & ds,
                                                                                     // TODO specifying the strides might speed provide some speed-up
                                                                                     // TODO but it prevents singleton dimensions in the shapes
-                                                                                    // const xt::pyarray<T, xt::layout_type::row_major> & in) {
+                                                                                    // const xt::pyarray<T, xt::layout_type::row_major> & in)
                                                                                     const xt::pyarray<T> & in) {
         std::vector<char> tmp;
         multiarray::convertArrayToFormat<T>(ds, in, tmp);
@@ -62,6 +65,56 @@ namespace z5 {
         // TODO can we use xt::adapt here instead of std::copy?
         std::copy(tmp.begin(), tmp.end(), out.begin());
         return out;
+    }
+
+
+    template<class T>
+    inline xt::pyarray<T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+        typedef typename xt::pyarray<T>::shape_type ShapeType;
+        // check if the chunk exists
+        bool chunkExists;
+        {
+            py::gil_scoped_release lift_gil;
+            chunkExists = ds.chunkExists(chunkId);
+        }
+        // if the chunk does not exist, return None
+        if(!chunkExists) {
+            return py::none();
+        }
+        // get the shape of the output data
+        ShapeType shape;
+        {
+            // TODO can't lift gil here ?!
+            // py::gil_scoped_release lift_gil;
+            // varlen: return data as 1D array otherwise return ND array
+            bool isVarlen;
+            const std::size_t chunkSize = ds.getDiscChunkSize(chunkId, isVarlen);
+            if(isVarlen) {
+                shape = ShapeType({chunkSize});
+            } else {
+                types::ShapeType chunkShape;
+                ds.getChunkShape(chunkId, chunkShape);
+                shape.resize(chunkShape.size());
+                std::copy(chunkShape.begin(), chunkShape.end(), shape.begin());
+            }
+        }
+        // read the chunk
+        xt::pyarray<T> out(shape);
+        {
+            py::gil_scoped_release lift_gil;
+            ds.readChunk(chunkId, &out[0]);
+        }
+        return out;
+    }
+
+
+    template<class T>
+    inline void writePyChunk(const Dataset & ds,
+                             const types::ShapeType & chunkId,
+                             const xt::pyarray<T> & in,
+                             const bool isVarlen) {
+        ds.writeChunk(chunkId, &in[0], isVarlen,
+                      isVarlen ? in.size() : 0);
     }
 
 
@@ -91,6 +144,48 @@ namespace z5 {
                    &convertPyArrayToFormat<T>,
                    py::arg("ds"), py::arg("in").noconvert(),
                    py::call_guard<py::gil_scoped_release>());
+
+        // export write_chunk
+        module.def("write_chunk",
+                   &writePyChunk<T>,
+                   py::arg("ds"), py::arg("chunkId"),
+                   py::arg("in").noconvert(), py::arg("isVarlen")=false,
+                   py::call_guard<py::gil_scoped_release>());
+
+        // export chunk reading for all datatypes
+        // integer types
+        module.def("read_chunk_int8",
+                   &readPyChunk<int8_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_int16",
+                   &readPyChunk<int16_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_int32",
+                   &readPyChunk<int32_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_int64",
+                   &readPyChunk<int64_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        // unsigned integer types
+        module.def("read_chunk_uint8",
+                   &readPyChunk<uint8_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_uint16",
+                   &readPyChunk<uint16_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_uint32",
+                   &readPyChunk<uint32_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_uint64",
+                   &readPyChunk<uint64_t>,
+                   py::arg("ds"), py::arg("chunkId"));
+        // floating point types
+        module.def("read_chunk_float32",
+                   &readPyChunk<float>,
+                   py::arg("ds"), py::arg("chunkId"));
+        module.def("read_chunk_float64",
+                   &readPyChunk<double>,
+                   py::arg("ds"), py::arg("chunkId"));
     }
 
 
@@ -244,17 +339,20 @@ namespace z5 {
                   py::arg("dtype"),
                   py::arg("n_threads")=1,
                   py::call_guard<py::gil_scoped_release>());
-
     }
 
 
     void exportGroups(py::module & module) {
-        module.def("create_group",[](const std::string & path, const bool isZarr, const FileMode::modes mode){
+        module.def("create_group",[](const std::string & path,
+                                     const bool isZarr,
+                                     const FileMode::modes mode){
             handle::Group h(path, mode);
             createGroup(h, isZarr);
         });
 
-        module.def("create_sub_group",[](const std::string & path, const std::string & key, const bool isZarr){
+        module.def("create_sub_group",[](const std::string & path,
+                                         const std::string & key,
+                                         const bool isZarr){
             handle::Group h(path);
             createGroup(h, key, isZarr);
         });

@@ -33,6 +33,10 @@ namespace multiarray {
 
         const auto & chunking = ds.chunking();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
@@ -49,6 +53,13 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
+            // check if this chunk exists, if not fill output with fill value
+            handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
+            if(!chunk.exists()) {
+                view = fillValue;;
+                continue;
+            }
+
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
@@ -58,7 +69,9 @@ namespace multiarray {
             }
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, &buffer[0]);
+            if(ds.readChunk(chunkId, &buffer[0])) {
+                throw std::runtime_error("Can't read from varlen chunks to multiarray");
+            }
 
             // request and chunk overlap completely
             // -> we can read all the data from the chunk
@@ -105,6 +118,10 @@ namespace multiarray {
 
         const auto & chunking = ds.chunking();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // read the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
         util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
@@ -128,6 +145,13 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
+            // check if this chunk exists, if not fill output with fill value
+            handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
+            if(!chunk.exists()) {
+                view = fillValue;;
+                return;
+            }
+
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
@@ -137,7 +161,9 @@ namespace multiarray {
             }
 
             // read the current chunk into the buffer
-            ds.readChunk(chunkId, &buffer[0]);
+            if(ds.readChunk(chunkId, &buffer[0])){
+                throw std::runtime_error("Can't read from varlen chunks to multiarray");
+            }
 
             // request and chunk overlap completely
             // -> we can read all the data from the chunk
@@ -240,8 +266,16 @@ namespace multiarray {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
-                // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer[0]);
+
+                // check if this chunk exists, and if it does, read the chunk's data
+                // to preserve the part that is not written to
+                handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
+                if(chunk.exists()) {
+                    // load the current data into the buffer
+                    if(ds.readChunk(chunkId, &buffer[0])) {
+                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
+                    }
+                }
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
@@ -319,8 +353,13 @@ namespace multiarray {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
-                // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer[0]);
+                handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
+                if(chunk.exists()) {
+                    // load the current data into the buffer
+                    if(ds.readChunk(chunkId, &buffer[0])) {
+                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
+                    }
+                }
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);

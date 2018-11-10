@@ -51,7 +51,11 @@ namespace io {
             }
         }
 
-        inline void write(const handle::Chunk & chunk, const char * data, const std::size_t fileSize) const {
+        // last two arguments are dummy for the varlen mode of n5
+        // which is not supported in zarr
+        inline void write(const handle::Chunk & chunk, const char * data,
+                          const std::size_t fileSize, const bool=false,
+                          const std::size_t=0) const {
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
@@ -59,12 +63,14 @@ namespace io {
             file.close();
         }
 
-        inline void findMinimumChunk(const unsigned, const fs::path &, const std::size_t, types::ShapeType & minOut) const {
+        inline void findMinimumChunk(const unsigned, const fs::path &,
+                                     const std::size_t, types::ShapeType & minOut) const {
             std::cout << "WARNING: findMinimumChunk not implemented for zarr, returning zeros" << std::endl;
             minOut.push_back(0);
         }
 
-        inline void findMaximumChunk(const unsigned, const fs::path &, types::ShapeType & maxOut) const {
+        inline void findMaximumChunk(const unsigned, const fs::path &,
+                                     types::ShapeType & maxOut) const {
             std::cout << "WARNING: findMaximumChunk not implemented for zarr, returning zeros" << std::endl;
             maxOut.push_back(0);
         }

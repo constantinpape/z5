@@ -4,8 +4,7 @@ import json
 
 import numpy as np
 
-from ._z5py import open_dataset
-from ._z5py import write_subarray, write_scalar, read_subarray, convert_array_to_format
+from . import _z5py
 from .attribute_manager import AttributeManager, get_json_encoder
 from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
 from .shape_utils import get_default_chunks, is_group
@@ -222,7 +221,7 @@ class Dataset(object):
             if is_group(path, is_zarr):
                 raise TypeError("Incompatible object (Group) already exists")
 
-            ds = cls(path, open_dataset(path, mode), n_threads)
+            ds = cls(path, _z5py.open_dataset(path, mode), n_threads)
             if shape != ds.shape:
                 raise TypeError("Shapes do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.shape)),
                                                                                      ', '.join(map(str, shape))))
@@ -317,14 +316,14 @@ class Dataset(object):
                                    compression, compression_options)
 
         # get the dataset and write data if necessary
-        ds = cls(path, open_dataset(path, mode), n_threads)
+        ds = cls(path, _z5py.open_dataset(path, mode), n_threads)
         if have_data:
             ds[:] = data
         return ds
 
     @classmethod
     def _open_dataset(cls, path, mode):
-        return cls(path, open_dataset(path, mode))
+        return cls(path, _z5py.open_dataset(path, mode))
 
     @property
     def is_zarr(self):
@@ -440,14 +439,14 @@ class Dataset(object):
 
     # most checks are done in c++
     def __getitem__(self, index):
-        # todo: support newaxis, integer/boolean arrays, striding
+        # TODO: support newaxis, integer/boolean arrays, striding
         roi_begin, shape = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
         if 0 in shape:
             return out
-        read_subarray(self._impl,
-                      out, roi_begin,
-                      n_threads=self.n_threads)
+        _z5py.read_subarray(self._impl,
+                            out, roi_begin,
+                            n_threads=self.n_threads)
         try:
             return out.item()
         except ValueError:
@@ -461,9 +460,9 @@ class Dataset(object):
 
         # broadcast scalar
         if isinstance(item, (numbers.Number, np.number)):
-            write_scalar(self._impl, roi_begin,
-                         list(shape), item,
-                         str(self.dtype), self.n_threads)
+            _z5py.write_scalar(self._impl, roi_begin,
+                               list(shape), item,
+                               str(self.dtype), self.n_threads)
             return
 
         try:
@@ -481,10 +480,10 @@ class Dataset(object):
                 raise
 
         item_arr = rectify_shape(item_arr, shape)
-        write_subarray(self._impl,
-                       item_arr,
-                       roi_begin,
-                       n_threads=self.n_threads)
+        _z5py.write_subarray(self._impl,
+                             item_arr,
+                             roi_begin,
+                             n_threads=self.n_threads)
 
     def find_minimum_coordinates(self, dim):
         """ Find coordinates of chunk with smallest coordinate along dimension.
@@ -522,10 +521,10 @@ class Dataset(object):
             start (tuple): offset of the roi to write.
             data (np.ndarray): data to write; shape determines the roi shape.
         """
-        write_subarray(self._impl,
-                       np.require(data, requirements='C'),
-                       list(start),
-                       n_threads=self.n_threads)
+        _z5py.write_subarray(self._impl,
+                             np.require(data, requirements='C'),
+                             list(start),
+                             n_threads=self.n_threads)
 
     # expose the impl read subarray functionality
     def read_subarray(self, start, stop):
@@ -543,7 +542,7 @@ class Dataset(object):
         """
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
         out = np.empty(shape, dtype=self.dtype)
-        read_subarray(self._impl, out, start, n_threads=self.n_threads)
+        _z5py.read_subarray(self._impl, out, start, n_threads=self.n_threads)
         return out
 
     def array_to_format(self, array):
@@ -562,7 +561,8 @@ class Dataset(object):
             raise RuntimeError("Array needs to be of same dimension as dataset")
         if np.dtype(array.dtype) != np.dtype(self.dtype):
             raise RuntimeError("Array needs to have same dtype as dataset")
-        return convert_array_to_format(self._impl, np.require(array, requirements='C'))
+        return _z5py.convert_array_to_format(self._impl,
+                                             np.require(array, requirements='C'))
 
     def chunk_exists(self, chunk_indices):
         """ Check if chunk has data.
@@ -576,3 +576,43 @@ class Dataset(object):
             bool
         """
         return self._impl.chunkExists(chunk_indices)
+
+    def write_chunk(self, chunk_indices, data, varlen=False):
+        """ Write single chunk
+
+        Args:
+            chunk_indices (tuple): indices of the chunk to write to
+            data (np.ndarray): data to be written
+            varlen (bool): write this chunk in varlen mode; only supported in n5
+                (default: False)
+        """
+        if self.is_zarr and varlen:
+            raise RuntimeError("Varlength chunks are not supported in zarr")
+        if not varlen:
+            pass
+            # TODO make sure that shapes agree
+            # chunk_shape = ''
+            # if chunk_shape != data.shape:
+            #   raise ValueError("")
+        _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
+
+    def read_chunk(self, chunk_indices):
+        """ Read single chunk
+
+        Args:
+            chunk_indices (tuple): indices of the chunk to write to
+        Returns
+            np.ndarray
+        """
+        chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
+        # FIXME this is super hacky, but for some reason returning none in pybind raises
+        # an exception for integer types:
+        # "TypeError: int() argument must be a string,
+        # a bytes-like object or a number, not 'NoneType"
+        # so for now we catch the exception
+        # for float types, it doesn't, but returns an array with `nan`
+        try:
+            out = chunk_reader(self._impl, chunk_indices)
+        except TypeError:
+            return None
+        return None if np.isnan(out).any() else out

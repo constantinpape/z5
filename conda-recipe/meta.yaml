@@ -22,10 +22,10 @@ requirements:
   build:
     - python {{PY_VER}}*
     - cmake
-    - boost-cpp 1.66.0  # the boost version needs to be fixed, because we are linking against specific shared objects
-    - xtensor >=0.17.1,<0.18
-    - xtensor-python >=0.20,<0.21
-    - pybind11 >=2.2.1
+    - boost-cpp 1.68.0  # the boost version needs to be fixed, because we are linking against specific shared objects
+    - xtensor 0.18.1
+    - xtensor-python 0.21.0
+    - numpy>=1.15
     - nlohmann_json
     - blosc
     - bzip2
@@ -33,8 +33,8 @@ requirements:
     - zlib
   run:
     - python {{PY_VER}}*
-    - boost-cpp 1.66.0
-    - numpy # do not need to constrain np version
+    - boost-cpp 1.68.0
+    - numpy>=1.15
     - six
     - blosc
     - bzip2
