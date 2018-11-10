@@ -41,7 +41,8 @@ namespace io {
                 // open input stream and read the header
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 types::ShapeType chunkShape;
-                const std::size_t fileSize = readHeader(file, chunkShape);
+                const auto headerInfo = readHeader(file, chunkShape);
+                const std::size_t fileSize = std::get<0>(headerInfo);
 
                 // resize the data vector
                 data.resize(fileSize);
@@ -60,26 +61,30 @@ namespace io {
         }
 
 
-        inline void write(const handle::Chunk & chunk, const char * data, const std::size_t fileSize) const {
+        inline void write(const handle::Chunk & chunk,
+                          const char * data,
+                          const std::size_t fileSize,
+                          const bool isVarlen=false,
+                          const std::size_t varSize=0) const {
             // create the parent folder
             chunk.createTopDir();
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
-            writeHeader(chunk, file);
+            writeHeader(chunk, file, isVarlen, static_cast<uint32_t>(varSize));
             file.write(data, fileSize);
             file.close();
         }
 
 
-        inline void getChunkShape(const handle::Chunk & chunk, types::ShapeType & shape) const {
+        inline void getChunkShape(const handle::Chunk & chunk,
+                                  types::ShapeType & shape) const {
             if(chunk.exists()) {
                 std::ios_base::sync_with_stdio(false);
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 readHeader(file, shape);
                 file.close();
-
             }
             else {
                 chunk.boundedChunkShape(shape_, chunkShape_, shape);
@@ -90,12 +95,41 @@ namespace io {
         inline std::size_t getChunkSize(const handle::Chunk & chunk) const {
             types::ShapeType shape;
             getChunkShape(chunk, shape);
-            return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(shape.begin(),
+                                   shape.end(), 1,
+                                   std::multiplies<std::size_t>());
+        }
+
+
+        inline std::size_t getDiscChunkSize(const handle::Chunk & chunk,
+                                            bool & isVarlen) const {
+            if(chunk.exists()) {
+                // read the header
+                std::ios_base::sync_with_stdio(false);
+                fs::ifstream file(chunk.path(), std::ios::binary);
+                types::ShapeType shape;
+                const auto headerInfo = readHeader(file, shape);
+                file.close();
+                // check if this is a var-len chunk
+                const bool mode = std::get<1>(headerInfo);
+                isVarlen = mode;
+                const std::size_t chunkSize = mode ? std::get<2>(headerInfo) : std::accumulate(shape.begin(),
+                                                                                               shape.end(), 1,
+                                                                                               std::multiplies<std::size_t>());
+                return chunkSize;
+            }
+            else {
+                // if we don't have a chunk, return 0
+                isVarlen = false;
+                return 0;
+            }
         }
 
 
         // TODO do we need to invert dim due to N5 axis conventions ?
-        inline void findMinimumChunk(const unsigned dim, const fs::path & dsDir, const std::size_t nChunksTotal, types::ShapeType & minOut) const {
+        inline void findMinimumChunk(const unsigned dim, const fs::path & dsDir,
+                                     const std::size_t nChunksTotal,
+                                     types::ShapeType & minOut) const {
             minOut.clear();
             fs::path chunkDir(dsDir);
 
@@ -112,7 +146,8 @@ namespace io {
                     return std::lexicographical_compare(a.rbegin(), a.rend(),
                                                         b.rbegin(), b.rend());
                 };
-                auto minChunkId = *(std::min_element(chunkList.begin(), chunkList.end(), compareDim));
+                auto minChunkId = *(std::min_element(chunkList.begin(),
+                                    chunkList.end(), compareDim));
 
                 // start the out chunk with the min ID we found
                 minOut.insert(minOut.end(), minChunkId.begin(), minChunkId.end());
@@ -159,7 +194,9 @@ namespace io {
         }
 
 
-        inline void findMaximumChunk(const unsigned dim, const fs::path & dsDir, types::ShapeType & maxOut) const {
+        inline void findMaximumChunk(const unsigned dim,
+                                     const fs::path & dsDir,
+                                     types::ShapeType & maxOut) const {
             maxOut.clear();
             fs::path chunkDir(dsDir);
 
@@ -194,7 +231,8 @@ namespace io {
                 }
             }
 
-            // we need to wrap std::max in a lambda and a std::function to pass it to `iterateChunks`
+            // we need to wrap std::max in a lambda
+            // and a std::function to pass it to `iterateChunks`
             std::function<std::size_t (std::size_t, std::size_t)> maxComp = [](std::size_t a, std::size_t b) {
                 return (std::max)(a, b);
             };
@@ -221,7 +259,9 @@ namespace io {
             std::reverse(maxOut.begin(), maxOut.end());
         }
 
-        inline std::size_t writeHeader(const types::ShapeType & shape, std::vector<char> & data) const {
+
+        inline std::size_t writeHeader(const types::ShapeType & shape,
+                                       std::vector<char> & data) const {
 
             // write the mode
             uint16_t mode = 0; // TODO support the varlength mode as well
@@ -256,7 +296,9 @@ namespace io {
 
     private:
 
-        inline void listChunks(const unsigned dim, const fs::path & chunkDir, std::vector<types::ShapeType> & chunkList) const {
+        inline void listChunks(const unsigned dim,
+                               const fs::path & chunkDir,
+                               std::vector<types::ShapeType> & chunkList) const {
             fs::recursive_directory_iterator dir(chunkDir), end;
             types::ShapeType chunkId(dim + 1);
             unsigned currentLevel;
@@ -306,8 +348,11 @@ namespace io {
             }
         }
 
-        // go through all chunks in this directory and return the chunk that is optimal w.r.t compare (max or min)
-        inline std::size_t iterateChunks(const fs::path & chunkDir, const std::size_t init, std::function<std::size_t (std::size_t, std::size_t)> compare) const {
+        // go through all chunks in this directory 
+        // and return the chunk that is optimal w.r.t compare (max or min)
+        inline std::size_t iterateChunks(const fs::path & chunkDir,
+                                         const std::size_t init,
+                                         std::function<std::size_t (std::size_t, std::size_t)> compare) const {
             fs::directory_iterator it(chunkDir);
             std::size_t ret = init;
             for(; it != fs::directory_iterator(); ++it) {
@@ -322,8 +367,8 @@ namespace io {
             return ret;
         }
 
-        // TODO allow for reading the mode
-        inline std::size_t readHeader(fs::ifstream & file, types::ShapeType & shape) const {
+        inline std::tuple<std::size_t, bool, uint32_t> readHeader(fs::ifstream & file,
+                                                                  types::ShapeType & shape) const {
 
             /// keep track of the header length
             std::size_t headerLen = 0;
@@ -333,11 +378,6 @@ namespace io {
             file.read((char *) &mode, 2);
             util::reverseEndiannessInplace(mode);
             headerLen += 2;
-
-            // TODO support varlength mode
-            if(mode != 0) {
-                throw std::runtime_error("Z5 only supports reading N5 chunks in default mode");
-            }
 
             // read the number of dimensions
             uint16_t nDims;
@@ -360,10 +400,13 @@ namespace io {
             shape.resize(nDims);
             std::copy(shapeTmp.begin(), shapeTmp.end(), shape.begin());
 
-            // TODO support varlen
-            // if(mode != 0) {
-            //     headerLen += ;
-            // }
+            // read the varlength if the chunk is in varlength mode
+            uint32_t varlength;
+            if(mode == 1) {
+                headerLen += 4;
+                file.read((char*) &varlength, 4);
+                util::reverseEndiannessInplace(varlength);
+            }
 
             // get the file length in byte (need to substract header len)
             file.seekg(0, std::ios::end);
@@ -372,13 +415,14 @@ namespace io {
             // move file back to the end of the header
             file.seekg(headerLen);
 
-            return fileSize;
+            return std::make_tuple(fileSize, mode == 1, varlength);
         }
 
-        inline void writeHeader(const handle::Chunk & chunk, fs::ofstream & file) const {
+        inline void writeHeader(const handle::Chunk & chunk, fs::ofstream & file,
+                                const bool isVarlen, const uint32_t varlen) const {
 
             // write the mode
-            uint16_t mode = 0; // TODO support the varlength mode as well
+            uint16_t mode = isVarlen;
             util::reverseEndiannessInplace(mode);
             file.write((char*) &mode, 2);
 
@@ -387,7 +431,7 @@ namespace io {
             util::reverseEndiannessInplace(nDimsOut);
             file.write((char *) &nDimsOut, 2);
 
-            // TODO need to invert the dimensions here
+            // need to invert the dimensions here
             // get the bounded chunk shape and write it to file
             std::vector<uint32_t> shapeOut(shape_.size());
             chunk.boundedChunkShape(shape_, chunkShape_, shapeOut);
@@ -400,7 +444,12 @@ namespace io {
                 file.write((char *) &shapeOut[d], 4);
             }
 
-            // TODO need to write the actual size if we allow for varlength mode
+            // need to write the actual size if we allow for varlength mode
+            if(isVarlen) {
+                uint32_t varlenOut = varlen;
+                util::reverseEndiannessInplace<uint32_t>(varlenOut);
+                file.write((char *) &varlenOut, 4);
+            }
         }
 
         // members

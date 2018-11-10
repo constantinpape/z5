@@ -33,9 +33,10 @@ namespace z5 {
 
         // we need to use void pointer here to have a generic API
         // write a chunk
-        virtual void writeChunk(const types::ShapeType &, const void *) const = 0;
+        virtual void writeChunk(const types::ShapeType &, const void *,
+                                const bool=false, const std::size_t=0) const = 0;
         // read a chunk
-        virtual void readChunk(const types::ShapeType &, void *) const = 0;
+        virtual bool readChunk(const types::ShapeType &, void *) const = 0;
         virtual bool chunkExists(const types::ShapeType &) const = 0;
 
         // convert in-memory data to / from data format
@@ -51,6 +52,7 @@ namespace z5 {
         virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
         virtual std::size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
         virtual void getChunkOffset(const types::ShapeType &, types::ShapeType &) const = 0;
+        virtual std::size_t getDiscChunkSize(const types::ShapeType &, bool &) const = 0;
 
         // maximal chunk size and shape
         virtual std::size_t maxChunkSize() const = 0;
@@ -81,6 +83,9 @@ namespace z5 {
         // corresponding to the coordinates of the min / max chunk that was written
         virtual void findMinimumCoordinates(const unsigned, types::ShapeType &) const = 0;
         virtual void findMaximumCoordinates(const unsigned, types::ShapeType &) const = 0;
+
+        // get fill value
+        virtual void getFillValue(void *) const = 0;
     };
 
 
@@ -132,22 +137,23 @@ namespace z5 {
         }
 
 
-        inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn) const {
+        inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn,
+                               const bool isVarlen=false, const std::size_t varSize=0) const {
             // check if we are allowed to write
             if(!handle_.mode().canWrite()) {
                 const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
             handle::Chunk chunk(handle_, chunkIndices, isZarr_);
-            writeChunk(chunk, dataIn);
+            writeChunk(chunk, dataIn, isVarlen, varSize);
         }
 
 
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
-        inline void readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
             handle::Chunk chunk(handle_, chunkIndices, isZarr_);
-            readChunk(chunk, dataOut);
+            return readChunk(chunk, dataOut);
         }
 
 
@@ -350,6 +356,19 @@ namespace z5 {
             }
         }
 
+
+        inline void getFillValue(void * fillValue) const {
+            *((T*) fillValue) = fillValue_;
+        }
+
+
+        inline std::size_t getDiscChunkSize(const types::ShapeType & chunkId,
+                                            bool & isVarlen) const {
+            isVarlen = false;
+            const handle::Chunk chunk(handle_, chunkId, isZarr_);
+            return isZarr_ ? chunkSize_ : io_->getDiscChunkSize(chunk, isVarlen);
+        }
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik
@@ -417,50 +436,61 @@ namespace z5 {
 
 
         // write a chunk
-        inline void writeChunk(const handle::Chunk & chunk, const void * dataIn) const {
+        inline void writeChunk(const handle::Chunk & chunk, const void * dataIn,
+                               const bool isVarlen=false, const std::size_t varSize=0) const {
 
-            // throw a runtime error if we don't have write permissions
+            // TODO throw a runtime error if we don't have write permissions
 
             // make sure that we have a valid chunk
-            checkChunk(chunk);
+            checkChunk(chunk, isVarlen);
 
             // get the correct chunk size and declare the out data
             const std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
             std::vector<char> dataOut;
 
-            // check if the chunk is empty (i.e. all fillvalue)
-            // we need the remporary reference to capture in the lambda
-            const auto & fillValue = fillValue_;
-            const bool isEmpty = std::all_of(static_cast<const T*>(dataIn),
-                                             static_cast<const T*>(dataIn) + chunkSize,
-                                             [fillValue](const T val){return val == fillValue;});
-            // if we have data on disc for the chunk, delete it
-            if(isEmpty) {
-                const auto & path = chunk.path();
-                if(fs::exists(path)) {
-                    fs::remove(path);
+            // check if the chunk is empty (i.e. all fillvalue) and if so don't write it
+            // this does not apply if we have a varlen dataset
+            // for which the fillvalue is not defined
+            if(!isVarlen) {
+                // we need the temporary reference to capture in the lambda
+                const auto & fillValue = fillValue_;
+                const bool isEmpty = std::all_of(static_cast<const T*>(dataIn),
+                                                 static_cast<const T*>(dataIn) + chunkSize,
+                                                 [fillValue](const T val){return val == fillValue;});
+                // don't write the chunk if it is empty
+                if(isEmpty) {
+                    // if we have data on disc for the chunk, delete it
+                    const auto & path = chunk.path();
+                    if(fs::exists(path)) {
+                        fs::remove(path);
+                    }
+                    return;
                 }
-                return;
             }
+
+            // the data size is just the chunk size in normal mode and the
+            // varSize in varlength mode
+            const std::size_t dataSize = isVarlen ? varSize : chunkSize;
 
             // reverse the endianness if necessary
             if(sizeof(T) > 1 && !isZarr_) {
 
                 // copy the data and reverse endianness
                 std::vector<T> dataTmp(static_cast<const T*>(dataIn),
-                                       static_cast<const T*>(dataIn) + chunkSize);
+                                       static_cast<const T*>(dataIn) + dataSize);
                 util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
 
                 // if we have raw compression (== no compression), we bypass the compression step
                 // and directly write to data
                 // raw compression has enum-id 0
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, (const char *) &dataTmp[0], dataTmp.size() * sizeof(T));
+                    io_->write(chunk, (const char *) &dataTmp[0], dataTmp.size() * sizeof(T),
+                               isVarlen, varSize);
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    compressor_->compress(&dataTmp[0], dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size());
+                    compressor_->compress(&dataTmp[0], dataOut, dataSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size(), isVarlen, varSize);
                 }
 
             } else {
@@ -470,18 +500,19 @@ namespace z5 {
                 // raw compression has enum-id 0
                 // compress the data
                 if(compressor_->type() == 0) {
-                    io_->write(chunk, (const char*) dataIn, chunkSize * sizeof(T));
+                    io_->write(chunk, (const char*) dataIn, dataSize * sizeof(T),
+                               isVarlen, varSize);
                 }
                 // otherwise, we compress the data and then write to file
                 else {
-                    compressor_->compress(static_cast<const T*>(dataIn), dataOut, chunkSize);
-                    io_->write(chunk, &dataOut[0], dataOut.size());
+                    compressor_->compress(static_cast<const T*>(dataIn), dataOut, dataSize);
+                    io_->write(chunk, &dataOut[0], dataOut.size(), isVarlen, varSize);
                 }
             }
         }
 
 
-        inline void readChunk(const handle::Chunk & chunk, void * dataOut) const {
+        inline bool readChunk(const handle::Chunk & chunk, void * dataOut) const {
 
             // make sure that we have a valid chunk
             checkChunk(chunk);
@@ -490,11 +521,12 @@ namespace z5 {
             std::vector<char> dataTmp;
             const bool chunkExists = io_->read(chunk, dataTmp);
 
+            bool isVarlen = false;
             // if the chunk exists, decompress it
-            // otherwise we return the chunk with fill value
+            // otherwise raise runtime error
             if(chunkExists) {
 
-                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
+                const std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getDiscChunkSize(chunk, isVarlen);
 
                 // we don't need to decompress for raw compression
                 if(compressor_->type() == 0) {
@@ -510,24 +542,28 @@ namespace z5 {
                     util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
                                                       static_cast<T*>(dataOut) + chunkSize);
                 }
-
             }
 
             else {
-                std::size_t chunkSize = isZarr_ ? chunkSize_ : io_->getChunkSize(chunk);
-                std::fill(static_cast<T*>(dataOut),
-                          static_cast<T*>(dataOut) + chunkSize,
-                          fillValue_);
+                throw std::runtime_error("Trying to read a chunk that does not exist");
             }
+
+            // return whether this is a varlen chunk
+            return isVarlen;
         }
 
 
         // check that the chunk handle is valid
-        inline void checkChunk(const handle::Chunk & chunk) const {
+        inline void checkChunk(const handle::Chunk & chunk,
+                               const bool isVarlen=false) const {
             // check dimension
             const auto & chunkIndices = chunk.chunkIndices();
             if(!chunking_.checkBlockCoordinate(chunkIndices)) {
                 throw std::runtime_error("Invalid chunk");
+            }
+            // varlen chunks are only supported in n5
+            if(isVarlen && isZarr_) {
+                throw std::runtime_error("Varlength chunks are not supported in zarr");
             }
         }
 

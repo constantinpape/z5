@@ -17,7 +17,8 @@ namespace fs = boost::filesystem;
 
 namespace z5 {
 
-    // TODO general format strig
+    // TODO add zarr format
+    // general format
     struct Metadata {
         const int zarrFormat = 2;
     };
@@ -33,14 +34,14 @@ namespace z5 {
             const bool isZarr,
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-            const double fillValue=0 // FIXME the fill value should not be used here
+            const double fillValue=0
             ) : dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
                 isZarr(isZarr),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
-                fillValue(fillValue) // FIXME fill value should not be used here
+                fillValue(fillValue)
         {
             checkShapes();
         }
@@ -181,7 +182,6 @@ namespace z5 {
                 compressionOptions["useZlib"] = false;
             }
 
-            // FIXME fill value should not be used here
             fillValue = 0;
         }
 
@@ -196,7 +196,6 @@ namespace z5 {
         types::Compressor compressor;
         types::CompressionOptions compressionOptions;
 
-        // FIXME fill value should not be used at this level of implementation
         double fillValue;
 
         // metadata values that are fixed for now
