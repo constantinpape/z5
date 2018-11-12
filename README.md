@@ -191,7 +191,6 @@ I recommend to use these implementations, which are more thoroughly tested.
 ## Current Limitations / TODOs
 
 - No thread / process synchonization -> writing to the same chunk in parallel will lead to undefined behavior.
-- The N5 varlength array is not supported yet.
 - Supports only little endianness and C-order for the zarr format.
 
 
