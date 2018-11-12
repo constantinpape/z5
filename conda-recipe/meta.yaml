@@ -25,7 +25,7 @@ requirements:
     - boost-cpp 1.68.0  # the boost version needs to be fixed, because we are linking against specific shared objects
     - xtensor 0.18.1
     - xtensor-python 0.21.0
-    - numpy>=1.15
+    - numpy >=1.15
     - nlohmann_json
     - blosc
     - bzip2
@@ -34,7 +34,7 @@ requirements:
   run:
     - python {{PY_VER}}*
     - boost-cpp 1.68.0
-    - numpy>=1.15
+    - numpy >=1.15
     - six
     - blosc
     - bzip2
