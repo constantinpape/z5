@@ -16,7 +16,8 @@ if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17")
 else()
     message(STATUS "Using c++ 17")
 endif()
-# make sure the compiler supports c++14
+
+# make sure the compiler supports the requested c++ standard
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Not sure if we should set this flag
 # set(CMAKE_CXX_EXTENSIONS OFF)
@@ -32,8 +33,11 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
 # NOTE whether we need to enable the old ABI depends
 # on which ABI boost is compiled with.
-# If you get boost linker errors, comment the line below.
-# add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+# If you get boost linker errors try to enable / disable the old ABI
+option(USE_OLD_ABI OFF)
+if(USE_OLD_ABI)
+    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+endif()
 
 if(MSVC)
     add_definitions(/DNOMINMAX)
