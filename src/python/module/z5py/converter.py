@@ -1,7 +1,6 @@
 # helper functions to convert to and from different formats
-# - hdf5
-# TODO implement png, tiff, dvid
-from __future__ import print_function  # division FIXME
+# - hdf5, tiff
+from __future__ import print_function
 import os
 from math import ceil
 from concurrent import futures
@@ -152,6 +151,11 @@ if WITH_H5:
             h5_attrs = ds_h5.attrs
             z5_attrs = ds_z5.attrs
             for key, val in h5_attrs.items():
+                # h5 attributes might come as ndarrays, which are not
+                # json deserializable by default.
+                # in this case, cast to list
+                if isinstance(val, np.ndarray):
+                    val = val.tolist()
                 z5_attrs[key] = val
 
 
