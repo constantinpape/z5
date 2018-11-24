@@ -72,6 +72,9 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Broadcasting is only supported for scalars in `Dataset.__setitem__`
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
 - Compatibility of exception handling is a goal, but not necessarily guaranteed.
+- Because zarr/N5 are usually used with large data, `z5py` compresses blocks by default where `h5py` does not. The default compressors are
+  - Zarr: `"blosc"`
+  - N5: `"gzip"`
 
 Some examples:
 
