@@ -1,0 +1,22 @@
+name: z5-py35
+channels:
+  - conda-forge/label/gcc7
+  - conda-forge
+dependencies:
+  - python=3.5
+  - cmake
+  - gcc_linux-64
+  - gxx_linux-64
+  - bzip2
+  - xz
+  - zlib
+  - boost=1.68
+  - xtensor-python=0.21.0
+  - xtensor=0.18.1
+  - blosc
+  - imageio
+  - h5py
+  - lz4
+  - nlohmann_json
+  - zarr
+  - six
