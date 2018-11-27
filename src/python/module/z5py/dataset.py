@@ -525,11 +525,10 @@ class Dataset(object):
         Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
         offset
         """
-        rTsl1 = lambda x, y: slice(x.__int__(), y.__int__())
         if source_sel is None:
-            source_sel = tuple(map(rTsl1, [0 for s in self.shape], self.shape))
+            source_sel = tuple(slice(0, sh) for sh in self.shape)
         if dest_sel is None:
-            dest_sel = tuple(map(rTsl1, [0 for s in dest.shape], dest.shape))
+            dest_sel = tuple(slice(0, sh) for sh in dest.shape)
         start = [s.start for s in source_sel]
         stop = [s.stop for s in source_sel]
         dest[dest_sel] = self.read_subarray(start, stop)
@@ -545,11 +544,10 @@ class Dataset(object):
         Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
         offset
         """
-        rTsl1 = lambda x, y: slice(x.__int__(), y.__int__())
         if dest_sel is None:
-            dest_sel = tuple(map(rTsl1, [0 for s in source.shape], source.shape))
+            dest_sel = tuple(slice(0, sh) for sh in self.shape)
         if source_sel is None:
-            source_sel = source_sel = tuple(map(rTsl1, [0 for s in self.shape], self.shape))
+            source_sel = tuple(slice(0, sh) for sh in source.shape)
         start = [s.start for s in dest_sel]
         self.write_subarray(start, source[source_sel])
 
