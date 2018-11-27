@@ -3,10 +3,11 @@ os: linux
 dist: trusty
 sudo: required
 language: python
-python:
-  - "2.7"
-  - "3.5"
-  - "3.6"
+env:
+  - CONDA_PYTHON_VERSION="27"
+  - CONDA_PYTHON_VERSION="35"
+  - CONDA_PYTHON_VERSION="36"
+  - CONDA_PYTHON_VERSION="37"
 addons:
   apt:
     update: true
@@ -16,41 +17,21 @@ before_script:
   - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
   # update conda
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  # create the test environment with anaconda cloud gcc-7.2 compilers
-  - conda create -q -n test-env -c conda-forge/label/gcc7 -c defaults python=$TRAVIS_PYTHON_VERSION cmake gcc_linux-64 gxx_linux-64
-  # activate env
-  - source activate test-env
-  # install additional dependencies
-  - conda install -c conda-forge/label/gcc7 bzip2 xz zlib boost-cpp=1.68 xtensor-python=0.21.0 xtensor=0.18.1 blosc imageio h5py
-  - conda install -c conda-forge zarr six
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then conda install -c conda-forge futures; fi
+  # create the test environment
+  - conda env create -f ./environments/unix/$CONDA_PYTHON_VERSION.yml -n build-env
+  - source activate build-env
 
 script:
 
-  ###############################################
-  # shortcuts
-  ###############################################
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - source activate test-env
-  - export ENV_ROOT="$HOME/miniconda/envs/test-env"
-  - export ENV_BIN=$ENV_ROOT/bin
-  - export PY_BIN=$ENV_BIN/python
-
-  ###############################################
-  # setup compilers
-  ###############################################
-  - export CC="$ENV_BIN/x86_64-conda_cos6-linux-gnu-cc"
-  - export CXX="$ENV_BIN/x86_64-conda_cos6-linux-gnu-c++"
-
+  - source ./environments/unix/env.sh
   ###############################################
   # configure cmake
   ###############################################
-  - $ENV_BIN/cmake
+  - cmake
           -DWITHIN_TRAVIS=ON
           -DWITH_BLOSC=ON
           -DWITH_ZLIB=ON
@@ -71,6 +52,6 @@ script:
   # test the project
   ###############################################
   # python tests
-  - export PYTHONPATH="./python:$PYTHONPATH"
+  - export PYTHONPATH="$TRAVIS_BUILD_DIR/python:$PYTHONPATH"
   # run all python unittests
-  - $ENV_BIN/python -m unittest discover -v python/test
+  - python -m unittest discover -v python/test
