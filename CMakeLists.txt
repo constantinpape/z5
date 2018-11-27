@@ -66,17 +66,17 @@ option(BUILD_TESTS OFF)
 
 
 ###############################
-# Include git submodules
+# Include gtest submodule
 ###############################
 
+# NOTE I tried to replace thhis with the conda package and
+# use find_pacakge(GTest), but although CMake could find the
+# libraries, this led to horrible linker errors
 if(BUILD_TESTS)
     # add gtest external project and include the directories
     add_subdirectory(external/googletest/googletest)
     include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
 endif()
-
-# include json external library
-include_directories(${CMAKE_SOURCE_DIR}/external/json/include)
 
 
 ###############################
