@@ -41,12 +41,12 @@ namespace util {
             }
         }
 
-        inline size_t blockCoordinatesToBlockId(const types::ShapeType & blockCoordinate) const {
-            size_t blockId = 1;
+        inline std::size_t blockCoordinatesToBlockId(const types::ShapeType & blockCoordinate) const {
+            std::vector<std::size_t> offsets(shape_.size());
             for(unsigned d = 0; d < shape_.size() ; ++d) {
-                blockId *= blockStrides_[d] * blockCoordinate[d];
+                offsets[d] = blockStrides_[d] * blockCoordinate[d];
             }
-            return blockId;
+            return std::accumulate(offsets.begin(), offsets.end(), 0);
         }
 
         //
@@ -63,7 +63,7 @@ namespace util {
         //
         // coordinates of given block
         //
-        inline void getBlockBeginAndShape(const size_t blockId,
+        inline void getBlockBeginAndShape(const std::size_t blockId,
                                           types::ShapeType & blockBegin,
                                           types::ShapeType & blockShape) const {
             types::ShapeType blockCoordinate;
@@ -82,7 +82,7 @@ namespace util {
             }
         }
 
-        inline void getBlockBeginAndEnd(const size_t blockId,
+        inline void getBlockBeginAndEnd(const std::size_t blockId,
                                         types::ShapeType & blockBegin,
                                         types::ShapeType & blockEnd) const {
             types::ShapeType blockCoordinate;
