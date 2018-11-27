@@ -276,6 +276,51 @@ class DatasetTestMixin(object):
                     self.assertEqual(data.shape, out.shape)
                     self.assertTrue(np.allclose(data, out))
 
+    def test_read_direct(self):
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        ds = self.root_file.create_dataset('test', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+
+        # generate test data
+        data = np.random.rand(*shape)
+        ds[:] = data
+
+        # test reading full dataset
+        out = np.zeros(shape)
+        ds.read_direct(out)
+        self.assertTrue(np.allclose(out, data))
+
+        # test reading with selection
+        selection = np.s_[11:53, 67:84]
+        out = np.zeros(shape)
+        ds.read_direct(out, selection, selection)
+        self.assertTrue(np.allclose(out[selection], data[selection]))
+
+    def test_write_direct(self):
+        shape = (100, 100)
+        chunks = (10, 10)
+
+        ds = self.root_file.create_dataset('test', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+
+        # generate test data
+        data = np.random.rand(*shape)
+
+        # test writing full dataset
+        ds.write_direct(data)
+        out = ds[:]
+        self.assertTrue(np.allclose(out, data))
+
+        # test writing with selection
+        ds[:] = 0
+        selection = np.s_[11:53, 67:84]
+        ds.write_direct(data, selection, selection)
+        out = ds[:]
+        self.assertTrue(np.allclose(out[selection], data[selection]))
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
