@@ -515,6 +515,42 @@ class Dataset(object):
         """
         return self._impl.findMaximumCoordinates(dim)
 
+    def read_direct(self, dest, source_sel=None, dest_sel=None):
+        """ Wrapper to improve similarity to h5py. Reads from the dataset to ``dest``, using ``read_subarray``.
+
+        Args:
+            dest (array) destination object into which the read data is written to.
+            dest_sel (slice array) selection of data to write to ``dest``. Defaults to the whole range of ``dest``.
+            source_sel (slice array) selection in dataset to read from. Defaults to the whole range of the dataset.
+        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
+        offset
+        """
+        if source_sel is None:
+            source_sel = tuple(slice(0, sh) for sh in self.shape)
+        if dest_sel is None:
+            dest_sel = tuple(slice(0, sh) for sh in dest.shape)
+        start = [s.start for s in source_sel]
+        stop = [s.stop for s in source_sel]
+        dest[dest_sel] = self.read_subarray(start, stop)
+
+    def write_direct(self, source, source_sel=None, dest_sel=None):
+        """ Wrapper to improve similarity to h5py. Writes to the dataset from ``source``, using ``write_subarray``.
+
+        Args:
+            source (array) source object from which the written data is obtained.
+            source_sel (slice array) selection of data to write from ``source``. Defaults to the whole range of
+            ``source``.
+            dest_sel (slice array) selection in dataset to write to. Defaults to the whole range of the dataset.
+        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
+        offset
+        """
+        if dest_sel is None:
+            dest_sel = tuple(slice(0, sh) for sh in self.shape)
+        if source_sel is None:
+            source_sel = tuple(slice(0, sh) for sh in source.shape)
+        start = [s.start for s in dest_sel]
+        self.write_subarray(start, source[source_sel])
+
     # expose the impl write subarray functionality
     def write_subarray(self, start, data):
         """ Write subarray to dataset.
