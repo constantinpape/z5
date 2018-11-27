@@ -36,6 +36,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 # If you get boost linker errors try to enable / disable the old ABI
 option(USE_OLD_ABI OFF)
 if(USE_OLD_ABI)
+    message(STATUS "Using old GCC ABI")
     add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif()
 

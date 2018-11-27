@@ -75,7 +75,7 @@ def rechunk(in_path,
         dtype = ds_in.dtype
 
     shape = ds_in.shape
-    compression_opts = new_compression if new_compression else ds_in.compression_options
+    compression_opts = new_compression if new_compression else ds_in.compression_opts
     ds_out = f_out.create_dataset(out_path_in_file,
                                   dtype=dtype,
                                   shape=shape,

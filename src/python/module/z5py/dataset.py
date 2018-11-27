@@ -380,7 +380,13 @@ class Dataset(object):
         return self._impl.number_of_chunks
 
     @property
-    def compression_options(self):
+    def compression(self):
+        opts = self.compression_opts
+        compression = opts['compression']
+        return compression if compression != 'raw' else None
+
+    @property
+    def compression_opts(self):
         """ Compression library options of this dataset.
         """
         return self._read_zarr_compression_options() if self._impl.is_zarr else \
