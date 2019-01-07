@@ -22,8 +22,8 @@ class File(Group):
 
     Args:
         path (str): path on filesystem that holds the container.
-        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None).
         mode (str): file mode used to open / create the file (default: 'a').
+        use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None).
     """
 
     #: file extensions that are inferred as zarr file
@@ -52,7 +52,7 @@ class File(Group):
             is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
         return is_zarr
 
-    def __init__(self, path, use_zarr_format=None, mode='a'):
+    def __init__(self, path, mode='a', use_zarr_format=None):
 
         # infer the file format from the path
         is_zarr = self.infer_format(path)

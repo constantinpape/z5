@@ -20,7 +20,7 @@ class TestPickle(unittest.TestCase):
 
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.ff = z5py.File('array.n5', False)
+        self.ff = z5py.File('array.n5')
 
     def tearDown(self):
         try:
@@ -35,7 +35,6 @@ class TestPickle(unittest.TestCase):
                   'float32', 'float64')
 
         for dtype in dtypes:
-            print("Running Pickle-Test for %s" % dtype)
             ds = self.ff.create_dataset('data_%s' % dtype,
                                         dtype=dtype,
                                         shape=self.shape,

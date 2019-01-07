@@ -37,7 +37,7 @@ class FileTestMixin(object):
     def test_extension_detect(self):
         self.assertFalse(os.path.exists(self.path))
 
-        f = z5py.File(self.path, None)
+        f = z5py.File(self.path, use_zarr_format=None)
         if self.data_format == 'n5':
             self.assertFalse(f.is_zarr)
         else:
