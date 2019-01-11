@@ -24,6 +24,8 @@ before_script:
   # create the test environment
   - conda env create -f ./environments/unix/$CONDA_PYTHON_VERSION.yml -n build-env
   - source activate build-env
+  # install additional dependencies for tests
+  - conda install -c conda-forge zarr h5py
 
 script:
 
