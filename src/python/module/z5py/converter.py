@@ -21,7 +21,7 @@ except ImportError:
     WITH_IMIO = False
 
 from .file import File
-from .util import blocking
+from .util import blocking, normalize_roi
 
 if WITH_H5:
 
@@ -32,6 +32,7 @@ if WITH_H5:
                       out_chunks,
                       n_threads,
                       out_blocks=None,
+                      roi=None,
                       **h5_kwargs):
         """ Convert n5 ot zarr dataset to hdf5 dataset.
 
@@ -50,6 +51,7 @@ if WITH_H5:
             n_threads (int): number of threads used for converting.
             out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
                 If None, the chunk size will be used (default: None).
+            roi (tuple[slice]): region of interest that will be copied. (default: None)
             **h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
@@ -61,6 +63,10 @@ if WITH_H5:
         out_dtype = h5_kwargs.pop('dtype', ds_z5.dtype)
         if out_blocks is None:
             out_blocks = out_chunks
+
+        if roi is not None:
+            assert len(roi) == len(shape), "Invalid roi."
+            roi = normalize_roi(roi, shape)
 
         with h5py.File(out_path) as f_h5:
             ds_h5 = f_h5.create_dataset(out_path_in_file,
@@ -75,11 +81,13 @@ if WITH_H5:
                 chunk_data = ds_z5[bb].astype(out_dtype, copy=False)
                 if chunk_data.sum() == 0:
                     return
+                # if we have a roi and fit to it, we need to substract its start from
+                # the current bounding box
                 ds_h5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
-                         for bb in blocking(shape, out_blocks)]
+                         for bb in blocking(shape, out_blocks, roi)]
                 [t.result() for t in tasks]
 
             # copy attributes
@@ -97,6 +105,7 @@ if WITH_H5:
                         n_threads,
                         out_blocks=None,
                         use_zarr_format=None,
+                        roi=None,
                         **z5_kwargs):
         """ Convert hdf5 dataset to n5 or zarr dataset.
 
@@ -116,6 +125,7 @@ if WITH_H5:
             use_zarr_format (bool): flag to indicate zarr format.
                 If None, an attempt will be made to infer the format from the file extension,
                 otherwise zarr will be used (default: None).
+            roi (tuple[slice]): region of interest that will be copied. (default: None)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
@@ -128,6 +138,10 @@ if WITH_H5:
             ds_h5 = f_h5[in_path_in_file]
             shape = ds_h5.shape
 
+            if roi is not None:
+                assert len(roi) == len(shape), "Invalid roi."
+                roi = normalize_roi(roi, shape)
+
             # modify z5 arguments
             out_dtype = z5_kwargs.pop('dtype', ds_h5.dtype)
             if 'compression' not in z5_kwargs:
@@ -139,12 +153,11 @@ if WITH_H5:
                                         **z5_kwargs)
 
             def convert_chunk(bb):
-                # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
                 ds_z5[bb] = ds_h5[bb].astype(out_dtype, copy=False)
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
-                         for bb in blocking(shape, out_blocks)]
+                         for bb in blocking(shape, out_blocks, roi)]
                 [t.result() for t in tasks]
 
             # copy attributes

@@ -9,21 +9,46 @@ from . import _z5py as z5_impl
 from .file import File
 
 
-# TODO support roi
-# ND blocking generator
-def blocking(shape, block_shape):
+def normalize_roi(roi, shape):
+    roi = tuple(slice(rr.start if rr.start is not None else 0,
+                      rr.stop if rr.stop is not None else sh)
+                for rr, sh in zip(roi, shape))
+    return roi
+
+
+def blocking(shape, block_shape, roi=None):
     """ Generator for nd blocking.
+
+    Args:
+        shape (tuple): nd shape
+        block_shape (tuple): nd block shape
+        roi (tuple[slice]): region of interest (default: None)
     """
-    if len(shape) != len(block_shape):
-        raise RuntimeError("Invalid number of dimensions.")
-    ranges = [range(sha // bsha if sha % bsha == 0 else sha // bsha + 1)
-              for sha, bsha in zip(shape, block_shape)]
+    assert len(shape) == len(block_shape), "Invalid number of dimensions."
+
+    if roi is None:
+        # compute the ranges for the full shape
+        ranges = [range(sha // bsha if sha % bsha == 0 else sha // bsha + 1)
+                  for sha, bsha in zip(shape, block_shape)]
+        min_coords = [0] * len(shape)
+        max_coords = shape
+    else:
+        # make sure that the roi is valid
+        assert len(roi) == len(shape), "Invalid roi."
+        assert all(isinstance(rr, slice) for rr in roi), "Invalid roi."
+        roi = normalize_roi(roi, shape)
+        ranges = [range(rr.start // bsha,
+                        rr.stop // bsha if rr.stop % bsha == 0 else rr.stop // bsha + 1)
+                  for rr, bsha in zip(roi, block_shape)]
+        min_coords = [rr.start for rr in roi]
+        max_coords = [rr.stop for rr in roi]
+
     start_points = product(*ranges)
     for start_point in start_points:
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
-        yield tuple(slice(pos, min(pos + bsha, sha))
-                    for pos, bsha, sha in zip(positions, block_shape, shape))
-
+        yield tuple(slice(max(pos, minc), min(pos + bsha, maxc))
+                    for pos, bsha, minc, maxc in zip(positions, block_shape,
+                                                     min_coords, max_coords))
 
 
 def rechunk(in_path,
@@ -35,6 +60,7 @@ def rechunk(in_path,
             out_blocks=None,
             dtype=None,
             use_zarr_format=None,
+            roi=None,
             **new_compression):
     """ Copy and rechunk a dataset.
 
@@ -53,6 +79,7 @@ def rechunk(in_path,
         dtype (str): datatype of the output dataset, default does not change datatype (default: None).
         use_zarr_format (bool): file format of the output file,
             default does not change format (default: None).
+        roi (tuple[slice]): region of interest that will be copied. (default: None)
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
 
@@ -75,6 +102,10 @@ def rechunk(in_path,
         dtype = ds_in.dtype
 
     shape = ds_in.shape
+    if roi is not None:
+        assert len(roi) == len(shape), "Invalid roi."
+        roi = normalize_roi(roi, shape)
+
     compression_opts = new_compression if new_compression else ds_in.compression_opts
     ds_out = f_out.create_dataset(out_path_in_file,
                                   dtype=dtype,
@@ -82,15 +113,15 @@ def rechunk(in_path,
                                   chunks=out_chunks,
                                   **compression_opts)
 
-    def write_single_chunk(roi):
-        data_in = ds_in[roi].astype(dtype, copy=False)
+    def write_single_chunk(bb):
+        data_in = ds_in[bb].astype(dtype, copy=False)
         if np.sum(data_in) == 0:
             return
-        ds_out[roi] = data_in
+        ds_out[bb] = data_in
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-        tasks = [tp.submit(write_single_chunk, roi)
-                 for roi in blocking(shape, out_blocks)]
+        tasks = [tp.submit(write_single_chunk, bb)
+                 for bb in blocking(shape, out_blocks, roi)]
         [t.result() for t in tasks]
 
     # copy attributes
