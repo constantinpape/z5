@@ -33,6 +33,7 @@ if WITH_H5:
                       n_threads,
                       out_blocks=None,
                       roi=None,
+                      fit_to_roi=False,
                       **h5_kwargs):
         """ Convert n5 ot zarr dataset to hdf5 dataset.
 
@@ -52,6 +53,9 @@ if WITH_H5:
             out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
                 If None, the chunk size will be used (default: None).
             roi (tuple[slice]): region of interest that will be copied. (default: None)
+            fit_to_roi (bool): if given a roi, whether to set the shape of
+                the output dataset to the roi's shape
+                and align chunks with the roi's origin. (default: False)
             **h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
@@ -67,6 +71,8 @@ if WITH_H5:
         if roi is not None:
             assert len(roi) == len(shape), "Invalid roi."
             roi = normalize_roi(roi, shape)
+            if fit_to_roi:
+                shape = tuple(rr.stop - rr.start for rr in roi)
 
         with h5py.File(out_path) as f_h5:
             ds_h5 = f_h5.create_dataset(out_path_in_file,
@@ -83,11 +89,14 @@ if WITH_H5:
                     return
                 # if we have a roi and fit to it, we need to substract its start from
                 # the current bounding box
+                if fit_to_roi and roi is not None:
+                    bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+                               for b, rr in zip(bb, roi))
                 ds_h5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)
-                         for bb in blocking(shape, out_blocks, roi)]
+                         for bb in blocking(shape, out_blocks, roi, fit_to_roi)]
                 [t.result() for t in tasks]
 
             # copy attributes
@@ -106,6 +115,7 @@ if WITH_H5:
                         out_blocks=None,
                         use_zarr_format=None,
                         roi=None,
+                        fit_to_roi=False,
                         **z5_kwargs):
         """ Convert hdf5 dataset to n5 or zarr dataset.
 
@@ -126,6 +136,9 @@ if WITH_H5:
                 If None, an attempt will be made to infer the format from the file extension,
                 otherwise zarr will be used (default: None).
             roi (tuple[slice]): region of interest that will be copied. (default: None)
+            fit_to_roi (bool): if given a roi, whether to set the shape of
+                the output dataset to the roi's shape
+                and align chunks with the roi's origin. (default: False)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
         if not os.path.exists(in_path):
@@ -141,6 +154,8 @@ if WITH_H5:
             if roi is not None:
                 assert len(roi) == len(shape), "Invalid roi."
                 roi = normalize_roi(roi, shape)
+                if fit_to_roi:
+                    shape = tuple(rr.stop - rr.start for rr in roi)
 
             # modify z5 arguments
             out_dtype = z5_kwargs.pop('dtype', ds_h5.dtype)
@@ -153,7 +168,13 @@ if WITH_H5:
                                         **z5_kwargs)
 
             def convert_chunk(bb):
-                ds_z5[bb] = ds_h5[bb].astype(out_dtype, copy=False)
+                chunk_data = ds_h5[bb].astype(out_dtype, copy=False)
+                # if we have a roi and fit to it, we need to substract its start from
+                # the current bounding box
+                if fit_to_roi and roi is not None:
+                    bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+                               for b, rr in zip(bb, roi))
+                ds_z5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
                 tasks = [tp.submit(convert_chunk, bb)

@@ -9,6 +9,7 @@ from . import _z5py as z5_impl
 from .file import File
 
 
+# TODO support rois shorter than shape and ellipsis
 def normalize_roi(roi, shape):
     roi = tuple(slice(rr.start if rr.start is not None else 0,
                       rr.stop if rr.stop is not None else sh)
@@ -16,13 +17,16 @@ def normalize_roi(roi, shape):
     return roi
 
 
-def blocking(shape, block_shape, roi=None):
+def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
     """ Generator for nd blocking.
 
     Args:
         shape (tuple): nd shape
         block_shape (tuple): nd block shape
         roi (tuple[slice]): region of interest (default: None)
+        center_blocks_at_roi (bool): if given a roi,
+            whether to center the blocks being generated
+            at the roi's origin (default: False)
     """
     assert len(shape) == len(block_shape), "Invalid number of dimensions."
 
@@ -43,9 +47,16 @@ def blocking(shape, block_shape, roi=None):
         min_coords = [rr.start for rr in roi]
         max_coords = [rr.stop for rr in roi]
 
+    need_shift = False
+    if roi is not None and center_blocks_at_roi:
+        shift = [rr.start % bsha for rr, bsha in zip(roi, block_shape)]
+        need_shift = sum(shift) > 0
+
     start_points = product(*ranges)
     for start_point in start_points:
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
+        if need_shift:
+            positions = [pos + sh  for pos, sh in zip(positions, shift)]
         yield tuple(slice(max(pos, minc), min(pos + bsha, maxc))
                     for pos, bsha, minc, maxc in zip(positions, block_shape,
                                                      min_coords, max_coords))
@@ -61,6 +72,7 @@ def rechunk(in_path,
             dtype=None,
             use_zarr_format=None,
             roi=None,
+            fit_to_roi=False,
             **new_compression):
     """ Copy and rechunk a dataset.
 
@@ -80,6 +92,9 @@ def rechunk(in_path,
         use_zarr_format (bool): file format of the output file,
             default does not change format (default: None).
         roi (tuple[slice]): region of interest that will be copied. (default: None)
+        fit_to_roi (bool): if given a roi, whether to set the shape of
+            the output dataset to the roi's shape
+            and align chunks with the roi's origin. (default: False)
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
 
@@ -105,6 +120,8 @@ def rechunk(in_path,
     if roi is not None:
         assert len(roi) == len(shape), "Invalid roi."
         roi = normalize_roi(roi, shape)
+        if fit_to_roi:
+            shape = tuple(rr.stop - rr.start for rr in roi)
 
     compression_opts = new_compression if new_compression else ds_in.compression_opts
     ds_out = f_out.create_dataset(out_path_in_file,
@@ -117,11 +134,14 @@ def rechunk(in_path,
         data_in = ds_in[bb].astype(dtype, copy=False)
         if np.sum(data_in) == 0:
             return
+        if fit_to_roi and roi is not None:
+            bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+                       for b, rr in zip(bb, roi))
         ds_out[bb] = data_in
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         tasks = [tp.submit(write_single_chunk, bb)
-                 for bb in blocking(shape, out_blocks, roi)]
+                 for bb in blocking(shape, out_blocks, roi, fit_to_roi)]
         [t.result() for t in tasks]
 
     # copy attributes
