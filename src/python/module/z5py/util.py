@@ -55,32 +55,28 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
                                                      min_coords, max_coords))
 
 
-def rechunk(in_path,
-            out_path,
-            in_path_in_file,
-            out_path_in_file,
-            out_chunks,
-            n_threads,
-            out_blocks=None,
-            dtype=None,
-            use_zarr_format=None,
-            roi=None,
-            fit_to_roi=False,
-            **new_compression):
-    """ Copy and rechunk a dataset.
+def copy_dataset(in_path, out_path,
+                 in_path_in_file, out_path_in_file,
+                 n_threads, chunks=None,
+                 block_shape=None, dtype=None,
+                 use_zarr_format=None, roi=None,
+                 fit_to_roi=False, **new_compression):
+    """ Copy dataset, optionally change metadata.
 
     The input dataset will be copied to the output dataset chunk by chunk.
-    Allows to change datatype, file format and compression as well.
+    Allows to change chunks, datatype, file format and compression.
+    Can also just copy a roi.
 
     Args:
         in_path (str): path to the input file.
         out_path (str): path to the output file.
         in_path_in_file (str): name of input dataset.
         out_path_in_file (str): name of output dataset.
-        out_chunks (tuple): chunks of the output dataset.
         n_threads (int): number of threads used for copying.
-        out_blocks (tuple): blocks used for copying. Must be a multiple
-            of ``out_chunks``, which are used by default (default: None)
+        chunks (tuple): chunks of the output dataset.
+            By default same as input dataset's chunks. (default: None)
+        block_shape (tuple): block shape used for copying. Must be a multiple
+            of ``chunks``, which are used by default (default: None)
         dtype (str): datatype of the output dataset, default does not change datatype (default: None).
         use_zarr_format (bool): file format of the output file,
             default does not change format (default: None).
@@ -99,15 +95,20 @@ def rechunk(in_path,
     is_zarr = f_in.is_zarr if use_zarr_format is None else use_zarr_format
     f_out = File(out_path, use_zarr_format=is_zarr)
 
-    # if we don't have out-blocks explitictly given,
-    # we iterate over the out chunks
-    if out_blocks is None:
-        out_blocks = out_chunks
-
     ds_in = f_in[in_path_in_file]
-    # if no out dtype was specified, use the original dtype
-    if dtype is None:
-        dtype = ds_in.dtype
+
+    # get dataset metadata from input dataset if defaults were given
+    chunks = ds_in.chunks if chunks is None else chunks
+    dtype = ds_in.dtype if dtype is None else dtype
+    compression_opts = new_compression if new_compression else ds_in.compression_opts
+
+    # if we don't have block-shape explitictly given, use chunk size
+    # otherwise check that it's a multiple of chunks
+    if block_shape is None:
+        block_shape = chunks
+    else:
+        assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
+            "block_shape must be a multiple of chunks"
 
     shape = ds_in.shape
     if roi is not None:
@@ -116,11 +117,10 @@ def rechunk(in_path,
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
 
-    compression_opts = new_compression if new_compression else ds_in.compression_opts
     ds_out = f_out.create_dataset(out_path_in_file,
                                   dtype=dtype,
                                   shape=shape,
-                                  chunks=out_chunks,
+                                  chunks=chunks,
                                   **compression_opts)
 
     def write_single_chunk(bb):
@@ -134,7 +134,7 @@ def rechunk(in_path,
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         tasks = [tp.submit(write_single_chunk, bb)
-                 for bb in blocking(shape, out_blocks, roi, fit_to_roi)]
+                 for bb in blocking(shape, block_shape, roi, fit_to_roi)]
         [t.result() for t in tasks]
 
     # copy attributes

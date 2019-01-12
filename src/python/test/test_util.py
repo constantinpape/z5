@@ -32,8 +32,8 @@ class TestUtil(unittest.TestCase):
             pass
 
     @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
-    def test_rechunk_default(self):
-        from z5py.util import rechunk
+    def test_copy_dataset_default(self):
+        from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')
         out_path = os.path.join(self.tmp_dir, 'out.n5')
 
@@ -46,7 +46,7 @@ class TestUtil(unittest.TestCase):
         data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
         ds_in[:] = data
 
-        # rechunk for different out blocks
+        # copy_dataset for different out blocks
         out_file = z5py.File(out_path, use_zarr_format=False)
         new_chunks = (20, 20, 20)
 
@@ -55,9 +55,10 @@ class TestUtil(unittest.TestCase):
         for out_blocks in (None, (40, 40, 40), (60, 60, 60)):
             ds_str = 'none' if out_blocks is None else '_'.join(map(str, out_blocks))
             ds_name = 'data_%s' % ds_str
-            rechunk(in_path, out_path, 'data', ds_name, new_chunks,
-                    out_blocks=out_blocks,
-                    n_threads=8)
+            copy_dataset(in_path, out_path, 'data', ds_name,
+                         chunks=new_chunks,
+                         block_shape=out_blocks,
+                         n_threads=8)
             # make sure that new data agrees
             ds_out = out_file[ds_name]
             data_out = ds_out[:]
@@ -66,8 +67,8 @@ class TestUtil(unittest.TestCase):
             self.assertTrue(np.allclose(data, data_out))
 
     @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
-    def test_rechunk_custom(self):
-        from z5py.util import rechunk
+    def test_copy_dataset_custom(self):
+        from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')
         out_path = os.path.join(self.tmp_dir, 'out.n5')
 
@@ -79,16 +80,17 @@ class TestUtil(unittest.TestCase):
         # write test data
         data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
         ds_in[:] = data
-        # rechunk
+        # copy_dataset
         new_chunks = (20, 20, 20)
         for compression in ('raw', 'gzip'):
             for dtype in ('float64', 'int32', 'uint32'):
                 ds_name = 'ds_%s_%s' % (compression, dtype)
-                rechunk(in_path, out_path,
-                        'data', ds_name, new_chunks,
-                        n_threads=8,
-                        compression=compression,
-                        dtype=dtype)
+                copy_dataset(in_path, out_path,
+                             'data', ds_name,
+                             chunks=new_chunks,
+                             n_threads=8,
+                             compression=compression,
+                             dtype=dtype)
                 # make sure that new data agrees
                 out_file = z5py.File(out_path, use_zarr_format=False)
                 ds_out = out_file[ds_name]
