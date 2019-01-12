@@ -26,16 +26,11 @@ from .shape_utils import normalize_slices
 
 if WITH_H5:
 
-    def convert_to_h5(in_path,
-                      out_path,
-                      in_path_in_file,
-                      out_path_in_file,
-                      out_chunks,
-                      n_threads,
-                      out_blocks=None,
-                      roi=None,
-                      fit_to_roi=False,
-                      **h5_kwargs):
+    def convert_to_h5(in_path, out_path,
+                      in_path_in_file, out_path_in_file,
+                      n_threads, chunks=None,
+                      block_shape=None, roi=None,
+                      fit_to_roi=False, **h5_kwargs):
         """ Convert n5 ot zarr dataset to hdf5 dataset.
 
         The chunks of the output dataset must be spcified.
@@ -49,9 +44,10 @@ if WITH_H5:
             out_path (str): path to output hdf5 file.
             in_path_in_file (str): name of input dataset.
             out_path_in_file (str): name of output dataset.
-            out_chunks (tuple): chunks of output dataset.
             n_threads (int): number of threads used for converting.
-            out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
+            chunks (tuple): chunks of output dataset.
+                By default input datase's chunks are used. (default: None)
+            block_shape (tuple): block shape used for converting, must be multiple of ``chunks``.
                 If None, the chunk size will be used (default: None).
             roi (tuple[slice]): region of interest that will be copied. (default: None)
             fit_to_roi (bool): if given a roi, whether to set the shape of
@@ -64,13 +60,20 @@ if WITH_H5:
         f_z5 = File(in_path)
         ds_z5 = f_z5[in_path_in_file]
         shape = ds_z5.shape
+        chunks = ds_z5.chunks if chunks is None else chunks
         # modify h5 arguments
         out_dtype = h5_kwargs.pop('dtype', ds_z5.dtype)
-        if out_blocks is None:
-            out_blocks = out_chunks
+        if block_shape is None:
+            block_shape = chunks
+        else:
+            assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
+                "block_shape must be a multiple of chunks"
 
+        # we need to create the blocking here, before the shape is potentially altered
+        # if fit_to_roi == True
+        blocks = blocking(shape, block_shape, roi, fit_to_roi)
         if roi is not None:
-            assert len(roi) == len(shape), "Invalid roi."
+            assert len(roi) <= len(shape), "Invalid roi."
             roi = normalize_slices(roi, shape)
             if fit_to_roi:
                 shape = tuple(rr.stop - rr.start for rr in roi)
@@ -79,7 +82,7 @@ if WITH_H5:
             ds_h5 = f_h5.create_dataset(out_path_in_file,
                                         dtype=out_dtype,
                                         shape=shape,
-                                        chunks=out_chunks,
+                                        chunks=chunks,
                                         **h5_kwargs)
 
             def convert_chunk(bb):
@@ -91,13 +94,12 @@ if WITH_H5:
                 # if we have a roi and fit to it, we need to substract its start from
                 # the current bounding box
                 if fit_to_roi and roi is not None:
-                    bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+                    bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
                                for b, rr in zip(bb, roi))
                 ds_h5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-                tasks = [tp.submit(convert_chunk, bb)
-                         for bb in blocking(shape, out_blocks, roi, fit_to_roi)]
+                tasks = [tp.submit(convert_chunk, bb) for bb in blocks]
                 [t.result() for t in tasks]
 
             # copy attributes
@@ -107,16 +109,11 @@ if WITH_H5:
                 h5_attrs[key] = val
 
 
-    def convert_from_h5(in_path,
-                        out_path,
-                        in_path_in_file,
-                        out_path_in_file,
-                        out_chunks,
-                        n_threads,
-                        out_blocks=None,
-                        use_zarr_format=None,
-                        roi=None,
-                        fit_to_roi=False,
+    def convert_from_h5(in_path, out_path,
+                        in_path_in_file, out_path_in_file,
+                        n_threads, chunks=None,
+                        block_shape=None, use_zarr_format=None,
+                        roi=None, fit_to_roi=False,
                         **z5_kwargs):
         """ Convert hdf5 dataset to n5 or zarr dataset.
 
@@ -129,10 +126,11 @@ if WITH_H5:
             out_path (str): path to output zarr or n5 file.
             in_path_in_file (str): name of input dataset.
             out_path_in_file (str): name of output dataset.
-            out_chunks (tuple): chunks of output dataset.
             n_threads (int): number of threads used for converting.
-            out_blocks (tuple): block size used for converting, must be multiple of ``out_chunks``.
-                If None, the chunk size will be used (default: None).
+            chunks (tuple): chunks of output dataset.
+             By default input dataset's chunks are used. (default: None)
+            block_shape (tuple): block shape used for converting, must be multiple of ``chunks``.
+                If None, the chunk shape will be used (default: None).
             use_zarr_format (bool): flag to indicate zarr format.
                 If None, an attempt will be made to infer the format from the file extension,
                 otherwise zarr will be used (default: None).
@@ -144,16 +142,24 @@ if WITH_H5:
         """
         if not os.path.exists(in_path):
             raise RuntimeError("Path %s does not exist" % in_path)
-        if out_blocks is None:
-            out_blocks = out_chunks
 
         f_z5 = File(out_path, use_zarr_format=use_zarr_format)
         with h5py.File(in_path, 'r') as f_h5:
             ds_h5 = f_h5[in_path_in_file]
             shape = ds_h5.shape
+            chunks = ds_h5.chunks if chunks is None else chunks
 
+            if block_shape is None:
+                block_shape = chunks
+            else:
+                assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
+                    "block_shape must be a multiple of chunks"
+
+            # we need to create the blocking here, before the shape is potentially altered
+            # if fit_to_roi == True
+            blocks = blocking(shape, block_shape, roi, fit_to_roi)
             if roi is not None:
-                assert len(roi) == len(shape), "Invalid roi."
+                assert len(roi) <= len(shape), "Invalid roi."
                 roi = normalize_slices(roi, shape)
                 if fit_to_roi:
                     shape = tuple(rr.stop - rr.start for rr in roi)
@@ -165,7 +171,7 @@ if WITH_H5:
             ds_z5 = f_z5.create_dataset(out_path_in_file,
                                         dtype=out_dtype,
                                         shape=shape,
-                                        chunks=out_chunks,
+                                        chunks=chunks,
                                         **z5_kwargs)
 
             def convert_chunk(bb):
@@ -173,13 +179,12 @@ if WITH_H5:
                 # if we have a roi and fit to it, we need to substract its start from
                 # the current bounding box
                 if fit_to_roi and roi is not None:
-                    bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+                    bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
                                for b, rr in zip(bb, roi))
                 ds_z5[bb] = chunk_data
 
             with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-                tasks = [tp.submit(convert_chunk, bb)
-                         for bb in blocking(shape, out_blocks, roi)]
+                tasks = [tp.submit(convert_chunk, bb) for bb in blocks]
                 [t.result() for t in tasks]
 
             # copy attributes
