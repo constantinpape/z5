@@ -34,7 +34,7 @@ install:
   - set BOOST_INCLUDE=%CONDA_ACTIVE_ENV%\\Library\\include
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
-  - conda install -c conda-forge xtensor>=0.18.1 xtensor-python=0.21.0 boost-cpp=1.67 bzip2 blosc nlohmann_json 
+  - conda install -c conda-forge xtensor>=0.18.1 xtensor-python=0.21.0 boost-cpp bzip2 blosc nlohmann_json 
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
