@@ -31,7 +31,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         max_coords = shape
     else:
         # make sure that the roi is valid
-        assert len(roi) == len(shape), "Invalid roi."
+        assert len(roi) <= len(shape), "Invalid roi."
         assert all(isinstance(rr, slice) for rr in roi), "Invalid roi."
         roi = normalize_slices(roi, shape)
         ranges = [range(rr.start // bsha,
@@ -50,6 +50,8 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
         if need_shift:
             positions = [pos + sh  for pos, sh in zip(positions, shift)]
+            if any(pos > maxc for pos, maxc in zip(positions, max_coords)):
+                continue
         yield tuple(slice(max(pos, minc), min(pos + bsha, maxc))
                     for pos, bsha, minc, maxc in zip(positions, block_shape,
                                                      min_coords, max_coords))
@@ -111,8 +113,11 @@ def copy_dataset(in_path, out_path,
             "block_shape must be a multiple of chunks"
 
     shape = ds_in.shape
+    # we need to create the blocking here, before the shape is potentially altered
+    # if fit_to_roi == True
+    blocks = blocking(shape, block_shape, roi, fit_to_roi)
     if roi is not None:
-        assert len(roi) == len(shape), "Invalid roi."
+        assert len(roi) <= len(shape), "Invalid roi."
         roi = normalize_slices(roi, shape)
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
@@ -128,13 +133,12 @@ def copy_dataset(in_path, out_path,
         if np.sum(data_in) == 0:
             return
         if fit_to_roi and roi is not None:
-            bb = tuple(slice(b.start - rr.start. b.stop - rr.start)
+            bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
                        for b, rr in zip(bb, roi))
         ds_out[bb] = data_in
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-        tasks = [tp.submit(write_single_chunk, bb)
-                 for bb in blocking(shape, block_shape, roi, fit_to_roi)]
+        tasks = [tp.submit(write_single_chunk, bb) for bb in blocks]
         [t.result() for t in tasks]
 
     # copy attributes

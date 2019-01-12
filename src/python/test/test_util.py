@@ -32,6 +32,48 @@ class TestUtil(unittest.TestCase):
             pass
 
     @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
+    def test_copy_dataset_with_roi(self):
+        from z5py.util import copy_dataset
+        in_path = os.path.join(self.tmp_dir, 'in.n5')
+        out_path = os.path.join(self.tmp_dir, 'out.n5')
+
+        in_file = z5py.File(in_path, use_zarr_format=False)
+        out_file = z5py.File(out_path, use_zarr_format=False)
+        # create input dataset
+        ds_in = in_file.create_dataset('data', dtype='float32',
+                                       shape=self.shape, chunks=self.chunks,
+                                       compression='gzip')
+        # write test data
+        data = np.arange(ds_in.size).reshape(ds_in.shape).astype(ds_in.dtype)
+        ds_in[:] = data
+
+        # define roi
+        roi = np.s_[5:45, 9:83, 10:60]
+        out_of_roi_mask = np.ones(self.shape, dtype='bool')
+        out_of_roi_mask[roi] = False
+        roi_shape = tuple(rr.stop - rr.start for rr in roi)
+
+        # copy dataset with roi
+        copy_dataset(in_path, out_path, 'data', 'data_roi', n_threads=8,
+                     roi=roi, fit_to_roi=False)
+        ds_out = out_file['data_roi']
+        data_out = ds_out[:]
+
+        self.assertEqual(data_out.shape, data.shape)
+        self.assertTrue(np.allclose(data_out[roi], data[roi]))
+        self.assertTrue(np.allclose(data_out[out_of_roi_mask], 0))
+
+        # copy dataset with roi and fit_to_roi
+        copy_dataset(in_path, out_path, 'data', 'data_roi_fit', n_threads=8,
+                     roi=roi, fit_to_roi=True)
+        ds_out = out_file['data_roi_fit']
+        data_out = ds_out[:]
+
+        self.assertEqual(data_out.shape, roi_shape)
+        self.assertTrue(np.allclose(data_out, data[roi]))
+
+
+    @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_copy_dataset_default(self):
         from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')
