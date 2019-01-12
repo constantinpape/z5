@@ -259,6 +259,7 @@ namespace z5 {
         ;
 
         module.def("open_dataset",[](const std::string & path, const FileMode::modes mode){
+            std::cout << "opening dataset pybindings" << std::endl;
             return openDataset(path, mode);
         });
 

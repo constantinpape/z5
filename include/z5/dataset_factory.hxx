@@ -10,12 +10,16 @@ namespace z5 {
     // factory function to open an existing zarr-array
     inline std::unique_ptr<Dataset> openDataset(const std::string & path, const FileMode::modes mode=FileMode::a) {
 
+        std::cout << "open dataset impl" << std::endl;
         // read the data type from the metadata
         handle::Dataset h(path, mode);
+        std::cout << "have handle" << std::endl;
         auto dtype = readDatatype(h);
+        std::cout << "have dtype" << std::endl;
 
         // make the ptr to the DatasetTyped of appropriate dtype
         std::unique_ptr<Dataset> ptr;
+        std::cout << "have initialised ptr" << std::endl;
         switch(dtype) {
             case types::int8:
                 ptr.reset(new DatasetTyped<int8_t>(h)); break;
@@ -38,6 +42,7 @@ namespace z5 {
             case types::float64:
                 ptr.reset(new DatasetTyped<double>(h)); break;
         }
+        std::cout << "open dataset impl done" << std::endl;
         return ptr;
     }
 
