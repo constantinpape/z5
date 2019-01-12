@@ -56,15 +56,6 @@ namespace handle {
             return isZarrDataset() || isZarrGroup();
         }
 
-        // TODO check the keys to determine if we have a dataset
-        // virtual bool isN5Dataset() const {
-        //     fs::path tmp(pathOnFilesystem_);
-        //     tmp /= "attributes.json";
-        //     if(!fs::exists(tmp)) {
-        //         return false;
-        //     }
-        // }
-
         virtual const FileMode & mode() const {
             return mode_;
         }

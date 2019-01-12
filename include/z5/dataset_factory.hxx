@@ -11,6 +11,10 @@ namespace z5 {
     inline std::unique_ptr<Dataset> openDataset(const std::string & path, const FileMode::modes mode=FileMode::a) {
 
         std::cout << "open dataset impl" << std::endl;
+        std::cout << "with path " << path << std::endl;
+        std::cout << "try fs path" << std::endl;
+        fs::path pp(path);
+        std::cout << "passed" << std::endl;
         // read the data type from the metadata
         handle::Dataset h(path, mode);
         std::cout << "have handle" << std::endl;
