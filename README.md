@@ -110,7 +110,7 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-There are convenience functions to convert n5 and zarr files to and from hdf5.
+There are convenience functions to convert n5 and zarr files to and from hdf5 or tif.
 Additional data formats will follow.
 
 ```python
@@ -127,7 +127,7 @@ n_threads = 8
 convert_from_h5(h5_file, n5_file,
                 in_path_in_file=h5_key,
                 out_path_in_file=n5_key,
-                out_chunks=target_chunks,
+                chunks=target_chunks,
                 n_threads=n_threads,
                 compression='gzip')
 ```
