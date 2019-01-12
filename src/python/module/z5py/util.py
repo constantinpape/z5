@@ -7,14 +7,7 @@ import numpy as np
 
 from . import _z5py as z5_impl
 from .file import File
-
-
-# TODO support rois shorter than shape and ellipsis
-def normalize_roi(roi, shape):
-    roi = tuple(slice(rr.start if rr.start is not None else 0,
-                      rr.stop if rr.stop is not None else sh)
-                for rr, sh in zip(roi, shape))
-    return roi
+from .shape_utils import normalize_slices
 
 
 def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
@@ -40,7 +33,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         # make sure that the roi is valid
         assert len(roi) == len(shape), "Invalid roi."
         assert all(isinstance(rr, slice) for rr in roi), "Invalid roi."
-        roi = normalize_roi(roi, shape)
+        roi = normalize_slices(roi, shape)
         ranges = [range(rr.start // bsha,
                         rr.stop // bsha if rr.stop % bsha == 0 else rr.stop // bsha + 1)
                   for rr, bsha in zip(roi, block_shape)]
@@ -119,7 +112,7 @@ def rechunk(in_path,
     shape = ds_in.shape
     if roi is not None:
         assert len(roi) == len(shape), "Invalid roi."
-        roi = normalize_roi(roi, shape)
+        roi = normalize_slices(roi, shape)
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
 

@@ -1,46 +1,46 @@
 import os
+import numbers
 import json
 
 
-def slice_to_begin_shape(s, size):
-    """For a single dimension with a given size, turn a slice object into a (start_idx, length)
-     pair. Returns (None, 0) if slice is invalid."""
+def slice_to_start_stop(s, size):
+    """For a single dimension with a given size, normalize slice to size.
+     Returns slice(None, 0) if slice is invalid."""
     if s.step not in (None, 1):
         raise ValueError('Nontrivial steps are not supported')
 
     if s.start is None:
-        begin = 0
+        start = 0
     elif -size <= s.start < 0:
-        begin = size + s.start
+        start = size + s.start
     elif s.start < -size or s.start >= size:
-        return None, 0
+        return slice(None, 0)
     else:
-        begin = s.start
+        start = s.start
 
     if s.stop is None or s.stop > size:
-        shape = size - begin
+        stop = size
     elif s.stop < 0:
-        shape = (size + s.stop) - begin
+        stop = (size + s.stop)
     else:
-        shape = s.stop - begin
+        stop = s.stop
 
-    if shape < 1:
-        return None, 0
+    if stop < 1:
+        return slice(None, 0)
 
-    return begin, shape
+    return slice(start, stop)
 
 
-def int_to_begin_shape(i, size):
-    """For a single dimension with a given size, turn an int into a (start_idx, length)
+def int_to_start_stop(i, size):
+    """For a single dimension with a given size, turn an int into slice(start, stop)
     pair."""
     if -size < i < 0:
-        begin = i + size
+        start = i + size
     elif i >= size or i < -size:
         raise ValueError('Index ({}) out of range (0-{})'.format(i, size-1))
     else:
-        begin = i
-
-    return begin, 1
+        start = i
+    return slice(start, start + 1)
 
 
 def sliding_window(arr, wsize):
@@ -121,3 +121,50 @@ def is_group(path, is_zarr):
                 attributes = {}
         # The dimensions key is only present in a dataset
         return 'dimensions' not in attributes
+
+
+def normalize_slices(slices, shape):
+    """ Normalize slices to shape.
+
+    Normalize input, which can be a slice or a tuple of slices / ellipsis to
+    be of same length as shape and be in bounds of shape.
+
+    Args:
+        slices (slice or tuple[slice]): slices to be normalized
+
+    Returns:
+        tuple[slice]: normalized slices
+    """
+    type_msg = 'Advanced selection inappropriate. ' \
+               'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
+
+    if isinstance(slices, tuple):
+        slices_lst = list(slices)
+    elif isinstance(slices, (numbers.Number, slice, type(Ellipsis))):
+        slices_lst = [slices]
+    else:
+        raise TypeError(type_msg)
+
+    ndim = len(shape)
+    if len([item for item in slices_lst if item != Ellipsis]) > ndim:
+        raise TypeError("Argument sequence too long")
+    elif len(slices_lst) < ndim and Ellipsis not in slices_lst:
+        slices_lst.append(Ellipsis)
+
+    normalized = []
+    found_ellipsis = False
+    for item in slices_lst:
+        d = len(normalized)
+        if isinstance(item, slice):
+            normalized.append(slice_to_start_stop(item, shape[d]))
+        elif isinstance(item, numbers.Number):
+            normalized.append(int_to_start_stop(int(item), shape[d]))
+        elif isinstance(item, type(Ellipsis)):
+            if found_ellipsis:
+                raise ValueError("Only one ellipsis may be used")
+            found_ellipsis = True
+            while len(normalized) + (len(slices_lst) - d - 1) < ndim:
+                normalized.append(slice(0, shape[len(normalized)]))
+        else:
+            raise TypeError(type_msg)
+    return tuple(normalized)

@@ -6,7 +6,7 @@ import numpy as np
 
 from . import _z5py
 from .attribute_manager import AttributeManager, get_json_encoder
-from .shape_utils import slice_to_begin_shape, int_to_begin_shape, rectify_shape
+from .shape_utils import normalize_slices, rectify_shape
 from .shape_utils import get_default_chunks, is_group
 
 
@@ -408,44 +408,13 @@ class Dataset(object):
             tuple: offset of the region of interest.
             tuple: shape of the region of interest.
         """
-        type_msg = 'Advanced selection inappropriate. ' \
-                   'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
-
-        if isinstance(index, tuple):
-            index_lst = list(index)
-        elif isinstance(index, (numbers.Number, slice, type(Ellipsis))):
-            index_lst = [index]
-        else:
-            raise TypeError(type_msg)
-
-        if len([item for item in index_lst if item != Ellipsis]) > self.ndim:
-            raise TypeError("Argument sequence too long")
-        elif len(index_lst) < self.ndim and Ellipsis not in index_lst:
-            index_lst.append(Ellipsis)
-
-        start_shapes = []
-        found_ellipsis = False
-        for item in index_lst:
-            d = len(start_shapes)
-            if isinstance(item, slice):
-                start_shapes.append(slice_to_begin_shape(item, self.shape[d]))
-            elif isinstance(item, numbers.Number):
-                start_shapes.append(int_to_begin_shape(int(item), self.shape[d]))
-            elif isinstance(item, type(Ellipsis)):
-                if found_ellipsis:
-                    raise ValueError("Only one ellipsis may be used")
-                found_ellipsis = True
-                while len(start_shapes) + (len(index_lst) - d - 1) < self.ndim:
-                    start_shapes.append((0, self.shape[len(start_shapes)]))
-            else:
-                raise TypeError(type_msg)
-
-        roi_begin, roi_shape = zip(*start_shapes)
-        return roi_begin, roi_shape
+        normalized = normalize_slices(index, self.shape)
+        return tuple(norm.start for norm in normalized),\
+               tuple(0 if norm.start is None else norm.stop - norm.start
+                     for norm in normalized)
 
     # most checks are done in c++
     def __getitem__(self, index):
-        # TODO: support newaxis, integer/boolean arrays, striding
         roi_begin, shape = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
         if 0 in shape:

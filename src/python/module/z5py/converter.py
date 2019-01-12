@@ -21,7 +21,8 @@ except ImportError:
     WITH_IMIO = False
 
 from .file import File
-from .util import blocking, normalize_roi
+from .util import blocking
+from .shape_utils import normalize_slices
 
 if WITH_H5:
 
@@ -70,7 +71,7 @@ if WITH_H5:
 
         if roi is not None:
             assert len(roi) == len(shape), "Invalid roi."
-            roi = normalize_roi(roi, shape)
+            roi = normalize_slices(roi, shape)
             if fit_to_roi:
                 shape = tuple(rr.stop - rr.start for rr in roi)
 
@@ -153,7 +154,7 @@ if WITH_H5:
 
             if roi is not None:
                 assert len(roi) == len(shape), "Invalid roi."
-                roi = normalize_roi(roi, shape)
+                roi = normalize_slices(roi, shape)
                 if fit_to_roi:
                     shape = tuple(rr.stop - rr.start for rr in roi)
 
