@@ -247,8 +247,7 @@ class Dataset(object):
                         compression=None,
                         fillvalue=0, n_threads=1,
                         compression_options={},
-                        is_zarr=True,
-                        mode=None):
+                        is_zarr=True, mode=None):
         # check if this dataset already exists
         if os.path.exists(path):
             raise RuntimeError("Cannot create dataset (name already exists)")

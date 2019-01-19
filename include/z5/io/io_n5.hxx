@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ios>
+#include <unistd.h>
 
 #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
 #define BOOST_FILESYSTEM_NO_DEPERECATED
@@ -27,8 +28,9 @@ namespace io {
 
     public:
 
+        // TODO syncWrite_ should be set from options and not be hard-coded
         ChunkIoN5(const types::ShapeType & shape, const types::ShapeType & chunkShape) :
-            shape_(shape), chunkShape_(chunkShape){
+            syncWrite_(true), shape_(shape), chunkShape_(chunkShape){
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<char> & data) const {
@@ -67,13 +69,40 @@ namespace io {
                           const bool isVarlen=false,
                           const std::size_t varSize=0) const {
             // create the parent folder
+            // TODO can mkdirs create race conditions ?
             chunk.createTopDir();
+            const auto & path = chunk.path();
+
             // this might speed up the I/O by decoupling C++ buffers from C buffers
             std::ios_base::sync_with_stdio(false);
-            fs::ofstream file(chunk.path(), std::ios::binary);
+            fs::ofstream file(path, std::ios::binary);
+
+            // check if we synchronize chunk access
+            if(syncWrite_) {
+                // F_LOCK acquires a lock on the file
+                // if the file is already locked, it waits until
+                // the lock is released
+                const int fd = util::fileno(file);
+                if(fd < 0) {
+                    throw std::runtime_error("Invalid file descriptor");
+                }
+                if(lockf(fd, F_LOCK, 0) != 0) {
+                    throw std::runtime_error("Acquiring file lock failed");
+                }
+            }
+
             // write the header
             writeHeader(chunk, file, isVarlen, static_cast<uint32_t>(varSize));
             file.write(data, fileSize);
+
+            // the lock should be automatically closed when we clsoe the file
+            // check if we synchronize chunk access
+            // if(syncWrite_) {
+            //     // release the file lock
+            //     if(lockf(fd, F_ULOCK, 0) != 0) {
+            //         throw std::runtime_error("Releasing file lock failed");
+            //     }
+            // }
             file.close();
         }
 
@@ -453,6 +482,7 @@ namespace io {
         }
 
         // members
+        bool syncWrite_;
         const types::ShapeType & shape_;
         const types::ShapeType & chunkShape_;
 
