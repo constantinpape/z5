@@ -31,8 +31,6 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         max_coords = shape
     else:
         # make sure that the roi is valid
-        assert len(roi) <= len(shape), "Invalid roi."
-        assert all(isinstance(rr, slice) for rr in roi), "Invalid roi."
         roi = normalize_slices(roi, shape)
         ranges = [range(rr.start // bsha,
                         rr.stop // bsha if rr.stop % bsha == 0 else rr.stop // bsha + 1)
