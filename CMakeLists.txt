@@ -132,6 +132,26 @@ find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
 
+###################
+# xtensor libraries
+###################
+
+find_package(xtensor REQUIRED)
+include_directories(xtensor_INCLUDE_DIRS)
+
+find_package(xtensor-python REQUIRED)
+include_directories(xtensor-python_INCLUDE_DIRS)
+
+find_package(xsimd)
+if(xsimd_FOUND)
+    message(STATUS "Found xsimd, compiling with XTENSOR_USE_XSIMD")
+    include_directories(xsimd_INCLUDE_DIRS)
+    add_definitions(-DXTENSOR_USE_XSIMD)
+else()
+    message(STATUS "xsimd not found, compiling without vector instructions")
+endif()
+
+
 ###############################
 # Include compression libs
 ###############################
