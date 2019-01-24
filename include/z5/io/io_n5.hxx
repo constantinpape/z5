@@ -29,6 +29,8 @@ namespace io {
 
         ChunkIoN5(const types::ShapeType & shape, const types::ShapeType & chunkShape) :
             shape_(shape), chunkShape_(chunkShape){
+            // disable sync of c++ and c streams for potentially faster I/O
+            std::ios_base::sync_with_stdio(false);
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<char> & data) const {
@@ -36,8 +38,6 @@ namespace io {
             // if the chunk exists, we read it
             if(chunk.exists()) {
 
-                // this might speed up the I/O by decoupling C++ buffers from C buffers
-                std::ios_base::sync_with_stdio(false);
                 // open input stream and read the header
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 types::ShapeType chunkShape;
@@ -68,8 +68,6 @@ namespace io {
                           const std::size_t varSize=0) const {
             // create the parent folder
             chunk.createTopDir();
-            // this might speed up the I/O by decoupling C++ buffers from C buffers
-            std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
             // write the header
             writeHeader(chunk, file, isVarlen, static_cast<uint32_t>(varSize));
@@ -81,7 +79,6 @@ namespace io {
         inline void getChunkShape(const handle::Chunk & chunk,
                                   types::ShapeType & shape) const {
             if(chunk.exists()) {
-                std::ios_base::sync_with_stdio(false);
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 readHeader(file, shape);
                 file.close();
@@ -105,7 +102,6 @@ namespace io {
                                             bool & isVarlen) const {
             if(chunk.exists()) {
                 // read the header
-                std::ios_base::sync_with_stdio(false);
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 types::ShapeType shape;
                 const auto headerInfo = readHeader(file, shape);

@@ -20,6 +20,8 @@ namespace io {
     public:
 
         ChunkIoZarr() {
+            // disable sync of c++ and c streams for potentially faster I/O
+            std::ios_base::sync_with_stdio(false);
         }
 
         inline bool read(const handle::Chunk & chunk, std::vector<char> & data) const {
@@ -27,8 +29,6 @@ namespace io {
             // if the chunk exists, we read it
             if(chunk.exists()) {
 
-                // this might speed up the I/O by decoupling C++ buffers from C buffers
-                std::ios_base::sync_with_stdio(false);
                 // open input stream and read the filesize
                 fs::ifstream file(chunk.path(), std::ios::binary);
                 file.seekg(0, std::ios::end);
@@ -56,8 +56,6 @@ namespace io {
         inline void write(const handle::Chunk & chunk, const char * data,
                           const std::size_t fileSize, const bool=false,
                           const std::size_t=0) const {
-            // this might speed up the I/O by decoupling C++ buffers from C buffers
-            std::ios_base::sync_with_stdio(false);
             fs::ofstream file(chunk.path(), std::ios::binary);
             file.write(data, fileSize);
             file.close();
