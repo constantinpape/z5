@@ -6,6 +6,7 @@
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
 Lightweight C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file format.
+
 Support for the following compression codecs:
 - [Blosc](https://github.com/Blosc/c-blosc)
 - [Zlib / Gzip](https://zlib.net/)
