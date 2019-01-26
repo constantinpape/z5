@@ -5,8 +5,7 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
-Lightweight C++ and Python wrapper for reading and writing files in zarr 
-(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) format.
+Lightweight C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file format.
 
 Offers support for the following compression codecs:
 - Blosc (https://github.com/Blosc/c-blosc)
