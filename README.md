@@ -6,13 +6,12 @@
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
 Lightweight C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file format.
-
-Offers support for the following compression codecs:
-- Blosc (https://github.com/Blosc/c-blosc)
-- Zlib / Gzip (https://zlib.net/)
-- Bzip2 (http://www.bzip.org/)
-- XZ (https://tukaani.org/xz/)
-- LZ4 (https://github.com/lz4/lz4)
+Support for the following compression codecs:
+- [Blosc](https://github.com/Blosc/c-blosc)
+- [Zlib / Gzip](https://zlib.net/)
+- [Bzip2](http://www.bzip.org/)
+- [XZ](https://tukaani.org/xz/)
+- [LZ4](https://github.com/lz4/lz4)
 
 ## Installation
 
@@ -63,8 +62,8 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
 - Compatibility of exception handling is a goal, but not necessarily guaranteed.
 - Because zarr/N5 are usually used with large data, `z5py` compresses blocks by default where `h5py` does not. The default compressors are
-  - Zarr: `"blosc"`
-  - N5: `"gzip"`
+  - zarr: `"blosc"`
+  - n5: `"gzip"`
 
 Some examples:
 
@@ -125,9 +124,9 @@ convert_from_h5(h5_file, n5_file,
 ### C++
 
 The library is intended to be used with a multiarray, that holds data in memory.
-By default, `xtensor` (https://github.com/QuantStack/xtensor) is used. 
+By default, [xtensor](https://github.com/QuantStack/xtensor) is used. 
 See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx
-There also exists an interface for `marray` (https://github.com/bjoern-andres/marray).
+There also exists an interface for [marray](https://github.com/bjoern-andres/marray).
 See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
