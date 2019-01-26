@@ -1,6 +1,5 @@
 name: z5-py37
 channels:
-  - conda-forge/label/gcc7
   - conda-forge
 dependencies:
   - python=3.7
@@ -10,9 +9,10 @@ dependencies:
   - bzip2
   - xz
   - zlib
-  - boost=1.68
-  - xtensor-python=0.21.0
-  - xtensor=0.18.1
+  - boost=1.69
+  - xtensor-python=0.22.0
+  - xtensor=0.19.2
+  - xsimd=7.1.2
   - blosc
   - imageio
   - h5py
