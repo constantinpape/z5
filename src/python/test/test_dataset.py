@@ -60,12 +60,14 @@ class DatasetTestMixin(object):
         self.check_array(out, np.zeros(self.shape))
 
     def test_ds_dtypes(self):
+        shape = (100, 100)
+        chunks = (10, 10)
         for dtype in self.dtypes:
             ds = self.root_file.create_dataset('data_%s' % hash(dtype),
                                                dtype=dtype,
-                                               shape=self.shape,
-                                               chunks=(10, 10, 10))
-            in_array = np.random.rand(*self.shape).astype(dtype)
+                                               shape=shape,
+                                               chunks=chunks)
+            in_array = np.random.rand(*shape).astype(dtype)
             ds[:] = in_array
             out_array = ds[:]
             self.check_array(out_array, in_array,
@@ -322,6 +324,33 @@ class DatasetTestMixin(object):
         out = ds[:]
         self.assertTrue(np.allclose(out[selection], data[selection]))
 
+    def test_irregular_chunks(self):
+        shape = (123, 54, 211)
+        chunks = (13, 33, 22)
+
+        ds = self.root_file.create_dataset('test', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+        data = np.random.rand(*shape)
+        ds[:] = data
+        out = ds[:]
+        self.assertTrue(np.allclose(out, data))
+
+    def test_nd(self):
+        f = self.root_file
+        for ndim in range(1, 6):
+            size = 100 if ndim < 4 else 20
+            shape = (size,) * ndim
+            chunks =  (10,) * ndim
+            ds = f.create_dataset('test_%i' % ndim, dtype='float64',
+                                  shape=shape, chunks=chunks, compression='raw')
+
+            data = np.random.rand(*shape)
+            ds[:] = data
+            out = ds[:]
+            self.assertTrue(np.allclose(out, data))
+
+
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
 
@@ -333,7 +362,6 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
                                            compression='raw')
         with self.assertRaises(RuntimeError):
             ds.write_chunk((0, 0), np.random.rand(10), True)
-
 
 
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
