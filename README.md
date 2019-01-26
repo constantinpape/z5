@@ -1,28 +1,18 @@
-CI Status
-----------------------
-Travis (Linux Builds)
-
-[![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
-
-Appveyor (Windows Builds)
-
-[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
-
-Documentation
--------------
-[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
-
 # z5
 
-Lightweight C++ and Python wrapper for reading and writing files in zarr 
-(https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) format.
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
+[![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
+[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
+[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
-Offers support for the following compression codecs:
-- Blosc (https://github.com/Blosc/c-blosc)
-- Zlib / Gzip (https://zlib.net/)
-- Bzip2 (http://www.bzip.org/)
-- XZ (https://tukaani.org/xz/)
-- LZ4 (https://github.com/lz4/lz4)
+Lightweight C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file format.
+
+Support for the following compression codecs:
+- [Blosc](https://github.com/Blosc/c-blosc)
+- [Zlib / Gzip](https://zlib.net/)
+- [Bzip2](http://www.bzip.org/)
+- [XZ](https://tukaani.org/xz/)
+- [LZ4](https://github.com/lz4/lz4)
 
 ## Installation
 
@@ -73,8 +63,8 @@ the zarr or N5 format is used (if set to `None`, an attempt is made to automatic
 - Arbitrary leading and trailing singleton dimensions can be added/removed/rolled through in `Dataset.__setitem__`
 - Compatibility of exception handling is a goal, but not necessarily guaranteed.
 - Because zarr/N5 are usually used with large data, `z5py` compresses blocks by default where `h5py` does not. The default compressors are
-  - Zarr: `"blosc"`
-  - N5: `"gzip"`
+  - zarr: `"blosc"`
+  - n5: `"gzip"`
 
 Some examples:
 
@@ -135,9 +125,9 @@ convert_from_h5(h5_file, n5_file,
 ### C++
 
 The library is intended to be used with a multiarray, that holds data in memory.
-By default, `xtensor` (https://github.com/QuantStack/xtensor) is used. 
-See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx
-There also exists an interface for `marray` (https://github.com/bjoern-andres/marray).
+By default, [xtensor](https://github.com/QuantStack/xtensor) is used. 
+See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx.
+There also exists an interface for [marray](https://github.com/bjoern-andres/marray).
 See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
@@ -184,11 +174,11 @@ int main() {
 
 ## When to use this library?
 
-This library implements the zarr and N5 data specification in C++ and Python.
+This library implements the zarr and n5 data specification in C++ and Python.
 Use it, if you need access to these formats from these languages.
-Zarr / N5 have native implementations in Python / Java.
+Zarr / n5 have native implementations in Python / Java.
 If you only need access in the respective native language,
-I recommend to use these implementations, which are more thoroughly tested.
+it is recommended to use these implementations, which are more thoroughly tested.
 
 
 ## Current Limitations / TODOs
@@ -199,7 +189,7 @@ I recommend to use these implementations, which are more thoroughly tested.
 
 ## A note on axis ordering
 
-Internally, n5 uses column-major (i.e. x, y, z) axis ordering, while z5 does row-major (i.e. z, y,x) axis ordering.
+Internally, n5 uses column-major (i.e. x, y, z) axis ordering, while z5 uses row-major (i.e. z, y, x).
 While this is mostly handled internally, it means that the metadata does not transfer
 1 to 1, but needs to be reversed for most shapes. Concretely:
 

@@ -112,9 +112,8 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
+        std::vector<Buffer> threadBuffers(nThreads, Buffer(ds.maxChunkSize()));
 
         const auto & chunking = ds.chunking();
 
@@ -154,8 +153,8 @@ namespace multiarray {
 
             // get the current chunk-shape and resize the buffer if necessary
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                        1, std::multiplies<std::size_t>());
+            const std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                          1, std::multiplies<std::size_t>());
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -164,7 +163,6 @@ namespace multiarray {
             if(ds.readChunk(chunkId, &buffer[0])){
                 throw std::runtime_error("Can't read from varlen chunks to multiarray");
             }
-
             // request and chunk overlap completely
             // -> we can read all the data from the chunk
             if(completeOvlp) {
@@ -310,9 +308,8 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize));
+        std::vector<Buffer> threadBuffers(nThreads, Buffer(ds.maxChunkSize()));
 
         const auto & chunking = ds.chunking();
 
@@ -330,7 +327,8 @@ namespace multiarray {
                                                                    shape, offsetInRequest,
                                                                    requestShape, offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            const std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                          1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice;
