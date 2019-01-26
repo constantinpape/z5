@@ -90,9 +90,8 @@ namespace multiarray {
 
                 // could also implement fast copy for this
                 // but this would be harder and might be premature optimization
-                // FIXME assigning the views fails with std::bad_alloc in c++ 17
-                // view = bufView;
-                std::copy(bufView.begin(), bufView.end(), view.begin());
+                view = bufView;
+                // std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
@@ -180,9 +179,8 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                // FIXME assigning the views fails with std::bad_alloc in c++ 17
-                // view = bufView;
-                std::copy(bufView.begin(), bufView.end(), view.begin());
+                view = bufView;
+                // std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         });
     }
@@ -283,9 +281,8 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                // FIXME assigning the views fails with std::bad_alloc in c++ 17
-                // bufView = view;
-                std::copy(view.begin(), view.end(), bufView.begin());
+                bufView = view;
+                // std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
@@ -367,9 +364,8 @@ namespace multiarray {
 
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
-                // FIXME assigning the views fails with std::bad_alloc in c++ 17
-                // bufView = view;
-                std::copy(view.begin(), view.end(), bufView.begin());
+                bufView = view;
+                // std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
