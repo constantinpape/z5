@@ -1,18 +1,9 @@
-CI Status
-----------------------
-Travis (Linux Builds)
-
-[![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
-
-Appveyor (Windows Builds)
-
-[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
-
-Documentation
--------------
-[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
-
 # z5
+
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
+[![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
+[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
+[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
 Lightweight C++ and Python wrapper for reading and writing files in zarr 
 (https://github.com/alimanfoo/zarr) and N5 (https://github.com/saalfeldlab/n5) format.
