@@ -281,12 +281,10 @@ class Dataset(object):
             chunks = get_default_chunks(shape)
         # check chunks have the same len than the shape
         if len(chunks) != len(shape):
-            raise RuntimeError("Chunks %s must have same legnth than shape %s" % (str(chunks),
-                                                                                  str(shape)))
-        # check chunks are not bigger than shape
-        if any(ch > sh for ch, sh in zip(chunks, shape)):
-            raise RuntimeError("Chunks %s must not be bigger smaller than shape %s" % (str(chunks),
-                                                                                       str(shape)))
+            raise RuntimeError("Chunks %s must have same length as shape %s" % (str(chunks),
+                                                                                str(shape)))
+        # limit chunks to shape
+        chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
 
         # check compression / get default compression
         # if no compression is given
