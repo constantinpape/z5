@@ -114,13 +114,19 @@ namespace z5 {
             fillValue = static_cast<double>(j["fill_value"]); // FIXME fill value should not be used at this level
             const auto & compressionOpts = j["compressor"];
 
+            std::string zarrCompressorId = compressionOpts["id"];
             try {
                 compressor = compressionOpts.is_null() ?
-                    types::raw : types::Compressors::zarrToCompressor().at(compressionOpts["id"]);
+                    types::raw : types::Compressors::zarrToCompressor().at(zarrCompressorId);
             } catch(std::out_of_range) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
             }
 
+            if(zarrCompressorId == "zlib") {
+                compressionOptions["useZlib"] = true;
+            } else if (zarrCompressorId == "gzip") {
+                compressionOptions["useZlib"] = false;
+            }
             types::readZarrCompressionOptionsFromJson(compressor, compressionOpts, compressionOptions);
         }
 
@@ -266,6 +272,7 @@ namespace z5 {
         file << std::setw(4) << j << std::endl;
         file.close();
     }
+
 
     inline void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
         fs::path filePath = handle.path();
