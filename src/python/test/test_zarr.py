@@ -38,7 +38,8 @@ class TestZarrCompatibility(unittest.TestCase):
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
-                            'bzip2': numcodecs.BZ2()}
+                            'bzip2': numcodecs.BZ2(),
+                            'gzip': numcodecs.GZip()}
 
         for dtype in dtypes:
             for compression in compressions:
