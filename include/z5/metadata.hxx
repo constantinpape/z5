@@ -17,7 +17,7 @@ namespace fs = boost::filesystem;
 
 namespace z5 {
 
-    // TODO add zarr format
+    // TODO add n5 format
     // general format
     struct Metadata {
         const int zarrFormat = 2;
@@ -111,7 +111,7 @@ namespace z5 {
             dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
-            fillValue = static_cast<double>(j["fill_value"]); // FIXME fill value should not be used at this level
+            fillValue = static_cast<double>(j["fill_value"]);
             const auto & compressionOpts = j["compressor"];
 
             std::string zarrCompressorId = compressionOpts.is_null() ? "raw" : compressionOpts["id"];
