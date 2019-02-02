@@ -46,7 +46,7 @@ namespace compression {
             // TODO this might lead to issues with other n5 implementations
             if(!useZlibEncoding_ && sizeIn > 22) {
                 if(deflateInit2(&zs, clevel_,
-                                Z_DEFLATED, gzipWindowsize + 16,
+                                Z_DEFLATED, MAX_WBITS + 16,
                                 gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
@@ -99,14 +99,10 @@ namespace compression {
             z_stream zs;
             memset(&zs, 0, sizeof(zs));
 
-            // init the zlib stream
-            if(!useZlibEncoding_ && sizeOut > 22) {
-                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib inflate failed"));}
-            } else {
-                if(inflateInit(&zs) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib inflate failed"));
-                }
+            // init the zlib stream with automatic header detection
+            // for zlib and zip format (MAX_WBITS + 32)
+            if(inflateInit2(&zs, MAX_WBITS + 32) != Z_OK){
+                throw(std::runtime_error("Initializing zLib inflate failed"));
             }
 
             // set the stream input to the beginning of the input data
@@ -154,8 +150,6 @@ namespace compression {
         // use zlib or gzip encoding
         bool useZlibEncoding_;
 
-        const static int gzipWindowsize = 15;
-        //static int gzipBsize = 8096;
         const static int gzipCFactor = 9;
     };
 
