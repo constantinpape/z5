@@ -40,18 +40,19 @@ namespace compression {
             const std::size_t bufferSize = 262144;
             std::vector<Bytef> outbuffer(bufferSize);
 
-            // init the zlib or gzip stream
+            // TODO this is not a good idea, we don't do this anymore !
             // note that the gzip format fails for very small input sizes (<= 22)
             // so we use zlib for these no matter the input
-            // TODO this might lead to issues with other n5 implementations
-            if(!useZlibEncoding_ && sizeIn > 22) {
-                if(deflateInit2(&zs, clevel_,
-                                Z_DEFLATED, MAX_WBITS + 16,
-                                gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
+
+            // init the zlib or gzip stream
+            if(useZlibEncoding_) {
+                if(deflateInit(&zs, clevel_) != Z_OK){
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
             } else {
-                if(deflateInit(&zs, clevel_) != Z_OK){
+                if(deflateInit2(&zs, clevel_,
+                                Z_DEFLATED, MAX_WBITS + 16,
+                                MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
             }
@@ -149,8 +150,6 @@ namespace compression {
         int clevel_;
         // use zlib or gzip encoding
         bool useZlibEncoding_;
-
-        const static int gzipCFactor = 9;
     };
 
 } // namespace compression
