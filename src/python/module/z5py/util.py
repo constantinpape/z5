@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 from itertools import product
 from concurrent import futures
 from contextlib import closing
@@ -7,7 +8,14 @@ import numpy as np
 
 from . import _z5py as z5_impl
 from .file import File
+from .group import Group
+from .dataset import Dataset
 from .shape_utils import normalize_slices
+
+
+def product1d(inrange):
+    for ii in inrange:
+        yield ii
 
 
 def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
@@ -43,7 +51,19 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         shift = [rr.start % bsha for rr, bsha in zip(roi, block_shape)]
         need_shift = sum(shift) > 0
 
-    start_points = product(*ranges)
+    # product raises memory error for too large ranges,
+    # because input iterators are cast to tuple
+    # TODO so far I have only seen this for 1d "open-ended" datasets
+    # and hence just implemented a workaround for this case,
+    # but it should be fairly easy to implement an nd version of product
+    # without casting to tuple for our use case using the imglib loop trick, see also
+    # https://stackoverflow.com/questions/8695422/why-do-i-get-a-memoryerror-with-itertools-product
+    try:
+        start_points = product(*ranges)
+    except MemoryError:
+        assert len(ranges) == 1
+        start_points = product1d(ranges)
+
     for start_point in start_points:
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
         if need_shift:
@@ -97,6 +117,12 @@ def copy_dataset(in_path, out_path,
 
     ds_in = f_in[in_path_in_file]
 
+    # check if we can copy chunk by chunk
+    if chunks is None or chunks == ds_in.chunks:
+        copy_chunks = True
+    else:
+        copy_chunks = False
+
     # get dataset metadata from input dataset if defaults were given
     chunks = ds_in.chunks if chunks is None else chunks
     dtype = ds_in.dtype if dtype is None else dtype
@@ -119,13 +145,14 @@ def copy_dataset(in_path, out_path,
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
 
+    # return
     ds_out = f_out.create_dataset(out_path_in_file,
                                   dtype=dtype,
                                   shape=shape,
                                   chunks=chunks,
                                   **compression_opts)
 
-    def write_single_chunk(bb):
+    def write_single_block(bb):
         data_in = ds_in[bb].astype(dtype, copy=False)
         if np.sum(data_in) == 0:
             return
@@ -134,8 +161,19 @@ def copy_dataset(in_path, out_path,
                        for b, rr in zip(bb, roi))
         ds_out[bb] = data_in
 
+    def write_single_chunk(bb):
+        chunk_id = tuple(b.start // ch for b, ch in zip(bb, chunks))
+        chunk_in = ds_in.read_chunk(chunk_id)
+        if chunk_in is None:
+            return
+        # check if this is a varlen chunk
+        varlen = tuple(chunk_in.shape) != tuple(b.stop - b.start for b in bb)
+        ds_out.write_chunk(chunk_id, chunk_in.astype(dtype, copy=False), varlen)
+
+    write_single = write_single_chunk if copy_chunks else write_single_block
+
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-        tasks = [tp.submit(write_single_chunk, bb) for bb in blocks]
+        tasks = [tp.submit(write_single, bb) for bb in blocks]
         [t.result() for t in tasks]
 
     # copy attributes
@@ -143,6 +181,44 @@ def copy_dataset(in_path, out_path,
     out_attrs = ds_out.attrs
     for key, val in in_attrs.items():
         out_attrs[key] = val
+
+
+# TODO we could allow to change formats from zarr to n5 and vice versa
+def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
+    """ Copy group recursively.
+
+    Copy the group recursively, using copy_dataset. Metadata of datasets that
+    are copied cannot be changed and rois cannot be applied.
+
+    Args:
+        in_path (str): path to the input file.
+        out_path (str): path to the output file.
+        in_path_in_file (str): name of input group.
+        out_path_in_file (str): name of output group.
+        n_threads (int): number of threads used to copy datasets.
+    """
+    f_in = File(in_path)
+    f_out = File(out_path)
+
+    g_in = f_in[in_path_in_file]
+    for key, obj in g_in.items():
+        abs_in_key = os.path.join(in_path_in_file, key)
+        abs_out_key = os.path.join(out_path_in_file, key)
+        if isinstance(obj, Dataset):
+            copy_dataset(in_path, out_path,
+                         abs_in_key, abs_out_key, n_threads)
+        else:
+            assert isinstance(obj, Group)
+            # copy group attributes
+            g_out = f_out.require_group(abs_out_key)
+            in_attrs = obj.attrs
+            out_attrs = g_out.attrs
+            for key, val in in_attrs.items():
+                out_attrs[key] = val
+
+            # copy group content
+            copy_group(in_path, out_path,
+                       abs_in_key, abs_out_key, n_threads)
 
 
 class Timer(object):
