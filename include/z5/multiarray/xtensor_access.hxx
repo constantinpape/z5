@@ -28,10 +28,12 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        std::size_t chunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = maxChunkSize;
         std::vector<T> buffer(chunkSize);
 
         const auto & chunking = ds.chunking();
+        const bool isZarr = ds.isZarr();
 
         // get the fillvalue
         T fillValue;
@@ -41,12 +43,12 @@ namespace multiarray {
         for(const auto & chunkId : chunkRequests) {
 
             // std::cout << "Reading chunk " << chunkId << std::endl;
-            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
-                                                                   offset,
-                                                                   shape,
-                                                                   offsetInRequest,
-                                                                   requestShape,
-                                                                   offsetInChunk);
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                             offset,
+                                                             shape,
+                                                             offsetInRequest,
+                                                             requestShape,
+                                                             offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice;
@@ -60,10 +62,21 @@ namespace multiarray {
                 continue;
             }
 
-            // get the current chunk-shape and resize the buffer if necessary
-            ds.getChunkShape(chunkId, chunkShape);
+            // get the current chunk-shape
+            ds.getBoundedChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
+
+            // if this is an edge chunk and we are writing zarr format,
+            // we need to set complete ovlp to false
+            if(chunkSize != maxChunkSize && isZarr) {
+                completeOvlp = false;
+                // reset chunk shape and chunk size
+                ds.getChunkShape(chunkId, chunkShape);
+                chunkSize = maxChunkSize;
+            }
+
+            // resize the buffer if necessary
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -91,7 +104,6 @@ namespace multiarray {
                 // could also implement fast copy for this
                 // but this would be harder and might be premature optimization
                 view = bufView;
-                // std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         }
     }
@@ -111,10 +123,12 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
+        const std::size_t maxChunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(ds.maxChunkSize()));
+        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
 
         const auto & chunking = ds.chunking();
+        const bool isZarr = ds.isZarr();
 
         // get the fillvalue
         T fillValue;
@@ -131,12 +145,12 @@ namespace multiarray {
             types::ShapeType offsetInChunk;
 
             //std::cout << "Reading chunk " << chunkId << std::endl;
-            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
-                                                                   offset,
-                                                                   shape,
-                                                                   offsetInRequest,
-                                                                   requestShape,
-                                                                   offsetInChunk);
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
+                                                             offset,
+                                                             shape,
+                                                             offsetInRequest,
+                                                             requestShape,
+                                                             offsetInChunk);
 
             // get the view in our array
             xt::slice_vector offsetSlice;
@@ -150,10 +164,21 @@ namespace multiarray {
                 return;
             }
 
-            // get the current chunk-shape and resize the buffer if necessary
-            ds.getChunkShape(chunkId, chunkShape);
-            const std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                                          1, std::multiplies<std::size_t>());
+            // get the current chunk-shape
+            ds.getBoundedChunkShape(chunkId, chunkShape);
+            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                    1, std::multiplies<std::size_t>());
+
+            // if this is an edge chunk and we are writing zarr format,
+            // we need to set complete ovlp to false
+            if(chunkSize != maxChunkSize && isZarr) {
+                completeOvlp = false;
+                // reset chunk shape and chunk size
+                ds.getChunkShape(chunkId, chunkShape);
+                chunkSize = maxChunkSize;
+            }
+
+            // resize the buffer if necessary
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -180,7 +205,6 @@ namespace multiarray {
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
                 view = bufView;
-                // std::copy(bufView.begin(), bufView.end(), view.begin());
             }
         });
     }
@@ -226,18 +250,23 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        std::size_t chunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = maxChunkSize;
         std::vector<T> buffer(chunkSize);
 
         const auto & chunking = ds.chunking();
 
+        // if we have a zarr dataset, we always write the full chunk
+        const bool isZarr = ds.isZarr();
+
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
-                                                                   shape, offsetInRequest,
-                                                                   requestShape, offsetInChunk);
-            ds.getChunkShape(chunkId, chunkShape);
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                             shape, offsetInRequest,
+                                                             requestShape, offsetInChunk);
+            // get shape and size of this chunk
+            ds.getBoundedChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
@@ -246,7 +275,18 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             const auto view = xt::strided_view(in, offsetSlice);
 
-            // resize buffer if necessary
+            // if this is an edge chunk and we are writing zarr format,
+            // we need to set complete ovlp to false and clear the buffer
+            if(chunkSize != maxChunkSize && isZarr) {
+                completeOvlp = false;
+                // reset chunk shape and chunk size
+                ds.getChunkShape(chunkId, chunkShape);
+                chunkSize = maxChunkSize;
+                // clear the buffer TODO use fill-value here?
+                std::fill(buffer.begin(), buffer.end(), 0);
+            }
+
+            // resize the buffer if necessary
             if(chunkSize != buffer.size()) {
                 buffer.resize(chunkSize);
             }
@@ -282,7 +322,6 @@ namespace multiarray {
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
                 bufView = view;
-                // std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
@@ -305,10 +344,12 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
+        const std::size_t maxChunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(ds.maxChunkSize()));
+        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
 
         const auto & chunking = ds.chunking();
+        const bool isZarr = ds.isZarr();
 
         // write the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
@@ -320,17 +361,28 @@ namespace multiarray {
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
 
-            const bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
-                                                                   shape, offsetInRequest,
-                                                                   requestShape, offsetInChunk);
-            ds.getChunkShape(chunkId, chunkShape);
-            const std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                                          1, std::multiplies<std::size_t>());
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
+                                                             shape, offsetInRequest,
+                                                             requestShape, offsetInChunk);
+            ds.getBoundedChunkShape(chunkId, chunkShape);
+            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                    1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
             xt::slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             const auto view = xt::strided_view(in, offsetSlice);
+
+            // if this is an edge chunk and we are writing zarr format,
+            // we need to set complete ovlp to false and clear the buffer
+            if(chunkSize != maxChunkSize && isZarr) {
+                completeOvlp = false;
+                // reset chunk shape and chunk size
+                ds.getChunkShape(chunkId, chunkShape);
+                chunkSize = maxChunkSize;
+                // clear the buffer TODO use fill-value here?
+                std::fill(buffer.begin(), buffer.end(), 0);
+            }
 
             // resize buffer if necessary
             if(chunkSize != buffer.size()) {
@@ -365,7 +417,6 @@ namespace multiarray {
                 // could also implement smart view for this,
                 // but this would be kind of hard and premature optimization
                 bufView = view;
-                // std::copy(view.begin(), view.end(), bufView.begin());
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);

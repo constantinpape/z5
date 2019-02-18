@@ -21,8 +21,8 @@ except ImportError:
 class TestZarrCompatibility(unittest.TestCase):
     def setUp(self):
         self.path = 'f.zr'
-        self.shape = (100, 100, 100)
-        self.chunks = (10, 10, 10)
+        self.shape = (100, 100)
+        self.chunks = (20, 20)
 
     def tearDown(self):
         try:
