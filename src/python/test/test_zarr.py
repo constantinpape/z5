@@ -6,6 +6,7 @@ from shutil import rmtree
 
 try:
     import zarr
+    import numcodecs
     HAVE_ZARR = True
 except ImportError:
     HAVE_ZARR = False
@@ -30,8 +31,35 @@ class TestZarrCompatibility(unittest.TestCase):
             pass
 
     @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    def test_read_zarr_irregular(self):
+        shape = (123, 97)
+        chunks = (17, 32)
+        data = np.random.rand(*shape)
+        fz = zarr.open(self.path)
+        fz.create_dataset('test', data=data, chunks=chunks)
+
+        f = z5py.File(self.path)
+        out = f['test'][:]
+
+        self.assertEqual(data.shape, out.shape)
+        self.assertTrue(np.allclose(data, out))
+
+    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    def test_write_zarr_irregular(self):
+        shape = (123, 97)
+        chunks = (17, 32)
+        data = np.random.rand(*shape)
+        f = z5py.File(self.path)
+        f.create_dataset('test', data=data, chunks=chunks)
+
+        fz = z5py.File(self.path)
+        out = fz['test'][:]
+
+        self.assertEqual(data.shape, out.shape)
+        self.assertTrue(np.allclose(data, out))
+
+    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
     def test_read_zarr(self):
-        import numcodecs
         from z5py.dataset import Dataset
         dtypes = list(Dataset._zarr_dtype_dict.values())
         compressions = Dataset.compressors_zarr
