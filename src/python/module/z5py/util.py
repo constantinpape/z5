@@ -305,10 +305,26 @@ def remove_trivial_chunks(dataset, n_threads,
 
 
 def remove_dataset(dataset, n_threads):
-    """
-    Remvoe dataset multi-threaded.
+    """ Remvoe dataset multi-threaded.
     """
     z5_impl.remove_dataset(dataset._impl, n_threads)
+
+
+def remove_chunk(dataset, chunk_id):
+    """ Remove a chunk
+    """
+    z5_impl.remove_chunk(dataset._impl, chunk_id)
+
+
+def remove_chunks(dataset, bounding_box):
+    """ Remove all chunks overlapping the bounding box
+    """
+    shape = dataset.shape
+    chunks = dataset.chunks
+    blocks = blocking(shape, chunks, roi=bounding_box)
+    for block in blocks:
+        chunk_id = tuple(b.start // ch for b, ch in zip(block, chunks))
+        remove_chunk(dataset, chunk_id)
 
 
 def unique(dataset, n_threads, return_counts=False):

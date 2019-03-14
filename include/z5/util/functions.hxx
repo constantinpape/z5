@@ -49,6 +49,14 @@ namespace util {
     }
 
 
+    inline void removeChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+        if(ds.chunkExists(chunkId)) {
+            const auto handle = handle::Chunk(ds.handle(), chunkId, ds.isZarr());
+            fs::remove(handle.path());
+        }
+    }
+
+
     // remove dataset multithreaded
     inline void removeDataset(const Dataset & dataset, const int nThreads) {
 
