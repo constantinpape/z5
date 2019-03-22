@@ -67,7 +67,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
     for start_point in start_points:
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
         if need_shift:
-            positions = [pos + sh  for pos, sh in zip(positions, shift)]
+            positions = [pos + sh for pos, sh in zip(positions, shift)]
             if any(pos > maxc for pos, maxc in zip(positions, max_coords)):
                 continue
         yield tuple(slice(max(pos, minc), min(pos + bsha, maxc))
@@ -118,7 +118,7 @@ def copy_dataset(in_path, out_path,
     ds_in = f_in[in_path_in_file]
 
     # check if we can copy chunk by chunk
-    if chunks is None or chunks == ds_in.chunks:
+    if (chunks is None or chunks == ds_in.chunks) and not fit_to_roi:
         copy_chunks = True
     else:
         copy_chunks = False
