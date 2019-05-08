@@ -89,14 +89,14 @@ class DatasetTestMixin(object):
 
         self.check_ones(ds[:], self.shape, 'full index failed')
 
-        self.check_ones(ds[1, ...], (1, 100, 100), 'trailing ellipsis failed')
-        self.check_ones(ds[..., 1], (100, 100, 1), 'leading ellipsis failed')
-        self.check_ones(ds[1], (1, 100, 100), 'implicit ellipsis failed')
+        self.check_ones(ds[1, ...], (100, 100), 'trailing ellipsis failed')
+        self.check_ones(ds[..., 1], (100, 100), 'leading ellipsis failed')
+        self.check_ones(ds[1], (100, 100), 'implicit ellipsis failed')
         self.check_ones(ds[:, :, :, ...], self.shape, 'superfluous ellipsis failed')
         self.check_ones(ds[500:501, :, :], (0, 100, 100), 'out-of-bounds slice failed')
         self.check_ones(ds[-501:500, :, :], (0, 100, 100), 'negative out-of-bounds slice failed')
 
-        self.check_ones(ds[1, :, :], (1, 100, 100), 'integer index failed')
+        self.check_ones(ds[1, :, :], (100, 100), 'integer index failed')
         self.check_ones(ds[-20:, :, :], (20, 100, 100), 'negative slice failed')
 
         self.assertEqual(ds[1, 1, 1], 1, 'point index failed')
@@ -143,7 +143,7 @@ class DatasetTestMixin(object):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,
                                            shape=self.shape, chunks=(10, 10, 10))
         ds[0, :2, :2] = [[1, 1], [1, 1]]
-        self.check_ones(ds[0, :2, :2], (1, 2, 2))
+        self.check_ones(ds[0, :2, :2], (2, 2))
 
     def test_ds_set_from_float(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,

@@ -410,7 +410,9 @@ class Dataset(object):
         normalized, to_squeeze = normalize_slices(index, self.shape)
         return (
             tuple(norm.start for norm in normalized),
-            tuple(norm.stop - norm.start for norm in normalized),
+            tuple(
+                0 if norm.start is None else norm.stop - norm.start for norm in normalized
+            ),
             to_squeeze
         )
 
