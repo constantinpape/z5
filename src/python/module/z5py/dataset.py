@@ -426,8 +426,10 @@ class Dataset(object):
         # todo: this probably has more copies than necessary
         if len(to_squeeze) == len(shape):
             return out.flatten()[0]
+        elif to_squeeze:
+            return out.squeeze(to_squeeze)
         else:
-            out.squeeze(to_squeeze)
+            return out
 
     # most checks are done in c++
     def __setitem__(self, index, item):
