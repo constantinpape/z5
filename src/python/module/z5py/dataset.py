@@ -405,29 +405,33 @@ class Dataset(object):
         Returns:
             tuple: offset of the region of interest.
             tuple: shape of the region of interest.
+            tuple: which dimensions should be squeezed out
         """
-        normalized = normalize_slices(index, self.shape)
-        return tuple(norm.start for norm in normalized),\
-               tuple(0 if norm.start is None else norm.stop - norm.start
-                     for norm in normalized)
+        normalized, to_squeeze = normalize_slices(index, self.shape)
+        return (
+            tuple(norm.start for norm in normalized),
+            tuple(norm.stop - norm.start for norm in normalized),
+            to_squeeze
+        )
 
     # most checks are done in c++
     def __getitem__(self, index):
-        roi_begin, shape = self.index_to_roi(index)
+        roi_begin, shape, to_squeeze = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
-        if 0 in shape:
-            return out
-        _z5py.read_subarray(self._impl,
-                            out, roi_begin,
-                            n_threads=self.n_threads)
-        try:
-            return out.item()
-        except ValueError:
-            return out
+        if 0 not in shape:
+            _z5py.read_subarray(self._impl,
+                                out, roi_begin,
+                                n_threads=self.n_threads)
+
+        # todo: this probably has more copies than necessary
+        if len(to_squeeze) == len(shape):
+            return out.flatten()[0]
+        else:
+            out.squeeze(to_squeeze)
 
     # most checks are done in c++
     def __setitem__(self, index, item):
-        roi_begin, shape = self.index_to_roi(index)
+        roi_begin, shape, to_squeeze = self.index_to_roi(index)
         if 0 in shape:
             return
 
