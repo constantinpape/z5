@@ -350,6 +350,26 @@ class DatasetTestMixin(object):
             out = ds[:]
             self.assertTrue(np.allclose(out, data))
 
+    def _check_no_implicit_squeeze(self, arr, ds):
+        # simple case
+        self.assertEqual(ds[:].shape, arr[:].shape)
+
+        # should squeeze
+        self.assertEqual(ds[:, 1, :].shape, arr[:, 1, :].shape)
+
+        # should not squeeze
+        self.assertEqual(ds[:, 1:2, :].shape, arr[:, 1:2, :].shape)
+
+    def test_no_implicit_squeeze(self):
+        """https://github.com/constantinpape/z5/issues/102"""
+        arr543 = np.full((5, 4, 3), 1)
+        ds543 = self.root_file.create_dataset('ds543', data=arr543)
+        self._check_no_implicit_squeeze(arr543, ds543)
+
+        arr513 = np.full((5, 4, 3), 1)
+        ds513 = self.root_file.create_dataset('ds513', data=np.full((5, 1, 3), 1))
+        self._check_no_implicit_squeeze(arr513, ds513)
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
