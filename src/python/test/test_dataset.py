@@ -351,14 +351,22 @@ class DatasetTestMixin(object):
             self.assertTrue(np.allclose(out, data))
 
     def test_no_implicit_squeeze(self):
+        arr = np.ones((5, 5, 5))
+        ds = self.root_file.create_dataset('ds', data=arr)
+
+        self.assertEqual(ds[:, 0:1, :].shape, arr[:, 0:1, :].shape)
+
+    def test_no_implicit_squeeze_singleton(self):
         """Issue #102
 
         https://github.com/constantinpape/z5/issues/102
         """
-        arr = np.full((5, 4, 3), 1)
-        ds = self.root_file.create_dataset('ds543', data=arr)
-
-        self.assertEqual(ds[:, 1:2, :].shape, arr[:, 1:2, :].shape)
+        arr = np.ones((5, 5, 5))
+        ds = self.root_file.create_dataset('ds', data=arr)
+        self.assertEqual(
+            ds[0:1, 0:1, 0:1].shape,
+            arr[0:1, 0:1, 0:1].shape,
+        )
 
     def test_explicit_squeeze(self):
         """Issue #103
@@ -368,6 +376,17 @@ class DatasetTestMixin(object):
         arr = np.full((5, 4, 3), 1)
         ds = self.root_file.create_dataset('ds543', data=arr)
         self.assertEqual(ds[:, 1, :].shape, arr[:, 1, :].shape)
+
+        self.assertNotIsInstance(ds[1, 1, 1], np.ndarray)
+
+    def test_singleton_dtype(self):
+        """Issue #102
+
+        https://github.com/constantinpape/z5/issues/102
+        """
+        arr = np.ones((5, 5, 5))
+        ds = self.root_file.create_dataset('ds', data=arr)
+        self.assertEqual(type(ds[1, 1, 1]), type(arr[1, 1, 1]))
 
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
