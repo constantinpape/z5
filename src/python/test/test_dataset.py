@@ -40,7 +40,7 @@ class DatasetTestMixin(object):
             ]
         )
 
-    def _tearDown(self):
+    def tearDown(self):
         try:
             rmtree('array.' + self.data_format)
         except OSError:
@@ -330,7 +330,7 @@ class DatasetTestMixin(object):
 
         ds = self.root_file.create_dataset('test', dtype='float64',
                                            shape=shape, chunks=chunks,
-                                           compression='zlib')
+                                           compression='raw')
         data = np.random.rand(*shape)
         ds[:] = data
         out = ds[:]
