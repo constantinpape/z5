@@ -118,7 +118,7 @@ def copy_dataset(in_path, out_path,
     ds_in = f_in[in_path_in_file]
 
     # check if we can copy chunk by chunk
-    if (chunks is None or chunks == ds_in.chunks) and not fit_to_roi:
+    if (chunks is None or chunks == ds_in.chunks) and (roi is None):
         copy_chunks = True
     else:
         copy_chunks = False
