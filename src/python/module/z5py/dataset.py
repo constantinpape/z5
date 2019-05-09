@@ -435,7 +435,7 @@ class Dataset(object):
 
     # most checks are done in c++
     def __setitem__(self, index, item):
-        roi_begin, shape, to_squeeze = self.index_to_roi(index)
+        roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
             return
 

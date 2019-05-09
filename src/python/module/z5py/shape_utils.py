@@ -37,7 +37,7 @@ def int_to_start_stop(i, size):
     if -size < i < 0:
         start = i + size
     elif i >= size or i < -size:
-        raise ValueError('Index ({}) out of range (0-{})'.format(i, size-1))
+        raise ValueError('Index ({}) out of range (0-{})'.format(i, size - 1))
     else:
         start = i
     return slice(start, start + 1)
@@ -48,7 +48,7 @@ def sliding_window(arr, wsize):
     if wsize > len(arr):
         return
     for idx in range(len(arr) - wsize + 1):
-        yield tuple(arr[idx:idx+wsize])
+        yield tuple(arr[idx:idx + wsize])
 
 
 def rectify_shape(arr, required_shape):

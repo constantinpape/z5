@@ -131,7 +131,7 @@ class DatasetTestMixin(object):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,
                                            shape=self.shape, chunks=(10, 10, 10))
         ds[:] = float(1)
-        self.check_ones(ds[:], self.shape)
+        self.check_ones(ds[:], self.shape),
 
     def test_ds_scalar_broadcast_from_bool(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,

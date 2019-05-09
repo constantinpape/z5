@@ -39,7 +39,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
         max_coords = shape
     else:
         # make sure that the roi is valid
-        roi, to_squeeze = normalize_slices(roi, shape)
+        roi, _ = normalize_slices(roi, shape)
         ranges = [range(rr.start // bsha,
                         rr.stop // bsha if rr.stop % bsha == 0 else rr.stop // bsha + 1)
                   for rr, bsha in zip(roi, block_shape)]
@@ -141,7 +141,7 @@ def copy_dataset(in_path, out_path,
     # if fit_to_roi == True
     blocks = blocking(shape, block_shape, roi, fit_to_roi)
     if roi is not None:
-        roi, to_squeeze = normalize_slices(roi, shape)
+        roi, _ = normalize_slices(roi, shape)
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
 
