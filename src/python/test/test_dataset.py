@@ -341,7 +341,7 @@ class DatasetTestMixin(object):
         for ndim in range(1, 6):
             size = 100 if ndim < 4 else 20
             shape = (size,) * ndim
-            chunks =  (10,) * ndim
+            chunks = (10,) * ndim
             ds = f.create_dataset('test_%i' % ndim, dtype='float64',
                                   shape=shape, chunks=chunks, compression='raw')
 
@@ -441,7 +441,6 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
                 out = ds.read_chunk((x, y))
                 self.assertEqual(test_data.shape, out.shape)
                 self.assertTrue(np.allclose(test_data, out))
-
 
 
 if __name__ == '__main__':

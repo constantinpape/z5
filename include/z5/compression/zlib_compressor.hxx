@@ -41,19 +41,19 @@ namespace compression {
             std::vector<Bytef> outbuffer(bufferSize);
 
             // init the zlib or gzip stream
-            // note that the gzip format fails for very small input sizes (<= 22)
-            // so we use zlib for these no matter the input
-            // TODO this might lead to issues with other n5 implementations
-            if(!useZlibEncoding_ && sizeIn > 22) {
-                if(deflateInit2(&zs, clevel_,
-                                Z_DEFLATED, gzipWindowsize + 16,
-                                gzipCFactor, Z_DEFAULT_STRATEGY) != Z_OK) {
-                    throw(std::runtime_error("Initializing zLib deflate failed"));
-                }
-            } else {
+            if(useZlibEncoding_) {
                 if(deflateInit(&zs, clevel_) != Z_OK){
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
+            } else {
+                if(deflateInit2(&zs, clevel_,
+                                Z_DEFLATED, MAX_WBITS + 16,
+                                MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
+                    throw(std::runtime_error("Initializing zLib deflate failed"));
+                }
+                // gzip compression:
+                // prepend magic bits to the filename
+                // prepend date string to the data
             }
 
             // set the stream in-pointer to the input data and the input size
@@ -90,6 +90,11 @@ namespace compression {
     		    throw(std::runtime_error(oss.str()));
     		}
 
+            // gzip: append checksum to the data
+            if(!useZlibEncoding_) {
+
+            }
+
         }
 
 
@@ -99,14 +104,10 @@ namespace compression {
             z_stream zs;
             memset(&zs, 0, sizeof(zs));
 
-            // init the zlib stream
-            if(!useZlibEncoding_ && sizeOut > 22) {
-                if(inflateInit2(&zs, gzipWindowsize + 16) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib inflate failed"));}
-            } else {
-                if(inflateInit(&zs) != Z_OK){
-                    throw(std::runtime_error("Initializing zLib inflate failed"));
-                }
+            // init the zlib stream with automatic header detection
+            // for zlib and zip format (MAX_WBITS + 32)
+            if(inflateInit2(&zs, MAX_WBITS + 32) != Z_OK){
+                throw(std::runtime_error("Initializing zLib inflate failed"));
             }
 
             // set the stream input to the beginning of the input data
@@ -153,10 +154,6 @@ namespace compression {
         int clevel_;
         // use zlib or gzip encoding
         bool useZlibEncoding_;
-
-        const static int gzipWindowsize = 15;
-        //static int gzipBsize = 8096;
-        const static int gzipCFactor = 9;
     };
 
 } // namespace compression

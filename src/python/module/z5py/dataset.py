@@ -45,7 +45,7 @@ class Dataset(object):
     # (similar to nifty WITH_CPLEX, etc.)
 
     #: Compression libraries supported by zarr format
-    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2']
+    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2', 'gzip']
     #: Default compression for zarr format
     zarr_default_compressor = 'blosc'
 
@@ -67,6 +67,8 @@ class Dataset(object):
             default_opts = {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1}
         elif compression == 'zlib':
             default_opts = {'id': 'zlib', 'level': 5}
+        elif compression == 'gzip':
+            default_opts = {'id': 'gzip', 'level': 5}
         elif compression == 'bzip2':
             default_opts = {'id': 'bz2', 'level': 5}
         elif compression == 'raw':

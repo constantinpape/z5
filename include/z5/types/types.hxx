@@ -123,6 +123,7 @@ namespace types {
 
         static CompressorMap & zarrToCompressor() {
             static CompressorMap cMap({{
+                {"raw", raw},
                 #ifdef WITH_BLOSC
                 {"blosc", blosc},
                 #endif

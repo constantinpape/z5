@@ -54,6 +54,9 @@ namespace z5 {
         virtual void getChunkOffset(const types::ShapeType &, types::ShapeType &) const = 0;
         virtual std::size_t getDiscChunkSize(const types::ShapeType &, bool &) const = 0;
 
+        // get bounded chunk shape
+        virtual void getBoundedChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
+
         // maximal chunk size and shape
         virtual std::size_t maxChunkSize() const = 0;
         virtual const types::ShapeType & maxChunkShape() const = 0;
@@ -285,6 +288,18 @@ namespace z5 {
                 getChunkShape(chunk, tmpShape);
                 return tmpShape[dim];
             }
+        }
+
+
+        // get bounded chunk shape
+        inline void getBoundedChunkShape(const handle::Chunk & chunk, types::ShapeType & chunkShape) const {
+            chunk.boundedChunkShape(shape_, chunkShape_, chunkShape);
+        }
+
+
+        inline void getBoundedChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
+            handle::Chunk chunk(handle_, chunkId, isZarr_);
+            getBoundedChunkShape(chunk, chunkShape);
         }
 
 

@@ -72,7 +72,6 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(data_out.shape, roi_shape)
         self.assertTrue(np.allclose(data_out, data[roi]))
 
-
     @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_copy_dataset_default(self):
         from z5py.util import copy_dataset
@@ -201,7 +200,6 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(np.allclose(c[50:60, 50:60],
                                     np.arange(100).reshape(chunks)))
 
-
     def test_unique(self):
         from z5py.util import unique
         path = './tmp_dir/data.n5'
@@ -214,7 +212,7 @@ class TestUtil(unittest.TestCase):
         data = np.random.randint(0, 100, size=shape).astype('int32')
         ds[:] = data
 
-        exp_uniques, exp_counts  = np.unique(data, return_counts=True)
+        exp_uniques, exp_counts = np.unique(data, return_counts=True)
         uniques = unique(ds, n_threads=4)
         self.assertTrue(np.allclose(uniques, exp_uniques))
 
