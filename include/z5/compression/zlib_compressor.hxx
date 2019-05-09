@@ -40,10 +40,6 @@ namespace compression {
             const std::size_t bufferSize = 262144;
             std::vector<Bytef> outbuffer(bufferSize);
 
-            // TODO this is not a good idea, we don't do this anymore !
-            // note that the gzip format fails for very small input sizes (<= 22)
-            // so we use zlib for these no matter the input
-
             // init the zlib or gzip stream
             if(useZlibEncoding_) {
                 if(deflateInit(&zs, clevel_) != Z_OK){
@@ -55,6 +51,9 @@ namespace compression {
                                 MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
+                // gzip compression:
+                // prepend magic bits to the filename
+                // prepend date string to the data
             }
 
             // set the stream in-pointer to the input data and the input size
@@ -90,6 +89,11 @@ namespace compression {
     		    oss << "Exception during zlib compression: (" << ret << ") " << zs.msg;
     		    throw(std::runtime_error(oss.str()));
     		}
+
+            // gzip: append checksum to the data
+            if(!useZlibEncoding_) {
+
+            }
 
         }
 
