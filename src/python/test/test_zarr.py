@@ -66,11 +66,15 @@ class TestZarrCompatibility(unittest.TestCase):
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
-                            'bzip2': numcodecs.BZ2(),
-                            'gzip': numcodecs.GZip()}
+                            'bzip2': numcodecs.BZ2()}
+        # conda-forge version of numcodecs is not up-to-data
+        # for python 3.5 and GZip is missing
+        # thats why we need to check explicitly here to not fail the test
+        if hasattr(numcodecs, 'GZip'):
+            zarr_compressors.update({'gzip': numcodecs.GZip()})
 
         for dtype in dtypes:
-            for compression in compressions:
+            for compression in zarr_compressors:
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 # write the data with zarr
                 key = 'test_%s_%s' % (dtype, compression)
