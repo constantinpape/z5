@@ -5,7 +5,6 @@ sudo: required
 language: python
 env:
   - CONDA_PYTHON_VERSION="27"
-  - CONDA_PYTHON_VERSION="35"
   - CONDA_PYTHON_VERSION="36"
   - CONDA_PYTHON_VERSION="37"
 addons:
