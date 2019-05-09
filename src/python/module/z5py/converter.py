@@ -73,7 +73,7 @@ if WITH_H5:
         # if fit_to_roi == True
         blocks = blocking(shape, block_shape, roi, fit_to_roi)
         if roi is not None:
-            roi = normalize_slices(roi, shape)
+            roi, _ = normalize_slices(roi, shape)
             if fit_to_roi:
                 shape = tuple(rr.stop - rr.start for rr in roi)
 
@@ -158,7 +158,7 @@ if WITH_H5:
             # if fit_to_roi == True
             blocks = blocking(shape, block_shape, roi, fit_to_roi)
             if roi is not None:
-                roi = normalize_slices(roi, shape)
+                roi, _ = normalize_slices(roi, shape)
                 if fit_to_roi:
                     shape = tuple(rr.stop - rr.start for rr in roi)
 

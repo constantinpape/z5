@@ -37,7 +37,7 @@ def int_to_start_stop(i, size):
     if -size < i < 0:
         start = i + size
     elif i >= size or i < -size:
-        raise ValueError('Index ({}) out of range (0-{})'.format(i, size-1))
+        raise ValueError('Index ({}) out of range (0-{})'.format(i, size - 1))
     else:
         start = i
     return slice(start, start + 1)
@@ -48,7 +48,7 @@ def sliding_window(arr, wsize):
     if wsize > len(arr):
         return
     for idx in range(len(arr) - wsize + 1):
-        yield tuple(arr[idx:idx+wsize])
+        yield tuple(arr[idx:idx + wsize])
 
 
 def rectify_shape(arr, required_shape):
@@ -130,10 +130,11 @@ def normalize_slices(slices, shape):
     be of same length as shape and be in bounds of shape.
 
     Args:
-        slices (slice or tuple[slice]): slices to be normalized
+        slices (int or slice or ellipsis or tuple[int or slice or ellipsis]): slices to be normalized
 
     Returns:
-        tuple[slice]: normalized slices
+        tuple[slice]: normalized slices (start and stop are both non-None)
+        tuple[int]: which singleton dimensions should be squeezed out
     """
     type_msg = 'Advanced selection inappropriate. ' \
                'Only numbers, slices (`:`), and ellipsis (`...`) are valid indices (or tuples thereof)'
@@ -153,11 +154,13 @@ def normalize_slices(slices, shape):
 
     normalized = []
     found_ellipsis = False
+    squeeze = []
     for item in slices_lst:
         d = len(normalized)
         if isinstance(item, slice):
             normalized.append(slice_to_start_stop(item, shape[d]))
         elif isinstance(item, numbers.Number):
+            squeeze.append(d)
             normalized.append(int_to_start_stop(int(item), shape[d]))
         elif isinstance(item, type(Ellipsis)):
             if found_ellipsis:
@@ -167,4 +170,4 @@ def normalize_slices(slices, shape):
                 normalized.append(slice(0, shape[len(normalized)]))
         else:
             raise TypeError(type_msg)
-    return tuple(normalized)
+    return tuple(normalized), tuple(squeeze)
