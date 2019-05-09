@@ -67,7 +67,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
     for start_point in start_points:
         positions = [sp * bshape for sp, bshape in zip(start_point, block_shape)]
         if need_shift:
-            positions = [pos + sh  for pos, sh in zip(positions, shift)]
+            positions = [pos + sh for pos, sh in zip(positions, shift)]
             if any(pos > maxc for pos, maxc in zip(positions, max_coords)):
                 continue
         yield tuple(slice(max(pos, minc), min(pos + bsha, maxc))
@@ -118,7 +118,7 @@ def copy_dataset(in_path, out_path,
     ds_in = f_in[in_path_in_file]
 
     # check if we can copy chunk by chunk
-    if chunks is None or chunks == ds_in.chunks:
+    if (chunks is None or chunks == ds_in.chunks) and not fit_to_roi:
         copy_chunks = True
     else:
         copy_chunks = False
@@ -305,10 +305,26 @@ def remove_trivial_chunks(dataset, n_threads,
 
 
 def remove_dataset(dataset, n_threads):
-    """
-    Remvoe dataset multi-threaded.
+    """ Remvoe dataset multi-threaded.
     """
     z5_impl.remove_dataset(dataset._impl, n_threads)
+
+
+def remove_chunk(dataset, chunk_id):
+    """ Remove a chunk
+    """
+    z5_impl.remove_chunk(dataset._impl, chunk_id)
+
+
+def remove_chunks(dataset, bounding_box):
+    """ Remove all chunks overlapping the bounding box
+    """
+    shape = dataset.shape
+    chunks = dataset.chunks
+    blocks = blocking(shape, chunks, roi=bounding_box)
+    for block in blocks:
+        chunk_id = tuple(b.start // ch for b, ch in zip(block, chunks))
+        remove_chunk(dataset, chunk_id)
 
 
 def unique(dataset, n_threads, return_counts=False):

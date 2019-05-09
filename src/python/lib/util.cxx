@@ -80,9 +80,13 @@ namespace z5 {
         exportUtilsT<float>(module, "float32");
         exportUtilsT<double>(module, "float64");
 
-        // export remove dataset
+        // export remove dataset and remove chunk
         module.def("remove_dataset", &util::removeDataset,
                    py::arg("ds"), py::arg("n_threads"),
+                   py::call_guard<py::gil_scoped_release>());
+
+        module.def("remove_chunk", &util::removeChunk,
+                   py::arg("ds"), py::arg("chunkId"),
                    py::call_guard<py::gil_scoped_release>());
     }
 

@@ -49,6 +49,14 @@ namespace util {
     }
 
 
+    inline void removeChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+        if(ds.chunkExists(chunkId)) {
+            const auto handle = handle::Chunk(ds.handle(), chunkId, ds.isZarr());
+            fs::remove(handle.path());
+        }
+    }
+
+
     // remove dataset multithreaded
     inline void removeDataset(const Dataset & dataset, const int nThreads) {
 
@@ -94,6 +102,10 @@ namespace util {
         parallel_for_each_chunk(dataset, nThreads, [&threadData, &uniques](const int tid,
                                                                            const Dataset & ds,
                                                                            const types::ShapeType & chunk) {
+            // skip empty chunks, don't count them in unique values
+            if(!ds.chunkExists(chunk)) {
+                return;
+            }
             const size_t chunkSize = ds.getChunkSize(chunk);
             std::vector<T> data(chunkSize);
             ds.readChunk(chunk, &data[0]);
@@ -122,6 +134,10 @@ namespace util {
         parallel_for_each_chunk(dataset, nThreads, [&threadData, &uniques](const int tid,
                                                                            const Dataset & ds,
                                                                            const types::ShapeType & chunk) {
+            // skip empty chunks, don't count them in unique values
+            if(!ds.chunkExists(chunk)) {
+                return;
+            }
             const size_t chunkSize = ds.getChunkSize(chunk);
             std::vector<T> data(chunkSize);
             ds.readChunk(chunk, &data[0]);
