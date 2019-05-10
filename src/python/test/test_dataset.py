@@ -388,6 +388,22 @@ class DatasetTestMixin(object):
         ds = self.root_file.create_dataset('ds', data=arr)
         self.assertEqual(type(ds[1, 1, 1]), type(arr[1, 1, 1]))
 
+    def test_empty_chunks_non_aligned_write(self):
+        """Issue #106
+
+        https://github.com/constantinpape/z5/issues/106
+        """
+        ds = self.root_file.create_dataset(name='test', shape=(128,), chunks=(32,),
+                                           compression='raw', dtype='uint8')
+
+        inp = np.ones((100,), dtype='uint8')
+        inp[90:100] = 0
+        ds[:100] = inp
+        # last chunk should be empty, but this is not the case if buffer was not
+        # cleared correctly
+        out = ds[-32:]
+        self.assertTrue(np.allclose(out, 0))
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'

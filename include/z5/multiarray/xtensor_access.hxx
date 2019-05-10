@@ -259,6 +259,10 @@ namespace multiarray {
         // if we have a zarr dataset, we always write the full chunk
         const bool isZarr = ds.isZarr();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
@@ -282,8 +286,8 @@ namespace multiarray {
                 // reset chunk shape and chunk size
                 ds.getChunkShape(chunkId, chunkShape);
                 chunkSize = maxChunkSize;
-                // clear the buffer TODO use fill-value here?
-                std::fill(buffer.begin(), buffer.end(), 0);
+                // clear the buffer
+                std::fill(buffer.begin(), buffer.end(), fillValue);
             }
 
             // resize the buffer if necessary
@@ -311,6 +315,8 @@ namespace multiarray {
                     if(ds.readChunk(chunkId, &buffer[0])) {
                         throw std::runtime_error("Can't write to varlen chunks from multiarray");
                     }
+                } else {
+                    std::fill(buffer.begin(), buffer.end(), fillValue);
                 }
 
                 // overwrite the data that is covered by the request
@@ -351,6 +357,10 @@ namespace multiarray {
         const auto & chunking = ds.chunking();
         const bool isZarr = ds.isZarr();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // write the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
         util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
@@ -380,8 +390,8 @@ namespace multiarray {
                 // reset chunk shape and chunk size
                 ds.getChunkShape(chunkId, chunkShape);
                 chunkSize = maxChunkSize;
-                // clear the buffer TODO use fill-value here?
-                std::fill(buffer.begin(), buffer.end(), 0);
+                // clear the buffer
+                std::fill(buffer.begin(), buffer.end(), fillValue);
             }
 
             // resize buffer if necessary
@@ -406,6 +416,8 @@ namespace multiarray {
                     if(ds.readChunk(chunkId, &buffer[0])) {
                         throw std::runtime_error("Can't write to varlen chunks from multiarray");
                     }
+                } else {
+                    std::fill(buffer.begin(), buffer.end(), fillValue);
                 }
 
                 // overwrite the data that is covered by the request
