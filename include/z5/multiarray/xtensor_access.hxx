@@ -250,18 +250,18 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         const std::size_t maxChunkSize = ds.maxChunkSize();
         std::size_t chunkSize = maxChunkSize;
-        std::vector<T> buffer(chunkSize);
+        std::vector<T> buffer(chunkSize, fillValue);
 
         const auto & chunking = ds.chunking();
 
         // if we have a zarr dataset, we always write the full chunk
         const bool isZarr = ds.isZarr();
-
-        // get the fillvalue
-        T fillValue;
-        ds.getFillValue(&fillValue);
 
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
@@ -346,20 +346,20 @@ namespace multiarray {
 
         const auto & in = inExpression.derived_cast();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // construct threadpool and make a buffer for each thread
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
         const std::size_t maxChunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
+        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize, fillValue));
 
         const auto & chunking = ds.chunking();
         const bool isZarr = ds.isZarr();
-
-        // get the fillvalue
-        T fillValue;
-        ds.getFillValue(&fillValue);
 
         // write the chunks in parallel
         const std::size_t nChunks = chunkRequests.size();
