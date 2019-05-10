@@ -237,11 +237,14 @@ class Dataset(object):
             return ds
 
         else:
+            # pop all kwargs that are not compression options
+            compression = kwargs.pop('compression', None)
+            fillvalue = kwargs.pop('fillvalue', 0)
             return cls._create_dataset(path, shape, dtype,
-                                       chunks=chunks,
-                                       n_threads=n_threads,
-                                       is_zarr=is_zarr,
-                                       mode=mode, **kwargs)
+                                       chunks=chunks, compression=compression,
+                                       fillvalue=fillvalue, n_threads=n_threads,
+                                       compression_options=kwargs,
+                                       is_zarr=is_zarr, mode=mode)
 
     @classmethod
     def _create_dataset(cls, path, shape, dtype,

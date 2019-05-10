@@ -87,6 +87,19 @@ class GroupTestMixin(object):
         ds2 = self.root_file['/test/test']
         self.assertTrue(np.allclose(ds1[:], ds2[:]))
 
+    def test_require_dataset_with_compression_options(self):
+        """Issue #98
+
+        https://github.com/constantinpape/z5/issues/98
+        """
+        g = self.root_file['/test']
+        ds = g.require_dataset('new', shape=(100, 100), chunks=(10, 10),
+                               dtype='uint8', compression='gzip',
+                               level=4)
+        self.assertTrue(os.path.exists(ds.path))
+        compression_opts = ds.compression_opts
+        self.assertEqual(compression_opts['level'], 4)
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'
