@@ -18,6 +18,10 @@ namespace multiarray {
                                    const T val,
                                    const std::vector<types::ShapeType> & chunkRequests) {
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
         // out buffer holding data for a single chunk
         std::size_t chunkSize = ds.maxChunkSize();
@@ -37,7 +41,8 @@ namespace multiarray {
 
 
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
 
             // reshape buffer if necessary
             if(buffer.size() != chunkSize) {
@@ -55,7 +60,15 @@ namespace multiarray {
             // to preserve the data that will not be written
             else {
                 // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer[0]);
+                if(ds.chunkExists(chunkId)) {
+                    // load the current data into the buffer
+                    if(ds.readChunk(chunkId, &buffer[0])) {
+                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
+                    }
+                } else {
+                    std::fill(buffer.begin(), buffer.end(), fillValue);
+                }
+
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice;
@@ -83,6 +96,10 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
+        // get the fillvalue
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
         // out buffer holding data for a single chunk
         std::size_t chunkSize = ds.maxChunkSize();
         typedef std::vector<T> Buffer;
@@ -107,7 +124,8 @@ namespace multiarray {
 
 
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                        1, std::multiplies<std::size_t>());
 
             // reshape buffer if necessary
             if(buffer.size() != chunkSize) {
@@ -125,7 +143,15 @@ namespace multiarray {
             // to preserve the data that will not be written
             else {
                 // load the current data into the buffer
-                ds.readChunk(chunkId, &buffer[0]);
+                if(ds.chunkExists(chunkId)) {
+                    // load the current data into the buffer
+                    if(ds.readChunk(chunkId, &buffer[0])) {
+                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
+                    }
+                } else {
+                    std::fill(buffer.begin(), buffer.end(), fillValue);
+                }
+
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
                 xt::slice_vector bufSlice;

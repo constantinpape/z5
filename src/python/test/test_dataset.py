@@ -388,6 +388,17 @@ class DatasetTestMixin(object):
         ds = self.root_file.create_dataset('ds', data=arr)
         self.assertEqual(type(ds[1, 1, 1]), type(arr[1, 1, 1]))
 
+    def test_broadcast_empty(self):
+        """Issue #107
+
+        https://github.com/constantinpape/z5/issues/107
+        """
+        ds = self.root_file.create_dataset('test', shape=(100, 100), chunks=(25, 25),
+                                           dtype='uint8', compression='raw')
+        ds[:20, :20] = 1
+        out = ds[:]
+        self.assertTrue(np.allclose(out[:20, :20], 1))
+
     def test_empty_chunks_non_aligned_write(self):
         """Issue #106
 
