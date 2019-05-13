@@ -30,7 +30,7 @@ namespace compression {
             z_stream zs;
             memset(&zs, 0, sizeof(zs));
 
-            // resize the out data to input size
+            // reserve the out data to input size
             dataOut.clear();
             dataOut.reserve(sizeIn * sizeof(T));
 
@@ -51,9 +51,9 @@ namespace compression {
                                 MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
-                // gzip compression:
-                // prepend magic bits to the filename
-                // prepend date string to the data
+
+                // write additional gzip header
+                write_gzip_header(dataOut);
             }
 
             // set the stream in-pointer to the input data and the input size
@@ -92,7 +92,7 @@ namespace compression {
 
             // gzip: append checksum to the data
             if(!useZlibEncoding_) {
-
+                write_gzip_footer(dataIn, sizeIn, dataOut);
             }
 
         }
@@ -142,6 +142,36 @@ namespace compression {
 
         virtual types::Compressor type() const {
             return types::zlib;
+        }
+
+        // header format based on
+        // https://github.com/python/cpython/blob/3.7/Lib/gzip.py#L221
+        inline void write_gzip_header(std::vector<char> & dataOut) const {
+            // write magic header
+
+            // write compression method
+
+            // we skip the filename, which is possible, see
+            // https://github.com/python/cpython/blob/3.7/Lib/gzip.py#L232-L233
+
+            // write current time stamp
+
+            // write more magic bytes
+
+        }
+
+        inline void write_gzip_footer(const T * dataIn,
+                                      const std::size_t sizeIn,
+                                      std::vector<char> & dataOut) const {
+            unsigned long crc = crc32(0L, Z_NULL, 0);
+            const std::size_t bufferSize = 262144;
+
+            // TODO
+            // compress data of bufferSize as long as it's good
+
+            // TODO
+            // convert unsigned long to chars and append to dataOut
+
         }
 
     private:
