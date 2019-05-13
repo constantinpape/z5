@@ -1,31 +1,38 @@
-find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
-find_library(LZ4_LIBRARY NAMES lz4)
+find_path(LZ4_INCLUDE_DIR
+  NAMES lz4.h
+  DOC "lz4 include directory")
+mark_as_advanced(LZ4_INCLUDE_DIR)
+find_library(LZ4_LIBRARY
+  NAMES lz4
+  DOC "lz4 library")
+mark_as_advanced(LZ4_LIBRARY)
 
-# We require LZ4_compress_default() which was added in v1.7.0
-if (LZ4_LIBRARY)
-  include(CheckCSourceRuns)
-  set(CMAKE_REQUIRED_INCLUDES ${LZ4_INCLUDE_DIR})
-  set(CMAKE_REQUIRED_LIBRARIES ${LZ4_LIBRARY})
-  check_c_source_runs("
-#include <lz4.h>
-int main() {
-  int good = (LZ4_VERSION_MAJOR > 1) ||
-    ((LZ4_VERSION_MAJOR == 1) && (LZ4_VERSION_MINOR >= 7));
-return !good;
-}" LZ4_GOOD_VERSION)
-  set(CMAKE_REQUIRED_INCLUDES)
-  set(CMAKE_REQUIRED_LIBRARIES)
-endif()
+if (LZ4_INCLUDE_DIR)
+  file(STRINGS "${LZ4_INCLUDE_DIR}/lz4.h" _lz4_version_lines
+    REGEX "#define[ \t]+LZ4_VERSION_(MAJOR|MINOR|RELEASE)")
+  string(REGEX REPLACE ".*LZ4_VERSION_MAJOR *\([0-9]*\).*" "\\1" _lz4_version_major "${_lz4_version_lines}")
+  string(REGEX REPLACE ".*LZ4_VERSION_MINOR *\([0-9]*\).*" "\\1" _lz4_version_minor "${_lz4_version_lines}")
+  string(REGEX REPLACE ".*LZ4_VERSION_RELEASE *\([0-9]*\).*" "\\1" _lz4_version_release "${_lz4_version_lines}")
+  set(LZ4_VERSION "${_lz4_version_major}.${_lz4_version_minor}.${_lz4_version_release}")
+  unset(_lz4_version_major)
+  unset(_lz4_version_minor)
+  unset(_lz4_version_release)
+  unset(_lz4_version_lines)
+endif ()
 
 include(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(
-    LZ4 DEFAULT_MSG
-    LZ4_LIBRARY LZ4_INCLUDE_DIR LZ4_GOOD_VERSION)
+find_package_handle_standard_args(LZ4
+  REQUIRED_VARS LZ4_LIBRARY LZ4_INCLUDE_DIR
+  VERSION_VAR LZ4_VERSION)
 
-if (NOT LZ4_FOUND)
-  message(STATUS "Using third-party bundled LZ4")
-else()
-  message(STATUS "Found LZ4: ${LZ4_LIBRARY}")
-endif (NOT LZ4_FOUND)
+if (LZ4_FOUND)
+  set(LZ4_INCLUDE_DIRS "${LZ4_INCLUDE_DIR}")
+  set(LZ4_LIBRARIES "${LZ4_LIBRARY}")
 
-mark_as_advanced(LZ4_INCLUDE_DIR LZ4_LIBRARY)
+  if (NOT TARGET LZ4::LZ4)
+    add_library(LZ4::LZ4 UNKNOWN IMPORTED)
+    set_target_properties(LZ4::LZ4 PROPERTIES
+      IMPORTED_LOCATION "${LZ4_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${LZ4_INCLUDE_DIR}")
+  endif ()
+endif ()
