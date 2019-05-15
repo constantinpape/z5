@@ -2,6 +2,7 @@
 
 #ifdef WITH_ZLIB
 
+#include <chrono>
 #include <zlib.h>
 
 #include "z5/compression/compressor_base.hxx"
@@ -147,16 +148,45 @@ namespace compression {
         // header format based on
         // https://github.com/python/cpython/blob/3.7/Lib/gzip.py#L221
         inline void write_gzip_header(std::vector<char> & dataOut) const {
+            // TODO simplifty this by representing magicHeader, compressionMethod and
+            // emptyFilename as a single hex
+
             // write magic header
+            const std::string magicHeader = std::to_string(0x1f8b);
+            for(char cc: magicHeader) {
+                dataOut.push_back(cc);
+            }
 
             // write compression method
+            const std::string compressionMethod = std::to_string(0x08);
+            for(char cc: compressionMethod) {
+                dataOut.push_back(cc);
+            }
 
             // we skip the filename, which is possible, see
             // https://github.com/python/cpython/blob/3.7/Lib/gzip.py#L232-L233
+            const std::string emptyFilename = std::to_string(0x00);
+            for(char cc: emptyFilename) {
+                dataOut.push_back(cc);
+            }
 
             // write current time stamp
+            const uint64_t mtime = std::chrono::duration_cast<std::chrono::duration<uint64_t>>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const std::string mTimeBytes = std::to_string(mtime);
+            for(char cc: mTimeBytes) {
+                dataOut.push_back(cc);
+            }
 
             // write more magic bytes
+            const std::string magic1 = std::to_string(0x02);
+            for(char cc: magic1) {
+                dataOut.push_back(cc);
+            }
+            const std::string magic2 = std::to_string(0xff);
+            for(char cc: magic2) {
+                dataOut.push_back(cc);
+            }
 
         }
 
@@ -164,13 +194,23 @@ namespace compression {
                                       const std::size_t sizeIn,
                                       std::vector<char> & dataOut) const {
             unsigned long crc = crc32(0L, Z_NULL, 0);
-            const std::size_t bufferSize = 262144;
+            const int64_t bufferSize = 262144;
+            int64_t len = sizeIn;
 
-            // TODO
-            // compress data of bufferSize as long as it's good
+            Bytef * p = (Bytef *) dataIn;
 
-            // TODO
+            // checksum data of bufferSize as long as it's good
+            while(len > 0) {
+                crc = crc32(crc, p, std::min(bufferSize, len));
+                len -= bufferSize;
+                p = (Bytef *) (dataIn + bufferSize);
+            }
+
             // convert unsigned long to chars and append to dataOut
+            const std::string crc_bytes = std::to_string(crc);
+            for(char cc: crc_bytes) {
+                dataOut.push_back(cc);
+            }
 
         }
 

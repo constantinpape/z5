@@ -87,8 +87,6 @@ class TestZarrCompatibility(unittest.TestCase):
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    # zarr gzip compression is not working properly yet
-    @unittest.expectedFailure
     @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
     def test_write_zarr(self):
         from z5py.dataset import Dataset
