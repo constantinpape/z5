@@ -238,9 +238,10 @@ class Dataset(object):
 
         else:
             # pop all kwargs that are not compression options
+            data = kwargs.pop('data', None)
             compression = kwargs.pop('compression', None)
             fillvalue = kwargs.pop('fillvalue', 0)
-            return cls._create_dataset(path, shape, dtype,
+            return cls._create_dataset(path, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
                                        compression_options=kwargs,
