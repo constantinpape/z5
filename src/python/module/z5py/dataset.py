@@ -92,7 +92,7 @@ class Dataset(object):
     def _read_zarr_compression_options(self):
         opts = {}
         with open(os.path.join(self.path, '.zarray'), 'r') as f:
-            zarr_opts = json.load(f)
+            zarr_opts = json.load(f)['compressor']
         if zarr_opts is None:
             opts['compression'] = 'raw'
         elif zarr_opts['id'] == 'blosc':
@@ -105,6 +105,9 @@ class Dataset(object):
             opts['level'] = zarr_opts['level']
         elif zarr_opts['id'] == 'bz2':
             opts['compression'] = 'bzip2'
+            opts['level'] = zarr_opts['level']
+        elif zarr_opts['id'] == 'gzip':
+            opts['compression'] = 'gzip'
             opts['level'] = zarr_opts['level']
         return opts
 
@@ -127,7 +130,7 @@ class Dataset(object):
             level_key = 'blockSize'
         # TODO blosc in n5
         # elif compression == 'blosc':
-        #    default_otps = {'type': 'blosc', 'codec': 'lz4', 'level': 5, 'shuffle': 1}
+        #    default_opts = {'type': 'blosc', 'codec': 'lz4', 'level': 5, 'shuffle': 1}
         #    level_key = None
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
