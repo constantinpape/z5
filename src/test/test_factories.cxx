@@ -16,7 +16,7 @@ namespace z5 {
         DatasetMetadata meta(types::Datatypes::n5ToDtype()[dtype],
                              types::ShapeType({100, 100, 100}),
                              types::ShapeType({10, 10, 10}),
-                             true);
+                             true, types::raw);
         writeMetadata(h, meta);
     }
 
