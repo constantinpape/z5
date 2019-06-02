@@ -24,6 +24,11 @@ namespace attrs_detail {
         }
     }
 
+    inline void readAttributes(fs::path & path, nlohmann::json & j) {
+        fs::ifstream file(path);
+        file >> j;
+        file.close();
+    }
 
     inline void writeAttributes(const fs::path & path, const nlohmann::json & j) {
         nlohmann::json jOut;
@@ -56,6 +61,18 @@ namespace attrs_detail {
         attrs_detail::readAttributes(path, keys, j);
     }
 
+    inline void readAttributes(
+        const handle::Handle & handle,
+        nlohmann::json & j
+    ) {
+        bool isZarr = handle.isZarr();
+        auto path = handle.path();
+        path /= isZarr ? ".zattrs" : "attributes.json";
+        if(!fs::exists(path)) {
+            throw std::runtime_error("Cannot read attributes: no attributes exist");
+        }
+        attrs_detail::readAttributes(path, j);
+    }
 
     inline void writeAttributes(const handle::Handle & handle, const nlohmann::json & j) {
         bool isZarr = handle.isZarr();
