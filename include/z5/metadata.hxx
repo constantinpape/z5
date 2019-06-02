@@ -12,6 +12,7 @@
 
 namespace fs = boost::filesystem;
 
+#include "z5/attributes.hxx"
 #include "z5/handle/handle.hxx"
 #include "z5/types/types.hxx"
 
@@ -273,6 +274,11 @@ namespace z5 {
         if(isZarr) {
             j["zarr_format"] = metadata.zarrFormat;
         } else {
+            // n5 stores attributes and metadata in the same file,
+            // so we need to make sure that we don't ovewrite attributes
+            try {
+                readAttributes(handle, j);
+            } catch(std::runtime_error) {}  // read attributes throws RE if there are no attributes, we can just ignore this
             j["n5"] = metadata.n5Format;
         }
         fs::ofstream file(filePath);
@@ -288,6 +294,9 @@ namespace z5 {
         nlohmann::json j;
         if(isZarr) {
             j["zarr_format"] = metadata.zarrFormat;
+        } else {
+            // we don't need to write metadata for n5 groups
+            return;
         }
         fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
