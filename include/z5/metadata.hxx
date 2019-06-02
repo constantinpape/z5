@@ -17,10 +17,13 @@ namespace fs = boost::filesystem;
 
 namespace z5 {
 
-    // TODO add n5 format
     // general format
     struct Metadata {
         const int zarrFormat = 2;
+        const std::string n5Format = "2.0.0";
+        bool isZarr; // flag to specify whether we have a zarr or n5 array
+
+        Metadata(const bool isZarr) : isZarr(isZarr) {}
     };
 
 
@@ -35,10 +38,10 @@ namespace z5 {
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
             const double fillValue=0
-            ) : dtype(dtype),
+            ) : Metadata(isZarr),
+                dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
-                isZarr(isZarr),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
                 fillValue(fillValue)
@@ -48,7 +51,7 @@ namespace z5 {
 
 
         // empty constructur
-        DatasetMetadata()
+        DatasetMetadata() : Metadata(true)
         {}
 
 
@@ -196,7 +199,6 @@ namespace z5 {
         types::Datatype dtype;
         types::ShapeType shape;
         types::ShapeType chunkShape;
-        bool isZarr; // flag to specify whether we have a zarr or n5 array
 
         // compressor name and opyions
         types::Compressor compressor;
@@ -265,19 +267,28 @@ namespace z5 {
 
     inline void writeMetadata(const handle::File & handle, const Metadata & metadata) {
         auto filePath = handle.path();
-        filePath /= metadata.isZarr ? ".zgroup" : "attributes.json";
-	nlohmann::json j;
-        j["zarr_format"] = metadata.zarrFormat;
+        const bool isZarr = metadata.isZarr;
+        filePath /= isZarr ? ".zgroup" : "attributes.json";
+        nlohmann::json j;
+        if(isZarr) {
+            j["zarr_format"] = metadata.zarrFormat;
+        } else {
+            j["n5"] = metadata.n5Format;
+        }
         fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
         file.close();
     }
 
+
     inline void writeMetadata(const handle::Group & handle, const Metadata & metadata) {
         auto filePath = handle.path();
-        filePath /= metadata.isZarr ? ".zgroup" : "attributes.json";
-	nlohmann::json j;
-        j["zarr_format"] = metadata.zarrFormat;
+        const bool isZarr = metadata.isZarr;
+        filePath /= isZarr ? ".zgroup" : "attributes.json";
+        nlohmann::json j;
+        if(isZarr) {
+            j["zarr_format"] = metadata.zarrFormat;
+        }
         fs::ofstream file(filePath);
         file << std::setw(4) << j << std::endl;
         file.close();
@@ -306,7 +317,7 @@ namespace z5 {
         if(!fs::exists(zarrPath) && !fs::exists(n5Path)){
             throw std::runtime_error("Invalid path: no metadata existing");
         }
-        bool isZarr = fs::exists(zarrPath);
+        const bool isZarr = fs::exists(zarrPath);
         path = isZarr ? zarrPath : n5Path;
         return isZarr;
     }
