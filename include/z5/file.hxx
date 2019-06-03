@@ -8,15 +8,7 @@ namespace z5 {
 
     inline void createFile(const handle::File & file, const bool isZarr=true) {
         file.createDir();
-        if(isZarr) {
-            Metadata fmeta(isZarr);
-            writeMetadata(file, fmeta);
-        } else {
-            nlohmann::json n5v;
-            std::string version = "2.0.0";
-            n5v["n5"] = version;
-            writeAttributes(file, n5v);
-        }
+	Metadata fmeta(isZarr);
+	writeMetadata(file, fmeta);
     }
-
 }
