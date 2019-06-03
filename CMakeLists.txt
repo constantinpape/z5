@@ -151,6 +151,12 @@ else()
     message(STATUS "xsimd not found, compiling without vector instructions")
 endif()
 
+###########################
+# nlohmann_json librarie
+###########################
+find_package(nlohmann_json REQUIRED)
+include_directories(${nlohmann_json_INCLUDE_DIRS})
+
 
 ###############################
 # Include compression libs
