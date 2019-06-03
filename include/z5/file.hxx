@@ -9,7 +9,7 @@ namespace z5 {
     inline void createFile(const handle::File & file, const bool isZarr=true) {
         file.createDir();
         if(isZarr) {
-            Metadata fmeta;
+            Metadata fmeta(isZarr);
             writeMetadata(file, fmeta);
         } else {
             nlohmann::json n5v;
