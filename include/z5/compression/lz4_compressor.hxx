@@ -53,8 +53,8 @@ namespace compression {
         }
 
         void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
-            const int compressed = LZ4_decompress_fast(&dataIn[0], (char *) dataOut,
-                                                       sizeOut * sizeof(T));
+            const int compressed = LZ4_decompress_safe(&dataIn[0], (char *) dataOut,
+                                                       dataIn.size(), sizeOut * sizeof(T));
             if(compressed <= 0) {
     		    std::ostringstream oss;
     		    oss << "Exception during lz4 decompression: (" << compressed << ") ";
