@@ -78,11 +78,11 @@ if WITH_H5:
                 shape = tuple(rr.stop - rr.start for rr in roi)
 
         with h5py.File(out_path) as f_h5:
-            ds_h5 = f_h5.create_dataset(out_path_in_file,
-                                        dtype=out_dtype,
-                                        shape=shape,
-                                        chunks=chunks,
-                                        **h5_kwargs)
+            ds_h5 = f_h5.require_dataset(out_path_in_file,
+                                         dtype=out_dtype,
+                                         shape=shape,
+                                         chunks=chunks,
+                                         **h5_kwargs)
 
             def convert_chunk(bb):
                 # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
@@ -166,11 +166,11 @@ if WITH_H5:
             out_dtype = z5_kwargs.pop('dtype', ds_h5.dtype)
             if 'compression' not in z5_kwargs:
                 z5_kwargs['compression'] = 'raw'
-            ds_z5 = f_z5.create_dataset(out_path_in_file,
-                                        dtype=out_dtype,
-                                        shape=shape,
-                                        chunks=chunks,
-                                        **z5_kwargs)
+            ds_z5 = f_z5.require_dataset(out_path_in_file,
+                                         dtype=out_dtype,
+                                         shape=shape,
+                                         chunks=chunks,
+                                         **z5_kwargs)
 
             def convert_chunk(bb):
                 chunk_data = ds_h5[bb].astype(out_dtype, copy=False)
