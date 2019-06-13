@@ -71,7 +71,7 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
                 bufView = val;
@@ -154,7 +154,7 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
                 bufView = val;

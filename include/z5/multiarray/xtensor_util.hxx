@@ -10,7 +10,7 @@ namespace multiarray {
 
     // small helper function to convert a ROI given by (offset, shape) into
     // a proper xtensor sliceing
-    inline void sliceFromRoi(xt::slice_vector & roiSlice,
+    inline void sliceFromRoi(xt::xstrided_slice_vector & roiSlice,
                              const types::ShapeType & offset,
                              const types::ShapeType & shape) {
         for(int d = 0; d < offset.size(); ++d) {
