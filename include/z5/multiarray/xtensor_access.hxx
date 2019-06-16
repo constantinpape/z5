@@ -51,7 +51,7 @@ namespace multiarray {
                                                              offsetInChunk);
 
             // get the view in our array
-            xt::slice_vector offsetSlice;
+            xt::xstrided_slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
@@ -96,7 +96,7 @@ namespace multiarray {
             else {
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
 
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
@@ -153,7 +153,7 @@ namespace multiarray {
                                                              offsetInChunk);
 
             // get the view in our array
-            xt::slice_vector offsetSlice;
+            xt::xstrided_slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
@@ -198,7 +198,7 @@ namespace multiarray {
             else {
                 // get a view to the part of the buffer we are interested in
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
@@ -275,7 +275,7 @@ namespace multiarray {
                                         1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::slice_vector offsetSlice;
+            xt::xstrided_slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             const auto view = xt::strided_view(in, offsetSlice);
 
@@ -321,7 +321,7 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
 
@@ -379,7 +379,7 @@ namespace multiarray {
                                                     1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::slice_vector offsetSlice;
+            xt::xstrided_slice_vector offsetSlice;
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             const auto view = xt::strided_view(in, offsetSlice);
 
@@ -422,7 +422,7 @@ namespace multiarray {
 
                 // overwrite the data that is covered by the request
                 auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::slice_vector bufSlice;
+                xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);
 

@@ -12,7 +12,7 @@ namespace z5 {
         }
         group.createDir();
         if(isZarr) {
-            Metadata gmeta;
+            Metadata gmeta(isZarr);
             writeMetadata(group, gmeta);
         }
     }

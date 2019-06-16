@@ -145,12 +145,11 @@ def copy_dataset(in_path, out_path,
         if fit_to_roi:
             shape = tuple(rr.stop - rr.start for rr in roi)
 
-    # return
-    ds_out = f_out.create_dataset(out_path_in_file,
-                                  dtype=dtype,
-                                  shape=shape,
-                                  chunks=chunks,
-                                  **compression_opts)
+    ds_out = f_out.require_dataset(out_path_in_file,
+                                   dtype=dtype,
+                                   shape=shape,
+                                   chunks=chunks,
+                                   **compression_opts)
 
     def write_single_block(bb):
         data_in = ds_in[bb].astype(dtype, copy=False)

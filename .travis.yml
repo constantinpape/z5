@@ -42,7 +42,6 @@ script:
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
           -DPYTHON_EXECUTABLE="$PY_BIN"
           -DCMAKE_CXX_FLAGS="-std=c++17"
-          # -DWITH_LZ4=ON
 
 
   ###############################################

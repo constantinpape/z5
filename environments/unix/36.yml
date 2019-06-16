@@ -7,16 +7,16 @@ dependencies:
   - gcc_linux-64
   - gxx_linux-64
   - bzip2
+  - lz4-c
   - xz
   - zlib
   - boost=1.69
-  - xtensor-python=0.22.0
-  - xtensor=0.19.2
-  - xsimd=7.1.2
+  - xtensor>=0.20,<0.21
+  - xtensor-python>=0.23,<0.24
+  - xsimd
   - blosc
   - imageio
   - h5py
-  - lz4
   - nlohmann_json
   - zarr
   - six
