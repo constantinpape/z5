@@ -135,36 +135,36 @@ Pull requests for additional multiarray support are welcome.
 Some examples:
 
 ```c++
-#include "xtensor/xarray.hxx"
+#include "xtensor/xarray.hpp"
 #include "z5/dataset_factory.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
 #include "json.hpp"
 
 int main() {
   // create a new zarr dataset
-  std::vector<size_t> shape = {1000, 1000, 1000};
-  std::vector<size_t> chunks = {100, 100, 100};
+  std::vector<size_t> shape = { 1000, 1000, 1000 };
+  std::vector<size_t> chunks = { 100, 100, 100 };
   bool asZarr = true;
   auto ds = z5::createDataset("ds.zr", "float32", shape, chunks, asZarr);
-  
+
   // write array to roi
-  std::vector<size_t> offset1 = {50, 100, 150};
-  std::vector<size_t> shape1 = {150, 200, 100};
-  xt::xarray<float> array1(shape1, 42.);
-  z5::multiarray::writeSubarray(ds, array1, offset1.begin());
+  z5::types::ShapeType offset1 = { 50, 100, 150 };
+  xt::xarray<float>::shape_type shape1 = { 150, 200, 100 };
+  xt::xarray<float> array1(shape1, 42.0);
+  z5::multiarray::writeSubarray<float>(ds, array1, offset1.begin());
 
   // read array from roi (values that were not written before are filled with a fill-value)
-  std::vector<size_t> offset2 = {100, 100, 100};
-  std::vector<size_t> shape2 = {300, 200, 75};
+  z5::types::ShapeType offset2 = { 100, 100, 100 };
+  xt::xarray<float>::shape_type shape2 = { 300, 200, 75 };
   xt::xarray<float> array2(shape2);
-  z5::multiarray::readSubarray(ds, array2, offset2.begin());
+  z5::multiarray::readSubarray<float>(ds, array2, offset2.begin());
 
   // read and write json attributes
   nlohmann::json attributesIn;
   attributesIn["bar"] = "foo";
-  attributesIn["pi"] = 3.141593
+  attributesIn["pi"] = 3.141593;
   z5::writeAttributes(ds->handle(), attributesIn);
-  
+
   nlohmann::json attributesOut;
   z5::readAttributes(ds->handle(), attributesOut);
   
