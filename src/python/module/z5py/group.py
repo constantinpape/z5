@@ -229,7 +229,7 @@ class Group(Mapping):
                                         n_threads, self.is_zarr, self._internal_mode,
                                         **kwargs)
 
-    def visititems(self, func):
+    def visititems(self, func, root=None):
         """ Recursively visit names and objects in this group.
 
         You supply a callable (function, method or callable object); it
@@ -255,12 +255,12 @@ class Group(Mapping):
         >>> f = File('foo.n5')
         >>> f.visititems(func)
         """
+        root = self.path if root is None else root
         for name, obj in self.items():
-            if isinstance(obj,Group):
-                func_ret = obj.visititems(func)
-                if func_ret is not None:
-                    return func_ret
-            else:
-                func_ret = func(os.path.join(self.path, name), obj)
-                if func_ret is not None:
-                    return func_ret
+            # the name needs to be relative to the root object visititems was called on
+            name = os.path.relpath(os.path.join(self.path, name), root)
+            func_ret = func(name, obj)
+            if func_ret is not None:
+                return func_ret
+            if isinstance(obj, Group):
+                obj.visititems(func, root=root)

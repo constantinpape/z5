@@ -100,6 +100,32 @@ class GroupTestMixin(object):
         compression_opts = ds.compression_opts
         self.assertEqual(compression_opts['level'], 4)
 
+    def test_visititems(self):
+        """ Issue #121
+
+        https://github.com/constantinpape/z5/issues/121
+        """
+        f = self.root_file
+        f.create_group('g1')
+        f.create_dataset('g1/d1', shape=(10, 10), dtype='uint8')
+        f.create_dataset('g1/d2', shape=(12, 12), dtype='uint8')
+
+        names = []
+        def visitor(name, obj):
+            names.append(name)
+
+        f.visititems(visitor)
+        names = set(names)
+        expected_names = {'g1', 'g1/d1', 'g1/d2', 'test', 'test/test'}
+        self.assertEqual(names, expected_names)
+
+        names = []
+        g = f['g1']
+        g.visititems(visitor)
+        names = set(names)
+        expected_names = {'d1', 'd2'}
+        self.assertEqual(names, expected_names)
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'
