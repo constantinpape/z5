@@ -100,6 +100,8 @@ class GroupTestMixin(object):
         compression_opts = ds.compression_opts
         self.assertEqual(compression_opts['level'], 4)
 
+    # cf. https://github.com/constantinpape/z5/issues/100
+    @unittest.skipIf(sys.platform.startswith('win'), 'path encoding not compatible with windows')
     def test_visititems(self):
         """ Issue #121
 
