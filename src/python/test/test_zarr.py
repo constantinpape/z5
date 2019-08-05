@@ -62,7 +62,6 @@ class TestZarrCompatibility(unittest.TestCase):
     def test_read_zarr(self):
         from z5py.dataset import Dataset
         dtypes = list(Dataset._zarr_dtype_dict.values())
-        compressions = Dataset.compressors_zarr
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
@@ -87,8 +86,6 @@ class TestZarrCompatibility(unittest.TestCase):
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    # zarr gzip compression is not working properly yet
-    @unittest.expectedFailure
     @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
     def test_write_zarr(self):
         from z5py.dataset import Dataset

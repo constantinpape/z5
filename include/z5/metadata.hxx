@@ -125,13 +125,13 @@ namespace z5 {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
             }
 
-            if(zarrCompressorId == "zlib") {
-                compressionOptions["useZlib"] = true;
-            } else if (zarrCompressorId == "gzip") {
-                compressionOptions["useZlib"] = false;
-            }
             types::readZarrCompressionOptionsFromJson(compressor, compressionOpts,
                                                       compressionOptions);
+            // we need to do this after 'readZarrCompressionOptionsFromJson' is called,
+            // because otherwise this will be overriden
+            if (zarrCompressorId == "gzip") {
+                compressionOptions["useZlib"] = false;
+            }
         }
 
 
