@@ -3,7 +3,15 @@
 
 #include "z5/metadata.hxx"
 
-namespace fs = boost::filesystem;
+#ifdef WITH_BOOST_FS
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        namespace fs = std::filesystem;
+    #else
+        namespace fs = std::experimental::filesystem;
+    #endif
+#endif
 
 namespace z5 {
 
@@ -26,7 +34,11 @@ namespace z5 {
             fs::path mdata("array.zr");
             fs::create_directory(mdata);
             mdata /= ".zarray";
+            #ifdef WITH_BOOST_FS
             fs::ofstream file(mdata);
+            #else
+            std::ofstream file(mdata);
+            #endif
             file << jZarr;
             file.close();
 
@@ -34,7 +46,11 @@ namespace z5 {
             fs::path mdataN5("array.n5");
             fs::create_directory(mdataN5);
             mdataN5 /= "attributes.json";
+            #ifdef WITH_BOOST_FS
             fs::ofstream fileN5(mdataN5);
+            #else
+            std::ofstream fileN5(mdataN5);
+            #endif
             fileN5 << jN5;
             fileN5.close();
         }

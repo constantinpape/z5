@@ -2,15 +2,24 @@
 
 #include <ios>
 
-#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
-#define BOOST_FILESYSTEM_NO_DEPERECATED
+#ifdef WITH_BOOST_FS
+    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
+        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #endif
+    #include <boost/filesystem.hpp>
+    #include <boost/filesystem/fstream.hpp>
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        #include <filesystem>
+        namespace fs = std::filesystem;
+    #else
+        #include <experimental/filesystem>
+        namespace fs = std::experimental::filesystem;
+    #endif
 #endif
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 #include "z5/io/io_base.hxx"
-
-namespace fs = boost::filesystem;
 
 namespace z5 {
 namespace io {
@@ -30,7 +39,11 @@ namespace io {
             if(chunk.exists()) {
 
                 // open input stream and read the filesize
+                #ifdef WITH_BOOST_FS
                 fs::ifstream file(chunk.path(), std::ios::binary);
+                #else
+                std::ifstream file(chunk.path(), std::ios::binary);
+                #endif
                 file.seekg(0, std::ios::end);
                 const std::size_t fileSize = file.tellg();
                 file.seekg(0, std::ios::beg);
@@ -56,7 +69,11 @@ namespace io {
         inline void write(const handle::Chunk & chunk, const char * data,
                           const std::size_t fileSize, const bool=false,
                           const std::size_t=0) const {
+            #ifdef WITH_BOOST_FS
             fs::ofstream file(chunk.path(), std::ios::binary);
+            #else
+            std::ofstream file(chunk.path(), std::ios::binary);
+            #endif
             file.write(data, fileSize);
             file.close();
         }

@@ -4,13 +4,22 @@
 #include <vector>
 #include <iomanip>
 
-#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
-#define BOOST_FILESYSTEM_NO_DEPERECATED
+#ifdef WITH_BOOST_FS
+    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
+        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #endif
+    #include <boost/filesystem.hpp>
+    #include <boost/filesystem/fstream.hpp>
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        #include <filesystem>
+        namespace fs = std::filesystem;
+    #else
+        #include <experimental/filesystem>
+        namespace fs = std::experimental::filesystem;
+    #endif
 #endif
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-
-namespace fs = boost::filesystem;
 
 #include "z5/attributes.hxx"
 #include "z5/handle/handle.hxx"
@@ -281,7 +290,11 @@ namespace z5 {
             } catch(std::runtime_error) {}  // read attributes throws RE if there are no attributes, we can just ignore this
             j["n5"] = metadata.n5Format;
         }
+        #ifdef WITH_BOOST_FS
         fs::ofstream file(filePath);
+        #else
+        std::ofstream file(filePath);
+        #endif
         file << std::setw(4) << j << std::endl;
         file.close();
     }
@@ -298,7 +311,11 @@ namespace z5 {
             // we don't need to write metadata for n5 groups
             return;
         }
+        #ifdef WITH_BOOST_FS
         fs::ofstream file(filePath);
+        #else
+        std::ofstream file(filePath);
+        #endif
         file << std::setw(4) << j << std::endl;
         file.close();
     }
@@ -309,7 +326,11 @@ namespace z5 {
         nlohmann::json j;
         metadata.toJson(j);
         filePath /= metadata.isZarr ? ".zarray" : "attributes.json";
+        #ifdef WITH_BOOST_FS
         fs::ofstream file(filePath);
+        #else
+        std::ofstream file(filePath);
+        #endif
         file << std::setw(4) << j << std::endl;
         file.close();
     }
@@ -336,7 +357,11 @@ namespace z5 {
         nlohmann::json j;
         fs::path filePath;
         auto isZarr = getMetadataPath(handle, filePath);
+        #ifdef WITH_BOOST_FS
         fs::ifstream file(filePath);
+        #else
+        std::ifstream file(filePath);
+        #endif
         file >> j;
         metadata.fromJson(j, isZarr);
         file.close();
@@ -346,7 +371,11 @@ namespace z5 {
     inline types::Datatype readDatatype(const handle::Dataset & handle) {
         fs::path filePath;
         bool isZarr = getMetadataPath(handle, filePath);
+        #ifdef WITH_BOOST_FS
         fs::ifstream file(filePath);
+        #else
+        std::ifstream file(filePath);
+        #endif
         nlohmann::json j;
         file >> j;
         file.close();

@@ -2,17 +2,26 @@
 
 #include <ios>
 
-#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
-#define BOOST_FILESYSTEM_NO_DEPERECATED
+#ifdef WITH_BOOST_FS
+    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
+        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #endif
+    #include <boost/filesystem.hpp>
+    #include <boost/filesystem/fstream.hpp>
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        #include <filesystem>
+        namespace fs = std::filesystem;
+    #else
+        #include <experimental/filesystem>
+        namespace fs = std::experimental::filesystem;
+    #endif
 #endif
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 #include "z5/io/io_base.hxx"
 #include "z5/types/types.hxx"
 #include "z5/util/util.hxx"
-
-namespace fs = boost::filesystem;
 
 namespace z5 {
 namespace io {
@@ -39,7 +48,11 @@ namespace io {
             if(chunk.exists()) {
 
                 // open input stream and read the header
+                #ifdef WITH_BOOST_FS
                 fs::ifstream file(chunk.path(), std::ios::binary);
+                #else
+                std::ifstream file(chunk.path(), std::ios::binary);
+                #endif
                 types::ShapeType chunkShape;
                 const auto headerInfo = readHeader(file, chunkShape);
                 const std::size_t fileSize = std::get<0>(headerInfo);
@@ -68,7 +81,11 @@ namespace io {
                           const std::size_t varSize=0) const {
             // create the parent folder
             chunk.createTopDir();
+            #ifdef WITH_BOOST_FS
             fs::ofstream file(chunk.path(), std::ios::binary);
+            #else
+            std::ofstream file(chunk.path(), std::ios::binary);
+            #endif
             // write the header
             writeHeader(chunk, file, isVarlen, static_cast<uint32_t>(varSize));
             file.write(data, fileSize);
@@ -79,7 +96,11 @@ namespace io {
         inline void getChunkShape(const handle::Chunk & chunk,
                                   types::ShapeType & shape) const {
             if(chunk.exists()) {
+                #ifdef WITH_BOOST_FS
                 fs::ifstream file(chunk.path(), std::ios::binary);
+                #else
+                std::ifstream file(chunk.path(), std::ios::binary);
+                #endif
                 readHeader(file, shape);
                 file.close();
             }
@@ -102,7 +123,11 @@ namespace io {
                                             bool & isVarlen) const {
             if(chunk.exists()) {
                 // read the header
+                #ifdef WITH_BOOST_FS
                 fs::ifstream file(chunk.path(), std::ios::binary);
+                #else
+                std::ifstream file(chunk.path(), std::ios::binary);
+                #endif
                 types::ShapeType shape;
                 const auto headerInfo = readHeader(file, shape);
                 file.close();
@@ -304,12 +329,20 @@ namespace io {
 
                 // if we are at the required depth, we don't open the directory further
                 // and we push back the chunk id
+                #ifdef WITH_BOOST_FS
                 currentLevel = dir.level();
+                #else
+                currentLevel = dir.depth();
+                #endif
 
                 if(currentLevel >= dim) {
 
                     // with this, we do not open the subfolders in iteration
+                    #ifdef WITH_BOOST_FS
                     dir.no_push();
+                    #else
+                    dir.disable_recursion_pending();
+                    #endif
                     int ii = 0;
                     // starting from the current chunk path, we walk up the filepath,
                     // until we hit the n5 root directory
@@ -321,7 +354,7 @@ namespace io {
                         // a chunk folder / file, in that case stoull will fail,
                         // in this case we will invalidate the chunk
                         try {
-                            chunkId[ii] = std::stoull(chunkPath.leaf().filename().string());
+                            chunkId[ii] = std::stoull(chunkPath.filename().filename().string());
                         } catch(std::invalid_argument) {
                             validChunk = false;
                             break;
@@ -363,7 +396,8 @@ namespace io {
             return ret;
         }
 
-        inline std::tuple<std::size_t, bool, uint32_t> readHeader(fs::ifstream & file,
+        template<class IFSTREAM>
+        inline std::tuple<std::size_t, bool, uint32_t> readHeader(IFSTREAM & file,
                                                                   types::ShapeType & shape) const {
 
             /// keep track of the header length
@@ -414,7 +448,8 @@ namespace io {
             return std::make_tuple(fileSize, mode == 1, varlength);
         }
 
-        inline void writeHeader(const handle::Chunk & chunk, fs::ofstream & file,
+        template<class OFSTREAM>
+        inline void writeHeader(const handle::Chunk & chunk, OFSTREAM & file,
                                 const bool isVarlen, const uint32_t varlen) const {
 
             // write the mode

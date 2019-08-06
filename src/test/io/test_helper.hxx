@@ -1,8 +1,24 @@
 #pragma once
 
 #include <random>
-#define BOOST_FILESYSTEM_NO_DEPERECATED
-#include <boost/filesystem.hpp>
+#include <fstream>
+
+#ifdef WITH_BOOST_FS
+    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
+        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #endif
+    #include <boost/filesystem.hpp>
+    #include <boost/filesystem/fstream.hpp>
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        #include <filesystem>
+        namespace fs = std::filesystem;
+    #else
+        #include <experimental/filesystem>
+        namespace fs = std::experimental::filesystem;
+    #endif
+#endif
 
 #include "gtest/gtest.h"
 #include "z5/util/util.hxx"
@@ -10,7 +26,6 @@
 
 #define SIZE 100*100*100
 
-namespace fs = boost::filesystem;
 
 namespace z5 {
 namespace io {
@@ -40,13 +55,21 @@ namespace io {
             fs::create_directory(arr5);
 
             // write to file
+            #ifdef WITH_BOOST_FS
             fs::fstream file("array.zr/0.0.0", std::ios::out | std::ios::binary);
+            #else
+            std::fstream file("array.zr/0.0.0", std::ios::out | std::ios::binary);
+            #endif
             file.write((char*) data_, SIZE*sizeof(int));
 
             // write to file
             fs::path n5_chunk("array.n5/0/0");
             fs::create_directories(n5_chunk);
+            #ifdef WITH_BOOST_FS
             fs::fstream file1("array.n5/0/0/0", std::ios::out | std::ios::binary);
+            #else
+            std::fstream file1("array.n5/0/0/0", std::ios::out | std::ios::binary);
+            #endif
             // need to write header first
             uint16_t mode = 0; // TODO support the varlength mode as well
             util::reverseEndiannessInplace(mode);

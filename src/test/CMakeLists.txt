@@ -1,10 +1,9 @@
 # define test libraries
 SET(TEST_LIBS
-    ${Boost_FILESYSTEM_LIBRARY}    
-    ${Boost_SYSTEM_LIBRARY}    
     gtest
     gtest_main
     ${CMAKE_THREAD_LIBS_INIT}
+    ${FILESYSTEM_LIBRARIES}
 )
 
 # add metadata test
