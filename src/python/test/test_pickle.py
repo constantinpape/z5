@@ -1,13 +1,9 @@
 import unittest
+import pickle
 import sys
-import numpy as np
-import os
 from shutil import rmtree
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import numpy as np
 
 try:
     import z5py
@@ -28,7 +24,6 @@ class TestPickle(unittest.TestCase):
         except OSError:
             pass
 
-    @unittest.skipIf(sys.version_info.major < 3, "Pickle test segfaults in python 2")
     def test_pickle(self):
         dtypes = ('int8', 'int16', 'int32', 'int64',
                   'uint8', 'uint16', 'uint32', 'uint64',

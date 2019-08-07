@@ -10,7 +10,7 @@ from .shape_utils import normalize_slices, rectify_shape
 from .shape_utils import get_default_chunks, is_group
 
 
-class Dataset(object):
+class Dataset:
     """ Dataset for access to data on disc.
 
     Should not be instantiated directly, but rather

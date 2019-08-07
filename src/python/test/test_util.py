@@ -2,12 +2,8 @@ import sys
 import unittest
 import numpy as np
 import os
+from concurrent import futures
 from shutil import rmtree
-
-try:
-    from concurrent import futures
-except ImportError:
-    futures = False
 
 try:
     import z5py
@@ -31,7 +27,6 @@ class TestUtil(unittest.TestCase):
         except OSError:
             pass
 
-    @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_copy_dataset_with_roi(self):
         from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')

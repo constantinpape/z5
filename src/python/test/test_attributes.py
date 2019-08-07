@@ -4,12 +4,10 @@ import unittest
 import json
 import sys
 from shutil import rmtree
-from six import add_metaclass
-from abc import ABCMeta
+from abc import ABC
 
 import numpy as np
 
-import sys
 try:
     import z5py
 except ImportError:
@@ -36,12 +34,11 @@ class DecoratingDecoder(json.JSONDecoder):
                 for k, v in obj.items()}
 
 
-class Dummy(object):
+class Dummy:
     pass
 
 
-@add_metaclass(ABCMeta)
-class AttributesTestMixin(object):
+class AttributesTestMixin(ABC):
 
     def setUp(self):
         self.shape = (100, 100, 100)

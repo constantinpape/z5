@@ -220,7 +220,7 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
                        abs_in_key, abs_out_key, n_threads)
 
 
-class Timer(object):
+class Timer:
     def __init__(self):
         self.start_time = None
         self.stop_time = None
