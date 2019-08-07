@@ -1,13 +1,22 @@
 #pragma once
 
-#ifndef BOOST_FILESYSTEM_NO_DEPERECATED
-#define BOOST_FILESYSTEM_NO_DEPERECATED
+#ifdef WITH_BOOST_FS
+    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
+        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #endif
+    #include <boost/filesystem.hpp>
+    namespace fs = boost::filesystem;
+#else
+    #if __GCC__ > 7
+        #include <filesystem>
+        namespace fs = std::filesystem;
+    #else
+        #include <experimental/filesystem>
+        namespace fs = std::experimental::filesystem;
+    #endif
 #endif
-#include <boost/filesystem.hpp>
 
 #include "z5/util/for_each.hxx"
-
-namespace fs = boost::filesystem;
 
 
 namespace z5 {

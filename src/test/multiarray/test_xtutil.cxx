@@ -39,7 +39,7 @@ namespace multiarray {
 
             // make the big array and view
             xt::xarray<int> array = xt::zeros<int>(shape);
-            xt::slice_vector slice;
+            xt::xstrided_slice_vector slice;
             sliceFromRoi(slice, viewOffset, viewShape);
             auto view = xt::strided_view(array, slice);
 
@@ -84,7 +84,7 @@ namespace multiarray {
 
             // make the big array and view
             xt::xarray<int> array = xt::zeros<int>(shape);
-            xt::slice_vector slice;
+            xt::xstrided_slice_vector slice;
             sliceFromRoi(slice, viewOffset, viewShape);
             auto view = xt::strided_view(array, slice);
             std::iota(view.begin(), view.end(), 0);

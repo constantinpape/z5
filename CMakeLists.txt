@@ -6,21 +6,25 @@ project(z5)
 
 
 ##############################
-# Check and enable C++ 14
+# C++ Standard
 ##############################
 
+# check whether we have c++ 17
+
 message(STATUS "CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17")
+set(CPP17 "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17" CACHE INTERNAL "")
+if (CPP17)
+    message(STATUS "Using c++ 17")
+    set(CMAKE_CXX_STANDARD 17)
+else()
     message(STATUS "Using c++ 14")
     set(CMAKE_CXX_STANDARD 14)
-else()
-    message(STATUS "Using c++ 17")
 endif()
 
 # make sure the compiler supports the requested c++ standard
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# Not sure if we should set this flag
-# set(CMAKE_CXX_EXTENSIONS OFF)
+# don't use gnu extensions
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 # set default build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -119,7 +123,20 @@ endif()
 # find libraries - pthread
 find_package(Threads)
 
-# boost
+
+###############################
+# Boost
+###############################
+
+# If WITH_BOOST_FS is set, we always use the boost filesystem library
+# otherwise, we check if we have c++17 support. If so, we use std::filesystem,
+# otherwise we fall back to boost filesystem.
+if(CPP17)
+    SET(WITH_BOOST_FS FALSE CACHE BOOL "")
+else()
+    SET(WITH_BOOST_FS TRUE CACHE BOOL "")
+endif()
+
 if (MSVC)
     SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}/Library")
     SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/Library/lib")
@@ -128,7 +145,23 @@ else()
     SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/lib")
 endif()
 SET(Boost_NO_SYSTEM_PATHS ON)
-find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
+
+if(WITH_BOOST_FS)
+    message(STATUS "With boost filesystem")
+    find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
+    add_definitions(-DWITH_BOOST_FS)
+    SET(FILESYSTEM_LIBRARIES "${Boost_FILESYSTEM_LIBRARY};${Boost_SYSTEM_LIBRARY}")
+else()
+    message(STATUS "With std filesystem")
+    find_package(Boost 1.63.0 REQUIRED)
+    # see this issue for discussions about the filesystem lib in CMake
+    # https://gitlab.kitware.com/cmake/cmake/issues/17834
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        SET(FILESYSTEM_LIBRARIES "stdc++fs")
+    else()
+        SET(FILESYSTEM_LIBRARIES "")
+    endif()
+endif()
 include_directories(${Boost_INCLUDE_DIR})
 
 
@@ -151,8 +184,9 @@ else()
     message(STATUS "xsimd not found, compiling without vector instructions")
 endif()
 
+
 ###########################
-# nlohmann_json librarie
+# nlohmann_json library
 ###########################
 find_package(nlohmann_json REQUIRED)
 include_directories(${nlohmann_json_INCLUDE_DIRS})

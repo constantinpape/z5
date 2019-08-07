@@ -7,7 +7,6 @@ addPythonModule(
         util.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 
-        ${Boost_FILESYSTEM_LIBRARY}    
-        ${Boost_SYSTEM_LIBRARY}    
+        ${FILESYSTEM_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
 )
