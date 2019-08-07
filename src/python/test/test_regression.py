@@ -2,8 +2,7 @@ import sys
 import unittest
 
 from shutil import rmtree
-from six import add_metaclass
-from abc import ABCMeta
+from abc import ABC
 
 import numpy as np
 
@@ -15,8 +14,7 @@ except ImportError:
 import z5py.util
 
 
-@add_metaclass(ABCMeta)
-class RegressionTestMixin(object):
+class RegressionTestMixin(ABC):
     @classmethod
     def setUpClass(cls):
         cls.data = z5py.util.fetch_test_data_stent()

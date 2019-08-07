@@ -2,8 +2,7 @@ import unittest
 import sys
 import numpy as np
 from shutil import rmtree
-from six import add_metaclass
-from abc import ABCMeta
+from abc import ABC
 
 try:
     import z5py
@@ -12,8 +11,7 @@ except ImportError:
     import z5py
 
 
-@add_metaclass(ABCMeta)
-class CompressionTestMixin(object):
+class CompressionTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
         self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')

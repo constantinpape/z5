@@ -2,8 +2,7 @@ import unittest
 import os
 import numpy as np
 from shutil import rmtree
-from six import add_metaclass
-from abc import ABCMeta
+from abc import ABC
 
 import sys
 try:
@@ -13,8 +12,7 @@ except ImportError:
     import z5py
 
 
-@add_metaclass(ABCMeta)
-class GroupTestMixin(object):
+class GroupTestMixin(ABC):
 
     def setUp(self):
         self.shape = (100, 100, 100)
@@ -113,6 +111,7 @@ class GroupTestMixin(object):
         f.create_dataset('g1/d2', shape=(12, 12), dtype='uint8')
 
         names = []
+
         def visitor(name, obj):
             names.append(name)
 

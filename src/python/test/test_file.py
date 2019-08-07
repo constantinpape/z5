@@ -1,8 +1,7 @@
 import unittest
 import os
 from shutil import rmtree
-from six import add_metaclass
-from abc import ABCMeta
+from abc import ABC
 
 import sys
 try:
@@ -12,8 +11,7 @@ except ImportError:
     import z5py
 
 
-@add_metaclass(ABCMeta)
-class FileTestMixin(object):
+class FileTestMixin(ABC):
     def setUp(self):
         self.path = 'file.%s' % self.data_format
 
