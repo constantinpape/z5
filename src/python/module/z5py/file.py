@@ -69,7 +69,7 @@ class File(Group):
         else:
             if is_zarr:
                 raise RuntimeError("Zarr file cannot be opened in N5 format")
-        super(File, self).__init__(path, use_zarr_format, mode)
+        super().__init__(path, use_zarr_format, mode)
 
         # check if the file already exists and load if it does
         if os.path.exists(path):
@@ -141,7 +141,7 @@ class N5File(File):
     """
 
     def __init__(self, path, mode='a'):
-        super(N5File, self).__init__(path=path, use_zarr_format=False, mode=mode)
+        super().__init__(path=path, use_zarr_format=False, mode=mode)
 
 
 class ZarrFile(File):
@@ -153,4 +153,4 @@ class ZarrFile(File):
     """
 
     def __init__(self, path, mode='a'):
-        super(ZarrFile, self).__init__(path=path, use_zarr_format=True, mode=mode)
+        super().__init__(path=path, use_zarr_format=True, mode=mode)

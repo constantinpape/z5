@@ -54,7 +54,7 @@ class Group(Mapping):
         return counter
 
     def __contains__(self, name):
-        return super(Group, self).__contains__(name.lstrip('/'))
+        return super().__contains__(name.lstrip('/'))
 
     # TODO can use `util.removeDataset` here
     def __delitem__(self, name):
