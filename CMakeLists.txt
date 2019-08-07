@@ -164,7 +164,7 @@ else()
     # on clang, we need to enable libc++experimental, see
     # https://stackoverflow.com/a/45332844
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        set(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY ON)
+        SET(FILESYSTEM_LIBRARIES "c++experimental")
     endif()
 endif()
 include_directories(${Boost_INCLUDE_DIR})
