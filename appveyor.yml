@@ -5,7 +5,6 @@ platform:
 
 image:
   - Visual Studio 2017
-  - Visual Studio 2015
 
 environment:
   matrix:
@@ -31,7 +30,6 @@ init:
 
 install:
   - set CONDA_ACTIVE_ENV=%MINICONDA%
-  - set BOOST_INCLUDE=%CONDA_ACTIVE_ENV%\\Library\\include
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
   # - conda install -vv -c conda-forge xtensor>=0.20,<0.21 xtensor-python>=0.23,<0.24 boost-cpp bzip2 blosc nlohmann_json 
@@ -39,11 +37,14 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
-  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_BLOSC=ON -DWITHIN_TRAVIS=ON -DBOOST_INCLUDEDIR="%BOOST_INCLUDE%" -DBUILD_TESTS=OFF
+  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_BLOSC=ON -DWITHIN_TRAVIS=ON -DBUILD_TESTS=OFF
   - cmake --build . --config Release
 
 before_test:
   - set PYTHONPATH=.\python;%PYTHONPATH%
 
 test_script:
-  - python -m unittest discover -s python/test -v
+    # Appveyor tests take forever, so only running a simple one for now
+    # cf. https://github.com/constantinpape/z5/issues/125
+    # - python -m unittest discover -s python/test -v
+    - python python/test/test_group.py
