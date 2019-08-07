@@ -159,7 +159,6 @@ else()
     # https://gitlab.kitware.com/cmake/cmake/issues/17834
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         SET(FILESYSTEM_LIBRARIES "stdc++fs")
-        SET(FILESYSTEM_LIBRARIES "")
     endif()
 
     # on clang, we need to enable libc++experimental, see
