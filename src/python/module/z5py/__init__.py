@@ -1,4 +1,6 @@
 from .file import File, N5File, ZarrFile
+from .dataset import Dataset
+from .group import Group
 from .attribute_manager import set_json_encoder, set_json_decoder
 
 __version__ = "1.5.0"
