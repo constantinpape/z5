@@ -1,10 +1,6 @@
 import os
 from shutil import rmtree
-
-try:
-    from collections.abc import Mapping
-except ImportError:
-    from collections import Mapping
+from collections.abc import Mapping
 
 from ._z5py import create_group, FileMode
 from .dataset import Dataset
