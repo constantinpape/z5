@@ -154,12 +154,18 @@ if(WITH_BOOST_FS)
 else()
     message(STATUS "With std filesystem")
     find_package(Boost 1.63.0 REQUIRED)
+
     # see this issue for discussions about the filesystem lib in CMake
     # https://gitlab.kitware.com/cmake/cmake/issues/17834
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         SET(FILESYSTEM_LIBRARIES "stdc++fs")
-    else()
         SET(FILESYSTEM_LIBRARIES "")
+    endif()
+
+    # on clang, we need to enable libc++experimental, see
+    # https://stackoverflow.com/a/45332844
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        set(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY ON)
     endif()
 endif()
 include_directories(${Boost_INCLUDE_DIR})
