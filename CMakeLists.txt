@@ -256,23 +256,22 @@ endif()
 ###############################
 
 find_package(pybind11 REQUIRED)
-
-
-if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17")
-    if(MSVC)
-        set(PYBIND11_CPP_STANDARD /std:c++14)
-    else()
-        message(STATUS "Using c++ 14 for pybind")
-        set(PYBIND11_CPP_STANDARD -std=c++14)
-    endif()
-else()
+if (CPP17)
+    message(STATUS "Using c++ 17 for pybind")
     if(MSVC)
         set(PYBIND11_CPP_STANDARD /std:c++17)
     else()
-        message(STATUS "Using c++ 17 for pybind")
         set(PYBIND11_CPP_STANDARD -std=c++17)
     endif()
+else()
+    message(STATUS "Using c++ 14 for pybind")
+    if(MSVC)
+        set(PYBIND11_CPP_STANDARD /std:c++14)
+    else()
+        set(PYBIND11_CPP_STANDARD -std=c++14)
+    endif()
 endif()
+
 # numpy
 find_package(NumPy REQUIRED)
 include_directories(${NUMPY_INCLUDE_DIRS})
