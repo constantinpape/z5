@@ -2,16 +2,6 @@
 #include "z5/io/io_n5.hxx"
 #include "z5/dataset_factory.hxx"
 
-#ifdef WITH_BOOST_FS
-    namespace fs = boost::filesystem;
-#else
-    #if __GCC__ > 7
-        namespace fs = std::filesystem;
-    #else
-        namespace fs = std::experimental::filesystem;
-    #endif
-#endif
-
 namespace z5 {
 namespace io {
 
