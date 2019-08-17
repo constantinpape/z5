@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "z5/dataset_factory.hxx"
+#include "z5/factory.hxx"
 
 namespace z5 {
 

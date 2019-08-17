@@ -28,7 +28,7 @@ namespace multiarray {
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
-        const std::size_t maxChunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.defaultChunkSize();
         std::size_t chunkSize = maxChunkSize;
         std::vector<T> buffer(chunkSize);
 
@@ -56,14 +56,13 @@ namespace multiarray {
             auto view = xt::strided_view(out, offsetSlice);
 
             // check if this chunk exists, if not fill output with fill value
-            handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
-            if(!chunk.exists()) {
+            if(!ds.chunkExists(chunkId)) {
                 view = fillValue;;
                 continue;
             }
 
             // get the current chunk-shape
-            ds.getBoundedChunkShape(chunkId, chunkShape);
+            ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
@@ -72,7 +71,7 @@ namespace multiarray {
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
                 // reset chunk shape and chunk size
-                ds.getChunkShape(chunkId, chunkShape);
+                chunkShape = ds.defaultChunkShape();
                 chunkSize = maxChunkSize;
             }
 
@@ -123,7 +122,7 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        const std::size_t maxChunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.defaultChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
 
@@ -158,14 +157,13 @@ namespace multiarray {
             auto view = xt::strided_view(out, offsetSlice);
 
             // check if this chunk exists, if not fill output with fill value
-            handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
-            if(!chunk.exists()) {
+            if(!ds.chunkExists(chunkId)) {
                 view = fillValue;;
                 return;
             }
 
             // get the current chunk-shape
-            ds.getBoundedChunkShape(chunkId, chunkShape);
+            ds.getChunkShape(chunkId, chunkShape);
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
@@ -174,7 +172,7 @@ namespace multiarray {
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
                 // reset chunk shape and chunk size
-                ds.getChunkShape(chunkId, chunkShape);
+                chunkShape = ds.defaultChunkShape();
                 chunkSize = maxChunkSize;
             }
 
@@ -254,7 +252,7 @@ namespace multiarray {
         T fillValue;
         ds.getFillValue(&fillValue);
 
-        const std::size_t maxChunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.defaultChunkSize();
         std::size_t chunkSize = maxChunkSize;
         std::vector<T> buffer(chunkSize, fillValue);
 
@@ -270,7 +268,7 @@ namespace multiarray {
                                                              shape, offsetInRequest,
                                                              requestShape, offsetInChunk);
             // get shape and size of this chunk
-            ds.getBoundedChunkShape(chunkId, chunkShape);
+            ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
@@ -284,7 +282,7 @@ namespace multiarray {
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
                 // reset chunk shape and chunk size
-                ds.getChunkShape(chunkId, chunkShape);
+                chunkShape = ds.defaultChunkShape();
                 chunkSize = maxChunkSize;
                 // clear the buffer
                 std::fill(buffer.begin(), buffer.end(), fillValue);
@@ -309,8 +307,7 @@ namespace multiarray {
 
                 // check if this chunk exists, and if it does, read the chunk's data
                 // to preserve the part that is not written to
-                handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
-                if(chunk.exists()) {
+                if(ds.chunkExists(chunkId)) {
                     // load the current data into the buffer
                     if(ds.readChunk(chunkId, &buffer[0])) {
                         throw std::runtime_error("Can't write to varlen chunks from multiarray");
@@ -354,7 +351,7 @@ namespace multiarray {
         util::ThreadPool tp(numberOfThreads);
         const int nThreads = tp.nThreads();
 
-        const std::size_t maxChunkSize = ds.maxChunkSize();
+        const std::size_t maxChunkSize = ds.defaultChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize, fillValue));
 
@@ -374,7 +371,7 @@ namespace multiarray {
             bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
                                                              shape, offsetInRequest,
                                                              requestShape, offsetInChunk);
-            ds.getBoundedChunkShape(chunkId, chunkShape);
+            ds.getChunkShape(chunkId, chunkShape);
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
@@ -388,8 +385,8 @@ namespace multiarray {
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
                 // reset chunk shape and chunk size
-                ds.getChunkShape(chunkId, chunkShape);
                 chunkSize = maxChunkSize;
+                chunkShape = ds.defaultChunkShape();
                 // clear the buffer
                 std::fill(buffer.begin(), buffer.end(), fillValue);
             }
@@ -410,8 +407,8 @@ namespace multiarray {
             // -> we can only write partial data and need
             // to preserve the data that will not be written
             else {
-                handle::Chunk chunk(ds.handle(), chunkId, ds.isZarr());
-                if(chunk.exists()) {
+                if(ds.chunkExists(chunkId)) {
+
                     // load the current data into the buffer
                     if(ds.readChunk(chunkId, &buffer[0])) {
                         throw std::runtime_error("Can't write to varlen chunks from multiarray");
@@ -483,23 +480,6 @@ namespace multiarray {
                               ITER roiBeginIter,
                               const int numberOfThreads=1) {
         writeSubarray<T>(*ds, in, roiBeginIter, numberOfThreads);
-    }
-
-
-    template<typename T, typename ARRAY_IN>
-    void convertArrayToFormat(const Dataset & ds,
-                              const xt::xexpression<ARRAY_IN> & inExpression,
-                              std::vector<char> & out) {
-        const auto & in = inExpression.derived_cast();
-        types::ShapeType shape(in.shape().begin(), in.shape().end());
-        ds.dataToFormat(&in(0), out, shape);
-    }
-
-    template<typename T, typename ARRAY_IN, typename ARRAY_OUT>
-    inline auto convertArrayToFormat(std::unique_ptr<Dataset> & ds,
-                                     const xt::xexpression<ARRAY_IN> & in,
-                                     xt::xexpression<ARRAY_OUT> & out) {
-        return convertArrayToFormat<T>(*ds, in, out);
     }
 
 }

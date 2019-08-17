@@ -59,6 +59,9 @@ option(WITH_BZIP2 ON)
 option(WITH_XZ ON)
 option(WITH_LZ4 ON)
 
+# build with amazon s3 storage
+option(WITH_S3 OFF)
+
 # marray multiarray
 option(WITH_MARRAY OFF)
 
@@ -236,6 +239,20 @@ if(WITH_LZ4)
     include_directories(LZ4_INCLUDE_DIR)
     add_definitions(-DWITH_LZ4)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
+endif()
+
+
+###############################
+# Cloud storage
+###############################
+
+SET(CLOUD_LIBRARIES "")
+
+if(WITH_S3)
+    # Do we need any additional components?
+    find_package(AWSSDK REQUIRED)
+    add_definitions(-DWITH_S3)
+    SET(CLOUD_LIBRARIES ${AWSSDK_LINK_LIBRARIES})
 endif()
 
 

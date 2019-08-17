@@ -3,7 +3,7 @@
 #include <random>
 #include "xtensor/xarray.hpp"
 
-#include "z5/dataset_factory.hxx"
+#include "z5/factory.hxx"
 #include "z5/multiarray/broadcast.hxx"
 
 namespace z5 {
@@ -13,12 +13,8 @@ namespace multiarray {
     class BroadcastTest : public ::testing::Test {
 
     protected:
-        BroadcastTest() :
-            pathIntRegular_("int_regular.zr"), pathIntIrregular_("int_irregular.zr"),
-            pathFloatRegular_("float_regular.zr"), pathFloatIrregular_("float_irregular.zr"),
-            pathIntRegularN5_("int_regular.n5"), pathIntIrregularN5_("int_irregular.n5"),
-            pathFloatRegularN5_("float_regular.n5"), pathFloatIrregularN5_("float_irregular.n5"),
-            shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
+        BroadcastTest() : fZarr(fs::path("data.zr")), fN5(fs::path("data.n5")),
+                          shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
         {
         }
 
@@ -26,46 +22,22 @@ namespace multiarray {
         }
 
         virtual void SetUp() {
-            // create zarr arrays
-            createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, "raw");
-            createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, "raw");
-            createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, "raw");
-            createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, "raw");
+            filesystem::createFile(fZarr, true);
+            createDataset(fZarr, "int_regular", "int32", shape_, chunkShapeRegular_, "raw");
+            createDataset(fZarr, "int_irregular", "int32", shape_, chunkShapeIrregular_, "raw");
+            createDataset(fZarr, "float_regular", "float32", shape_, chunkShapeRegular_, "raw");
+            createDataset(fZarr, "float_irregular", "float32", shape_, chunkShapeIrregular_, "raw");
 
-            // create n5 arrays
-            createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, "raw");
-            createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, "raw");
-            createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, "raw");
-            createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, "raw");
+            filesystem::createFile(fN5, true);
+            createDataset(fN5, "int_regular", "int32", shape_, chunkShapeRegular_, "raw");
+            createDataset(fN5, "int_irregular", "int32", shape_, chunkShapeIrregular_, "raw");
+            createDataset(fN5, "float_regular", "float32", shape_, chunkShapeRegular_, "raw");
+            createDataset(fN5, "float_irregular", "float32", shape_, chunkShapeIrregular_, "raw");
         }
 
         virtual void TearDown() {
-            // remove zarr arrays
-            {
-                // remove int arrays
-                fs::path ireg(pathIntRegular_);
-                fs::remove_all(ireg);
-                fs::path iirreg(pathIntIrregular_);
-                fs::remove_all(iirreg);
-                // remove float arrays
-                fs::path freg(pathFloatRegular_);
-                fs::remove_all(freg);
-                fs::path firreg(pathFloatIrregular_);
-                fs::remove_all(firreg);
-            }
-            // remove n5 arrays
-            {
-                // remove int arrays
-                fs::path ireg(pathIntRegularN5_);
-                fs::remove_all(ireg);
-                fs::path iirreg(pathIntIrregularN5_);
-                fs::remove_all(iirreg);
-                // remove float arrays
-                fs::path freg(pathFloatRegularN5_);
-                fs::remove_all(freg);
-                fs::path firreg(pathFloatIrregularN5_);
-                fs::remove_all(firreg);
-            }
+            fs::remove_all(fZarr.path());
+            fs::remove_all(fN5.path());
         }
 
         template<typename T>
@@ -155,17 +127,8 @@ namespace multiarray {
             }
         }
 
-        // zarr paths
-        std::string pathIntRegular_;
-        std::string pathIntIrregular_;
-        std::string pathFloatRegular_;
-        std::string pathFloatIrregular_;
-
-        // n5 paths
-        std::string pathIntRegularN5_;
-        std::string pathIntIrregularN5_;
-        std::string pathFloatRegularN5_;
-        std::string pathFloatIrregularN5_;
+        z5::filesystem::handle::File fZarr;
+        z5::filesystem::handle::File fN5;
 
         types::ShapeType shape_;
         types::ShapeType chunkShapeRegular_;
@@ -175,40 +138,40 @@ namespace multiarray {
 
     TEST_F(BroadcastTest, TestBroadcastIntRegular) {
         // load the regular array and run the test
-        auto array = openDataset(pathIntRegular_);
+        auto array = openDataset(fZarr, "int_regular");
         testBroadcast<int32_t>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathIntRegularN5_);
+        auto arrayN5 = openDataset(fN5, "int_regular");
         testBroadcast<int32_t>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastFloatRegular) {
         // load the regular array and run the test
-        auto array = openDataset(pathFloatRegular_);
+        auto array = openDataset(fZarr, "float_regular");
         testBroadcast<float>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        auto arrayN5 = openDataset(fN5, "float_regular");
         testBroadcast<float>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastIntIrregular) {
         //// load the regular array and run the test
-        auto array = openDataset(pathIntIrregular_);
+        auto array = openDataset(fZarr, "int_irregular");
         testBroadcast<int32_t>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "int_irregular");
         testBroadcast<int32_t>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastFloatIrregular) {
         //// load the regular array and run the test
-        auto array = openDataset(pathFloatIrregular_);
+        auto array = openDataset(fZarr, "float_irregular");
         testBroadcast<float>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "float_irregular");
         testBroadcast<float>(arrayN5);
     }
 

@@ -1,4 +1,4 @@
 if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
-add_subdirectory(python)
+# add_subdirectory(python)

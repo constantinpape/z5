@@ -2,8 +2,9 @@
 
 #include <random>
 
-#include "z5/metadata.hxx"
-#include "z5/dataset.hxx"
+#include "z5/factory.hxx"
+#include "z5/filesystem/metadata.hxx"
+#include "z5/filesystem/dataset.hxx"
 
 
 namespace z5 {
@@ -12,7 +13,7 @@ namespace z5 {
     class DatasetTest : public ::testing::Test {
 
     protected:
-        DatasetTest() : floatHandle_("array_float.zr"), intHandle_("array_int.zr") {
+        DatasetTest() : fileHandle_("data.zr"), floatHandle_(fileHandle_, "float"), intHandle_(fileHandle_, "int") {
             // int zarray metadata
             jInt_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
             jFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
@@ -46,34 +47,27 @@ namespace z5 {
             //
             // create files for reading
             //
-            floatHandle_.createDir();
-            intHandle_.createDir();
+            fileHandle_.create();
+            floatHandle_.create();
+            intHandle_.create();
 
             DatasetMetadata floatMeta;
             floatMeta.fromJson(jFloat_, true);
-            writeMetadata(floatHandle_, floatMeta);
+            filesystem::writeMetadata(floatHandle_, floatMeta);
 
             DatasetMetadata intMeta;
             intMeta.fromJson(jInt_, true);
-            writeMetadata(intHandle_, intMeta);
+            filesystem::writeMetadata(intHandle_, intMeta);
         }
 
         virtual void TearDown() {
             // remove stuff
-            fs::remove_all(floatHandle_.path());
-            fs::remove_all(intHandle_.path());
-            handle::Dataset hi("array_int1.zr");
-            if(hi.exists()) {
-                fs::remove_all(hi.path());
-            }
-            handle::Dataset hf("array_float1.zr");
-            if(hf.exists()) {
-                fs::remove_all(hf.path());
-            }
+            fs::remove_all(fileHandle_.path());
         }
 
-        handle::Dataset floatHandle_;
-        handle::Dataset intHandle_;
+        filesystem::handle::File fileHandle_;
+        filesystem::handle::Dataset floatHandle_;
+        filesystem::handle::Dataset intHandle_;
 
         nlohmann::json jInt_;
         nlohmann::json jFloat_;
@@ -87,33 +81,29 @@ namespace z5 {
 
     TEST_F(DatasetTest, OpenIntDataset) {
 
-        DatasetTyped<int> array(intHandle_);
-        const auto & chunksPerDim = array.chunksPerDimension();
+        auto ds = openDataset(fileHandle_, "int");
+        const auto & chunksPerDim = ds->chunksPerDimension();
 
         std::default_random_engine generator;
 
-        // test uninitialized chunk
+        // test uninitialized chunk -> this is expected to throw a runtime error
         int dataTmp[size_];
-        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
-        // check
-        for(std::size_t i = 0; i < size_; ++i) {
-            ASSERT_EQ(dataTmp[i], 42);
-        }
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
 
         // test for 10 random chuks
         for(unsigned _ = 0; _ < 10; ++_) {
             // get a random chunk
-            types::ShapeType chunkId(array.dimension());
-            for(unsigned d = 0; d < array.dimension(); ++d) {
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
                 std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
-            array.writeChunk(chunkId, dataInt_);
+            ds->writeChunk(chunkId, dataInt_);
 
             // read a chunk
             int dataTmp[size_];
-            array.readChunk(chunkId, dataTmp);
+            ds->readChunk(chunkId, dataTmp);
 
             // check
             for(std::size_t i = 0; i < size_; ++i) {
@@ -125,37 +115,32 @@ namespace z5 {
 
     TEST_F(DatasetTest, CreateIntDataset) {
 
-        handle::Dataset h("array_int1.zr");
         DatasetMetadata intMeta;
         intMeta.fromJson(jInt_, true);
 
-        DatasetTyped<int> array(h, intMeta);
-        const auto & chunksPerDim = array.chunksPerDimension();
+        auto ds = createDataset(fileHandle_, "int1", intMeta);
+        const auto & chunksPerDim = ds->chunksPerDimension();
 
         std::default_random_engine generator;
 
-        // test uninitialized chunk
+        // test uninitialized chunk -> this is expected to throw a runtime error
         int dataTmp[size_];
-        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
-        // check
-        for(std::size_t i = 0; i < size_; ++i) {
-            ASSERT_EQ(dataTmp[i], 42);
-        }
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
 
         // test for 10 random chunks
         for(unsigned _ = 0; _ < 10; ++_) {
             // get a random chunk
-            types::ShapeType chunkId(array.dimension());
-            for(unsigned d = 0; d < array.dimension(); ++d) {
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
                 std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
-            array.writeChunk(chunkId, dataInt_);
+            ds->writeChunk(chunkId, dataInt_);
 
             // read a chunk
             int dataTmp[size_];
-            array.readChunk(chunkId, dataTmp);
+            ds->readChunk(chunkId, dataTmp);
 
             // check
             for(std::size_t i = 0; i < size_; ++i) {
@@ -167,34 +152,30 @@ namespace z5 {
 
     TEST_F(DatasetTest, OpenFloatDataset) {
 
-        DatasetTyped<float> array(floatHandle_);
-        const auto & chunksPerDim = array.chunksPerDimension();
+        auto ds = openDataset(fileHandle_, "float");
+        const auto & chunksPerDim = ds->chunksPerDimension();
 
         std::default_random_engine generator;
 
-        // test uninitialized chunk
+        // test uninitialized chunk -> this is expected to throw a runtime error
         float dataTmp[size_];
-        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
-        // check
-        for(std::size_t i = 0; i < size_; ++i) {
-            ASSERT_EQ(dataTmp[i], 42.);
-        }
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
 
         // test for 10 random chunks
         for(unsigned t = 0; t < 10; ++t) {
 
             // get a random chunk
-            types::ShapeType chunkId(array.dimension());
-            for(unsigned d = 0; d < array.dimension(); ++d) {
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
                 std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
-            array.writeChunk(chunkId, dataFloat_);
+            ds->writeChunk(chunkId, dataFloat_);
 
             // read a chunk
             float dataTmp[size_];
-            array.readChunk(chunkId, dataTmp);
+            ds->readChunk(chunkId, dataTmp);
 
             // check
             for(std::size_t i = 0; i < size_; ++i) {
@@ -206,38 +187,33 @@ namespace z5 {
 
     TEST_F(DatasetTest, CreateFloatDataset) {
 
-        handle::Dataset h("array_float1.zr");
         DatasetMetadata floatMeta;
         floatMeta.fromJson(jFloat_, true);
 
-        DatasetTyped<float> array(h, floatMeta);
-        const auto & chunksPerDim = array.chunksPerDimension();
+        auto ds = createDataset(fileHandle_, "float1", floatMeta);
+        const auto & chunksPerDim = ds->chunksPerDimension();
 
         std::default_random_engine generator;
 
-        // test uninitialized chunk
+        // test uninitialized chunk -> this is expected to throw a runtime error
         float dataTmp[size_];
-        array.readChunk(types::ShapeType({0, 0, 0}), dataTmp);
-        // check
-        for(std::size_t i = 0; i < size_; ++i) {
-            ASSERT_EQ(dataTmp[i], 42.);
-        }
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
 
         // test for 10 random chunks
         for(unsigned t = 0; t < 10; ++t) {
 
             // get a random chunk
-            types::ShapeType chunkId(array.dimension());
-            for(unsigned d = 0; d < array.dimension(); ++d) {
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
                 std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
                 chunkId[d] = distr(generator);
             }
 
-            array.writeChunk(chunkId, dataFloat_);
+            ds->writeChunk(chunkId, dataFloat_);
 
             // read a chunk
             float dataTmp[size_];
-            array.readChunk(chunkId, dataTmp);
+            ds->readChunk(chunkId, dataTmp);
 
             // check
             for(std::size_t i = 0; i < size_; ++i) {
