@@ -7,6 +7,10 @@
 #include "z5/s3/attributes.hxx"
 #endif
 
+#ifdef WITH_GCS
+#include "z5/gcs/attributes.hxx"
+#endif
+
 
 namespace z5 {
 
@@ -50,6 +54,12 @@ namespace attrs_detail {
             return;
         }
         #endif
+        #ifdef WITH_GCS
+        if(group.isGcs()) {
+            gcs::readAttributes(group, j);
+            return;
+        }
+        #endif
 
         filesystem::readAttributes(group, j);
     }
@@ -66,6 +76,12 @@ namespace attrs_detail {
         #ifdef WITH_S3
         if(group.isS3()) {
             s3::writeAttributes(group, j);
+            return;
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(group.isGcs()) {
+            gcs::writeAttributes(group, j);
             return;
         }
         #endif
@@ -93,6 +109,12 @@ namespace attrs_detail {
             return;
         }
         #endif
+        #ifdef WITH_GCS
+        if(file.isGcs()) {
+            gcs::writeAttributes(file, j);
+            return;
+        }
+        #endif
 
         filesystem::writeAttributes(file, j);
     }
@@ -104,6 +126,12 @@ namespace attrs_detail {
         #ifdef WITH_S3
         if(ds.isS3()) {
             s3::readAttributes(ds, j);
+            return;
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(ds.isGcs()) {
+            gcs::readAttributes(ds, j);
             return;
         }
         #endif
@@ -128,6 +156,12 @@ namespace attrs_detail {
         #ifdef WITH_S3
         if(ds.isS3()) {
             s3::writeAttributes(ds, j);
+            return;
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(ds.isGcs()) {
+            gcs::writeAttributes(ds, j);
             return;
         }
         #endif

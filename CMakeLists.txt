@@ -62,6 +62,9 @@ option(WITH_LZ4 ON)
 # build with amazon s3 storage
 option(WITH_S3 OFF)
 
+# build with google cloud storage
+option(WITH_GCS OFF)
+
 # marray multiarray
 option(WITH_MARRAY OFF)
 
@@ -252,7 +255,14 @@ if(WITH_S3)
     # Do we need any additional components?
     find_package(AWSSDK REQUIRED)
     add_definitions(-DWITH_S3)
-    SET(CLOUD_LIBRARIES ${AWSSDK_LINK_LIBRARIES})
+    SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};${AWSSDK_LINK_LIBRARIES}")
+endif()
+
+if(WITH_GCS)
+    find_package(CURL REQUIRED)
+    find_package(storage_client REQUIRED)
+    add_definitions(-DWITH_GCS)
+    # SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};${AWSSDK_LINK_LIBRARIES}")
 endif()
 
 

@@ -6,6 +6,10 @@
 #include "z5/s3/factory.hxx"
 #endif
 
+#ifdef WITH_GCS
+#include "z5/gcs/factory.hxx"
+#endif
+
 
 namespace z5 {
 
@@ -21,26 +25,16 @@ namespace z5 {
             return s3::openDataset(ds);
         }
         #endif
+        #ifdef WITH_GCS
+        if(root.isGcs()) {
+            gcs::handle::Dataset ds(root, key);
+            return gcs::openDataset(ds);
+        }
+        #endif
 
         filesystem::handle::Dataset ds(root, key);
         return filesystem::openDataset(ds);
     }
-
-
-    /*
-    template<class DATASET>
-    inline std::unique_ptr<Dataset> openDataset(const handle::Dataset<DATASET> & ds) {
-
-        // check if this is a s3 dataset
-        #ifdef WITH_S3
-        if(ds.isS3()) {
-            return s3::openDataset(ds);
-        }
-        #endif
-
-        return filesystem::openDataset(ds);
-    }
-    */
 
 
     template<class GROUP>
@@ -53,6 +47,12 @@ namespace z5 {
         if(root.isS3()) {
             s3::handle::Dataset ds(root, key);
             return s3::createDataset(ds, metadata);
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(root.isGcs()) {
+            gcs::handle::Dataset ds(root, key);
+            return gcs::createDataset(ds, metadata);
         }
         #endif
 
@@ -83,6 +83,12 @@ namespace z5 {
             return s3::createDataset(ds, metadata);
         }
         #endif
+        #ifdef WITH_GCS
+        if(root.isGcs()) {
+            gcs::handle::Dataset ds(root, key);
+            return gcs::createDataset(ds, metadata);
+        }
+        #endif
 
         filesystem::handle::Dataset ds(root, key);
         return filesystem::createDataset(ds, metadata);
@@ -94,6 +100,12 @@ namespace z5 {
         #ifdef WITH_S3
         if(file.isS3()) {
             s3::createFile(file, isZarr);
+            return;
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(file.isGcs()) {
+            gcs::createFile(file, isZarr);
             return;
         }
         #endif
@@ -109,6 +121,13 @@ namespace z5 {
         if(root.isS3()) {
             s3::handle::Group newGroup(root, key);
             s3::createGroup(newGroup, root.isZarr());
+            return;
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(root.isGcs()) {
+            gcs::handle::Group newGroup(root, key);
+            gcs::createGroup(newGroup, root.isZarr());
             return;
         }
         #endif
