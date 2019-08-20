@@ -39,11 +39,11 @@ namespace z5 {
     #ifdef WITH_S3
     inline void exportS3(py::module & m) {
         namespace shandle = s3::handle;
-        py::class_<shandle::File>(m, "File")
+        py::class_<shandle::File>(m, "S3File")
             .def("exists", &shandle::File::exists)
             .def("in", &shandle::File::in)
             .def("keys", &shandle::File::keys);
-        py::class_<shandle::Group>(m, "Group")
+        py::class_<shandle::Group>(m, "S3Group")
             .def("exists", &shandle::Group::exists)
             .def("in", &shandle::Group::in)
             .def("keys", &shandle::Group::keys);

@@ -5,7 +5,7 @@ addPythonModule(
         z5py.cxx
         dataset.cxx
         handles.cxx
-        # factory.cxx
+        factory.cxx
         # util.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 

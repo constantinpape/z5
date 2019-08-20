@@ -63,45 +63,10 @@ namespace handle {
     };
 
 
-    class File : public z5::handle::File<File>, public HandleImpl {
-    public:
-        typedef z5::handle::File<File> BaseType;
-
-        File(const fs::path & path, const FileMode mode=FileMode())
-            : BaseType(mode), HandleImpl(path) {
-        }
-
-        // Implement th handle API
-        inline bool isS3() const {return false;}
-        inline bool isGcs() const {return false;}
-        inline bool exists() const {return pathExists();}
-        inline bool isZarr() const {return isZarrGroup();}
-        inline const fs::path & path() const {return getPath();}
-
-        inline void create() const {
-            if(!mode().canCreate()) {
-                const std::string err = "Cannot create new file in file mode " + mode().printMode();
-                throw std::invalid_argument(err.c_str());
-            }
-            if(exists()) {
-                throw std::invalid_argument("Creating new file failed because it already exists.");
-            }
-            createDir();
-        }
-
-        // Implement the group handle API
-        inline void keys(std::vector<std::string> & out) const {
-            listSubDirs(out);
-        }
-        inline bool in(const std::string & key) const {
-            return elementExists(key);
-        }
-    };
-
-
-    class Group : public z5::handle::Group<Group>, public HandleImpl {
+    class Group : public z5::handle::Group<Group>, private HandleImpl {
     public:
         typedef z5::handle::Group<Group> BaseType;
+        typedef Group GroupType;
 
         template<class GROUP>
         Group(const z5::handle::Group<GROUP> & group, const std::string & key)
@@ -137,7 +102,44 @@ namespace handle {
     };
 
 
-    class Dataset : public z5::handle::Dataset<Dataset>, public HandleImpl {
+    class File : public z5::handle::File<File>, private HandleImpl {
+    public:
+        typedef z5::handle::File<File> BaseType;
+        typedef Group GroupType;
+
+        File(const fs::path & path, const FileMode mode=FileMode())
+            : BaseType(mode), HandleImpl(path) {
+        }
+
+        // Implement th handle API
+        inline bool isS3() const {return false;}
+        inline bool isGcs() const {return false;}
+        inline bool exists() const {return pathExists();}
+        inline bool isZarr() const {return isZarrGroup();}
+        inline const fs::path & path() const {return getPath();}
+
+        inline void create() const {
+            if(!mode().canCreate()) {
+                const std::string err = "Cannot create new file in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(exists()) {
+                throw std::invalid_argument("Creating new file failed because it already exists.");
+            }
+            createDir();
+        }
+
+        // Implement the group handle API
+        inline void keys(std::vector<std::string> & out) const {
+            listSubDirs(out);
+        }
+        inline bool in(const std::string & key) const {
+            return elementExists(key);
+        }
+    };
+
+
+    class Dataset : public z5::handle::Dataset<Dataset>, private HandleImpl {
     public:
         typedef z5::handle::Dataset<Dataset> BaseType;
 

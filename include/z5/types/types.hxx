@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <boost/any.hpp>
+// #include <boost/variant.hpp>
 
 #include "nlohmann/json.hpp"
 
@@ -204,6 +205,7 @@ namespace types {
     //
 
     typedef std::map<std::string, boost::any> CompressionOptions;
+    // typedef std::map<std::string, boost::variant<int, std::string>> CompressionOptions;
 
 
     inline void readZarrCompressionOptionsFromJson(Compressor compressor,
