@@ -3,10 +3,8 @@
 #include <iostream>
 
 #include "z5/dataset.hxx"
-#include "z5/dataset_factory.hxx"
-#include "z5/groups.hxx"
-#include "z5/multiarray/broadcast.hxx"
 
+#include "z5/multiarray/broadcast.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
 
 // for xtensor numpy bindings
@@ -19,8 +17,8 @@ namespace z5 {
 
     template<class T>
     inline void writePySubarray(const Dataset & ds,
-                               // TODO specifying the strides might speed provide some speed-up
-                               // TODO but it prevents singleton dimensions in the shapes
+                                // TODO specifying the strides might speed provide some speed-up
+                                // TODO but it prevents singleton dimensions in the shapes
                                 // const xt::pyarray<T, xt::layout_type::row_major> & in,
                                 const xt::pyarray<T> & in,
                                 const std::vector<size_t> & roiBegin,
@@ -52,23 +50,6 @@ namespace z5 {
 
 
     template<class T>
-    inline xt::pytensor<char, 1, xt::layout_type::row_major> convertPyArrayToFormat(const Dataset & ds,
-                                                                                    // TODO specifying the strides might speed provide some speed-up
-                                                                                    // TODO but it prevents singleton dimensions in the shapes
-                                                                                    // const xt::pyarray<T, xt::layout_type::row_major> & in)
-                                                                                    const xt::pyarray<T> & in) {
-        std::vector<char> tmp;
-        multiarray::convertArrayToFormat<T>(ds, in, tmp);
-        typedef xt::pytensor<char, 1, xt::layout_type::row_major>::shape_type ShapeType;
-        const ShapeType outShape = {static_cast<int64_t>(tmp.size())};
-        xt::pytensor<char, 1> out = xt::zeros<char>(outShape);
-        // TODO can we use xt::adapt here instead of std::copy?
-        std::copy(tmp.begin(), tmp.end(), out.begin());
-        return out;
-    }
-
-
-    template<class T>
     inline xt::pyarray<T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
         typedef typename xt::pyarray<T>::shape_type ShapeType;
         // check if the chunk exists
@@ -87,8 +68,8 @@ namespace z5 {
             // TODO can't lift gil here ?!
             // py::gil_scoped_release lift_gil;
             // varlen: return data as 1D array otherwise return ND array
-            bool isVarlen;
-            const std::size_t chunkSize = ds.getDiscChunkSize(chunkId, isVarlen);
+            std::size_t chunkSize;
+            const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
             if(isVarlen) {
                 shape = ShapeType({chunkSize});
             } else {
@@ -119,7 +100,7 @@ namespace z5 {
 
 
     template<class T>
-    void exportIoT(py::module & module) {
+    void exportIoT(py::module & module, const std::string & dtype) {
 
         // export writing subarrays
         module.def("write_subarray",
@@ -139,12 +120,6 @@ namespace z5 {
                    py::arg("n_threads")=1,
                    py::call_guard<py::gil_scoped_release>());
 
-        // export conversions
-        module.def("convert_array_to_format",
-                   &convertPyArrayToFormat<T>,
-                   py::arg("ds"), py::arg("in").noconvert(),
-                   py::call_guard<py::gil_scoped_release>());
-
         // export write_chunk
         module.def("write_chunk",
                    &writePyChunk<T>,
@@ -154,37 +129,8 @@ namespace z5 {
 
         // export chunk reading for all datatypes
         // integer types
-        module.def("read_chunk_int8",
-                   &readPyChunk<int8_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_int16",
-                   &readPyChunk<int16_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_int32",
-                   &readPyChunk<int32_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_int64",
-                   &readPyChunk<int64_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        // unsigned integer types
-        module.def("read_chunk_uint8",
-                   &readPyChunk<uint8_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_uint16",
-                   &readPyChunk<uint16_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_uint32",
-                   &readPyChunk<uint32_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_uint64",
-                   &readPyChunk<uint64_t>,
-                   py::arg("ds"), py::arg("chunkId"));
-        // floating point types
-        module.def("read_chunk_float32",
-                   &readPyChunk<float>,
-                   py::arg("ds"), py::arg("chunkId"));
-        module.def("read_chunk_float64",
-                   &readPyChunk<double>,
+        const std::string readChunkName = "read_chunk_" + dtype;
+        module.def(readChunkName.c_str(), &readPyChunk<T>,
                    py::arg("ds"), py::arg("chunkId"));
     }
 
@@ -194,25 +140,6 @@ namespace z5 {
         auto dsClass = py::class_<Dataset>(module, "DatasetImpl");
 
         dsClass
-            //
-            // find min and max chunks along given dimension
-            //
-            .def("findMinimumCoordinates", [](const Dataset & ds, const unsigned dim){
-                types::ShapeType chunk;
-                {
-                    py::gil_scoped_release allowThreads;
-                    ds.findMinimumCoordinates(dim, chunk);
-                }
-                return chunk;
-            })
-            .def("findMaximumCoordinates", [](const Dataset & ds, const unsigned dim){
-                types::ShapeType chunk;
-                {
-                    py::gil_scoped_release allowThreads;
-                    ds.findMaximumCoordinates(dim, chunk);
-                }
-                return chunk;
-            })
             .def("chunkExists", [](const Dataset & ds, const types::ShapeType & chunkIndices){
                 return ds.chunkExists(chunkIndices);
             })
@@ -222,7 +149,7 @@ namespace z5 {
             //
             .def_property_readonly("shape", [](const Dataset & ds){return ds.shape();})
             .def_property_readonly("len", [](const Dataset & ds){return ds.shape(0);})
-            .def_property_readonly("chunks", [](const Dataset & ds){return ds.maxChunkShape();})
+            .def_property_readonly("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
             .def_property_readonly("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_property_readonly("size", [](const Dataset & ds){return ds.size();})
             .def_property_readonly("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
@@ -239,6 +166,8 @@ namespace z5 {
                 return compressor;
             })
 
+            // TODO need to rethink this
+            /*
             // pickle support
             .def(py::pickle(
                 // __getstate__ -> we simply pickle the path,
@@ -256,26 +185,23 @@ namespace z5 {
                     return openDataset(tup[0].cast<std::string>());
                 }
             ))
+            */
         ;
-
-        module.def("open_dataset",[](const std::string & path, const FileMode::modes mode){
-            return openDataset(path, mode);
-        });
 
         // export I/O for all dtypes
         // integer types
-        exportIoT<int8_t>(module);
-        exportIoT<int16_t>(module);
-        exportIoT<int32_t>(module);
-        exportIoT<int64_t>(module);
+        exportIoT<int8_t>(module, "int8");
+        exportIoT<int16_t>(module, "int16");
+        exportIoT<int32_t>(module, "int32");
+        exportIoT<int64_t>(module, "int64");
         // unsigned integer types
-        exportIoT<uint8_t>(module);
-        exportIoT<uint16_t>(module);
-        exportIoT<uint32_t>(module);
-        exportIoT<uint64_t>(module);
+        exportIoT<uint8_t>(module, "uint8");
+        exportIoT<uint16_t>(module, "uint16");
+        exportIoT<uint32_t>(module, "uint32");
+        exportIoT<uint64_t>(module, "uint64");
         // float types
-        exportIoT<float>(module);
-        exportIoT<double>(module);
+        exportIoT<float>(module, "float32");
+        exportIoT<double>(module, "float64");
 
         // export writing scalars
         // The overloads cannot be properly resolved,
@@ -341,46 +267,4 @@ namespace z5 {
                   py::call_guard<py::gil_scoped_release>());
     }
 
-
-    void exportGroups(py::module & module) {
-        module.def("create_group",[](const std::string & path,
-                                     const bool isZarr,
-                                     const FileMode::modes mode){
-            handle::Group h(path, mode);
-            createGroup(h, isZarr);
-        });
-
-        module.def("create_sub_group",[](const std::string & path,
-                                         const std::string & key,
-                                         const bool isZarr){
-            handle::Group h(path);
-            createGroup(h, key, isZarr);
-        });
-    }
-
-
-    // expose file mode to python
-    void exportFileMode(py::module & module) {
-        py::class_<FileMode> pyFileMode(module, "FileMode");
-
-        // expose class
-        pyFileMode
-            .def(py::init<FileMode::modes>())
-            .def("can_write", &FileMode::canWrite)
-            .def("can_create", &FileMode::canCreate)
-            .def("must_not_exist", &FileMode::mustNotExist)
-            .def("should_truncate", &FileMode::shouldTruncate)
-            .def("mode", &FileMode::printMode)
-        ;
-
-        // expose enum
-        py::enum_<FileMode::modes>(pyFileMode, "modes")
-            .value("r", FileMode::modes::r)
-            .value("r_p", FileMode::modes::r_p)
-            .value("w", FileMode::modes::w)
-            .value("w_m", FileMode::modes::w_m)
-            .value("a", FileMode::modes::a)
-            .export_values()
-        ;
-    }
 }

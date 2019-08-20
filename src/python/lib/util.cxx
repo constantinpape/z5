@@ -66,6 +66,32 @@ namespace z5 {
     }
 
 
+    // expose file mode to python
+    void exportFileMode(py::module & module) {
+        py::class_<FileMode> pyFileMode(module, "FileMode");
+
+        // expose class
+        pyFileMode
+            .def(py::init<FileMode::modes>())
+            .def("can_write", &FileMode::canWrite)
+            .def("can_create", &FileMode::canCreate)
+            .def("must_not_exist", &FileMode::mustNotExist)
+            .def("should_truncate", &FileMode::shouldTruncate)
+            .def("mode", &FileMode::printMode)
+        ;
+
+        // expose enum
+        py::enum_<FileMode::modes>(pyFileMode, "modes")
+            .value("r", FileMode::modes::r)
+            .value("r_p", FileMode::modes::r_p)
+            .value("w", FileMode::modes::w)
+            .value("w_m", FileMode::modes::w_m)
+            .value("a", FileMode::modes::a)
+            .export_values()
+        ;
+    }
+
+
     void exportUtils(py::module & module) {
         exportUtilsT<uint8_t>(module, "uint8");
         exportUtilsT<uint16_t>(module, "uint16");
@@ -88,8 +114,9 @@ namespace z5 {
         module.def("remove_chunk", &util::removeChunk,
                    py::arg("ds"), py::arg("chunkId"),
                    py::call_guard<py::gil_scoped_release>());
-    }
 
+        exportFileMode(module);
+    }
 
 
 }
