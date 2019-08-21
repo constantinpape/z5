@@ -130,7 +130,7 @@ namespace compression {
 
     private:
         void init(const DatasetMetadata & metadata) {
-            level_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            level_ = boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

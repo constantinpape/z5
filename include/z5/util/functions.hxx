@@ -16,7 +16,7 @@ namespace util {
                              const bool removeSpecificValue=false, const T value=0) {
 
         // check if we are allowed to delete
-        if(!dataset.handle().mode().canWrite()) {
+        if(!dataset.mode().canWrite()) {
             const std::string err = "Cannot delete chunks in a dataset that was not opened with write permissions.";
             throw std::invalid_argument(err.c_str());
         }
@@ -36,8 +36,9 @@ namespace util {
             const auto uniques = std::set<T>(data.begin(), data.end());
             const bool remove = (uniques.size() == 1) ? (removeSpecificValue ? (*uniques.begin() == value ? true : false) : true) : false;
             if(remove) {
-                const auto handle = handle::Chunk(ds.handle(), chunk, ds.isZarr());
-                fs::remove(handle.path());
+                fs::path path;
+                ds.chunkPath(chunk, path);
+                fs::remove(path);
             }
         });
     }
@@ -45,8 +46,9 @@ namespace util {
 
     inline void removeChunk(const Dataset & ds, const types::ShapeType & chunkId) {
         if(ds.chunkExists(chunkId)) {
-            const auto handle = handle::Chunk(ds.handle(), chunkId, ds.isZarr());
-            fs::remove(handle.path());
+            fs::path path;
+            ds.chunkPath(chunkId, path);
+            fs::remove(path);
         }
     }
 
@@ -55,7 +57,7 @@ namespace util {
     inline void removeDataset(const Dataset & dataset, const int nThreads) {
 
         // check if we are allowed to delete
-        if(!dataset.handle().mode().canWrite()) {
+        if(!dataset.mode().canWrite()) {
             const std::string err = "Cannot delete dataset that was not opened with write permissions.";
             throw std::invalid_argument(err.c_str());
         }
@@ -67,17 +69,13 @@ namespace util {
             if(!ds.chunkExists(chunk)) {
                 return;
             }
-            const auto handle = handle::Chunk(ds.handle(), chunk, ds.isZarr());
-            // const auto & path = handle.path();
-            fs::remove(handle.path());
-            // TODO instead of removing directories in the end, we could check
-            // if the chunks directory is empty here adn then delete it
-            // howeve, this would require some locking, as we don't want to deletes
-            // of a folder at the same time
+            fs::path path;
+            ds.chunkPath(chunk, path);
+            fs::remove(path);
         });
 
         // delete all empty directories
-        fs::remove_all(dataset.handle().path());
+        fs::remove_all(dataset.path());
     }
 
 

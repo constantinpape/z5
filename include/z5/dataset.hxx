@@ -111,6 +111,12 @@ namespace z5 {
         virtual void getCompressor(std::string &) const = 0;
         virtual void getFillValue(void *) const = 0;
 
+        // file paths and permissions
+        virtual const FileMode & mode() const = 0;
+        virtual const fs::path & path() const = 0;
+        virtual void chunkPath(const types::ShapeType &, fs::path &) const = 0;
+
+
     protected:
         // private members:
         bool isZarr_;

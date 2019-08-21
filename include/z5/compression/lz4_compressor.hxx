@@ -69,10 +69,10 @@ namespace compression {
     private:
         void init(const DatasetMetadata & metadata) {
             // appropriate for hc compression
-            // level_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            // level_ = boost::get<int>(metadata.compressionOptions.at("level"));
 
             // appropriate for fast compression
-            level_ = 10 - boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            level_ = 10 - boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

@@ -154,6 +154,17 @@ namespace filesystem {
             return is_varlen;
         }
 
+        inline const FileMode & mode() const {
+            return handle_.mode();
+        }
+        inline const fs::path & path() const {
+            return handle_.path();
+        }
+        inline void chunkPath(const types::ShapeType & chunkId, fs::path & path) const {
+            handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
+            path = chunk.path();
+        }
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik

@@ -13,27 +13,24 @@ namespace z5 {
     template<class GROUP>
     void exportDsFactories(py::module & m) {
         m.def("open_dataset", &openDataset<GROUP>, py::arg("root"), py::arg("key"));
-        /*
-        m.def("create_Dataset", &createDataset<GROUP>, py::arg("root"), py::arg("key"),
-              py::arg("dtype"), py::arg("shape"), py::arg("chunk_shape"),
-              py::arg("compression"), py::arg("compression_options"), py::arg("fill_value"));
-        */
-        /*
+
+        // NOTE we can't just give &createDataset as second argument because this function is over-loaded
+        // and the overload cannot be resolved by pybind
         m.def("create_dataset", [](const GROUP & root, const std::string & key,
                                    const std::string & dtype, const std::vector<uint64_t>  & shape,
                                    const std::vector<uint64_t> & chunk_shape,
                                    const std::string & compression,
-                                   // TODO need boost variant?
-                                   const std::map<> copts,
-                                   ),
-              py::arg("root"), py::arg("key"),
-              py::arg("dtype"), py::arg("shape"), py::arg("chunk_shape"),
-              py::arg("compression"), py::arg("compression_options"), py::arg("fill_value"));
-        */
+                                   const types::CompressionOptions & copts,
+                                   const double fill_value){
+                return createDataset(root, key, dtype, shape, chunk_shape, compression, copts, fill_value);
+            },
+            py::arg("root"), py::arg("key"),
+            py::arg("dtype"), py::arg("shape"), py::arg("chunk_shape"),
+            py::arg("compression"), py::arg("compression_options"), py::arg("fill_value"));
     }
 
 
-    // TODO do we need to give different names for the functions to resolve calls in python
+    // TODO do we need to give different names for the functions to resolve calls in python?
     template<class GROUP, class FILE_>
     void exportFactoriesT(py::module & m) {
         // file factories
@@ -54,7 +51,7 @@ namespace z5 {
         exportFactoriesT<filesystem::handle::Group, filesystem::handle::File>(m);
         // for s3
         #ifdef WITH_S3
-        // exportFactoriesT<s3::handle::Group, s3::handle::File>(m);
+        exportFactoriesT<s3::handle::Group, s3::handle::File>(m);
         #endif
     }
 

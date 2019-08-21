@@ -6,7 +6,7 @@ addPythonModule(
         dataset.cxx
         handles.cxx
         factory.cxx
-        # util.cxx
+        util.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 
         ${FILESYSTEM_LIBRARIES}

@@ -82,9 +82,9 @@ namespace z5 {
         // check compressr
         ASSERT_EQ(metadata.compressor, types::Compressors::zarrToCompressor()[compressor["id"]]);
         // check compression options
-        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["level"]), compressor["clevel"]);
-        ASSERT_EQ(boost::any_cast<std::string>(metadata.compressionOptions["codec"]), compressor["cname"]);
-        ASSERT_EQ(boost::any_cast<int>(metadata.compressionOptions["shuffle"]), compressor["shuffle"]);
+        ASSERT_EQ(boost::get<int>(metadata.compressionOptions["level"]), compressor["clevel"]);
+        ASSERT_EQ(boost::get<std::string>(metadata.compressionOptions["codec"]), compressor["cname"]);
+        ASSERT_EQ(boost::get<int>(metadata.compressionOptions["shuffle"]), compressor["shuffle"]);
         // check dtype, fillvalue and order
         ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);
         ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);
@@ -105,7 +105,7 @@ namespace z5 {
         #ifdef WITH_ZLIB
         ASSERT_EQ(metadata.compressor, types::zlib);
         #endif
-        ASSERT_EQ(boost::any_cast<bool>(metadata.compressionOptions.at("useZlib")), false);
+        ASSERT_EQ(boost::get<bool>(metadata.compressionOptions.at("useZlib")), false);
         ASSERT_EQ(metadata.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 
@@ -158,12 +158,12 @@ namespace z5 {
         // check compression
         ASSERT_EQ(metaRead.compressor, metaWrite.compressor);
         // check compression options
-        ASSERT_EQ(boost::any_cast<int>(metaRead.compressionOptions.at("level")),
-                  boost::any_cast<int>(metaWrite.compressionOptions.at("level")));
-        ASSERT_EQ(boost::any_cast<int>(metaRead.compressionOptions.at("shuffle")),
-                  boost::any_cast<int>(metaWrite.compressionOptions.at("shuffle")));
-        ASSERT_EQ(boost::any_cast<std::string>(metaRead.compressionOptions.at("codec")),
-                  boost::any_cast<std::string>(metaWrite.compressionOptions.at("codec")));
+        ASSERT_EQ(boost::get<int>(metaRead.compressionOptions.at("level")),
+                  boost::get<int>(metaWrite.compressionOptions.at("level")));
+        ASSERT_EQ(boost::get<int>(metaRead.compressionOptions.at("shuffle")),
+                  boost::get<int>(metaWrite.compressionOptions.at("shuffle")));
+        ASSERT_EQ(boost::get<std::string>(metaRead.compressionOptions.at("codec")),
+                  boost::get<std::string>(metaWrite.compressionOptions.at("codec")));
         // check dtype, fill value, order
         ASSERT_EQ(metaRead.dtype,             metaWrite.dtype);
         ASSERT_EQ(metaRead.fillValue, metaWrite.fillValue);
@@ -194,7 +194,7 @@ namespace z5 {
         #ifdef WITH_ZLIB
         ASSERT_EQ(metaRead.compressor, types::zlib);
         #endif
-        ASSERT_EQ(boost::any_cast<bool>(metaRead.compressionOptions["useZlib"]), false);
+        ASSERT_EQ(boost::get<bool>(metaRead.compressionOptions["useZlib"]), false);
         ASSERT_EQ(metaRead.dtype, types::Datatypes::n5ToDtype()[jN5["dataType"]]);
     }
 

@@ -77,6 +77,13 @@ namespace s3 {
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
         }
 
+        inline const FileMode & mode() const {
+        }
+        inline const fs::path & path() const {
+        }
+        inline void chunkPath(const types::ShapeType & chunkId, fs::path & path) const {
+        }
+
         // delete copy constructor and assignment operator
         // because the compressor cannot be copied by default
         // and we don't really need this to be copyable afaik
