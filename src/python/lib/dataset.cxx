@@ -2,14 +2,17 @@
 #include <pybind11/stl.h>
 #include <iostream>
 
-#include "z5/dataset.hxx"
-
-#include "z5/multiarray/broadcast.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
-
 // for xtensor numpy bindings
 #include "xtensor-python/pyarray.hpp"
 #include "xtensor-python/pytensor.hpp"
+
+#include "z5/dataset.hxx"
+#include "z5/factory.hxx"
+
+#include "z5/multiarray/broadcast.hxx"
+#include "z5/multiarray/xtensor_access.hxx"
+#include "variant_cast.hxx"
+
 
 namespace py = pybind11;
 
@@ -165,27 +168,41 @@ namespace z5 {
                 ds.getCompressor(compressor);
                 return compressor;
             })
+            .def_property_readonly("compression_options", [](const Dataset & ds){
+                types::CompressionOptions opts;
+                ds.getCompressionOptions(opts);
+                return opts;
+            })
 
-            // TODO need to rethink this
-            /*
-            // pickle support
+            .def("remove_chunk", &Dataset::removeChunk, py::arg("chunk_id"),
+                 py::call_guard<py::gil_scoped_release>())
+
+            // for now, we only support picking if we can get the path
+            // of the dataset, i.e. if we have a filesystem dataset
             .def(py::pickle(
                 // __getstate__ -> we simply pickle the path,
                 // the rest will be read from the attributes
                 [](const Dataset & ds) {
-                    return py::make_tuple(ds.handle().path().string());
+                    std::string path;
+                    try {
+                        path = ds.path().string();
+                    } catch(...) {
+                        throw std::runtime_error("Can only picke filesystem datasets");
+                    }
+                    return py::make_tuple(path, ds.mode().mode());
                 },
+
                 // __setstate__
                 [](py::tuple tup) {
-                    if(tup.size() != 1) { // the serialization size is 1, because we only pickle the path
-                        std::cout << tup.size() << std::endl;
+                    if(tup.size() != 2) { // the serialization size is 1, because we only pickle the path
                         throw std::runtime_error("Invalid state for unpickling z5::Dataset");
                     }
-
-                    return openDataset(tup[0].cast<std::string>());
+                    FileMode mode(tup[1].cast<FileMode::modes>());
+                    fs::path path(tup[0].cast<std::string>());
+                    filesystem::handle::Dataset handle(path, mode);
+                    return filesystem::openDataset(handle);
                 }
             ))
-            */
         ;
 
         // export I/O for all dtypes

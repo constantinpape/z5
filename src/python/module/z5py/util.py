@@ -6,9 +6,8 @@ from contextlib import closing
 from datetime import datetime
 import numpy as np
 
-from . import _z5py as z5_impl
+from . import _z5py
 from .file import File
-from .group import Group
 from .dataset import Dataset
 from .shape_utils import normalize_slices
 
@@ -53,7 +52,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
 
     # product raises memory error for too large ranges,
     # because input iterators are cast to tuple
-    # TODO so far I have only seen this for 1d "open-ended" datasets
+    # so far I have only seen this for 1d "open-ended" datasets
     # and hence just implemented a workaround for this case,
     # but it should be fairly easy to implement an nd version of product
     # without casting to tuple for our use case using the imglib loop trick, see also
@@ -75,6 +74,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
                                                      min_coords, max_coords))
 
 
+# TODO use same backend as convert_to/from_h5
 def copy_dataset(in_path, out_path,
                  in_path_in_file, out_path_in_file,
                  n_threads, chunks=None,
@@ -182,7 +182,6 @@ def copy_dataset(in_path, out_path,
         out_attrs[key] = val
 
 
-# TODO we could allow to change formats from zarr to n5 and vice versa
 def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
     """ Copy group recursively.
 
@@ -199,25 +198,28 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
     f_in = File(in_path)
     f_out = File(out_path)
 
+    def copy_attrs(gin, gout):
+        in_attrs = gin.attrs
+        out_attrs = gout.attrs
+        for key, val in in_attrs.items():
+            out_attrs[key] = val
+
     g_in = f_in[in_path_in_file]
-    for key, obj in g_in.items():
-        abs_in_key = os.path.join(in_path_in_file, key)
-        abs_out_key = os.path.join(out_path_in_file, key)
+    g_out = f_out.require_group(out_path_in_file)
+    copy_attrs(g_in, g_out)
+
+    def copy_object(name, obj):
+        abs_in_key = os.path.join(in_path_in_file, name)
+        abs_out_key = os.path.join(out_path_in_file, name)
+
         if isinstance(obj, Dataset):
             copy_dataset(in_path, out_path,
                          abs_in_key, abs_out_key, n_threads)
         else:
-            assert isinstance(obj, Group)
-            # copy group attributes
-            g_out = f_out.require_group(abs_out_key)
-            in_attrs = obj.attrs
-            out_attrs = g_out.attrs
-            for key, val in in_attrs.items():
-                out_attrs[key] = val
+            g = f_out.require_group(abs_out_key)
+            copy_attrs(obj, g)
 
-            # copy group content
-            copy_group(in_path, out_path,
-                       abs_in_key, abs_out_key, n_threads)
+    g_in.visititems(copy_object)
 
 
 class Timer:
@@ -297,7 +299,7 @@ def remove_trivial_chunks(dataset, n_threads,
     """
 
     dtype = dataset.dtype
-    function = eval('z5_impl.remove_trivial_chunks_%s' % dtype)
+    function = eval('_z5py.remove_trivial_chunks_%s' % dtype)
     remove_specific = remove_specific_value is not None
     value = remove_specific_value if remove_specific else 0
     function(dataset._impl, n_threads, remove_specific, value)
@@ -306,13 +308,13 @@ def remove_trivial_chunks(dataset, n_threads,
 def remove_dataset(dataset, n_threads):
     """ Remvoe dataset multi-threaded.
     """
-    z5_impl.remove_dataset(dataset._impl, n_threads)
+    _z5py.remove_dataset(dataset._impl, n_threads)
 
 
 def remove_chunk(dataset, chunk_id):
     """ Remove a chunk
     """
-    z5_impl.remove_chunk(dataset._impl, chunk_id)
+    dataset._impl.remove_chunk(dataset._impl, chunk_id)
 
 
 def remove_chunks(dataset, bounding_box):
@@ -337,7 +339,7 @@ def unique(dataset, n_threads, return_counts=False):
     """
     dtype = dataset.dtype
     if return_counts:
-        function = eval('z5_impl.unique_with_counts_%s' % dtype)
+        function = eval('_z5py.unique_with_counts_%s' % dtype)
     else:
-        function = eval('z5_impl.unique_%s' % dtype)
+        function = eval('_z5py.unique_%s' % dtype)
     return function(dataset._impl, n_threads)

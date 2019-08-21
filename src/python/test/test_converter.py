@@ -1,24 +1,14 @@
-import sys
 import unittest
-import numpy as np
 import os
 from shutil import rmtree
 
-try:
-    from concurrent import futures
-except ImportError:
-    futures = False
+import numpy as np
+import z5py
 
 try:
     import h5py
 except ImportError:
-    h5py = False
-
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+    h5py = None
 
 
 class TestConverter(unittest.TestCase):
@@ -40,7 +30,6 @@ class TestConverter(unittest.TestCase):
             pass
 
     @unittest.skipUnless(h5py, 'Requires h5py')
-    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_h5_to_n5(self):
         from z5py.converter import convert_from_h5
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
@@ -70,7 +59,6 @@ class TestConverter(unittest.TestCase):
             self.assertTrue(np.allclose(data, data_n5))
 
     @unittest.skipUnless(h5py, 'Requires h5py')
-    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_h5_to_n5_with_roi(self):
         from z5py.converter import convert_from_h5
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
@@ -112,7 +100,6 @@ class TestConverter(unittest.TestCase):
         self.assertTrue(np.allclose(data[roi], data_n5))
 
     @unittest.skipUnless(h5py, 'Requires h5py')
-    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_n5_to_h5(self):
         from z5py.converter import convert_to_h5
         n5_file = os.path.join(self.tmp_dir, 'tmp.n5')
@@ -143,7 +130,6 @@ class TestConverter(unittest.TestCase):
             self.assertTrue(np.allclose(data, data_h5))
 
     @unittest.skipUnless(h5py, 'Requires h5py')
-    @unittest.skipUnless(futures, 'Needs 3rd party concurrent.futures in python 2')
     def test_n5_to_h5_with_roi(self):
         from z5py.converter import convert_to_h5
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')

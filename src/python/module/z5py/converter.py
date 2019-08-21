@@ -8,23 +8,23 @@ import numpy as np
 
 try:
     import h5py
-    WITH_H5 = True
 except ImportError:
     print("h5py is not installed, hdf5 converters not available")
-    WITH_H5 = False
+    h5py = None
 
 try:
     import imageio
-    WITH_IMIO = True
 except ImportError:
     print("imageio is not installed, tif converters not available")
-    WITH_IMIO = False
+    imageio = None
 
 from .file import File
 from .util import blocking
 from .shape_utils import normalize_slices
 
-if WITH_H5:
+
+# TODO use same backend as copy_dataset
+if h5py:
 
     def convert_to_h5(in_path, out_path,
                       in_path_in_file, out_path_in_file,
@@ -106,7 +106,6 @@ if WITH_H5:
             z5_attrs = ds_z5.attrs
             for key, val in z5_attrs.items():
                 h5_attrs[key] = val
-
 
     def convert_from_h5(in_path, out_path,
                         in_path_in_file, out_path_in_file,
@@ -197,11 +196,10 @@ if WITH_H5:
                 z5_attrs[key] = val
 
 
-if WITH_IMIO:
+if imageio:
 
     def convert_to_tif():
         raise NotImplementedError("Conversion to tif not implemented.")
-
 
     def is_int(string):
         try:
@@ -209,7 +207,6 @@ if WITH_IMIO:
             return True
         except ValueError:
             return False
-
 
     # TODO use proper regex
     def default_index_parser(fname):
@@ -233,7 +230,6 @@ if WITH_IMIO:
             # we assume that the image-index is always the last number parsed
             return parsed[-1]
 
-
     def _read_tif_metadata(in_path, file_names=None):
         if file_names is None:
             pass  # TODO
@@ -247,7 +243,6 @@ if WITH_IMIO:
             shape, dtype = d.shape, d.dtype
             shape = (len(file_names),) + shape
         return shape, dtype
-
 
     # TODO
     # - implement for tif volumes / stacks / multi-page tifs

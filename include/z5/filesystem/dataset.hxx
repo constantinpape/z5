@@ -133,6 +133,9 @@ namespace filesystem {
             auto compressorType = getCompressor();
             compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] : types::Compressors::compressorToN5()[compressorType];
         }
+        inline void getCompressionOptions(types::CompressionOptions & opts) const {
+            Mixin::compressor_->getOptions(opts);
+        }
 
 
         inline void getFillValue(void * fillValue) const {
@@ -152,6 +155,24 @@ namespace filesystem {
                 chunkSize = chunk.size();
             }
             return is_varlen;
+        }
+
+        inline const FileMode & mode() const {
+            return handle_.mode();
+        }
+        inline const fs::path & path() const {
+            return handle_.path();
+        }
+        inline void chunkPath(const types::ShapeType & chunkId, fs::path & path) const {
+            handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
+            path = chunk.path();
+        }
+        inline void removeChunk(const types::ShapeType & chunkId) const {
+            handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
+            chunk.remove();
+        }
+        inline void remove() const {
+            handle_.remove();
         }
 
         // delete copy constructor and assignment operator

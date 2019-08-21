@@ -124,13 +124,17 @@ namespace compression {
             }
 		}
 
-        virtual types::Compressor type() const {
+        inline types::Compressor type() const {
             return types::xz;
+        }
+
+        inline void getOptions(types::CompressionOptions & opts) const {
+            opts["level"] = level_;
         }
 
     private:
         void init(const DatasetMetadata & metadata) {
-            level_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            level_ = boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

@@ -144,10 +144,14 @@ namespace compression {
             return types::zlib;
         }
 
+        inline void getOptions(types::CompressionOptions & opts) const {
+            opts["level"] = clevel_;
+        }
+
     private:
         void init(const DatasetMetadata & metadata) {
-            clevel_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
-            useZlibEncoding_ = boost::any_cast<bool>(metadata.compressionOptions.at("useZlib"));
+            clevel_ = boost::get<int>(metadata.compressionOptions.at("level"));
+            useZlibEncoding_ = boost::get<bool>(metadata.compressionOptions.at("useZlib"));
         }
 
         // compression level

@@ -1,22 +1,17 @@
 import unittest
-import sys
-import numpy as np
 import os
 from shutil import rmtree
 from abc import ABC
 
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import numpy as np
+import z5py
 
 
 class DatasetTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.root_file = z5py.File('array.' + self.data_format,
-                                   use_zarr_format=self.data_format == 'zarr')
+        self.path = 'array.' + self.data_format
+        self.root_file = z5py.File(self.path, use_zarr_format=self.data_format == 'zarr')
 
         self.base_dtypes = [
             'int8', 'int16', 'int32', 'int64',
@@ -40,7 +35,7 @@ class DatasetTestMixin(ABC):
 
     def tearDown(self):
         try:
-            rmtree('array.' + self.data_format)
+            rmtree(self.path)
         except OSError:
             pass
 
@@ -190,11 +185,11 @@ class DatasetTestMixin(ABC):
             self.check_array(out_array, in_array)
 
     def test_create_nested_dataset(self):
-        ds = self.root_file.create_dataset('group/sub_group/data',
-                                           shape=self.shape,
-                                           dtype='float64',
-                                           chunks=(10, 10, 10))
-        self.assertEqual(ds.path, os.path.join(self.root_file.path, 'group/sub_group/data'))
+        self.root_file.create_dataset('group/sub_group/data',
+                                      shape=self.shape,
+                                      dtype='float64',
+                                      chunks=(10, 10, 10))
+        self.assertTrue(os.path.exists(os.path.join(self.path, 'group', 'sub_group', 'data')))
 
     def test_create_with_data(self):
         in_array = np.random.rand(*self.shape)
@@ -232,9 +227,9 @@ class DatasetTestMixin(ABC):
                                            chunks=(10, 10, 10))
         bb = np.s_[:10, :10, :10]
         if ds.is_zarr:
-            chunk_path = os.path.join(ds.path, '0.0.0')
+            chunk_path = os.path.join(self.path, 'test', '0.0.0')
         else:
-            chunk_path = os.path.join(ds.path, '0', '0', '0')
+            chunk_path = os.path.join(self.path, 'test', '0', '0', '0')
         ds[bb] = 0
         self.assertFalse(os.path.exists(chunk_path))
         ds[bb] = 1
@@ -430,25 +425,6 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'n5'
 
-    @unittest.skipIf(sys.version_info.major < 3, "This fails in python 2")
-    def test_ds_array_to_format(self):
-        for dtype in self.base_dtypes:
-            ds = self.root_file.create_dataset('data_%s' % hash(dtype),
-                                               dtype=dtype,
-                                               shape=self.shape,
-                                               chunks=(10, 10, 10))
-            in_array = 42 * np.ones((10, 10, 10), dtype=dtype)
-            ds[:10, :10, :10] = in_array
-
-            path = os.path.join(os.path.dirname(ds.attrs.path), '0', '0', '0')
-            with open(path, 'rb') as f:
-                read_from_file = np.array([byte for byte in f.read()], dtype='int8')
-
-            converted_data = ds.array_to_format(in_array)
-
-            self.assertEqual(len(read_from_file), len(converted_data))
-            self.assertTrue(np.allclose(read_from_file, converted_data))
-
     def test_varlen(self):
         shape = (100, 100)
         chunks = (10, 10)
@@ -461,7 +437,7 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
         chunks_per_dim = ds.chunks_per_dimension
         for x in range(chunks_per_dim[0]):
             for y in range(chunks_per_dim[1]):
-                test_data = np.random.rand(np.random.randint(0, max_len))
+                test_data = np.random.rand(np.random.randint(1, max_len))
                 ds.write_chunk((x, y), test_data, True)
                 out = ds.read_chunk((x, y))
                 self.assertEqual(test_data.shape, out.shape)

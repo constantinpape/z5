@@ -3,10 +3,11 @@ addPythonModule(
         z5py
     SOURCES
         z5py.cxx
+        attributes.cxx
         dataset.cxx
-        handles.cxx
         factory.cxx
-        # util.cxx
+        handles.cxx
+        util.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 
         ${FILESYSTEM_LIBRARIES}

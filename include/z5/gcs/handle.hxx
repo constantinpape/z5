@@ -59,7 +59,8 @@ namespace handle {
         const fs::path & path() const {}
 
         inline void create() const {
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
+                std::cout << "Hereee" << std::endl;
                 const std::string err = "Cannot create new group in file mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
@@ -96,7 +97,7 @@ namespace handle {
 
         inline void create() const {
             // check if we have permissions to create a new dataset
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
                 const std::string err = "Cannot create new dataset in mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }

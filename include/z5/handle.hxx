@@ -20,6 +20,7 @@ namespace handle {
 
         virtual bool exists() const = 0;
         virtual void create() const = 0;
+        virtual void remove() const = 0;
 
         virtual const fs::path & path() const = 0;
 
@@ -94,12 +95,19 @@ namespace handle {
         }
 
         inline const types::ShapeType & shape() const {
-            return isZarr() ? defaultShape_ : boundedShape_;
+            return boundedShape_;
         }
 
         inline std::size_t size() const {
-            const auto & cshape = shape();
-            return std::accumulate(cshape.begin(), cshape.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(boundedShape_.begin(), boundedShape_.end(), 1, std::multiplies<std::size_t>());
+        }
+
+        inline const types::ShapeType & defaultShape() const {
+            return defaultShape_;
+        }
+
+        inline std::size_t defaultSize() const {
+            return std::accumulate(defaultShape_.begin(), defaultShape_.end(), 1, std::multiplies<std::size_t>());
         }
 
 
@@ -123,5 +131,17 @@ namespace handle {
     };
 
 
+    inline bool hasAllN5DatasetAttributes(nlohmann::json & j) {
+        const std::set<std::string> protectedAttributes = {"dimensions", "blockSize", "dataType",
+                                                           "compressionType", "compression"};
+        int nFound = 0;
+        for(auto jIt = j.begin(); jIt != j.end(); ++jIt) {
+            if(protectedAttributes.find(jIt.key()) != protectedAttributes.end()) {
+                ++nFound;
+            }
+        }
+        // NOTE we only expect to find one of "compressionType" and "compression"
+        return nFound == (protectedAttributes.size() - 1);
+    }
 }
 }

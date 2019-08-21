@@ -18,6 +18,17 @@ namespace util {
     }
 
 
+    inline void split(const std::string & in, std::vector<std::string> & out, const std::string & delimiter) {
+        std::size_t curr, prev = 0;
+        curr = in.find(delimiter);
+        while(curr != std::string::npos) {
+            out.push_back(in.substr(prev, curr - prev));
+            prev = curr + 1;
+            curr = in.find(delimiter, prev);
+        }
+        out.push_back(in.substr(prev, curr - prev));
+    }
+
     // make regular grid betwee `minCoords` and `maxCoords` with step size 1.
     // uses imglib trick for ND code.
     inline void makeRegularGrid(const types::ShapeType & minCoords,

@@ -113,8 +113,6 @@ namespace z5 {
     }
 
 
-    // TODO return the handle to the group that was created here.
-    // need to return it wrapped into a unique ptr, to enable polymorphism
     template<class GROUP>
     inline void createGroup(const handle::Group<GROUP> & root, const std::string & key) {
         #ifdef WITH_S3
@@ -133,6 +131,50 @@ namespace z5 {
         #endif
         filesystem::handle::Group newGroup(root, key);
         filesystem::createGroup(newGroup, root.isZarr());
+    }
+
+
+    // make sure that top level key in hierarchy exists
+    template<class GROUP>
+    inline void requireHierarchy(const handle::Group<GROUP> & g, const std::string & key) {
+        std::vector<std::string> keys;
+        util::split(key, keys, "/");
+        if(keys.size() <= 1) {
+            return;
+        }
+
+        std::string currentKey = "";
+        for(int k = 0; k < keys.size() - 1; ++k) {
+            currentKey += keys[k];
+            if(g.in(currentKey)) {
+                continue;
+            }
+            createGroup(g, currentKey);
+            currentKey += "/";
+        }
+    }
+
+
+    template<class GROUP1, class GROUP2>
+    inline std::string relativePath(const handle::Group<GROUP1> & g1,
+                                    const GROUP2 & g2) {
+        #ifdef WITH_S3
+        if(g1.isS3()) {
+            if(!g2.isS3()) {
+                throw std::runtime_error("Can't get relative path of different backends.");
+            }
+            return s3::relativePath(g1, g2);
+        }
+        #endif
+        #ifdef WITH_GCS
+        if(g1.isGcs()) {
+            if(!g2.isGcs()) {
+                throw std::runtime_error("Can't get relative path of different backends.");
+            }
+            return gcs::relativePath(g1, g2);
+        }
+        #endif
+        return filesystem::relativePath(g1, g2);
     }
 
 }

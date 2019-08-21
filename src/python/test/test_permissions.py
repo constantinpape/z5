@@ -76,8 +76,7 @@ class TestPermissions(unittest.TestCase):
 
         # make sure that append truncates
         f = z5py.File(self.path1, mode='w')
-        in_dir = os.listdir(self.path1)
-        self.assertEqual(len(in_dir), 0)
+        self.assertEqual(len(f.keys()), 0)
 
     # test append permissions ('a')
     def test_append_permission(self):

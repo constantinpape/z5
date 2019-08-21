@@ -1,15 +1,10 @@
-import sys
-import unittest
-import numpy as np
 import os
+import unittest
 from concurrent import futures
 from shutil import rmtree
 
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import numpy as np
+import z5py
 
 
 class TestUtil(unittest.TestCase):

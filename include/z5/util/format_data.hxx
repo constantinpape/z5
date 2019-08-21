@@ -105,9 +105,9 @@ namespace util {
         }
 
         // get the chunk size and the data size (can be different iif varlen)
-        const std::size_t chunkSize = chunk.size();
+        const std::size_t chunkSize = isZarr ? chunk.defaultSize() : chunk.size();
         const std::size_t dataSize = isVarlen ? varSize : chunkSize;
-        const auto & chunk_shape = chunk.shape();
+        const auto & chunk_shape = isZarr ? chunk.defaultShape() : chunk.shape();
 
         // check if the chunk is empty (i.e. all fillvalue) and if so don't write it
         // this does not apply if we have a varlen dataset for which the fillvalue is not defined
@@ -169,6 +169,7 @@ namespace util {
             uint32_t varlength;
             memcpy(&varlength, &buffer[headerlen], 4);
             util::reverseEndiannessInplace(varlength);
+            data_size = varlength;
             headerlen += 4;
         }
 
@@ -216,6 +217,7 @@ namespace util {
             uint32_t varlength;
             memcpy(&varlength, &buffer[headerlen], 4);
             util::reverseEndiannessInplace(varlength);
+            data_size = varlength;
             headerlen += 4;
         }
 
@@ -233,7 +235,7 @@ namespace util {
                                const COMPRESSOR & compressor) {
 
         const bool is_zarr = chunk.isZarr();
-        std::size_t chunk_size = chunk.size();
+        std::size_t chunk_size = is_zarr ? chunk.defaultSize() : chunk.size();
         bool is_varlen = false;
 
         if(!is_zarr) {

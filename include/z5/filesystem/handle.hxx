@@ -58,6 +58,11 @@ namespace handle {
             return fs::exists(p) && fs::is_directory(p);
         }
 
+        inline void removeDir() const {
+            fs::remove_all(path_);
+        }
+
+
     private:
         fs::path path_;
     };
@@ -81,7 +86,7 @@ namespace handle {
         inline const fs::path & path() const {return getPath();}
 
         inline void create() const {
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
                 const std::string err = "Cannot create new group in file mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
@@ -91,6 +96,17 @@ namespace handle {
             createDir();
         }
 
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove group in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing group.");
+            }
+            removeDir();
+
+        }
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
@@ -129,6 +145,17 @@ namespace handle {
             createDir();
         }
 
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove file in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing file.");
+            }
+            removeDir();
+        }
+
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
             listSubDirs(out);
@@ -148,6 +175,8 @@ namespace handle {
             : BaseType(group.mode()), HandleImpl(group.path() / key) {
         }
 
+        Dataset(const fs::path & path, const FileMode & mode)
+            : BaseType(mode), HandleImpl(path) {}
 
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return false;}
@@ -157,7 +186,7 @@ namespace handle {
 
         inline void create() const {
             // check if we have permissions to create a new dataset
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
                 const std::string err = "Cannot create new dataset in mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
@@ -167,6 +196,18 @@ namespace handle {
             }
             createDir();
         }
+
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove dataset in dataset mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing dataset.");
+            }
+            removeDir();
+        }
+
     };
 
 
@@ -208,6 +249,14 @@ namespace handle {
 
         inline bool exists() const {
             return fs::exists(path_);
+        }
+
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove chunk in mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            fs::remove(path_);
         }
 
         inline bool isS3() const {return false;}

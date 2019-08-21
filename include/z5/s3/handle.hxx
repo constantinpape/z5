@@ -34,6 +34,16 @@ namespace handle {
             }
         }
 
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove file in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing file.");
+            }
+        }
+
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
         }
@@ -59,7 +69,7 @@ namespace handle {
         const fs::path & path() const {}
 
         inline void create() const {
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
                 const std::string err = "Cannot create new group in file mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
@@ -69,6 +79,15 @@ namespace handle {
             }
         }
 
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove group in group mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing group.");
+            }
+        }
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
@@ -96,13 +115,23 @@ namespace handle {
 
         inline void create() const {
             // check if we have permissions to create a new dataset
-            if(!mode().canCreate()) {
+            if(mode().mode() == FileMode::modes::r) {
                 const std::string err = "Cannot create new dataset in mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
             // make sure that the file does not exist already
             if(exists()) {
                 throw std::invalid_argument("Creating new dataset failed because it already exists.");
+            }
+        }
+
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove dataset in dataset mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing dataset.");
             }
         }
     };
@@ -120,6 +149,9 @@ namespace handle {
 
         // make the top level directories for a n5 chunk
         inline void create() const {
+        }
+
+        inline void remove() const {
         }
 
         inline const Dataset & datasetHandle() const {

@@ -123,11 +123,6 @@ namespace z5 {
 
             types::readZarrCompressionOptionsFromJson(compressor, compressionOpts,
                                                       compressionOptions);
-            // we need to do this after 'readZarrCompressionOptionsFromJson' is called,
-            // because otherwise this will be overriden
-            if (zarrCompressorId == "gzip") {
-                compressionOptions["useZlib"] = false;
-            }
         }
 
 

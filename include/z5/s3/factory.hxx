@@ -93,5 +93,11 @@ namespace s3 {
         writeMetadata(group, fmeta);
     }
 
+
+    template<class GROUP1, class GROUP2>
+    inline std::string relativePath(const z5::handle::Group<GROUP1> & g1,
+                                    const GROUP2 & g2) {
+    }
+
 }
 }

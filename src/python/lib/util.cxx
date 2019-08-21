@@ -72,7 +72,7 @@ namespace z5 {
 
         // expose class
         pyFileMode
-            .def(py::init<FileMode::modes>())
+            .def(py::init<FileMode::modes>(), py::arg("mode"))
             .def("can_write", &FileMode::canWrite)
             .def("can_create", &FileMode::canCreate)
             .def("must_not_exist", &FileMode::mustNotExist)
@@ -109,10 +109,6 @@ namespace z5 {
         // export remove dataset and remove chunk
         module.def("remove_dataset", &util::removeDataset,
                    py::arg("ds"), py::arg("n_threads"),
-                   py::call_guard<py::gil_scoped_release>());
-
-        module.def("remove_chunk", &util::removeChunk,
-                   py::arg("ds"), py::arg("chunkId"),
                    py::call_guard<py::gil_scoped_release>());
 
         exportFileMode(module);

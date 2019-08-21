@@ -12,7 +12,7 @@ namespace attrs_detail {
 
     inline void readAttributes(const fs::path & path, nlohmann::json & j) {
         if(!fs::exists(path)) {
-            throw std::runtime_error("Cannot read attributes: no attributes exist");
+            return;
         }
         #ifdef WITH_BOOST_FS
         fs::ifstream file(path);
@@ -46,6 +46,31 @@ namespace attrs_detail {
         file << jOut;
         file.close();
     }
+
+    inline void removeAttribute(const fs::path & path, const std::string & key) {
+        nlohmann::json jOut;
+        // if we already have attributes, read them
+        if(fs::exists(path)) {
+            #ifdef WITH_BOOST_FS
+            fs::ifstream file(path);
+            #else
+            std::ifstream file(path);
+            #endif
+            file >> jOut;
+            file.close();
+        }
+        else {
+            return;
+        }
+        jOut.erase(key);
+        #ifdef WITH_BOOST_FS
+        fs::ofstream file(path);
+        #else
+        std::ofstream file(path);
+        #endif
+        file << jOut;
+        file.close();
+    }
 }
 
     template<class GROUP>
@@ -61,6 +86,12 @@ namespace attrs_detail {
         attrs_detail::writeAttributes(path, j);
     }
 
+    template<class GROUP>
+    inline void removeAttribute(const z5::handle::Group<GROUP> & group, const std::string & key) {
+        const auto path = group.path() / (group.isZarr() ? ".zattrs" : "attributes.json");
+        attrs_detail::removeAttribute(path, key);
+    }
+
 
     template<class DATASET>
     inline void readAttributes(const z5::handle::Dataset<DATASET> & ds, nlohmann::json & j
@@ -73,6 +104,33 @@ namespace attrs_detail {
     inline void writeAttributes(const z5::handle::Dataset<DATASET> & ds, const nlohmann::json & j) {
         const auto path = ds.path() / (ds.isZarr() ? ".zattrs" : "attributes.json");
         attrs_detail::writeAttributes(path, j);
+    }
+
+    template<class DATASET>
+    inline void removeAttribute(const z5::handle::Dataset<DATASET> & ds, const std::string & key) {
+        const auto path = ds.path() / (ds.isZarr() ? ".zattrs" : "attributes.json");
+        attrs_detail::removeAttribute(path, key);
+    }
+
+
+    template<class GROUP>
+    inline bool isSubGroup(const z5::handle::Group<GROUP> & group, const std::string & key){
+        fs::path path = group.path() / key;
+        if(!fs::exists(path)) {
+            return false;
+        }
+        if(group.isZarr()) {
+            path /= ".zgroup";
+            return fs::exists(path);
+        } else {
+            path /= "attributes.json";
+            if(!fs::exists(path)) {
+                return true;
+            }
+            nlohmann::json j;
+            attrs_detail::readAttributes(path, j);
+            return !z5::handle::hasAllN5DatasetAttributes(j);
+        }
     }
 
 }

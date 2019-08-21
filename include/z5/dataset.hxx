@@ -110,6 +110,14 @@ namespace z5 {
         virtual types::Compressor getCompressor() const = 0;
         virtual void getCompressor(std::string &) const = 0;
         virtual void getFillValue(void *) const = 0;
+        virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
+
+        // file paths, permissions and removal
+        virtual const FileMode & mode() const = 0;
+        virtual const fs::path & path() const = 0;
+        virtual void chunkPath(const types::ShapeType &, fs::path &) const = 0;
+        virtual void removeChunk(const types::ShapeType &) const = 0;
+        virtual void remove() const = 0;
 
     protected:
         // private members:

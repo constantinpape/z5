@@ -62,17 +62,21 @@ namespace compression {
             }
 		}
 
-        virtual types::Compressor type() const {
+        inline types::Compressor type() const {
             return types::lz4;
+        }
+
+        inline void getOptions(types::CompressionOptions & opts) const {
+            opts["level"] = level_;
         }
 
     private:
         void init(const DatasetMetadata & metadata) {
             // appropriate for hc compression
-            // level_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            // level_ = boost::get<int>(metadata.compressionOptions.at("level"));
 
             // appropriate for fast compression
-            level_ = 10 - boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            level_ = 10 - boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

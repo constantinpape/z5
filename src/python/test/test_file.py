@@ -3,12 +3,7 @@ import os
 from shutil import rmtree
 from abc import ABC
 
-import sys
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import z5py
 
 
 class FileTestMixin(ABC):

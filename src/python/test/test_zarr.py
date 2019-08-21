@@ -1,24 +1,18 @@
 import unittest
-import sys
-import numpy as np
 import os
 from shutil import rmtree
+
+import numpy as np
+import z5py
 
 try:
     import zarr
     import numcodecs
-    HAVE_ZARR = True
 except ImportError:
-    HAVE_ZARR = False
-
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+    zarr = None
 
 
-class TestZarrCompatibility(unittest.TestCase):
+class TestZarr(unittest.TestCase):
     def setUp(self):
         self.path = 'f.zr'
         self.shape = (100, 100)
@@ -30,7 +24,7 @@ class TestZarrCompatibility(unittest.TestCase):
         except OSError:
             pass
 
-    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_read_zarr_irregular(self):
         shape = (123, 97)
         chunks = (17, 32)
@@ -44,7 +38,7 @@ class TestZarrCompatibility(unittest.TestCase):
         self.assertEqual(data.shape, out.shape)
         self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_write_zarr_irregular(self):
         shape = (123, 97)
         chunks = (17, 32)
@@ -58,20 +52,22 @@ class TestZarrCompatibility(unittest.TestCase):
         self.assertEqual(data.shape, out.shape)
         self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_read_zarr(self):
         from z5py.dataset import Dataset
-        dtypes = list(Dataset._zarr_dtype_dict.values())
+        dtypes = list(Dataset._dtype_dict.keys())
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
                             'bzip2': numcodecs.BZ2()}
+
         # conda-forge version of numcodecs is not up-to-data
         # for python 3.5 and GZip is missing
         # thats why we need to check explicitly here to not fail the test
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
 
+        zarr.open(self.path)
         for dtype in dtypes:
             for compression in zarr_compressors:
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
@@ -86,10 +82,10 @@ class TestZarrCompatibility(unittest.TestCase):
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_write_zarr(self):
         from z5py.dataset import Dataset
-        dtypes = list(Dataset._zarr_dtype_dict.values())
+        dtypes = list(Dataset._dtype_dict.keys())
         compressions = Dataset.compressors_zarr
 
         for dtype in dtypes:
@@ -106,9 +102,10 @@ class TestZarrCompatibility(unittest.TestCase):
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(HAVE_ZARR, 'Requires zarr package')
+    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_fillvalue(self):
         test_values = [0, 10, 42, 255]
+        zarr.open(self.path)
         for val in test_values:
             key = 'test_%i' % val
             zarr.open(os.path.join(self.path, key), shape=self.shape,
@@ -116,6 +113,20 @@ class TestZarrCompatibility(unittest.TestCase):
             out = z5py.File(self.path)[key][:]
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
+
+    @unittest.skipUnless(zarr, 'Requires zarr package')
+    def test_attributes(self):
+        f = zarr.open(self.path)
+        test_attrs = {"a": "b", "1": 2, "x": ["y", "z"]}
+        attrs = f.attrs
+        for k, v in test_attrs.items():
+            attrs[k] = v
+
+        f = z5py.File(self.path)
+        attrs = f.attrs
+        for k, v in test_attrs.items():
+            self.assertTrue(k in attrs)
+            self.assertEqual(attrs[k], v)
 
 
 if __name__ == '__main__':

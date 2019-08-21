@@ -88,6 +88,23 @@ namespace metadata_detail {
     }
 
 
+    template<class GROUP>
+    inline void readMetadata(const z5::handle::Group<GROUP> & handle, nlohmann::json & j) {
+        const bool isZarr = handle.isZarr();
+        const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
+        nlohmann::json jTmp;
+        metadata_detail::readMetadata(path, jTmp);
+        if(isZarr) {
+            j["zarr_format"] = jTmp["zarr_format"];
+        } else {
+            auto jIt = jTmp.find("n5");
+            if(jIt != jTmp.end()) {
+                j["n5"] = jIt.value();
+            }
+        }
+    }
+
+
     inline void readMetadata(const handle::Dataset & handle, DatasetMetadata & metadata) {
         nlohmann::json j;
         fs::path path;

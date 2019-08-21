@@ -1,18 +1,10 @@
-from __future__ import print_function
-
 import unittest
 import json
-import sys
 from shutil import rmtree
 from abc import ABC
 
 import numpy as np
-
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import z5py
 
 
 # Just a dummy numpy encoder to test custom encoders
@@ -65,7 +57,9 @@ class AttributesTestMixin(ABC):
         self.assertEqual(attrs["c"], "whooosa")
 
     def check_ds_attrs(self, attrs):
-        for key in attrs.reserved_keys:
+        reserved_keys = ("dimensions", "blockSize", "dataType",
+                         "compression", "compressionType")
+        for key in reserved_keys:
             with self.assertRaises(RuntimeError):
                 attrs[key] = 5
 
@@ -74,7 +68,6 @@ class AttributesTestMixin(ABC):
 
             self.assertIsNone(attrs.get(key))
             self.assertFalse(key in attrs)
-            self.assertFalse(key in set(attrs))
 
     def test_attrs(self):
 
@@ -111,10 +104,6 @@ class AttributesTestMixin(ABC):
         with self.assertRaises(TypeError):
             _check()
 
-    # FIXME this fails in python 2 with, dunno why:
-    # self.assertEqual(self.root_file.attrs['x'], 'abcde')
-    # AssertionError: u'bcd' != 'abcde'
-    @unittest.skipUnless(int(sys.version[0]) == 3, 'Json decoding seems to be different in python2')
     def test_custom_decoder(self):
         # check that we can't set arbitrary decoders
         with self.assertRaises(RuntimeError):
@@ -131,6 +120,13 @@ class AttributesTestMixin(ABC):
         z5py.set_json_decoder(None)
         with self.assertRaises(AssertionError):
             _check()
+
+    def test_remove_attribute(self):
+        attrs = self.root_file.attrs
+        attrs['a'] = 1
+        self.assertTrue('a' in attrs)
+        del attrs['a']
+        self.assertFalse('a' in attrs)
 
 
 class TestAttributesZarr(AttributesTestMixin, unittest.TestCase):
