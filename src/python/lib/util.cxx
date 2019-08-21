@@ -72,7 +72,7 @@ namespace z5 {
 
         // expose class
         pyFileMode
-            .def(py::init<FileMode::modes>())
+            .def(py::init<FileMode::modes>(), py::arg("mode"))
             .def("can_write", &FileMode::canWrite)
             .def("can_create", &FileMode::canCreate)
             .def("must_not_exist", &FileMode::mustNotExist)

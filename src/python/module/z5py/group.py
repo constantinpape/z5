@@ -11,7 +11,7 @@ from .shape_utils import is_group
 class Group(Mapping):
     """ Group inside of a z5py container.
 
-    Corresponds to a directory on the filesystem.
+    Corresponds to a directory on the filesystem or object in cloud storage.
     Supports python dict api.
     Should not be instantiated directly, but rather be created
     or opened via the `create_group`, `request_group` or `[]` operators
