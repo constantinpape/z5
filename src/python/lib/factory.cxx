@@ -8,14 +8,13 @@ namespace py = pybind11;
 namespace z5 {
 
 
-    // TODO exporting create_dataset fails right now.
-    // I think this is due to boost::any. try boost::variant / std::variant instead
     template<class GROUP>
     void exportDsFactories(py::module & m) {
-        m.def("open_dataset", &openDataset<GROUP>, py::arg("root"), py::arg("key"));
+        m.def("open_dataset", [](const GROUP & root, const std::string & key){
+            return openDataset(root, key);
+        },
+        py::arg("root"), py::arg("key"));
 
-        // NOTE we can't just give &createDataset as second argument because this function is over-loaded
-        // and the overload cannot be resolved by pybind
         m.def("create_dataset", [](const GROUP & root, const std::string & key,
                                    const std::string & dtype, const std::vector<uint64_t>  & shape,
                                    const std::vector<uint64_t> & chunk_shape,
@@ -25,20 +24,27 @@ namespace z5 {
                 return createDataset(root, key, dtype, shape, chunk_shape, compression, copts, fill_value);
             },
             py::arg("root"), py::arg("key"),
-            py::arg("dtype"), py::arg("shape"), py::arg("chunk_shape"),
-            py::arg("compression"), py::arg("compression_options"), py::arg("fill_value"));
+            py::arg("dtype"), py::arg("shape"), py::arg("chunks"),
+            py::arg("compression"),
+            py::arg("compression_options")=types::CompressionOptions(),
+            py::arg("fill_value")=0);
     }
 
 
-    // TODO do we need to give different names for the functions to resolve calls in python?
     template<class GROUP, class FILE_>
     void exportFactoriesT(py::module & m) {
         // file factories
-        m.def("create_file", &createFile<FILE_>);
+        m.def("create_file", [](const FILE_ & file, const bool is_zarr){
+            createFile(file, is_zarr);
+        }, py::arg("file"), py::arg("is_zarr"));
 
         // group factories
-        m.def("create_group", &createGroup<FILE_>);
-        m.def("create_group", &createGroup<GROUP>);
+        m.def("create_group", [](const FILE_ & file, const std::string & key){
+            createGroup(file, key);
+        });
+        m.def("create_group", [](const GROUP & group, const std::string & key){
+            createGroup(group, key);
+        });
 
         // dataset factories
         exportDsFactories<GROUP>(m);

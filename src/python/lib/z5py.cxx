@@ -25,6 +25,6 @@ PYBIND11_MODULE(_z5py, module) {
     using namespace z5;
     exportHandles(module);
     exportDataset(module);
-    //exportFactory(module);
-    //exportUtils(module);
+    exportFactory(module);
+    exportUtils(module);
 }
