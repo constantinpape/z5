@@ -172,6 +172,11 @@ int main() {
 }
 ```
 
+### C
+
+There are external efforts to implement a C-Api wrapper for z5.
+You can check it out [here](https://github.com/kmpaul/cz5test).
+
 ## When to use this library?
 
 This library implements the zarr and n5 data specification in C++ and Python.
