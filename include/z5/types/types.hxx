@@ -220,18 +220,18 @@ namespace types {
         std::string codec;
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: options["codec"] = static_cast<std::string>(jOpts["cname"]);
-                        options["level"] = static_cast<int>(jOpts["clevel"]);
-                        options["shuffle"] = static_cast<int>(jOpts["shuffle"]);
+            case blosc: options["codec"] = jOpts["cname"].get<std::string>();
+                        options["level"] = jOpts["clevel"].get<int>();
+                        options["shuffle"] = jOpts["shuffle"].get<int>();
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: options["level"] = static_cast<int>(jOpts["level"]);
-                       options["useZlib"] = jOpts["id"] == "zlib";
+            case zlib: options["level"] = jOpts["level"].get<int>();
+                       options["useZlib"] = jOpts["id"].get<std::string>() == "zlib";
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: options["level"] = static_cast<int>(jOpts["level"]); break;
+            case bzip2: options["level"] = jOpts["level"].get<int>(); break;
             #endif
             // raw compression has no parameters
             default: break;
@@ -279,18 +279,18 @@ namespace types {
         std::string codec;
         switch(compressor) {
             #ifdef WITH_ZLIB
-            case zlib: options["level"] = static_cast<int>(jOpts["level"]);
+            case zlib: options["level"] = jOpts["level"].get<int>();
                        options["useZlib"] = false;
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: options["level"] = static_cast<int>(jOpts["blockSize"]); break;
+            case bzip2: options["level"] = jOpts["blockSize"].get<int>(); break;
             #endif
             #ifdef WITH_XZ
-            case xz: options["level"] = static_cast<int>(jOpts["preset"]); break;
+            case xz: options["level"] = jOpts["preset"].get<int>(); break;
             #endif
             #ifdef WITH_LZ4
-            case lz4: options["level"] = static_cast<int>(jOpts["blockSize"]); break;
+            case lz4: options["level"] = jOpts["blockSize"].get<int>(); break;
             #endif
             // raw compression has no parameters
             default: break;

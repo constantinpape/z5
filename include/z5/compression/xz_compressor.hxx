@@ -74,9 +74,8 @@ namespace compression {
             lzma_end(&lzs);
 
             if(ret != LZMA_STREAM_END) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during xz compression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during xz compression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
             }
         }
 
@@ -118,9 +117,8 @@ namespace compression {
             lzma_end(&lzs);
 
             if(ret != LZMA_STREAM_END) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during xz decompression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during xz decompression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
             }
 		}
 

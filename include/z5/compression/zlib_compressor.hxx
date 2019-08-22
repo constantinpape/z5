@@ -85,9 +85,8 @@ namespace compression {
             deflateEnd(&zs);
 
     		if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
-    		    std::ostringstream oss;
-    		    oss << "Exception during zlib compression: (" << ret << ") " << zs.msg;
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during zlib compression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
     		}
 
             // gzip: append checksum to the data
@@ -134,9 +133,8 @@ namespace compression {
             inflateEnd(&zs);
 
 			if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
-    			std::ostringstream oss;
-    			oss << "Exception during zlib decompression: (" << ret << ") " << zs.msg;
-    			throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during zlib decompression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
     		}
 		}
 

@@ -103,7 +103,7 @@ namespace filesystem {
                                     const GROUP2 & g2) {
         const auto & p1 = g1.path();
         const auto & p2 = g2.path();
-        return fs::relative(p1, p2);
+        return fs::relative(p1, p2).string();
     }
 
 }

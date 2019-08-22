@@ -50,9 +50,8 @@ namespace compression {
             BZ2_bzCompressEnd(&bzs);
 
     		if (ret != BZ_STREAM_END) {          // an error occurred that was not EOF
-    		    std::ostringstream oss;
-    		    oss << "Exception during bzip compression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during bzip compression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
     		}
 
             // resize the output data
@@ -89,9 +88,8 @@ namespace compression {
             BZ2_bzDecompressEnd(&bzs);
 
             if(ret != BZ_STREAM_END) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during bzip decompression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during bzip decompression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
             }
 
 		}

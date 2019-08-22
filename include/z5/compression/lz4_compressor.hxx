@@ -44,9 +44,8 @@ namespace compression {
             //                                        level_);
 
             if(compressed <= 0) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during lz4 compression: (" << compressed << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during lz4 compression: (" + std::to_string(compressed)  + ")";
+    		    throw std::runtime_error(err);
             }
 
             dataOut.resize(compressed);
@@ -56,9 +55,8 @@ namespace compression {
             const int compressed = LZ4_decompress_safe(&dataIn[0], (char *) dataOut,
                                                        dataIn.size(), sizeOut * sizeof(T));
             if(compressed <= 0) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during lz4 decompression: (" << compressed << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during lz4 decompression: (" + std::to_string(compressed)  + ")";
+    		    throw std::runtime_error(err);
             }
 		}
 
