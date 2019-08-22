@@ -1,6 +1,4 @@
-import os
 import numbers
-import json
 
 import numpy as np
 
@@ -274,9 +272,7 @@ class Dataset:
 
     @property
     def compression(self):
-        opts = self.compression_opts
-        compression = opts['compression']
-        return compression if compression != 'raw' else None
+        return self._impl.compressor
 
     @property
     def compression_opts(self):

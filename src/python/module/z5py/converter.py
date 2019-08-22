@@ -9,21 +9,17 @@ import numpy as np
 try:
     import h5py
 except ImportError:
-    print("h5py is not installed, hdf5 converters not available")
     h5py = None
 
 try:
     import imageio
 except ImportError:
-    print("imageio is not installed, tif converters not available")
     imageio = None
 
 from .file import File
-from .util import blocking
-from .shape_utils import normalize_slices
+from .util import copy_dataset_impl
 
 
-# TODO use same backend as copy_dataset
 if h5py:
 
     def convert_to_h5(in_path, out_path,
@@ -55,57 +51,13 @@ if h5py:
                 and align chunks with the roi's origin. (default: False)
             **h5_kwargs: keyword arguments for ``h5py`` dataset, e.g. datatype or compression.
         """
-        if not os.path.exists(in_path):
-            raise RuntimeError("Path %s does not exist" % in_path)
-        f_z5 = File(in_path)
-        ds_z5 = f_z5[in_path_in_file]
-        shape = ds_z5.shape
-        chunks = ds_z5.chunks if chunks is None else chunks
-        # modify h5 arguments
-        out_dtype = h5_kwargs.pop('dtype', ds_z5.dtype)
-        if block_shape is None:
-            block_shape = chunks
-        else:
-            assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
-                "block_shape must be a multiple of chunks"
-
-        # we need to create the blocking here, before the shape is potentially altered
-        # if fit_to_roi == True
-        blocks = blocking(shape, block_shape, roi, fit_to_roi)
-        if roi is not None:
-            roi, _ = normalize_slices(roi, shape)
-            if fit_to_roi:
-                shape = tuple(rr.stop - rr.start for rr in roi)
-
-        with h5py.File(out_path) as f_h5:
-            ds_h5 = f_h5.require_dataset(out_path_in_file,
-                                         dtype=out_dtype,
-                                         shape=shape,
-                                         chunks=chunks,
-                                         **h5_kwargs)
-
-            def convert_chunk(bb):
-                # print("Converting chunk ", chunk_ids, "/", chunks_per_dim)
-                # don't copy empty data
-                chunk_data = ds_z5[bb].astype(out_dtype, copy=False)
-                if chunk_data.sum() == 0:
-                    return
-                # if we have a roi and fit to it, we need to substract its start from
-                # the current bounding box
-                if fit_to_roi and roi is not None:
-                    bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
-                               for b, rr in zip(bb, roi))
-                ds_h5[bb] = chunk_data
-
-            with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-                tasks = [tp.submit(convert_chunk, bb) for bb in blocks]
-                [t.result() for t in tasks]
-
-            # copy attributes
-            h5_attrs = ds_h5.attrs
-            z5_attrs = ds_z5.attrs
-            for key, val in z5_attrs.items():
-                h5_attrs[key] = val
+        f_in = File(in_path, 'r')
+        dtype = h5_kwargs.pop("dtype", None)
+        with h5py.File(out_path) as f_out:
+            copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
+                              n_threads, chunks=chunks, block_shape=block_shape,
+                              dtype=dtype, roi=roi, fit_to_roi=fit_to_roi,
+                              **h5_kwargs)
 
     def convert_from_h5(in_path, out_path,
                         in_path_in_file, out_path_in_file,
@@ -138,62 +90,13 @@ if h5py:
                 and align chunks with the roi's origin. (default: False)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
-        if not os.path.exists(in_path):
-            raise RuntimeError("Path %s does not exist" % in_path)
-
-        f_z5 = File(out_path, use_zarr_format=use_zarr_format)
-        with h5py.File(in_path, 'r') as f_h5:
-            ds_h5 = f_h5[in_path_in_file]
-            shape = ds_h5.shape
-            chunks = ds_h5.chunks if chunks is None else chunks
-
-            if block_shape is None:
-                block_shape = chunks
-            else:
-                assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
-                    "block_shape must be a multiple of chunks"
-
-            # we need to create the blocking here, before the shape is potentially altered
-            # if fit_to_roi == True
-            blocks = blocking(shape, block_shape, roi, fit_to_roi)
-            if roi is not None:
-                roi, _ = normalize_slices(roi, shape)
-                if fit_to_roi:
-                    shape = tuple(rr.stop - rr.start for rr in roi)
-
-            # modify z5 arguments
-            out_dtype = z5_kwargs.pop('dtype', ds_h5.dtype)
-            if 'compression' not in z5_kwargs:
-                z5_kwargs['compression'] = 'raw'
-            ds_z5 = f_z5.require_dataset(out_path_in_file,
-                                         dtype=out_dtype,
-                                         shape=shape,
-                                         chunks=chunks,
-                                         **z5_kwargs)
-
-            def convert_chunk(bb):
-                chunk_data = ds_h5[bb].astype(out_dtype, copy=False)
-                # if we have a roi and fit to it, we need to substract its start from
-                # the current bounding box
-                if fit_to_roi and roi is not None:
-                    bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
-                               for b, rr in zip(bb, roi))
-                ds_z5[bb] = chunk_data
-
-            with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-                tasks = [tp.submit(convert_chunk, bb) for bb in blocks]
-                [t.result() for t in tasks]
-
-            # copy attributes
-            h5_attrs = ds_h5.attrs
-            z5_attrs = ds_z5.attrs
-            for key, val in h5_attrs.items():
-                # h5 attributes might come as ndarrays, which are not
-                # json deserializable by default.
-                # in this case, cast to list
-                if isinstance(val, np.ndarray):
-                    val = val.tolist()
-                z5_attrs[key] = val
+        f_out = File(out_path, use_zarr_format=use_zarr_format)
+        dtype = z5_kwargs.pop('dtype', None)
+        with h5py.File(in_path, 'r') as f_in:
+            copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
+                              n_threads, chunks=chunks, block_shape=block_shape,
+                              dtype=dtype, roi=roi, fit_to_roi=fit_to_roi,
+                              **z5_kwargs)
 
 
 if imageio:
@@ -232,7 +135,7 @@ if imageio:
 
     def _read_tif_metadata(in_path, file_names=None):
         if file_names is None:
-            pass  # TODO
+            pass
         else:
             # TODO can we somehow read shape from the metadata ???
             # with imageio.get_reader(os.path.join(in_path, file_names[0])) as f:
