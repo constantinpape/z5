@@ -18,7 +18,7 @@ Support for the following compression codecs:
 
 ### Conda
 
-Conda packages for the relevant systems and python versions (except python2.7 on windows) are hosted on conda-forge:
+Conda packages for the relevant systems and python versions are hosted on conda-forge:
 
 ```
 $ conda install -c conda-forge z5py
@@ -124,28 +124,48 @@ convert_from_h5(h5_file, n5_file,
 
 ### C++
 
+`Z5` supports different storage implementations. The default is to use the filesystem, but it also supports AWS-S3 (WIP) and Google Cloud Storage (WIP).
+The API implements factory functions like `createFile` or `createDataset` in [the factory header](https://github.com/constantinpape/z5/blob/master/include/z5/factory.hxx). 
+These functions need to be called with the corresponding handle, like `z5::filesystem::handle::File` or `z5::s3::handle::File` in order to specify which backend to use.
+
 The library is intended to be used with a multiarray, that holds data in memory.
-By default, [xtensor](https://github.com/QuantStack/xtensor) is used. 
-See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx.
-There also exists an interface for [marray](https://github.com/bjoern-andres/marray).
-See https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx.
+By default [xtensor](https://github.com/QuantStack/xtensor) is used, see [implementation](https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx).
+There also exists an interface for [marray](https://github.com/bjoern-andres/marray), see [implementation](https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx).
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
 
 Some examples:
 
 ```c++
-#include "xtensor/xarray.hpp"
-#include "z5/dataset_factory.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
 #include "json.hpp"
+#include "xtensor/xarray.hpp"
+
+// factory functions to create files, groups and datasets
+#include "z5/factory.hxx"
+// handles for z5 filesystem objects
+#include "z5/filesystem/handle.hxx"
+// io for xtensor multi-arrays
+#include "z5/multiarray/xtensor_access.hxx"
+// attribute functionality
+#include "z5/attributes.hxx"
 
 int main() {
+
+  // get handle to a File on the filesystem
+  z5::filesystem::handle::File f("data.zr");
+  // if you wanted to use a different backend, for example AWS, you
+  // would need to use this insetead:
+  // z5::s3::handle::File f;
+
+  // create the file in zarr format
+  const bool createAsZarr = true;
+  z5::createFile(f, createAsZarr);
+
   // create a new zarr dataset
+  const std::string dsName = "data";
   std::vector<size_t> shape = { 1000, 1000, 1000 };
   std::vector<size_t> chunks = { 100, 100, 100 };
-  bool asZarr = true;
-  auto ds = z5::createDataset("ds.zr", "float32", shape, chunks, asZarr);
+  auto ds = z5::createDataset(f, dsName, "float32", shape, chunks);
 
   // write array to roi
   z5::types::ShapeType offset1 = { 50, 100, 150 };
@@ -159,14 +179,17 @@ int main() {
   xt::xarray<float> array2(shape2);
   z5::multiarray::readSubarray<float>(ds, array2, offset2.begin());
 
+  // get handle for the dataset
+  const auto dsHandle = z5::filesystem::handle::Dataset(f, dsName);
+
   // read and write json attributes
   nlohmann::json attributesIn;
   attributesIn["bar"] = "foo";
   attributesIn["pi"] = 3.141593;
-  z5::writeAttributes(ds->handle(), attributesIn);
+  z5::writeAttributes(dsHandle, attributesIn);
 
   nlohmann::json attributesOut;
-  z5::readAttributes(ds->handle(), attributesOut);
+  z5::readAttributes(dsHandle, attributesOut);
   
   return 0;
 }
