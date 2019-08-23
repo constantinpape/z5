@@ -1,15 +1,9 @@
+import json
 import os
 import errno
-import json
-from shutil import rmtree
 
+from . import _z5py
 from .group import Group
-
-# set correct json error type for python 2 / 3
-try:
-    from json.decoder import JSONDecodeError
-except ImportError:
-    JSONDecodeError = ValueError
 
 
 class File(Group):
@@ -69,57 +63,39 @@ class File(Group):
         else:
             if is_zarr:
                 raise RuntimeError("Zarr file cannot be opened in N5 format")
-        super().__init__(path, use_zarr_format, mode)
 
-        # check if the file already exists and load if it does
-        if os.path.exists(path):
+        handle = _z5py.File(path, _z5py.FileMode(self.file_modes[mode]))
+        mode = handle.mode()
 
-            # throw error if the file must not exist according to file mode
-            if self._permissions.must_not_exist():
-                raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), path)
+        super().__init__(handle, _z5py.Group)
 
-            if self._permissions.should_truncate():
-                rmtree(path)
-                os.mkdir(path)
-
-            # TODO check zarr version as well
-            if not use_zarr_format:
-                self._check_n5_version(path)
-
-        # otherwise create a new file
+        # at some point we should move more of this logic to c++ as well
+        # if we open in 'w', remove the existing file existing
+        if handle.exists() and mode.should_truncate():
+            handle.remove()
+        if handle.exists():
+            if mode.must_not_exist():
+                raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), handle.path())
+            self._check_version()
         else:
-            if not self._permissions.can_create():
-                raise OSError(errno.EROFS, os.strerror(errno.EROFS), path)
-            os.mkdir(path)
-            meta_file = os.path.join(path, '.zgroup' if use_zarr_format else 'attributes.json')
-            # we only need to write meta data for the zarr format
-            if use_zarr_format:
-                with open(meta_file, 'w') as f:
-                    json.dump({'zarr_format': 2}, f)
-            else:
-                with open(meta_file, 'w') as f:
-                    json.dump({'n5': "2.0.0"}, f)
+            if not mode.can_create():
+                raise OSError(errno.EROFS, os.strerror(errno.EROFS), handle.path())
+            # if we don't have the file, create it
+            _z5py.create_file(handle, is_zarr)
 
-    @staticmethod
-    def _check_n5_version(path):
-        have_version_tag = False
-        attrs_file = os.path.join(path, 'attributes.json')
-        # check if we have an attributes
-        if os.path.exists(attrs_file):
-            with open(attrs_file, 'r') as f:
-                try:
-                    attrs = json.load(f)
-                except JSONDecodeError:
-                    attrs = {}
-            # check if attributes have a version tag
-            if 'n5' in attrs:
-                tag = attrs['n5']
-                have_version_tag = True
-        # TODO check for proper version command with regex
-        if have_version_tag:
-            major_version = int(tag[0])
-            if major_version > 2:
-                raise RuntimeError("Can't open n5 file with major version bigger than 2")
+    def _check_version(self):
+        metadata = self._handle.read_metadata()
+        metadata = json.loads(metadata)
+        if self._handle.is_zarr():
+            version = metadata['zarr_format']
+            if version != 2:
+                raise RuntimeError("z5 only supports zarr format 2")
+        else:
+            version = metadata.get('n5', None)
+            if version is not None:
+                major_version = int(version[0])
+                if major_version > 2:
+                    raise RuntimeError("Can't open n5 file with major version bigger than 2")
 
     def close(self):
         # This function exists just for conformity with the standard file-handling procedure.
@@ -154,3 +130,24 @@ class ZarrFile(File):
 
     def __init__(self, path, mode='a'):
         super().__init__(path=path, use_zarr_format=True, mode=mode)
+
+
+# TODO can we implement automatic zarr/n5 inference for s3?
+class S3File(Group):
+    """ File to access zarr/n5 file in AWS S3 bucket.
+
+    Args:
+    """
+    # TODO args for AWS
+    def __init__(self, *, mode='a', use_zarr_format=None):
+
+        if not hasattr(_z5py, "S3File"):
+            raise AttributeError("z5 was not compiled with s3 support")
+        handle = _z5py.S3File(_z5py.FileMode(self.file_modes[mode]))
+
+        # TODO handle zarr/n5 flag properly
+        is_zarr = use_zarr_format
+
+        if not handle.exists():
+            _z5py.create_file(handle, is_zarr)
+        super().__init__(handle, _z5py.S3Group)

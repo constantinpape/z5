@@ -57,16 +57,22 @@ namespace compression {
             }
         }
 
-        virtual types::Compressor type() const {
+        inline types::Compressor type() const {
             return types::blosc;
+        }
+
+        inline void getOptions(types::CompressionOptions & opts) const {
+            opts["codec"] = compressor_;
+            opts["shuffle"] = shuffle_;
+            opts["level"] = clevel_;
         }
 
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {
-            clevel_     = boost::any_cast<int>(metadata.compressionOptions.at("level"));
-            shuffle_    = boost::any_cast<int>(metadata.compressionOptions.at("shuffle"));
-            compressor_ = boost::any_cast<std::string>(metadata.compressionOptions.at("codec"));
+            clevel_     = boost::get<int>(metadata.compressionOptions.at("level"));
+            shuffle_    = boost::get<int>(metadata.compressionOptions.at("shuffle"));
+            compressor_ = boost::get<std::string>(metadata.compressionOptions.at("codec"));
         }
 
         // the blosc compressor

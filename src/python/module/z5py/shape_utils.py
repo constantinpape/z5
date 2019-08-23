@@ -1,6 +1,4 @@
-import os
 import numbers
-import json
 
 
 def slice_to_start_stop(s, size):
@@ -104,23 +102,6 @@ def get_default_chunks(shape):
     default_size = 262144
     default_dim = int(round(default_size ** (1. / len(shape))))
     return tuple(min(default_dim, sh) for sh in shape)
-
-
-def is_group(path, is_zarr):
-    if is_zarr:
-        return os.path.exists(os.path.join(path, '.zgroup'))
-    else:
-        meta_path = os.path.join(path, 'attributes.json')
-        if not os.path.exists(meta_path):
-            return True
-        with open(meta_path, 'r') as f:
-            # attributes for n5 file can be empty which cannot be parsed by json
-            try:
-                attributes = json.load(f)
-            except ValueError:
-                attributes = {}
-        # The dimensions key is only present in a dataset
-        return 'dimensions' not in attributes
 
 
 def normalize_slices(slices, shape):

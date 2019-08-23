@@ -23,8 +23,11 @@ namespace compression {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 
-        virtual types::Compressor type() const {
+        inline types::Compressor type() const {
             return types::raw;
+        }
+
+        inline void getOptions(types::CompressionOptions & opts) const {
         }
     };
 

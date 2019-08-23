@@ -1,21 +1,18 @@
-import os
-from shutil import rmtree
 from collections.abc import Mapping
 
-from ._z5py import create_group, FileMode
+from . import _z5py
 from .dataset import Dataset
 from .attribute_manager import AttributeManager
-from .shape_utils import is_group
 
 
 class Group(Mapping):
     """ Group inside of a z5py container.
 
-    Corresponds to a directory on the filesystem.
+    Corresponds to a directory on the filesystem or object in cloud storage.
     Supports python dict api.
     Should not be instantiated directly, but rather be created
-    or opened via the `create_group`, `request_group` or `[]` operators
-    of Group or File.
+    or opened via the `create_group`, `require_group` or `[]` operators
+    of `z5py.Group` or `z5py.File`.
     """
 
     # the python / h5py file modes and the corresponding internal types
@@ -23,47 +20,40 @@ class Group(Mapping):
     # so for now they get mapped to the same internal type
 
     #: available modes for opening files. these correspond to the ``h5py`` file modes
-    file_modes = {'a': FileMode.a, 'r': FileMode.r,
-                  'r+': FileMode.r_p, 'w': FileMode.w,
-                  'w-': FileMode.w_m, 'x': FileMode.w_m}
+    file_modes = {'a': _z5py.FileMode.a, 'r': _z5py.FileMode.r,
+                  'r+': _z5py.FileMode.r_p, 'w': _z5py.FileMode.w,
+                  'w-': _z5py.FileMode.w_m, 'x': _z5py.FileMode.w_m}
 
-    def __init__(self, path, is_zarr=True, mode='a'):
-        if mode not in self.file_modes:
-            raise ValueError("Invalid file mode: %s" % mode)
-
-        self.mode = mode
-        self._internal_mode = self.file_modes[mode]
-        self._permissions = FileMode(self._internal_mode)
-        self.path = path
-        self.is_zarr = is_zarr
-        self._attrs = AttributeManager(path, is_zarr)
+    def __init__(self, handle, handle_factory):
+        self._handle = handle
+        self._handle_factory = handle_factory
+        self._attrs = AttributeManager(self._handle)
 
     #
     # Magic Methods, Attributes, Keys, Contains
     #
 
     def __iter__(self):
-        for name in os.listdir(self.path):
-            if os.path.isdir(os.path.join(self.path, name)):
-                yield name
+        keys = self._handle.keys()
+        for name in keys:
+            yield name
 
     def __len__(self):
-        counter = 0
-        for _ in self:
-            counter += 1
-        return counter
+        return len(self._handle.keys())
 
     def __contains__(self, name):
-        return super().__contains__(name.lstrip('/'))
+        return self._handle.has(name)
 
-    # TODO can use `util.removeDataset` here
     def __delitem__(self, name):
-        if not self._permissions.can_write():
+        if not self._handle.mode().can_write():
             raise ValueError("Cannot call delete on file not opened with write permissions.")
-        path_ = os.path.join(self.path, name)
-        if not os.path.exists(path_):
+        if name not in self:
             raise KeyError("%s does not exist" % name)
-        rmtree(path_)
+        if self.is_sub_group(name):
+            handle = self._handle_factory(self._handle, name)
+            handle.remove()
+        else:
+            _z5py.remove_dataset(self[name]._impl, 1)
 
     def __getitem__(self, name):
         """ Access group or dataset in the container.
@@ -76,14 +66,14 @@ class Group(Mapping):
         Returns:
             ``Group`` or ``Dataset``.
         """
-        path = os.path.join(self.path, name.lstrip('/'))
-        if not os.path.isdir(path):
+        if name not in self:
             raise KeyError("Key %s does not exist" % name)
 
-        if is_group(path, self.is_zarr):
-            return Group._open_group(path, self.is_zarr, self.mode)
+        if self.is_sub_group(name):
+            handle = self._handle_factory(self._handle, name)
+            return Group(handle, self._handle_factory)
         else:
-            return Dataset._open_dataset(path, self._internal_mode)
+            return Dataset._open_dataset(self._handle, name)
 
     @property
     def attrs(self):
@@ -94,18 +84,16 @@ class Group(Mapping):
         """
         return self._attrs
 
+    @property
+    def is_zarr(self):
+        return self._handle.is_zarr()
+
     #
     # Group functionality
     #
 
-    @classmethod
-    def _create_group(cls, path, is_zarr, mode):
-        create_group(path, is_zarr, cls.file_modes[mode])
-        return cls(path, is_zarr, mode)
-
-    @classmethod
-    def _open_group(cls, path, is_zarr, mode):
-        return cls(path, is_zarr, mode)
+    def is_sub_group(self, name):
+        return self._handle.is_sub_group(name)
 
     def create_group(self, name):
         """ Create a new group.
@@ -119,12 +107,12 @@ class Group(Mapping):
         Returns:
             ``Group``: group of the requested name.
         """
-        if not self._permissions.can_write():
+        if not self._handle.mode().can_write():
             raise ValueError("Cannot create group with read-only permissions.")
         if name in self:
-            raise KeyError("Group %s already exists" % name)
-        path = os.path.join(self.path, name.lstrip('/'))
-        return Group._create_group(path, self.is_zarr, self.mode)
+            raise KeyError("An object with name %s already exists" % name)
+        handle = _z5py.create_group(self._handle, name)
+        return Group(handle, self._handle_factory)
 
     def require_group(self, name):
         """ Require group.
@@ -138,13 +126,15 @@ class Group(Mapping):
         Returns:
             ``Group``: group of the requested name.
         """
-        path = os.path.join(self.path, name.lstrip('/'))
-        if os.path.exists(path):
-            if not is_group(path, self.is_zarr):
+        if name in self:
+            if not self.is_sub_group(name):
                 raise TypeError("Incompatible object (Dataset) already exists")
-            return Group._open_group(path, self.is_zarr, self.mode)
+            handle = self._handle_factory(self._handle, name)
         else:
-            return self.create_group(name)
+            if not self._handle.mode().can_write():
+                raise ValueError("Cannot create group with read-only permissions.")
+            handle = _z5py.create_group(self._handle, name)
+        return Group(handle, self._handle_factory)
 
     #
     # Dataset functionality
@@ -185,16 +175,15 @@ class Group(Mapping):
             ``Dataset``: the new dataset.
         """
 
-        if not self._permissions.can_write():
+        if not self._handle.mode().can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
-        path = os.path.join(self.path, name.lstrip('/'))
-        return Dataset._create_dataset(path, shape, dtype,
+        return Dataset._create_dataset(self._handle, name,
+                                       shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,
-                                       compression_options,
-                                       self.is_zarr, self._internal_mode)
+                                       compression_options)
 
     def require_dataset(self, name, shape,
                         dtype=None, chunks=None,
@@ -218,14 +207,12 @@ class Group(Mapping):
         Returns:
             ``Dataset``: the required dataset.
         """
-        if not self._permissions.can_write():
+        if not self._handle.mode().can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
-        path = os.path.join(self.path, name.lstrip('/'))
-        return Dataset._require_dataset(path, shape, dtype, chunks,
-                                        n_threads, self.is_zarr, self._internal_mode,
-                                        **kwargs)
+        return Dataset._require_dataset(self._handle, name, shape, dtype, chunks,
+                                        n_threads, **kwargs)
 
-    def visititems(self, func, root=None):
+    def visititems(self, func, _root=None):
         """ Recursively visit names and objects in this group.
 
         You supply a callable (function, method or callable object); it
@@ -251,12 +238,12 @@ class Group(Mapping):
         >>> f = File('foo.n5')
         >>> f.visititems(func)
         """
-        root = self.path if root is None else root
+        _root = self._handle if _root is None else _root
         for name, obj in self.items():
             # the name needs to be relative to the root object visititems was called on
-            name = os.path.relpath(os.path.join(self.path, name), root)
+            name = _root.relative_path(obj._handle)
             func_ret = func(name, obj)
             if func_ret is not None:
                 return func_ret
             if isinstance(obj, Group):
-                obj.visititems(func, root=root)
+                obj.visititems(func, _root=_root)

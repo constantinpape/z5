@@ -1,13 +1,10 @@
-import os
 import numbers
-import json
 
 import numpy as np
 
 from . import _z5py
-from .attribute_manager import AttributeManager, get_json_encoder
-from .shape_utils import normalize_slices, rectify_shape
-from .shape_utils import get_default_chunks, is_group
+from .attribute_manager import AttributeManager
+from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 
 class Dataset:
@@ -29,17 +26,6 @@ class Dataset:
                    np.dtype('float32'): 'float32',
                    np.dtype('float64'): 'float64'}
 
-    _zarr_dtype_dict = {np.dtype('uint8'): '|u1',
-                        np.dtype('uint16'): '<u2',
-                        np.dtype('uint32'): '<u4',
-                        np.dtype('uint64'): '<u8',
-                        np.dtype('int8'): '|i1',
-                        np.dtype('int16'): '<i2',
-                        np.dtype('int32'): '<i4',
-                        np.dtype('int64'): '<i8',
-                        np.dtype('float32'): '<f4',
-                        np.dtype('float64'): '<f8'}
-
     # TODO for now we hardcode all compressors
     # but we should instead check which ones are present
     # (similar to nifty WITH_CPLEX, etc.)
@@ -49,28 +35,27 @@ class Dataset:
     #: Default compression for zarr format
     zarr_default_compressor = 'blosc'
 
-    # TODO support blosc in n5
     #: Compression libraries supported by n5 format
     compressors_n5 = ['raw', 'gzip', 'bzip2', 'xz', 'lz4']
     #: Default compression for n5 format
     n5_default_compressor = 'gzip'
 
-    def __init__(self, path, dset_impl, n_threads=1):
+    def __init__(self, dset_impl, handle, n_threads=1):
         self._impl = dset_impl
-        self._attrs = AttributeManager(path, self._impl.is_zarr)
-        self.path = path
+        self._handle = handle
+        self._attrs = AttributeManager(self._handle)
         self.n_threads = n_threads
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
         if compression == 'blosc':
-            default_opts = {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1}
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
         elif compression == 'zlib':
             default_opts = {'id': 'zlib', 'level': 5}
         elif compression == 'gzip':
             default_opts = {'id': 'gzip', 'level': 5}
         elif compression == 'bzip2':
-            default_opts = {'id': 'bz2', 'level': 5}
+            default_opts = {'level': 5}
         elif compression == 'raw':
             default_opts = {}
         else:
@@ -83,55 +68,24 @@ class Dataset:
 
         # return none for raw compression
         if not default_opts:
-            return None
+            return {}
 
         # update the default options
         default_opts.update(compression_options)
         return default_opts
 
-    def _read_zarr_compression_options(self):
-        opts = {}
-        with open(os.path.join(self.path, '.zarray'), 'r') as f:
-            zarr_opts = json.load(f)['compressor']
-        if zarr_opts is None:
-            opts['compression'] = 'raw'
-        elif zarr_opts['id'] == 'blosc':
-            opts['compression'] = 'blosc'
-            opts['level'] = zarr_opts['clevel']
-            opts['shuffle'] = zarr_opts['shuffle']
-            opts['codec'] = zarr_opts['cname']
-        elif zarr_opts['id'] == 'zlib':
-            opts['compression'] = 'zlib'
-            opts['level'] = zarr_opts['level']
-        elif zarr_opts['id'] == 'bz2':
-            opts['compression'] = 'bzip2'
-            opts['level'] = zarr_opts['level']
-        elif zarr_opts['id'] == 'gzip':
-            opts['compression'] = 'gzip'
-            opts['level'] = zarr_opts['level']
-        return opts
-
     @staticmethod
     def _to_n5_compression_options(compression, compression_options):
         if compression == 'gzip':
-            default_opts = {'type': 'gzip', 'level': 5}
-            level_key = None  # for several compressors, we need to change the parameter key
+            default_opts = {'level': 5}
         elif compression == 'bzip2':
-            default_opts = {'type': 'bzip2', 'level': 5}
-            level_key = 'blockSize'
+            default_opts = {'level': 5}
         elif compression == 'raw':
-            default_opts = {'type': 'raw'}
-            level_key = None
+            default_opts = {}
         elif compression == 'xz':
-            default_opts = {'type': 'xz', 'level': 6}
-            level_key = 'preset'
+            default_opts = {'level': 6}
         elif compression == 'lz4':
-            default_opts = {'type': 'lz4', 'level': 6}
-            level_key = 'blockSize'
-        # TODO blosc in n5
-        # elif compression == 'blosc':
-        #    default_opts = {'type': 'blosc', 'codec': 'lz4', 'level': 5, 'shuffle': 1}
-        #    level_key = None
+            default_opts = {'level': 6}
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
 
@@ -142,91 +96,22 @@ class Dataset:
 
         # update the default options
         default_opts.update(compression_options)
-
-        # rectify the level option for compressions which have a key different than level
-        if level_key is not None:
-            default_opts[level_key] = default_opts.pop('level')
-
         return default_opts
-
-    def _read_n5_compression_options(self):
-        opts = {}
-        with open(os.path.join(self.path, 'attributes.json'), 'r') as f:
-            n5_opts = json.load(f)
-        # old compression scheme
-        if 'compressionType' in n5_opts:
-            ctype = n5_opts['compressionType']
-            new_compression = False
-        # new compression scheme
-        else:
-            ctype = n5_opts['compression']['type']
-            new_compression = True
-
-        if ctype == 'raw':
-            opts['compression'] = 'raw'
-        elif ctype == 'gzip':
-            opts['compression'] = 'gzip'
-            opts['level'] = n5_opts['compression']['level'] if new_compression else 5
-        elif ctype == 'bzip2':
-            opts['compression'] = 'bzip2'
-            opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 5
-        elif ctype == 'xz':
-            opts['compression'] = 'xz'
-            opts['level'] = n5_opts['compression']['preset'] if new_compression else 6
-        elif ctype == 'lz4':
-            opts['compression'] = 'lz4'
-            opts['level'] = n5_opts['compression']['blockSize'] if new_compression else 6
-        # TODO blosc in n5
-        # elif n5_opts['id'] == 'blosc':
-        #     opts['compression'] = 'blosc'
-        #     opts['level'] = n5_opts['clevel']
-        #     opts['shuffle'] = n5_opts['shuffle']
-        #     opts['codec'] = n5_opts['cname']
-        return opts
-
-    @staticmethod
-    def _create_dataset_zarr(path, dtype, shape, chunks,
-                             compression, compression_options,
-                             fill_value):
-        os.makedirs(path)
-        params = {'dtype': Dataset._zarr_dtype_dict[np.dtype(dtype)],
-                  'shape': shape,
-                  'chunks': chunks,
-                  'fill_value': fill_value,
-                  'zarr_format': 2,
-                  'order': 'C',
-                  'filters': None,
-                  'compressor': Dataset._to_zarr_compression_options(compression,
-                                                                     compression_options)}
-        with open(os.path.join(path, '.zarray'), 'w') as f:
-            json.dump(params, f, cls=get_json_encoder())
-
-    @staticmethod
-    def _create_dataset_n5(path, dtype, shape, chunks,
-                           compression, compression_options):
-        os.makedirs(path)
-        params = {'dataType': Dataset._dtype_dict[np.dtype(dtype)],
-                  'dimensions': shape[::-1],
-                  'blockSize': chunks[::-1],
-                  'compression': Dataset._to_n5_compression_options(compression,
-                                                                    compression_options)}
-        with open(os.path.join(path, 'attributes.json'), 'w') as f:
-            json.dump(params, f, cls=get_json_encoder())
 
     # NOTE in contrast to h5py, we also check that the chunks match
     # this is crucial, because different chunks can lead to subsequent incorrect
     # code when relying on chunk-aligned access for parallel writing
     @classmethod
-    def _require_dataset(cls, path,
+    def _require_dataset(cls, group, name,
                          shape, dtype,
-                         chunks, n_threads,
-                         is_zarr, mode, **kwargs):
-        if os.path.exists(path):
+                         chunks, n_threads, **kwargs):
+        if group.has(name):
 
-            if is_group(path, is_zarr):
+            if group.is_sub_group(name):
                 raise TypeError("Incompatible object (Group) already exists")
 
-            ds = cls(path, _z5py.open_dataset(path, mode), n_threads)
+            handle = group.get_dataset_handle(name)
+            ds = cls(_z5py.open_dataset(group, name), handle, n_threads)
             if shape != ds.shape:
                 raise TypeError("Shapes do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.shape)),
                                                                                      ', '.join(map(str, shape))))
@@ -244,23 +129,18 @@ class Dataset:
             data = kwargs.pop('data', None)
             compression = kwargs.pop('compression', None)
             fillvalue = kwargs.pop('fillvalue', 0)
-            return cls._create_dataset(path, shape, dtype, data=data,
+            return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
-                                       compression_options=kwargs,
-                                       is_zarr=is_zarr, mode=mode)
+                                       compression_options=kwargs)
 
     @classmethod
-    def _create_dataset(cls, path, shape, dtype,
+    def _create_dataset(cls, group, name,
+                        shape=None, dtype=None,
                         data=None, chunks=None,
                         compression=None,
                         fillvalue=0, n_threads=1,
-                        compression_options={},
-                        is_zarr=True,
-                        mode=None):
-        # check if this dataset already exists
-        if os.path.exists(path):
-            raise RuntimeError("Cannot create dataset (name already exists)")
+                        compression_options={}):
 
         # check shape, dtype and data
         have_data = data is not None
@@ -268,7 +148,7 @@ class Dataset:
             if shape is None:
                 shape = data.shape
             elif shape != data.shape:
-                raise ValueError("Shape Tuple is incompatible with data")
+                raise ValueError("Shape is incompatible with data")
             if dtype is None:
                 dtype = data.dtype
             # NOTE In contrast to h5py, we don't do automatic type conversion
@@ -294,6 +174,7 @@ class Dataset:
                                                                                 str(shape)))
         # limit chunks to shape
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
+        is_zarr = group.is_zarr()
 
         # check compression / get default compression
         # if no compression is given
@@ -311,26 +192,29 @@ class Dataset:
         elif not is_zarr and compression not in cls.compressors_n5:
             compression = cls.n5_default_compressor
 
+        if parsed_dtype not in cls._dtype_dict:
+            raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
+
+        # update the compression options
         if is_zarr:
-            if parsed_dtype not in cls._zarr_dtype_dict:
-                raise ValueError("Invalid data type {} for zarr dataset".format(dtype))
-            cls._create_dataset_zarr(path, parsed_dtype, shape, chunks,
-                                     compression, compression_options, fillvalue)
+            copts = cls._to_zarr_compression_options(compression, compression_options)
         else:
-            if parsed_dtype not in cls._dtype_dict:
-                raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
-            cls._create_dataset_n5(path, parsed_dtype, shape, chunks,
-                                   compression, compression_options)
+            copts = cls._to_n5_compression_options(compression, compression_options)
 
         # get the dataset and write data if necessary
-        ds = cls(path, _z5py.open_dataset(path, mode), n_threads)
+        impl = _z5py.create_dataset(group, name, cls._dtype_dict[parsed_dtype],
+                                    shape, chunks, compression, copts)
+        handle = group.get_dataset_handle(name)
+        ds = cls(impl, handle, n_threads)
         if have_data:
             ds[:] = data
         return ds
 
     @classmethod
-    def _open_dataset(cls, path, mode):
-        return cls(path, _z5py.open_dataset(path, mode))
+    def _open_dataset(cls, group, name):
+        ds = _z5py.open_dataset(group, name)
+        handle = group.get_dataset_handle(name)
+        return cls(ds, handle)
 
     @property
     def is_zarr(self):
@@ -388,16 +272,13 @@ class Dataset:
 
     @property
     def compression(self):
-        opts = self.compression_opts
-        compression = opts['compression']
-        return compression if compression != 'raw' else None
+        return self._impl.compressor
 
     @property
     def compression_opts(self):
         """ Compression library options of this dataset.
         """
-        return self._read_zarr_compression_options() if self._impl.is_zarr else \
-            self._read_n5_compression_options()
+        return self._impl.compression_options
 
     def __len__(self):
         return self._impl.len
@@ -475,30 +356,6 @@ class Dataset:
                              roi_begin,
                              n_threads=self.n_threads)
 
-    def find_minimum_coordinates(self, dim):
-        """ Find coordinates of chunk with smallest coordinate along dimension.
-
-        Only considers chunks that contain data.
-
-        Args:
-            dim (int): query dimension.
-        Returns:
-            tuple: start coordinates of the chunk.
-        """
-        return tuple(self._impl.findMinimumCoordinates(dim))
-
-    def find_maximum_coordinates(self, dim):
-        """ Find coordinates of chunk with largest coordinate along dimension.
-
-        Only considers chunks that contain data.
-
-        Args:
-            dim (int): query dimension.
-        Returns:
-            tuple: start coordinates of the chunk.
-        """
-        return self._impl.findMaximumCoordinates(dim)
-
     def read_direct(self, dest, source_sel=None, dest_sel=None):
         """ Wrapper to improve similarity to h5py. Reads from the dataset to ``dest``, using ``read_subarray``.
 
@@ -571,25 +428,6 @@ class Dataset:
         _z5py.read_subarray(self._impl, out, start, n_threads=self.n_threads)
         return out
 
-    def array_to_format(self, array):
-        """ Convert array to serialization.
-
-        Convert an array to the (1d) binary data that would be serialized to disc
-        for the format of the dataset.
-
-        Args:
-            array (np.ndarray): array to be converted to serialization.
-
-        Returns:
-            np.ndarray
-        """
-        if array.ndim != self.ndim:
-            raise RuntimeError("Array needs to be of same dimension as dataset")
-        if np.dtype(array.dtype) != np.dtype(self.dtype):
-            raise RuntimeError("Array needs to have same dtype as dataset")
-        return _z5py.convert_array_to_format(self._impl,
-                                             np.require(array, requirements='C'))
-
     def chunk_exists(self, chunk_indices):
         """ Check if chunk has data.
 
@@ -614,12 +452,6 @@ class Dataset:
         """
         if self.is_zarr and varlen:
             raise RuntimeError("Varlength chunks are not supported in zarr")
-        if not varlen:
-            pass
-            # TODO make sure that shapes agree
-            # chunk_shape = ''
-            # if chunk_shape != data.shape:
-            #   raise ValueError("")
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):

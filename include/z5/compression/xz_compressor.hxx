@@ -74,9 +74,8 @@ namespace compression {
             lzma_end(&lzs);
 
             if(ret != LZMA_STREAM_END) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during xz compression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during xz compression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
             }
         }
 
@@ -118,19 +117,22 @@ namespace compression {
             lzma_end(&lzs);
 
             if(ret != LZMA_STREAM_END) {
-    		    std::ostringstream oss;
-    		    oss << "Exception during xz decompression: (" << ret << ") ";
-    		    throw(std::runtime_error(oss.str()));
+                std::string err = "Exception during xz decompression: (" + std::to_string(ret)  + ")";
+    		    throw std::runtime_error(err);
             }
 		}
 
-        virtual types::Compressor type() const {
+        inline types::Compressor type() const {
             return types::xz;
+        }
+
+        inline void getOptions(types::CompressionOptions & opts) const {
+            opts["level"] = level_;
         }
 
     private:
         void init(const DatasetMetadata & metadata) {
-            level_ = boost::any_cast<int>(metadata.compressionOptions.at("level"));
+            level_ = boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

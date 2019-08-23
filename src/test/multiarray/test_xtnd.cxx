@@ -3,7 +3,7 @@
 #include <random>
 #include "xtensor/xarray.hpp"
 
-#include "z5/dataset_factory.hxx"
+#include "z5/factory.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
 
 #define MIN_DIM 1
@@ -32,9 +32,11 @@ namespace multiarray {
                 }
             }
             // create the dataset
-            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
+            z5::filesystem::handle::File f(path_);
+            z5::createFile(f, false);
+            auto ds = createDataset(f, "data", "int32", shape, chunkShape, "raw");
             // write the data
-            std::vector<int32_t> data(ds->maxChunkSize(), 42);
+            std::vector<int32_t> data(ds->defaultChunkSize(), 42);
             const auto & chunksPerDim = ds->chunksPerDimension();
             types::ShapeType chunkId(dim);
             // write all the chunks (ND)
@@ -110,7 +112,9 @@ namespace multiarray {
             }
 
             // create the dataset
-            auto ds = createDataset(path_, "int32", shape, chunkShape, false, "raw");
+            z5::filesystem::handle::File f(path_);
+            z5::createFile(f, false);
+            auto ds = createDataset(f, "data", "int32", shape, chunkShape, "raw");
 
             // random number generator
             std::uniform_int_distribution<int32_t> distr;
@@ -168,7 +172,7 @@ namespace multiarray {
             }
         }
 
-        std::string path_;
+        fs::path path_;
         std::size_t size_;
         std::size_t chunkSize_;
     };
@@ -177,8 +181,7 @@ namespace multiarray {
         for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
             // remove array
-            fs::path path(path_);
-            fs::remove_all(path);
+            fs::remove_all(path_);
         }
     }
 
@@ -186,8 +189,7 @@ namespace multiarray {
         for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);
             // remove array
-            fs::path path(path_);
-            fs::remove_all(path);
+            fs::remove_all(path_);
         }
     }
 }

@@ -24,7 +24,7 @@ namespace multiarray {
 
         types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
         // out buffer holding data for a single chunk
-        std::size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.defaultChunkSize();
         std::vector<T> buffer(chunkSize, val);
 
         const auto & chunking = ds.chunking();
@@ -101,7 +101,7 @@ namespace multiarray {
         ds.getFillValue(&fillValue);
 
         // out buffer holding data for a single chunk
-        std::size_t chunkSize = ds.maxChunkSize();
+        std::size_t chunkSize = ds.defaultChunkSize();
         typedef std::vector<T> Buffer;
         std::vector<Buffer> threadBuffers(nThreads, Buffer(chunkSize, val));
 

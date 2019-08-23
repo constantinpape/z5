@@ -10,9 +10,10 @@ namespace py = pybind11;
 
 
 namespace z5 {
+    void exportAttributes(py::module &);
     void exportDataset(py::module &);
-    void exportGroups(py::module &);
-    void exportFileMode(py::module &);
+    void exportFactory(py::module &);
+    void exportHandles(py::module &);
     void exportUtils(py::module &);
 }
 
@@ -20,11 +21,12 @@ namespace z5 {
 PYBIND11_MODULE(_z5py, module) {
 
     xt::import_numpy();
-    module.doc() = "z5 pythonbindings";
+    module.doc() = "z5py: z5 python bindings";
 
     using namespace z5;
+    exportAttributes(module);
     exportDataset(module);
-    exportGroups(module);
-    exportFileMode(module);
+    exportHandles(module);
+    exportFactory(module);
     exportUtils(module);
 }

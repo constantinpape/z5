@@ -1,14 +1,9 @@
 import unittest
-import sys
-import numpy as np
 from shutil import rmtree
 from abc import ABC
 
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import numpy as np
+import z5py
 
 
 class CompressionTestMixin(ABC):
@@ -95,9 +90,8 @@ class CompressionTestMixin(ABC):
     # this fails for different minimal chunk sizes depending on the
     # zlib version. For now we skip this to not make unittest fail
     # when this version changes.
-    # FIXME unittest skip is broken in python 2.7 for mixin pattern
-    # @unittest.skip
-    def _test_small_chunks_gzip(self):
+    @unittest.skip
+    def test_small_chunks_gzip(self):
         f = self.root_file
         # 22 is the chunk-size at which gzip compression fails
         # (interestingly this is NOT the case for zlib encoding)

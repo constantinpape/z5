@@ -23,7 +23,7 @@ before_script:
   - conda env create -f ./environments/unix/$CONDA_PYTHON_VERSION.yml -n build-env
   - source activate build-env
   # install additional dependencies for tests
-  - conda install -c conda-forge zarr h5py
+  - conda install -c conda-forge zarr h5py aws-sdk-cpp
 
 script:
 
@@ -38,6 +38,7 @@ script:
           -DWITH_BZIP2=ON
           -DWITH_XZ=ON
           -DWITH_LZ4=ON
+          -DWITH_S3=ON
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
           -DPYTHON_EXECUTABLE="$PY_BIN"
           -DCMAKE_CXX_FLAGS="-std=c++17"

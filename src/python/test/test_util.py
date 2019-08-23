@@ -1,15 +1,9 @@
-import sys
-import unittest
-import numpy as np
 import os
-from concurrent import futures
+import unittest
 from shutil import rmtree
 
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import numpy as np
+import z5py
 
 
 class TestUtil(unittest.TestCase):
@@ -67,7 +61,6 @@ class TestUtil(unittest.TestCase):
         self.assertEqual(data_out.shape, roi_shape)
         self.assertTrue(np.allclose(data_out, data[roi]))
 
-    @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_copy_dataset_default(self):
         from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')
@@ -102,7 +95,6 @@ class TestUtil(unittest.TestCase):
             self.assertEqual(ds_out.chunks, new_chunks)
             self.assertTrue(np.allclose(data, data_out))
 
-    @unittest.skipUnless(futures, "Needs 3rd party concurrent.futures in python 2")
     def test_copy_dataset_custom(self):
         from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in.n5')

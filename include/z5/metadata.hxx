@@ -4,19 +4,23 @@
 #include <vector>
 #include <iomanip>
 
-#include "z5/attributes.hxx"
-#include "z5/handle/handle.hxx"
 #include "z5/types/types.hxx"
+
 
 namespace z5 {
 
     // general format
     struct Metadata {
-        const int zarrFormat = 2;
-        const std::string n5Format = "2.0.0";
         bool isZarr; // flag to specify whether we have a zarr or n5 array
+        const static int zarrFormat = 2;
+        const static int n5Major = 2;
+        const static int n5Minor = 0;
+        const static int n5Patch = 0;
 
         Metadata(const bool isZarr) : isZarr(isZarr) {}
+        inline std::string n5Format() const {
+            return std::to_string(n5Major) + "." + std::to_string(n5Minor) + "." + std::to_string(n5Patch);
+        }
     };
 
 
@@ -78,8 +82,8 @@ namespace z5 {
 
             j["fill_value"] = fillValue;
 
-            j["filters"] = filters;
-            j["order"] = order;
+            j["filters"] = nullptr;
+            j["order"] = "C";
             j["zarr_format"] = zarrFormat;
         }
 
@@ -119,11 +123,6 @@ namespace z5 {
 
             types::readZarrCompressionOptionsFromJson(compressor, compressionOpts,
                                                       compressionOptions);
-            // we need to do this after 'readZarrCompressionOptionsFromJson' is called,
-            // because otherwise this will be overriden
-            if (zarrCompressorId == "gzip") {
-                compressionOptions["useZlib"] = false;
-            }
         }
 
 
@@ -201,8 +200,8 @@ namespace z5 {
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
-        const std::string order = "C";
-        const std::nullptr_t filters = nullptr;
+        // const std::string order = "C";
+        // const std::nullptr_t filters = nullptr;
 
     private:
 
@@ -226,7 +225,7 @@ namespace z5 {
             // check if order exists and check for the correct value
             auto jIt = j.find("order");
             if(jIt != j.end()) {
-                if(*jIt != order) {
+                if(*jIt != "C") {
                     throw std::runtime_error(
                         "Invalid Order: Z5 only supports C order"
                     );
@@ -254,115 +253,42 @@ namespace z5 {
     };
 
 
-    //
-    // helper functions
-    //
-
-    inline void writeMetadata(const handle::File & handle, const Metadata & metadata) {
-        auto filePath = handle.path();
-        const bool isZarr = metadata.isZarr;
-        filePath /= isZarr ? ".zgroup" : "attributes.json";
-        nlohmann::json j;
-        if(isZarr) {
-            j["zarr_format"] = metadata.zarrFormat;
-        } else {
-            // n5 stores attributes and metadata in the same file,
-            // so we need to make sure that we don't ovewrite attributes
-            try {
-                readAttributes(handle, j);
-            } catch(std::runtime_error) {}  // read attributes throws RE if there are no attributes, we can just ignore this
-            j["n5"] = metadata.n5Format;
+    inline void createDatasetMetadata(
+        const std::string & dtype,
+        const types::ShapeType & shape,
+        const types::ShapeType & chunkShape,
+        const bool createAsZarr,
+        const std::string & compressor,
+        const types::CompressionOptions & compressionOptions,
+        const double fillValue,
+        DatasetMetadata & metadata)
+    {
+        // get the internal data type
+        types::Datatype internalDtype;
+        try {
+            internalDtype = types::Datatypes::n5ToDtype().at(dtype);
+        } catch(const std::out_of_range & e) {
+            throw std::runtime_error("z5::createDatasetMetadata: Invalid dtype for dataset");
         }
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(filePath);
-        #else
-        std::ofstream file(filePath);
-        #endif
-        file << std::setw(4) << j << std::endl;
-        file.close();
-    }
 
-
-    inline void writeMetadata(const handle::Group & handle, const Metadata & metadata) {
-        auto filePath = handle.path();
-        const bool isZarr = metadata.isZarr;
-        filePath /= isZarr ? ".zgroup" : "attributes.json";
-        nlohmann::json j;
-        if(isZarr) {
-            j["zarr_format"] = metadata.zarrFormat;
-        } else {
-            // we don't need to write metadata for n5 groups
-            return;
+        // get the compressor
+        types::Compressor internalCompressor;
+        try {
+            internalCompressor = types::Compressors::stringToCompressor().at(compressor);
+        } catch(const std::out_of_range & e) {
+            throw std::runtime_error("z5::createDatasetMetadata: Invalid compressor for dataset");
         }
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(filePath);
-        #else
-        std::ofstream file(filePath);
-        #endif
-        file << std::setw(4) << j << std::endl;
-        file.close();
+
+        // add the default compression options if necessary
+        // we need to make a copy of the compression options, because they are const
+        auto internalCompressionOptions = compressionOptions;
+        types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
+
+        metadata = DatasetMetadata(internalDtype, shape,
+                                   chunkShape, createAsZarr,
+                                   internalCompressor, internalCompressionOptions,
+                                   fillValue);
     }
 
-
-    inline void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
-        fs::path filePath = handle.path();
-        nlohmann::json j;
-        metadata.toJson(j);
-        filePath /= metadata.isZarr ? ".zarray" : "attributes.json";
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(filePath);
-        #else
-        std::ofstream file(filePath);
-        #endif
-        file << std::setw(4) << j << std::endl;
-        file.close();
-    }
-
-
-    inline bool getMetadataPath(const handle::Dataset & handle, fs::path & path) {
-        fs::path zarrPath = handle.path();
-        fs::path n5Path = handle.path();
-        zarrPath /= ".zarray";
-        n5Path /= "attributes.json";
-        if(fs::exists(zarrPath) && fs::exists(n5Path)) {
-            throw std::runtime_error("Zarr and N5 specification are not both supported");
-        }
-        if(!fs::exists(zarrPath) && !fs::exists(n5Path)){
-            throw std::runtime_error("Invalid path: no metadata existing");
-        }
-        const bool isZarr = fs::exists(zarrPath);
-        path = isZarr ? zarrPath : n5Path;
-        return isZarr;
-    }
-
-
-    inline void readMetadata(const handle::Dataset & handle, DatasetMetadata & metadata) {
-        nlohmann::json j;
-        fs::path filePath;
-        auto isZarr = getMetadataPath(handle, filePath);
-        #ifdef WITH_BOOST_FS
-        fs::ifstream file(filePath);
-        #else
-        std::ifstream file(filePath);
-        #endif
-        file >> j;
-        metadata.fromJson(j, isZarr);
-        file.close();
-    }
-
-
-    inline types::Datatype readDatatype(const handle::Dataset & handle) {
-        fs::path filePath;
-        bool isZarr = getMetadataPath(handle, filePath);
-        #ifdef WITH_BOOST_FS
-        fs::ifstream file(filePath);
-        #else
-        std::ifstream file(filePath);
-        #endif
-        nlohmann::json j;
-        file >> j;
-        file.close();
-        return isZarr ? types::Datatypes::zarrToDtype().at(j["dtype"]) : types::Datatypes::n5ToDtype().at(j["dataType"]);
-    }
 
 } // namespace::z5

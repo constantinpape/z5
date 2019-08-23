@@ -3,10 +3,14 @@ addPythonModule(
         z5py
     SOURCES
         z5py.cxx
+        attributes.cxx
         dataset.cxx
+        factory.cxx
+        handles.cxx
         util.cxx
     LIBRRARIES
         ${COMPRESSION_LIBRARIES} 
         ${FILESYSTEM_LIBRARIES}
+        ${CLOUD_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
 )

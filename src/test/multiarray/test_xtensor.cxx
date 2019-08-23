@@ -3,7 +3,7 @@
 #include <random>
 #include "xtensor/xarray.hpp"
 
-#include "z5/dataset_factory.hxx"
+#include "z5/factory.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
 
 namespace z5 {
@@ -13,12 +13,8 @@ namespace multiarray {
     class XtensorTest : public ::testing::Test {
 
     protected:
-        XtensorTest() :
-            pathIntRegular_("int_regular.zr"), pathIntIrregular_("int_irregular.zr"),
-            pathFloatRegular_("float_regular.zr"), pathFloatIrregular_("float_irregular.zr"),
-            pathIntRegularN5_("int_regular.n5"), pathIntIrregularN5_("int_irregular.n5"),
-            pathFloatRegularN5_("float_regular.n5"), pathFloatIrregularN5_("float_irregular.n5"),
-            shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
+        XtensorTest() : fZarr(fs::path("data.zr")), fN5(fs::path("data.n5")),
+                        shape_({100, 100, 100}), chunkShapeRegular_({10, 10, 10}), chunkShapeIrregular_({23, 17, 11})
         {
         }
 
@@ -28,8 +24,8 @@ namespace multiarray {
         template<class T>
         void writeData(const std::unique_ptr<Dataset> & ds) {
             const auto & chunks = ds->chunksPerDimension();
-            const auto & chunkShape = ds->maxChunkShape();
-            std::vector<T> data(ds->maxChunkSize(), 42);
+            const auto & chunkShape = ds->defaultChunkShape();
+            std::vector<T> data(ds->defaultChunkSize(), 42);
             for(std::size_t z = 0; z < chunks[0]; ++z) {
                 for(std::size_t y = 0; y < chunks[1]; ++y) {
                     for(std::size_t x = 0; x < chunks[2]; ++x) {
@@ -41,56 +37,34 @@ namespace multiarray {
 
         virtual void SetUp() {
             {
+                filesystem::createFile(fZarr, true);
                 // create arrays Zarr
-                auto intReg = createDataset(pathIntRegular_, "int32", shape_, chunkShapeRegular_, true, "raw");
+                auto intReg = createDataset(fZarr, "int_regular", "int32", shape_, chunkShapeRegular_, "raw");
                 writeData<int>(intReg);
-                auto intIrreg = createDataset(pathIntIrregular_, "int32", shape_, chunkShapeIrregular_, true, "raw");
+                auto intIrreg = createDataset(fZarr, "int_irregular", "int32", shape_, chunkShapeIrregular_, "raw");
                 writeData<int>(intIrreg);
-                auto floatReg = createDataset(pathFloatRegular_, "float32", shape_, chunkShapeRegular_, true, "raw");
+                auto floatReg = createDataset(fZarr, "float_regular", "float32", shape_, chunkShapeRegular_, "raw");
                 writeData<float>(floatReg);
-                auto floatIrreg = createDataset(pathFloatIrregular_, "float32", shape_, chunkShapeIrregular_, true, "raw");
+                auto floatIrreg = createDataset(fZarr, "float_irregular", "float32", shape_, chunkShapeIrregular_, "raw");
                 writeData<float>(floatIrreg);
             }
             {
+                filesystem::createFile(fN5, true);
                 // create arrays n5
-                auto intReg = createDataset(pathIntRegularN5_, "int32", shape_, chunkShapeRegular_, false, "raw");
+                auto intReg = createDataset(fN5, "int_regular", "int32", shape_, chunkShapeRegular_, "raw");
                 writeData<int>(intReg);
-                auto intIrreg = createDataset(pathIntIrregularN5_, "int32", shape_, chunkShapeIrregular_, false, "raw");
+                auto intIrreg = createDataset(fN5, "int_irregular", "int32", shape_, chunkShapeIrregular_, "raw");
                 writeData<int>(intIrreg);
-                auto floatReg = createDataset(pathFloatRegularN5_, "float32", shape_, chunkShapeRegular_, false, "raw");
+                auto floatReg = createDataset(fN5, "float_regular", "float32", shape_, chunkShapeRegular_, "raw");
                 writeData<float>(floatReg);
-                auto floatIrreg = createDataset(pathFloatIrregularN5_, "float32", shape_, chunkShapeIrregular_, false, "raw");
+                auto floatIrreg = createDataset(fN5, "float_irregular", "float32", shape_, chunkShapeIrregular_, "raw");
                 writeData<float>(floatIrreg);
             }
         }
 
         virtual void TearDown() {
-            // remove zarr paths
-            {
-                // remove int arrays
-                fs::path ireg(pathIntRegular_);
-                fs::remove_all(ireg);
-                fs::path iirreg(pathIntIrregular_);
-                fs::remove_all(iirreg);
-                // remove float arrays
-                fs::path freg(pathFloatRegular_);
-                fs::remove_all(freg);
-                fs::path firreg(pathFloatIrregular_);
-                fs::remove_all(firreg);
-            }
-            // remove n5 paths
-            {
-                // remove int arrays
-                fs::path ireg(pathIntRegularN5_);
-                fs::remove_all(ireg);
-                fs::path iirreg(pathIntIrregularN5_);
-                fs::remove_all(iirreg);
-                // remove float arrays
-                fs::path freg(pathFloatRegularN5_);
-                fs::remove_all(freg);
-                fs::path firreg(pathFloatIrregularN5_);
-                fs::remove_all(firreg);
-            }
+            fs::remove_all(fZarr.path());
+            fs::remove_all(fN5.path());
         }
 
         template<typename T>
@@ -289,16 +263,8 @@ namespace multiarray {
             }
         }
 
-        // zarr paths
-        std::string pathIntRegular_;
-        std::string pathIntIrregular_;
-        std::string pathFloatRegular_;
-        std::string pathFloatIrregular_;
-        // N5 paths
-        std::string pathIntRegularN5_;
-        std::string pathIntIrregularN5_;
-        std::string pathFloatRegularN5_;
-        std::string pathFloatIrregularN5_;
+        z5::filesystem::handle::File fZarr;
+        z5::filesystem::handle::File fN5;
 
         types::ShapeType shape_;
         types::ShapeType chunkShapeRegular_;
@@ -307,7 +273,7 @@ namespace multiarray {
 
 
     TEST_F(XtensorTest, TestThrow) {
-        auto array = openDataset(pathIntRegular_);
+        auto array = openDataset(fZarr, "int_regular");
 
         typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
         // check for shape throws #0
@@ -345,80 +311,80 @@ namespace multiarray {
 
     TEST_F(XtensorTest, TestReadIntRegular) {
         // load the regular array and run the test
-        auto array = openDataset(pathIntRegular_);
+        auto array = openDataset(fZarr, "int_regular");
         testArrayRead<int32_t>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathIntRegularN5_);
+        auto arrayN5 = openDataset(fN5, "int_regular");
         testArrayRead<int32_t>(arrayN5);
     }
 
 
     TEST_F(XtensorTest, TestReadFloatRegular) {
         // load the regular array and run the test
-        auto array = openDataset(pathFloatRegular_);
+        auto array = openDataset(fZarr, "float_regular");
         testArrayRead<float>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        auto arrayN5 = openDataset(fN5, "float_regular");
         testArrayRead<float>(arrayN5);
     }
 
 
     TEST_F(XtensorTest, TestReadIntIrregular) {
         // load the regular array and run the test
-        auto array = openDataset(pathIntIrregular_);
+        auto array = openDataset(fZarr, "int_irregular");
         testArrayRead<int32_t>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "int_irregular");
         testArrayRead<int32_t>(arrayN5);
     }
 
 
     TEST_F(XtensorTest, TestReadFloatIrregular) {
         // load the regular array and run the test
-        auto array = openDataset(pathFloatIrregular_);
+        auto array = openDataset(fZarr, "float_irregular");
         testArrayRead<float>(array);
         // load the regular array and run the test
-        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "float_irregular");
         testArrayRead<float>(arrayN5);
     }
 
 
     TEST_F(XtensorTest, TestWriteReadIntRegular) {
-        auto array = openDataset(pathIntRegular_);
+        auto array = openDataset(fZarr, "int_regular");
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
 
-        auto arrayN5 = openDataset(pathIntRegularN5_);
+        auto arrayN5 = openDataset(fN5, "int_regular");
         testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
     TEST_F(XtensorTest, TestWriteReadFloatRegular) {
-        auto array = openDataset(pathFloatRegular_);
         std::uniform_real_distribution<float> distr(0., 1.);
+        auto array = openDataset(fZarr, "float_regular");
         testArrayWriteRead<float>(array, distr);
 
-        auto arrayN5 = openDataset(pathFloatRegularN5_);
+        auto arrayN5 = openDataset(fN5, "float_regular");
         testArrayWriteRead<float>(arrayN5, distr);
     }
 
 
     TEST_F(XtensorTest, TestWriteReadIntIrregular) {
-        auto array = openDataset(pathIntIrregular_);
+        auto array = openDataset(fZarr, "int_irregular");
         std::uniform_int_distribution<int32_t> distr(-100, 100);
         testArrayWriteRead<int32_t>(array, distr);
 
-        auto arrayN5 = openDataset(pathIntIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "int_irregular");
         testArrayWriteRead<int32_t>(arrayN5, distr);
     }
 
 
     TEST_F(XtensorTest, TestWriteReadFloatIrregular) {
-        auto array = openDataset(pathFloatIrregular_);
+        auto array = openDataset(fZarr, "float_irregular");
         std::uniform_real_distribution<float> distr(0., 1.);
         testArrayWriteRead<float>(array, distr);
 
-        auto arrayN5 = openDataset(pathFloatIrregularN5_);
+        auto arrayN5 = openDataset(fN5, "float_irregular");
         testArrayWriteRead<float>(arrayN5, distr);
     }
 }

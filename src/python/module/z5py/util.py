@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 from itertools import product
 from concurrent import futures
@@ -6,9 +5,8 @@ from contextlib import closing
 from datetime import datetime
 import numpy as np
 
-from . import _z5py as z5_impl
-from .file import File
-from .group import Group
+from . import _z5py
+from .file import File, S3File
 from .dataset import Dataset
 from .shape_utils import normalize_slices
 
@@ -53,7 +51,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
 
     # product raises memory error for too large ranges,
     # because input iterators are cast to tuple
-    # TODO so far I have only seen this for 1d "open-ended" datasets
+    # so far I have only seen this for 1d "open-ended" datasets
     # and hence just implemented a workaround for this case,
     # but it should be fairly easy to implement an nd version of product
     # without casting to tuple for our use case using the imglib loop trick, see also
@@ -75,21 +73,18 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
                                                      min_coords, max_coords))
 
 
-def copy_dataset(in_path, out_path,
-                 in_path_in_file, out_path_in_file,
-                 n_threads, chunks=None,
-                 block_shape=None, dtype=None,
-                 use_zarr_format=None, roi=None,
-                 fit_to_roi=False, **new_compression):
-    """ Copy dataset, optionally change metadata.
+def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
+                      n_threads, chunks=None, block_shape=None, dtype=None,
+                      roi=None, fit_to_roi=False, **new_compression):
+    """ Implementation of copy dataset.
 
-    The input dataset will be copied to the output dataset chunk by chunk.
-    Allows to change chunks, datatype, file format and compression.
-    Can also just copy a roi.
+    Used to implement `copy_dataset`, `convert_to_h5` and `convert_from_h5`.
+    Can also be used for more flexible use cases, like copying from a zarr/n5
+    cloud dataset to a filesytem dataset.
 
     Args:
-        in_path (str): path to the input file.
-        out_path (str): path to the output file.
+        f_in (File): input file object.
+        f_out (File): output file object.
         in_path_in_file (str): name of input dataset.
         out_path_in_file (str): name of output dataset.
         n_threads (int): number of threads used for copying.
@@ -98,35 +93,36 @@ def copy_dataset(in_path, out_path,
         block_shape (tuple): block shape used for copying. Must be a multiple
             of ``chunks``, which are used by default (default: None)
         dtype (str): datatype of the output dataset, default does not change datatype (default: None).
-        use_zarr_format (bool): file format of the output file,
-            default does not change format (default: None).
         roi (tuple[slice]): region of interest that will be copied. (default: None)
         fit_to_roi (bool): if given a roi, whether to set the shape of
             the output dataset to the roi's shape
             and align chunks with the roi's origin. (default: False)
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
-
     """
-    f_in = File(in_path)
-    # check if the file format was specified
-    # if not, keep the format of the input file
-    # otherwise set the file format
-    is_zarr = f_in.is_zarr if use_zarr_format is None else use_zarr_format
-    f_out = File(out_path, use_zarr_format=is_zarr)
-
     ds_in = f_in[in_path_in_file]
 
     # check if we can copy chunk by chunk
-    if (chunks is None or chunks == ds_in.chunks) and (roi is None):
-        copy_chunks = True
-    else:
-        copy_chunks = False
+    in_is_z5 = isinstance(f_in, (File, S3File))
+    out_is_z5 = isinstance(f_out, (File, S3File))
+    copy_chunks = (in_is_z5 and out_is_z5) and (chunks is None or chunks == ds_in.chunks) and (roi is None)
 
     # get dataset metadata from input dataset if defaults were given
     chunks = ds_in.chunks if chunks is None else chunks
     dtype = ds_in.dtype if dtype is None else dtype
-    compression_opts = new_compression if new_compression else ds_in.compression_opts
+
+    compression = new_compression.pop("compression", ds_in.compression)
+    compression_opts = new_compression
+
+    same_lib = in_is_z5 == out_is_z5
+    if same_lib and compression == ds_in.compression:
+        compression_opts = compression_opts if compression_opts else ds_in.compression_opts
+
+    if out_is_z5:
+        compression = None if compression == 'raw' else compression
+        compression_opts = {} if compression_opts is None else compression_opts
+    else:
+        compression_opts = {'compression_opts': None} if compression_opts is None else compression_opts
 
     # if we don't have block-shape explitictly given, use chunk size
     # otherwise check that it's a multiple of chunks
@@ -149,6 +145,7 @@ def copy_dataset(in_path, out_path,
                                    dtype=dtype,
                                    shape=shape,
                                    chunks=chunks,
+                                   compression=compression,
                                    **compression_opts)
 
     def write_single_block(bb):
@@ -182,7 +179,51 @@ def copy_dataset(in_path, out_path,
         out_attrs[key] = val
 
 
-# TODO we could allow to change formats from zarr to n5 and vice versa
+def copy_dataset(in_path, out_path,
+                 in_path_in_file, out_path_in_file,
+                 n_threads, chunks=None,
+                 block_shape=None, dtype=None,
+                 use_zarr_format=None, roi=None,
+                 fit_to_roi=False, **new_compression):
+    """ Copy dataset, optionally change metadata.
+
+    The input dataset will be copied to the output dataset chunk by chunk.
+    Allows to change chunks, datatype, file format and compression.
+    Can also just copy a roi.
+
+    Args:
+        in_path (str): path to the input file.
+        out_path (str): path to the output file.
+        in_path_in_file (str): name of input dataset.
+        out_path_in_file (str): name of output dataset.
+        n_threads (int): number of threads used for copying.
+        chunks (tuple): chunks of the output dataset.
+            By default same as input dataset's chunks. (default: None)
+        block_shape (tuple): block shape used for copying. Must be a multiple
+            of ``chunks``, which are used by default (default: None)
+        dtype (str): datatype of the output dataset, default does not change datatype (default: None).
+        use_zarr_format (bool): file format of the output file,
+            default does not change format (default: None).
+        roi (tuple[slice]): region of interest that will be copied. (default: None)
+        fit_to_roi (bool): if given a roi, whether to set the shape of
+            the output dataset to the roi's shape
+            and align chunks with the roi's origin. (default: False)
+        **new_compression: compression library and options for output dataset. If not given,
+            the same compression as in the input is used.
+    """
+    f_in = File(in_path)
+    # check if the file format was specified
+    # if not, keep the format of the input file
+    # otherwise set the file format
+    is_zarr = f_in.is_zarr if use_zarr_format is None else use_zarr_format
+    f_out = File(out_path, use_zarr_format=is_zarr)
+
+    copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
+                      n_threads, chunks=chunks, block_shape=block_shape,
+                      dtype=dtype, roi=roi, fit_to_roi=fit_to_roi,
+                      **new_compression)
+
+
 def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
     """ Copy group recursively.
 
@@ -199,25 +240,28 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
     f_in = File(in_path)
     f_out = File(out_path)
 
+    def copy_attrs(gin, gout):
+        in_attrs = gin.attrs
+        out_attrs = gout.attrs
+        for key, val in in_attrs.items():
+            out_attrs[key] = val
+
     g_in = f_in[in_path_in_file]
-    for key, obj in g_in.items():
-        abs_in_key = os.path.join(in_path_in_file, key)
-        abs_out_key = os.path.join(out_path_in_file, key)
+    g_out = f_out.require_group(out_path_in_file)
+    copy_attrs(g_in, g_out)
+
+    def copy_object(name, obj):
+        abs_in_key = os.path.join(in_path_in_file, name)
+        abs_out_key = os.path.join(out_path_in_file, name)
+
         if isinstance(obj, Dataset):
             copy_dataset(in_path, out_path,
                          abs_in_key, abs_out_key, n_threads)
         else:
-            assert isinstance(obj, Group)
-            # copy group attributes
-            g_out = f_out.require_group(abs_out_key)
-            in_attrs = obj.attrs
-            out_attrs = g_out.attrs
-            for key, val in in_attrs.items():
-                out_attrs[key] = val
+            g = f_out.require_group(abs_out_key)
+            copy_attrs(obj, g)
 
-            # copy group content
-            copy_group(in_path, out_path,
-                       abs_in_key, abs_out_key, n_threads)
+    g_in.visititems(copy_object)
 
 
 class Timer:
@@ -297,7 +341,7 @@ def remove_trivial_chunks(dataset, n_threads,
     """
 
     dtype = dataset.dtype
-    function = eval('z5_impl.remove_trivial_chunks_%s' % dtype)
+    function = getattr(_z5py, 'remove_trivial_chunks_%s' % dtype)
     remove_specific = remove_specific_value is not None
     value = remove_specific_value if remove_specific else 0
     function(dataset._impl, n_threads, remove_specific, value)
@@ -306,13 +350,13 @@ def remove_trivial_chunks(dataset, n_threads,
 def remove_dataset(dataset, n_threads):
     """ Remvoe dataset multi-threaded.
     """
-    z5_impl.remove_dataset(dataset._impl, n_threads)
+    _z5py.remove_dataset(dataset._impl, n_threads)
 
 
 def remove_chunk(dataset, chunk_id):
     """ Remove a chunk
     """
-    z5_impl.remove_chunk(dataset._impl, chunk_id)
+    dataset._impl.remove_chunk(dataset._impl, chunk_id)
 
 
 def remove_chunks(dataset, bounding_box):
@@ -337,7 +381,7 @@ def unique(dataset, n_threads, return_counts=False):
     """
     dtype = dataset.dtype
     if return_counts:
-        function = eval('z5_impl.unique_with_counts_%s' % dtype)
+        function = getattr(_z5py, 'unique_with_counts_%s' % dtype)
     else:
-        function = eval('z5_impl.unique_%s' % dtype)
+        function = getattr(_z5py, 'unique_%s' % dtype)
     return function(dataset._impl, n_threads)

@@ -1,15 +1,11 @@
 import unittest
 import os
-import numpy as np
+import sys
 from shutil import rmtree
 from abc import ABC
 
-import sys
-try:
-    import z5py
-except ImportError:
-    sys.path.append('..')
-    import z5py
+import numpy as np
+import z5py
 
 
 class GroupTestMixin(ABC):
@@ -17,7 +13,8 @@ class GroupTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
 
-        self.root_file = z5py.File('array.%s' % self.data_format)
+        self.path = 'array.%s' % self.data_format
+        self.root_file = z5py.File(self.path)
         g = self.root_file.create_group('test')
         g.create_dataset('test',
                          dtype='float32',
@@ -26,7 +23,7 @@ class GroupTestMixin(ABC):
 
     def tearDown(self):
         try:
-            rmtree('array.%s' % self.data_format)
+            rmtree(self.path)
         except OSError:
             pass
 
@@ -64,12 +61,16 @@ class GroupTestMixin(ABC):
     def test_create_nested_group(self):
         self.root_file.create_group('foo/bar/baz')
         g = self.root_file['foo/bar/baz']
-        self.assertEqual(g.path, os.path.join(self.root_file.path, 'foo/bar/baz'))
+        self.assertTrue(os.path.exists(os.path.join(self.path, 'foo', 'bar', 'baz')))
+
+        g.create_group('blub/blob')
+        g['blub/blob']
+        self.assertTrue(os.path.exists(os.path.join(self.path, 'foo', 'bar', 'baz', 'blub', 'blob')))
 
     def test_require_group(self):
         self.root_file.require_group('group')
-        g = self.root_file.require_group('group')
-        self.assertEqual(g.path, os.path.join(self.root_file.path, 'group'))
+        self.root_file.require_group('group')
+        self.assertTrue(os.path.exists(os.path.join(self.path, 'group')))
 
     def test_delete(self):
         self.assertTrue('test' in self.root_file)
@@ -94,7 +95,7 @@ class GroupTestMixin(ABC):
         ds = g.require_dataset('new', shape=(100, 100), chunks=(10, 10),
                                dtype='uint8', compression='gzip',
                                level=4)
-        self.assertTrue(os.path.exists(ds.path))
+        self.assertTrue(os.path.exists(os.path.join(self.path, 'test')))
         compression_opts = ds.compression_opts
         self.assertEqual(compression_opts['level'], 4)
 
