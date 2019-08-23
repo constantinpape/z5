@@ -6,6 +6,10 @@ from . import _z5py
 from .attribute_manager import AttributeManager
 from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
+AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
+COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip')
+COMPRESSORS_N5 = ('raw', 'gzip', 'bzip2', 'xz', 'lz4')
+
 
 class Dataset:
     """ Dataset for access to data on disc.
@@ -26,19 +30,15 @@ class Dataset:
                    np.dtype('float32'): 'float32',
                    np.dtype('float64'): 'float64'}
 
-    # TODO for now we hardcode all compressors
-    # but we should instead check which ones are present
-    # (similar to nifty WITH_CPLEX, etc.)
+    # Compression libraries supported by zarr format
+    compressors_zarr = tuple(comp for comp in COMPRESSORS_ZARR if AVAILABLE_COMPRESSORS[comp])
+    # Default compression for zarr format
+    zarr_default_compressor = 'blosc' if AVAILABLE_COMPRESSORS['blosc'] else 'raw'
 
-    #: Compression libraries supported by zarr format
-    compressors_zarr = ['raw', 'blosc', 'zlib', 'bzip2', 'gzip']
-    #: Default compression for zarr format
-    zarr_default_compressor = 'blosc'
-
-    #: Compression libraries supported by n5 format
-    compressors_n5 = ['raw', 'gzip', 'bzip2', 'xz', 'lz4']
-    #: Default compression for n5 format
-    n5_default_compressor = 'gzip'
+    # Compression libraries supported by n5 format
+    compressors_n5 = tuple(comp for comp in COMPRESSORS_N5 if AVAILABLE_COMPRESSORS[comp])
+    # Default compression for n5 format
+    n5_default_compressor = 'gzip' if AVAILABLE_COMPRESSORS['gzip'] else 'raw'
 
     def __init__(self, dset_impl, handle, n_threads=1):
         self._impl = dset_impl
