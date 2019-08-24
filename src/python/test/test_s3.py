@@ -45,17 +45,20 @@ class TestS3(unittest.TestCase):
     def test_dummy(self):
         from z5py import _z5py
         m = _z5py.FileMode(_z5py.FileMode.a)
-        fhandle = _z5py.S3File(m)
+        fhandle = _z5py.S3File(self.bucket_name, m)
         ghandle = _z5py.S3Group(fhandle, "test")
         _z5py.S3DatasetHandle(ghandle, "test")
 
+    # FIXME the test does not terminate.
+    # the problem might be the api shutdown call in the destructor
     @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_file(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
         keys = f.keys()
+        print(list(keys))
         expected = {'data'}
-        self.asserEqual(set(keys), expected)
+        self.assertEqual(set(keys), expected, use_zarr_format=True)
 
 
 if __name__ == '__main__':

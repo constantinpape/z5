@@ -253,7 +253,7 @@ SET(CLOUD_LIBRARIES "")
 
 if(WITH_S3)
     # Do we need any additional components?
-    find_package(AWSSDK REQUIRED)
+    find_package(AWSSDK REQUIRED COMPONENTS core s3)
     add_definitions(-DWITH_S3)
     SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};${AWSSDK_LINK_LIBRARIES}")
 endif()
@@ -264,6 +264,7 @@ if(WITH_GCS)
     add_definitions(-DWITH_GCS)
     # SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};${AWSSDK_LINK_LIBRARIES}")
 endif()
+message(STATUS "CLOUD LIBS: ${CLOUD_LIBRARIES}")
 
 
 ###############################

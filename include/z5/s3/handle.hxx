@@ -1,4 +1,8 @@
 #pragma once
+#include <aws/core/Aws.h>
+#include <aws/s3/S3Client.h>
+#include <aws/s3/model/ListObjectsRequest.h>
+#include <aws/s3/model/Object.h>
 #include "z5/handle.hxx"
 
 
@@ -12,8 +16,17 @@ namespace handle {
     public:
         typedef z5::handle::File<File> BaseType;
 
-        File(const FileMode mode=FileMode())
-            : BaseType(mode) {
+        // TODO support files at keys in bucket
+        // for now we only support vanilla SDKOptions
+        File(const std::string & bucketName, const FileMode mode=FileMode())
+            : BaseType(mode),
+              bucketName_(bucketName.c_str(), bucketName.size()),
+              options_(){
+            Aws::InitAPI(options_);
+        }
+
+        ~File() {
+            Aws::ShutdownAPI(options_);
         }
 
         // Implement the handle API
@@ -46,9 +59,30 @@ namespace handle {
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
+            Aws::S3::S3Client client;
+            Aws::S3::Model::ListObjectsRequest request;
+            request.WithBucket(bucketName_);
+
+            const auto object_list = client.ListObjects(request);
+
+            if(object_list.IsSuccess()) {
+                const auto list = object_list.GetResult().GetContents();
+                for(const auto & obj : list) {
+                    auto key = obj.GetKey();
+                    out.emplace_back(key.c_str(), key.size());
+                }
+            } else {
+                // TODO handle !IsSuccess properly
+                throw std::runtime_error("No success");
+            }
+
         }
         inline bool in(const std::string & key) const {
         }
+
+    private:
+        Aws::SDKOptions options_;
+        Aws::String bucketName_;
     };
 
 

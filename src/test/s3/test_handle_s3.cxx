@@ -22,14 +22,14 @@ namespace z5 {
 
     TEST_F(HandleTest, TestFile) {
         // Make a file
-        z5::s3::handle::File f;
+        z5::s3::handle::File f("my-bucket");
         f.create();
     }
 
 
     TEST_F(HandleTest, TestGroup) {
         // Make a file
-        z5::s3::handle::File f;
+        z5::s3::handle::File f("my-bucket");
 
         // Make a group
         z5::s3::handle::Group g(f, "group");
@@ -44,7 +44,7 @@ namespace z5 {
     TEST_F(HandleTest, TestDataset) {
 
         // Make a file
-        z5::s3::handle::File f;
+        z5::s3::handle::File f("my-bucket");
 
         // Make a dataset
         z5::s3::handle::Dataset ds(f, "ds");
