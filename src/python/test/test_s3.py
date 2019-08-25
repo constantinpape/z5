@@ -1,15 +1,17 @@
 import os
 import unittest
+from skimage.data import astronaut
 
 # by default, we don't run any actual s3 tests,
 # because this will not work in CI due to missing credentials.
 # set the environment variable "Z5PY_TEST_S3" to 1 in order to run tests
-TEST_S3 = bool(os.environ.get("Z5PY_TEST_S3", False))
-BUCKET_NAME = os.environ.get("Z5PY_S3_BUCKET_NAME", 'z5-zarr-test-data')
+TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", True))
+BUCKET_NAME = os.environ.get("Z5PY_S3_BUCKET_NAME", 'z5-test-data')
 
 
 class TestS3(unittest.TestCase):
     bucket_name = BUCKET_NAME
+    data = astronaut()
 
     @staticmethod
     def make_test_data(bucket_name=None):
@@ -22,7 +24,6 @@ class TestS3(unittest.TestCase):
         import s3fs
         import zarr
         import numcodecs
-        from skimage.data import astronaut
 
         if bucket_name is None:
             bucket_name = TestS3.bucket_name
@@ -32,13 +33,25 @@ class TestS3(unittest.TestCase):
         store = s3fs.S3Map(root=bucket_name, s3=fs)
 
         # test data image
-        data = astronaut()
+        data = TestS3.data
 
         # write remote zarr data
         f = zarr.group(store)
+        f.attrs['Q'] = 42
+
+        # create dataset
         ds = f.create_dataset('data', shape=data.shape, chunks=(256, 256, 3), dtype=data.dtype,
                               compressor=numcodecs.Zlib())
         ds[:] = data
+        ds.attrs['x'] = 'y'
+
+        # create a and dataset group
+        g = f.create_group('group')
+        ds = g.create_dataset('data', shape=data.shape, chunks=(256, 256, 3), dtype=data.dtype,
+                              compressor=numcodecs.Zlib())
+        ds[:] = data
+        ds.attrs['x'] = 'y'
+
 
     # this is just a dummy test that checks the
     # handle imports and constructors
@@ -49,17 +62,30 @@ class TestS3(unittest.TestCase):
         ghandle = _z5py.S3Group(fhandle, "test")
         _z5py.S3DatasetHandle(ghandle, "test")
 
-    # FIXME the test does not terminate.
-    # the problem might be the api shutdown call in the destructor
     @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_file(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
+        self.assertTrue('data' in f)
+        self.assertTrue('group' in f)
+        self.assertTrue('group/data' in f)
+
         keys = f.keys()
-        print(list(keys))
         expected = {'data'}
-        self.assertEqual(set(keys), expected, use_zarr_format=True)
+        expected = {'data', 'group'}
+        self.assertEqual(set(keys), expected)
+
+    @unittest.skipUnless(TEST_S3, "Disabled by default")
+    def test_s3_group(self):
+        from z5py import S3File
+        f = S3File(self.bucket_name)
+        g = f['group']
+        self.assertTrue('data' in g)
+        keys = g.keys()
+        expected = {'data'}
+        self.assertEqual(set(keys), expected)
 
 
 if __name__ == '__main__':
+    # TestS3.make_test_data()
     unittest.main()

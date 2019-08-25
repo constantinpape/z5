@@ -1,6 +1,5 @@
 #pragma once
 
-// TODO rename file_mode -> permission
 #include "z5/util/file_mode.hxx"
 #include "z5/types/types.hxx"
 
@@ -23,6 +22,8 @@ namespace handle {
         virtual void remove() const = 0;
 
         virtual const fs::path & path() const = 0;
+        virtual const std::string & bucketName() const = 0;
+        virtual const std::string & nameInBucket() const = 0;
 
         const FileMode & mode() const {
             return mode_;

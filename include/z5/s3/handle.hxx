@@ -1,8 +1,11 @@
 #pragma once
+// aws includs
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
-#include <aws/s3/model/ListObjectsRequest.h>
 #include <aws/s3/model/Object.h>
+#include <aws/s3/model/Bucket.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
+
 #include "z5/handle.hxx"
 
 
@@ -10,31 +13,116 @@ namespace z5 {
 namespace s3 {
 namespace handle {
 
-    // TODO implement for s3
+    // TODO need to support more options
+    // - different regions than us-east-1 (the default)
+    // common functionality for S3 File and Group handles
+    class S3HandleImpl {
+    public:
+        S3HandleImpl(const std::string & bucketName, const std::string & nameInBucket)
+            : bucketName_(bucketName.c_str(), bucketName.size()),
+              nameInBucket_(nameInBucket),
+              options_(){}
 
-    class File : public z5::handle::File<File> {
+        // check if this handle exists
+        inline bool existsImpl() const {
+            Aws::InitAPI(options_);
+            Aws::S3::S3Client client;
+            Aws::S3::Model::ListObjectsV2Request request;
+            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
+            request.WithPrefix(Aws::String(nameInBucket_.c_str(), nameInBucket_.size()));
+            request.WithMaxKeys(1);
+            const auto object_list = client.ListObjectsV2(request);
+            const bool res = object_list.IsSuccess() && object_list.GetResult().GetKeyCount() > 0;
+            Aws::ShutdownAPI(options_);
+            return res;
+        }
+
+        inline void keysImpl(std::vector<std::string> & out) const {
+            std::cout << "keys" << std::endl;
+            Aws::InitAPI(options_);
+            Aws::S3::S3Client client;
+            Aws::S3::Model::ListObjectsV2Request request;
+            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
+            std::cout << "prefix: " << nameInBucket_ << std::endl;
+            request.WithPrefix(Aws::String(nameInBucket_.c_str(), nameInBucket_.size()));
+            request.WithDelimiter("/");
+
+            Aws::S3::Model::ListObjectsV2Result object_list;
+
+            do {
+                object_list = client.ListObjectsV2(request).GetResult();
+                for(const auto & common_prefix : object_list.GetCommonPrefixes()) {
+                    const std::string prefix(common_prefix.GetPrefix().c_str(),
+                                             common_prefix.GetPrefix().size());
+                    std::cout << "found: " << prefix << std::endl;
+                    if(!prefix.empty() && prefix.back() == '/') {
+                        out.emplace_back(prefix.begin(), prefix.end() - 1);
+                    }
+                }
+            } while(object_list.GetIsTruncated());
+            Aws::ShutdownAPI(options_);
+        }
+
+        inline bool inImpl(const std::string & name) const {
+            Aws::InitAPI(options_);
+            Aws::S3::S3Client client;
+            Aws::S3::Model::ListObjectsV2Request request;
+            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
+            const std::string prefix = nameInBucket_ == "" ? name : (nameInBucket_ + "/" + name);
+            request.WithPrefix(Aws::String(prefix.c_str(), prefix.size()));
+            request.WithMaxKeys(1);
+            const auto object_list = client.ListObjectsV2(request);
+            const bool res = object_list.IsSuccess() && object_list.GetResult().GetKeyCount() > 0;
+            Aws::ShutdownAPI(options_);
+            return res;
+        }
+
+        inline bool isZarrGroup() const {
+            return inImpl(".zgroup");
+        }
+        inline bool isZarrDataset() const {
+            return inImpl(".zarray");
+        }
+
+        inline const std::string & bucketNameImpl() const {
+            return bucketName_;
+        }
+
+        inline const std::string & nameInBucketImpl() const {
+            return nameInBucket_;
+        }
+
+    private:
+        std::string bucketName_;
+        std::string nameInBucket_;
+        Aws::SDKOptions options_;
+    };
+
+
+    class File : public z5::handle::File<File>, private S3HandleImpl {
     public:
         typedef z5::handle::File<File> BaseType;
 
-        // TODO support files at keys in bucket
         // for now we only support vanilla SDKOptions
-        File(const std::string & bucketName, const FileMode mode=FileMode())
+        File(const std::string & bucketName,
+             const std::string & nameInBucket="",
+             const FileMode mode=FileMode())
             : BaseType(mode),
-              bucketName_(bucketName.c_str(), bucketName.size()),
-              options_(){
-            Aws::InitAPI(options_);
-        }
-
-        ~File() {
-            Aws::ShutdownAPI(options_);
-        }
+              S3HandleImpl(bucketName, nameInBucket){}
 
         // Implement the handle API
         inline bool isS3() const {return true;}
         inline bool isGcs() const {return false;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
+        // dummy impl
         const fs::path & path() const {}
+
+        inline bool isZarr() const {
+            return isZarrGroup();
+        }
+
+        inline bool exists() const {
+            return existsImpl();
+        }
 
         inline void create() const {
             if(!mode().canCreate()) {
@@ -59,47 +147,36 @@ namespace handle {
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
-            Aws::S3::S3Client client;
-            Aws::S3::Model::ListObjectsRequest request;
-            request.WithBucket(bucketName_);
-
-            const auto object_list = client.ListObjects(request);
-
-            if(object_list.IsSuccess()) {
-                const auto list = object_list.GetResult().GetContents();
-                for(const auto & obj : list) {
-                    auto key = obj.GetKey();
-                    out.emplace_back(key.c_str(), key.size());
-                }
-            } else {
-                // TODO handle !IsSuccess properly
-                throw std::runtime_error("No success");
-            }
-
+            keysImpl(out);
         }
         inline bool in(const std::string & key) const {
+            return inImpl(key);
         }
 
-    private:
-        Aws::SDKOptions options_;
-        Aws::String bucketName_;
+        inline const std::string & bucketName() const {
+            return bucketNameImpl();
+        }
+        inline const std::string & nameInBucket() const {
+            return nameInBucketImpl();
+        }
     };
 
 
-    class Group : public z5::handle::Group<Group> {
+    class Group : public z5::handle::Group<Group>, private S3HandleImpl {
     public:
         typedef z5::handle::Group<Group> BaseType;
 
         template<class GROUP>
         Group(const z5::handle::Group<GROUP> & group, const std::string & key)
-            : BaseType(group.mode()) {
-        }
+            : BaseType(group.mode()),
+              S3HandleImpl(group.bucketName(),
+                           (group.nameInBucket() == "") ? key : group.nameInBucket() + "/" + key){}
 
         // Implement th handle API
         inline bool isS3() const {return true;}
         inline bool isGcs() const {return false;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
+        inline bool exists() const {return existsImpl();}
+        inline bool isZarr() const {return isZarrGroup();}
         const fs::path & path() const {}
 
         inline void create() const {
@@ -124,27 +201,34 @@ namespace handle {
         }
 
         // Implement the group handle API
-        inline void keys(std::vector<std::string> & out) const {
+        inline void keys(std::vector<std::string> & out) const {keysImpl(out);}
+        inline bool in(const std::string & key) const {return inImpl(key);}
+        inline const std::string & bucketName() const {
+            return bucketNameImpl();
         }
-        inline bool in(const std::string & key) const {
+        inline const std::string & nameInBucket() const {
+            return nameInBucketImpl();
         }
     };
 
 
-    class Dataset : public z5::handle::Dataset<Dataset> {
+    class Dataset : public z5::handle::Dataset<Dataset>, private S3HandleImpl {
     public:
         typedef z5::handle::Dataset<Dataset> BaseType;
 
         template<class GROUP>
         Dataset(const z5::handle::Group<GROUP> & group, const std::string & key)
-            : BaseType(group.mode()) {
+            : BaseType(group.mode()),
+              S3HandleImpl(group.bucketName(),
+                           group.nameInBucket() + "/" + key) {
         }
 
         // Implement th handle API
         inline bool isS3() const {return true;}
         inline bool isGcs() const {return false;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
+        inline bool exists() const {return existsImpl();}
+        inline bool isZarr() const {return isZarrDataset();}
+        // dummy implementation
         const fs::path & path() const {}
 
         inline void create() const {
@@ -167,6 +251,13 @@ namespace handle {
             if(!exists()) {
                 throw std::invalid_argument("Cannot remove non-existing dataset.");
             }
+        }
+
+        inline const std::string & bucketName() const {
+            return bucketNameImpl();
+        }
+        inline const std::string & nameInBucket() const {
+            return nameInBucketImpl();
         }
     };
 
@@ -201,6 +292,8 @@ namespace handle {
 
         inline bool isS3() const {return true;}
         inline bool isGcs() const {return false;}
+        inline const std::string & bucketName() const {}
+        inline const std::string & nameInBucket() const {}
 
     private:
 

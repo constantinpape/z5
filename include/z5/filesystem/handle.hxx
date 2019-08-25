@@ -115,6 +115,10 @@ namespace handle {
         inline bool in(const std::string & key) const {
             return elementExists(key);
         }
+
+        // dummy implementation
+        const std::string & bucketName() const {}
+        const std::string & nameInBucket() const {}
     };
 
 
@@ -163,6 +167,10 @@ namespace handle {
         inline bool in(const std::string & key) const {
             return elementExists(key);
         }
+
+        // dummy implementation
+        const std::string & bucketName() const {}
+        const std::string & nameInBucket() const {}
     };
 
 
@@ -207,7 +215,10 @@ namespace handle {
             }
             removeDir();
         }
-
+        
+        // dummy implementation
+        const std::string & bucketName() const {}
+        const std::string & nameInBucket() const {}
     };
 
 
@@ -261,6 +272,10 @@ namespace handle {
 
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return false;}
+
+        // dummy implementation
+        const std::string & bucketName() const {}
+        const std::string & nameInBucket() const {}
 
     private:
 

@@ -6,6 +6,10 @@
 namespace z5 {
 namespace s3 {
 
+namespace attrs_detail {
+
+}
+
     // TODO implement for s3
 
     template<class GROUP>
@@ -38,6 +42,21 @@ namespace s3 {
 
     template<class GROUP>
     inline bool isSubGroup(const z5::handle::Group<GROUP> & group, const std::string & key){
+        if(group.isZarr()) {
+            return group.in(key + "/.zgroup");
+        } else {
+            // TODO implement for n5
+            throw std::logic_error("N5 S3 dataset not implemented yet");
+            /*
+            path /= "attributes.json";
+            if(!fs::exists(path)) {
+                return true;
+            }
+            nlohmann::json j;
+            attrs_detail::readAttributes(path, j);
+            return !z5::handle::hasAllN5DatasetAttributes(j);
+            */
+        }
     }
 
 }
