@@ -5,7 +5,7 @@ from skimage.data import astronaut
 # by default, we don't run any actual s3 tests,
 # because this will not work in CI due to missing credentials.
 # set the environment variable "Z5PY_TEST_S3" to 1 in order to run tests
-TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", True))
+TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", False))
 BUCKET_NAME = os.environ.get("Z5PY_S3_BUCKET_NAME", 'z5-test-data')
 
 
@@ -66,6 +66,7 @@ class TestS3(unittest.TestCase):
     def test_s3_file(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
+
         self.assertTrue('data' in f)
         self.assertTrue('group' in f)
         self.assertTrue('group/data' in f)
@@ -75,15 +76,40 @@ class TestS3(unittest.TestCase):
         expected = {'data', 'group'}
         self.assertEqual(set(keys), expected)
 
+        attrs = f.attrs
+        self.assertEqual(attrs['Q'], 42)
+
     @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_group(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
         g = f['group']
+
         self.assertTrue('data' in g)
         keys = g.keys()
         expected = {'data'}
         self.assertEqual(set(keys), expected)
+
+    def test_s3_dataset(self):
+        from z5py import S3File
+
+        def check_ds(ds):
+            # check the data
+            data = ds[:]
+            self.assertEqual(data.shape, self.data.shape)
+            self.assertTrue(np.allclose(data, self.data))
+
+            # check the attributes
+            attrs = ds.attrs
+            self.assertEqual(attrs['x'], 'y')
+
+        f = S3File(self.bucket_name)
+        ds = f['data']
+        check_ds(ds)
+
+        # g = f['group']
+        # ds = g['data']
+        # check_ds(ds)
 
 
 if __name__ == '__main__':

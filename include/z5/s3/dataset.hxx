@@ -40,6 +40,26 @@ namespace s3 {
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+            // get the chunk handle
+            handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
+
+            // TODO implement
+            // make sure that we have a valid chunk
+            // checkChunk(chunk);
+
+            // throw runtime errror if trying to read non-existing chunk
+            if(!chunk.exists()) {
+                throw std::runtime_error("Trying to read a chunk that does not exist");
+            }
+
+            // load the data from disc
+            std::vector<char> buffer;
+            read(chunk, buffer);
+
+            // format the data
+            const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_);
+
+            return is_varlen;
         }
 
 
@@ -101,6 +121,11 @@ namespace s3 {
         Dataset & operator=(const Dataset & that) = delete;
 
     private:
+
+        inline void read(const handle::Chunk & chunk, std::vector<char> & buffer) const {
+            // TODO read from s3 onject corresponding to chunk into the buffer
+        }
+
         handle::Dataset handle_;
     };
 

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "z5/util/file_mode.hxx"
 #include "z5/types/types.hxx"
+#include "z5/util/file_mode.hxx"
+#include "z5/util/util.hxx"
 
 namespace z5 {
 namespace handle {
@@ -109,6 +110,29 @@ namespace handle {
 
         inline std::size_t defaultSize() const {
             return std::accumulate(defaultShape_.begin(), defaultShape_.end(), 1, std::multiplies<std::size_t>());
+        }
+
+    protected:
+        inline std::string getChunkKey(const bool isZarr) const {
+            const auto & indices = chunkIndices();
+			std::string name;
+
+            // if we have the zarr-format, chunk indices
+            // are seperated by a '.'
+            if(isZarr) {
+                std::string delimiter = ".";
+                util::join(indices.begin(), indices.end(), name, delimiter);
+            }
+
+            // otherwise (n5-format), each chunk index has
+            // its own directory
+            else {
+                // N5-Axis order: we need to read the chunks in reverse order
+                for(auto it = indices.rbegin(); it != indices.rend(); ++it) {
+                    name += ("/" + std::to_string(*it));
+                }
+            }
+            return name;
         }
 
 

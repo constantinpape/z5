@@ -3,7 +3,6 @@
 #include <string>
 
 #include "z5/handle.hxx"
-#include "z5/util/util.hxx"
 #include "z5/types/types.hxx"
 
 
@@ -215,7 +214,7 @@ namespace handle {
             }
             removeDir();
         }
-        
+
         // dummy implementation
         const std::string & bucketName() const {}
         const std::string & nameInBucket() const {}
@@ -231,7 +230,7 @@ namespace handle {
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
                                                 dsHandle_(ds),
-                                                path_(constructPath()){}
+                                                path_(ds.path() / getChunkKey(ds.isZarr())){}
 
         // make the top level directories for a n5 chunk
         inline void create() const {
@@ -278,33 +277,6 @@ namespace handle {
         const std::string & nameInBucket() const {}
 
     private:
-
-        // static method to produce the filesystem path from parent handle,
-        // chunk indices and flag for the format
-        inline fs::path constructPath() {
-            fs::path ret(dsHandle_.path());
-
-            const auto & indices = chunkIndices();
-
-            // if we have the zarr-format, chunk indices
-            // are seperated by a '.'
-            if(dsHandle_.isZarr()) {
-				std::string name;
-                std::string delimiter = ".";
-                util::join(indices.begin(), indices.end(), name, delimiter);
-                ret /= name;
-            }
-
-            // otherwise (n5-format), each chunk index has
-            // its own directory
-            else {
-                // N5-Axis order: we need to read the chunks in reverse order
-                for(auto it = indices.rbegin(); it != indices.rend(); ++it) {
-                    ret /= std::to_string(*it);
-                }
-            }
-            return ret;
-        }
 
         const Dataset & dsHandle_;
         fs::path path_;

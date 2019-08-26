@@ -3,7 +3,6 @@
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/Object.h>
-#include <aws/s3/model/Bucket.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
 
 #include "z5/handle.hxx"
@@ -38,13 +37,13 @@ namespace handle {
         }
 
         inline void keysImpl(std::vector<std::string> & out) const {
-            std::cout << "keys" << std::endl;
             Aws::InitAPI(options_);
             Aws::S3::S3Client client;
             Aws::S3::Model::ListObjectsV2Request request;
             request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
-            std::cout << "prefix: " << nameInBucket_ << std::endl;
-            request.WithPrefix(Aws::String(nameInBucket_.c_str(), nameInBucket_.size()));
+            // add delimiter to the prefix
+            const std::string bucketPrefix = nameInBucket_ == "" ? "" : nameInBucket_ + "/";
+            request.WithPrefix(Aws::String(bucketPrefix.c_str(), bucketPrefix.size()));
             request.WithDelimiter("/");
 
             Aws::S3::Model::ListObjectsV2Result object_list;
@@ -54,9 +53,10 @@ namespace handle {
                 for(const auto & common_prefix : object_list.GetCommonPrefixes()) {
                     const std::string prefix(common_prefix.GetPrefix().c_str(),
                                              common_prefix.GetPrefix().size());
-                    std::cout << "found: " << prefix << std::endl;
                     if(!prefix.empty() && prefix.back() == '/') {
-                        out.emplace_back(prefix.begin(), prefix.end() - 1);
+                        std::vector<std::string> prefixSplit;
+                        util::split(prefix, prefixSplit, "/");
+                        out.emplace_back(prefixSplit.rbegin()[1]);
                     }
                 }
             } while(object_list.GetIsTruncated());
@@ -220,8 +220,7 @@ namespace handle {
         Dataset(const z5::handle::Group<GROUP> & group, const std::string & key)
             : BaseType(group.mode()),
               S3HandleImpl(group.bucketName(),
-                           group.nameInBucket() + "/" + key) {
-        }
+                           (group.nameInBucket() == "") ? key : group.nameInBucket() + "/" + key){}
 
         // Implement th handle API
         inline bool isS3() const {return true;}
@@ -262,7 +261,7 @@ namespace handle {
     };
 
 
-    class Chunk : public z5::handle::Chunk<Chunk> {
+    class Chunk : public z5::handle::Chunk<Chunk>, private S3HandleImpl {
     public:
         typedef z5::handle::Chunk<Chunk> BaseType;
 
@@ -270,11 +269,8 @@ namespace handle {
               const types::ShapeType & chunkIndices,
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
-                                                dsHandle_(ds){}
-
-        // make the top level directories for a n5 chunk
-        inline void create() const {
-        }
+                                                dsHandle_(ds),
+                                                S3HandleImpl(ds.bucketName(), ds.nameInBucket() + "/" + getChunkKey(ds.isZarr())){}
 
         inline void remove() const {
         }
@@ -287,16 +283,17 @@ namespace handle {
             return dsHandle_.isZarr();
         }
 
-        inline bool exists() const {}
+        inline bool exists() const {return existsImpl();}
+
+        // dummy impl
         const fs::path & path() const {}
 
         inline bool isS3() const {return true;}
         inline bool isGcs() const {return false;}
-        inline const std::string & bucketName() const {}
-        inline const std::string & nameInBucket() const {}
+        inline const std::string & bucketName() const {return bucketNameImpl();}
+        inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
     private:
-
         const Dataset & dsHandle_;
     };
 
