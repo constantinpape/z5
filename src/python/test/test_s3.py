@@ -1,11 +1,12 @@
 import os
 import unittest
+import numpy as np
 from skimage.data import astronaut
 
 # by default, we don't run any actual s3 tests,
 # because this will not work in CI due to missing credentials.
 # set the environment variable "Z5PY_TEST_S3" to 1 in order to run tests
-TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", False))
+TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", True))
 BUCKET_NAME = os.environ.get("Z5PY_S3_BUCKET_NAME", 'z5-test-data')
 
 
@@ -52,7 +53,6 @@ class TestS3(unittest.TestCase):
         ds[:] = data
         ds.attrs['x'] = 'y'
 
-
     # this is just a dummy test that checks the
     # handle imports and constructors
     def test_dummy(self):
@@ -90,6 +90,8 @@ class TestS3(unittest.TestCase):
         expected = {'data'}
         self.assertEqual(set(keys), expected)
 
+    # currently fails with:
+    # RuntimeError: Exception during zlib decompression: (-3)
     def test_s3_dataset(self):
         from z5py import S3File
 
