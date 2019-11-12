@@ -200,6 +200,11 @@ int main() {
 There are external efforts to implement a C-Api wrapper for z5.
 You can check it out [here](https://github.com/kmpaul/cz5test).
 
+### R
+
+There exists a prototype by @gdkrmr to provide [R bindings for z5](https://github.com/gdkrmr/zarr-R).
+It is still in an early stage, but looks very promising.
+
 ## When to use this library?
 
 This library implements the zarr and n5 data specification in C++ and Python.
