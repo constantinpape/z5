@@ -5,7 +5,9 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 
-Lightweight C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file format.
+C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file formats.
+Implements the file system specification of these formats. Implementations for cloud based storage are work in progress. Any
+help is highly appreciated. See issues [#136](https://github.com/constantinpape/z5/issues/136) and [#137](https://github.com/constantinpape/z5/issues/137) for details.
 
 Support for the following compression codecs:
 - [Blosc](https://github.com/Blosc/c-blosc)
@@ -124,7 +126,7 @@ convert_from_h5(h5_file, n5_file,
 
 ### C++
 
-`Z5` supports different storage implementations. The default is to use the filesystem, but it also supports AWS-S3 (WIP) and Google Cloud Storage (WIP).
+`Z5` aims to supports different storage implementations. The default is to use the filesystem, implementations to also supports AWS-S3 and Google Cloud Storage are work in progress.
 The API implements factory functions like `createFile` or `createDataset` in [the factory header](https://github.com/constantinpape/z5/blob/master/include/z5/factory.hxx). 
 These functions need to be called with the corresponding handle, like `z5::filesystem::handle::File` or `z5::s3::handle::File` in order to specify which backend to use.
 
