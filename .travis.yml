@@ -6,6 +6,7 @@ language: python
 env:
   - CONDA_PYTHON_VERSION="36"
   - CONDA_PYTHON_VERSION="37"
+  - CONDA_PYTHON_VERSION="38"
 addons:
   apt:
     update: true
