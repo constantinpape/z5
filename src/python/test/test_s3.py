@@ -1,18 +1,23 @@
 import os
 import unittest
 import numpy as np
-from skimage.data import astronaut
 
 # by default, we don't run any actual s3 tests,
 # because this will not work in CI due to missing credentials.
 # set the environment variable "Z5PY_TEST_S3" to 1 in order to run tests
-TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", True))
+TEST_S3 = bool(os.environ.get("Z5PY_S3_RUN_TEST", False))
 BUCKET_NAME = os.environ.get("Z5PY_S3_BUCKET_NAME", 'z5-test-data')
 
 
+def get_test_data():
+    from skimage.data import astronaut
+    return astronaut()
+
+
+@unittest.skipUnless(TEST_S3, "Disabled by default")
 class TestS3(unittest.TestCase):
     bucket_name = BUCKET_NAME
-    data = astronaut()
+    data = get_test_data()
 
     @staticmethod
     def make_test_data(bucket_name=None):
@@ -62,7 +67,6 @@ class TestS3(unittest.TestCase):
         ghandle = _z5py.S3Group(fhandle, "test")
         _z5py.S3DatasetHandle(ghandle, "test")
 
-    @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_file(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
@@ -79,7 +83,6 @@ class TestS3(unittest.TestCase):
         attrs = f.attrs
         self.assertEqual(attrs['Q'], 42)
 
-    @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_group(self):
         from z5py import S3File
         f = S3File(self.bucket_name)
@@ -92,7 +95,6 @@ class TestS3(unittest.TestCase):
 
     # currently fails with:
     # RuntimeError: Exception during zlib decompression: (-3)
-    @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_dataset(self):
         from z5py import S3File
 
