@@ -3,7 +3,9 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <boost/variant.hpp>
+#include <variant>
+
+//#include <boost/variant.hpp>
 //#include <boost/optional.hpp>
 
 #include "nlohmann/json.hpp"
@@ -211,7 +213,7 @@ namespace types {
                                     float, double> InternalFillValueType;
     typedef boost::optional::optional<InternalFillValueType> FillValueType;
     */
-    typedef std::map<std::string, boost::variant<int, bool, std::string>> CompressionOptions;
+    typedef std::map<std::string, std::variant<int, bool, std::string>> CompressionOptions;
 
 
     inline void readZarrCompressionOptionsFromJson(Compressor compressor,
@@ -254,18 +256,18 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: jOpts["cname"]   = boost::get<std::string>(options.at("codec"));
-                        jOpts["clevel"]  = boost::get<int>(options.at("level"));
-                        jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
+            case blosc: jOpts["cname"]   = std::get<std::string>(options.at("codec"));
+                        jOpts["clevel"]  = std::get<int>(options.at("level"));
+                        jOpts["shuffle"] = std::get<int>(options.at("shuffle"));
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: jOpts["id"] = boost::get<bool>(options.at("useZlib")) ? "zlib" : "gzip";
-                       jOpts["level"] = boost::get<int>(options.at("level"));
+            case zlib: jOpts["id"] = std::get<bool>(options.at("useZlib")) ? "zlib" : "gzip";
+                       jOpts["level"] = std::get<int>(options.at("level"));
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: jOpts["level"] = boost::get<int>(options.at("level")); break;
+            case bzip2: jOpts["level"] = std::get<int>(options.at("level")); break;
             #endif
             // raw compression has no parameters
             default: break;
@@ -309,18 +311,18 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_ZLIB
-            case zlib: jOpts["level"] = boost::get<int>(options.at("level"));
+            case zlib: jOpts["level"] = std::get<int>(options.at("level"));
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: jOpts["blockSize"] = boost::get<int>(options.at("level"));
+            case bzip2: jOpts["blockSize"] = std::get<int>(options.at("level"));
                         break;
             #endif
             #ifdef WITH_XZ
-            case xz: jOpts["preset"] = boost::get<int>(options.at("level")); break;
+            case xz: jOpts["preset"] = std::get<int>(options.at("level")); break;
             #endif
             #ifdef WITH_LZ4
-            case lz4: jOpts["blockSize"] = boost::get<int>(options.at("level")); break;
+            case lz4: jOpts["blockSize"] = std::get<int>(options.at("level")); break;
             #endif
             // raw compression has no parameters
             default: break;

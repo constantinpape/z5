@@ -70,9 +70,9 @@ namespace compression {
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {
-            clevel_     = boost::get<int>(metadata.compressionOptions.at("level"));
-            shuffle_    = boost::get<int>(metadata.compressionOptions.at("shuffle"));
-            compressor_ = boost::get<std::string>(metadata.compressionOptions.at("codec"));
+            clevel_     = std::get<int>(metadata.compressionOptions.at("level"));
+            shuffle_    = std::get<int>(metadata.compressionOptions.at("shuffle"));
+            compressor_ = std::get<std::string>(metadata.compressionOptions.at("codec"));
         }
 
         // the blosc compressor
