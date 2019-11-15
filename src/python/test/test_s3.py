@@ -17,7 +17,9 @@ def get_test_data():
 @unittest.skipUnless(TEST_S3, "Disabled by default")
 class TestS3(unittest.TestCase):
     bucket_name = BUCKET_NAME
-    data = get_test_data()
+
+    def setUp(self):
+        self.data = get_test_data()
 
     @staticmethod
     def make_test_data(bucket_name=None):
