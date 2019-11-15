@@ -12,7 +12,7 @@
     #include <boost/filesystem/fstream.hpp>
     namespace fs = boost::filesystem;
 #else
-    #if __GCC__ > 7
+    #if __GCC__ > 7 || _clang_major > 9
         #include <filesystem>
         namespace fs = std::filesystem;
     #else
