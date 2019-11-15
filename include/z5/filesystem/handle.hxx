@@ -61,9 +61,14 @@ namespace handle {
             fs::remove_all(path_);
         }
 
+        inline const std::string & dummy() const {
+            return dummy_;
+        }
 
     private:
         fs::path path_;
+        // empty string for dummy return value
+        std::string dummy_;
     };
 
 
@@ -116,8 +121,8 @@ namespace handle {
         }
 
         // dummy implementation
-        const std::string & bucketName() const {}
-        const std::string & nameInBucket() const {}
+        const std::string & bucketName() const {return dummy();}
+        const std::string & nameInBucket() const {return dummy();}
     };
 
 
@@ -168,8 +173,8 @@ namespace handle {
         }
 
         // dummy implementation
-        const std::string & bucketName() const {}
-        const std::string & nameInBucket() const {}
+        const std::string & bucketName() const {return dummy();}
+        const std::string & nameInBucket() const {return dummy();}
     };
 
 
@@ -216,8 +221,8 @@ namespace handle {
         }
 
         // dummy implementation
-        const std::string & bucketName() const {}
-        const std::string & nameInBucket() const {}
+        const std::string & bucketName() const {return dummy();}
+        const std::string & nameInBucket() const {return dummy();}
     };
 
 
@@ -273,13 +278,15 @@ namespace handle {
         inline bool isGcs() const {return false;}
 
         // dummy implementation
-        const std::string & bucketName() const {}
-        const std::string & nameInBucket() const {}
+        const std::string & bucketName() const {return dummy_;}
+        const std::string & nameInBucket() const {return dummy_;}
 
     private:
 
         const Dataset & dsHandle_;
         fs::path path_;
+        // empty string for dummy return value
+        std::string dummy_;
     };
 
 } // namespace::handle

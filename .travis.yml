@@ -38,7 +38,7 @@ script:
           -DWITH_BZIP2=ON
           -DWITH_XZ=ON
           -DWITH_LZ4=ON
-          -DWITH_S3=ON
+          -DWITH_S3=OFF
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
           -DPYTHON_EXECUTABLE="$PY_BIN"
           -DCMAKE_CXX_FLAGS="-std=c++17"

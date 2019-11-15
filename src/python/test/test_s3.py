@@ -92,6 +92,7 @@ class TestS3(unittest.TestCase):
 
     # currently fails with:
     # RuntimeError: Exception during zlib decompression: (-3)
+    @unittest.skipUnless(TEST_S3, "Disabled by default")
     def test_s3_dataset(self):
         from z5py import S3File
 
