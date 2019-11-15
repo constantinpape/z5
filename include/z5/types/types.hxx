@@ -3,12 +3,9 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <variant>
-
-//#include <boost/variant.hpp>
-//#include <boost/optional.hpp>
 
 #include "nlohmann/json.hpp"
+#include "z5/common.hxx"
 
 
 namespace z5 {

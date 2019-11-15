@@ -58,6 +58,14 @@
     #endif
 #endif
 
+// helpful summary of compiler versions
+// https://blog.kowalczyk.info/article/j/guide-to-predefined-macros-in-c-compilers-gcc-clang-msvc-etc..html
+#if defined(__GNUC__) && (__GNUC__ > 6)
+    #include <variant>
+#else
+    #include <experimental/variant>
+#endif
+
 
 namespace z5 {
 
