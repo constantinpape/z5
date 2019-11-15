@@ -14,7 +14,7 @@ source:
 
 
 build:
-  number: 0
+  number: 1
   string: py{{py}}_{{PKG_BUILDNUM}}_g{{GIT_FULL_HASH[:7]}}
 
 
@@ -22,7 +22,7 @@ requirements:
   build:
     - python {{PY_VER}}*
     - cmake
-    - boost-cpp 1.68.0  # the boost version needs to be fixed, because we are linking against specific shared objects
+    - boost-cpp >=1.63
     - xtensor 0.18.1
     - xtensor-python 0.21.0
     - numpy >=1.15
@@ -33,7 +33,6 @@ requirements:
     - zlib
   run:
     - python {{PY_VER}}*
-    - boost-cpp 1.68.0
     - numpy >=1.15
     - six
     - blosc

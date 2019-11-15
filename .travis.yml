@@ -6,6 +6,7 @@ language: python
 env:
   - CONDA_PYTHON_VERSION="36"
   - CONDA_PYTHON_VERSION="37"
+  - CONDA_PYTHON_VERSION="38"
 addons:
   apt:
     update: true
@@ -38,7 +39,7 @@ script:
           -DWITH_BZIP2=ON
           -DWITH_XZ=ON
           -DWITH_LZ4=ON
-          -DWITH_S3=ON
+          -DWITH_S3=OFF
           -DCMAKE_PREFIX_PATH="$ENV_ROOT"
           -DPYTHON_EXECUTABLE="$PY_BIN"
           -DCMAKE_CXX_FLAGS="-std=c++17"

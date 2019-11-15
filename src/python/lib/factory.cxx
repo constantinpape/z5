@@ -22,7 +22,6 @@ namespace z5 {
                                    const std::string & compression,
                                    const types::CompressionOptions & copts,
                                    const double fill_value){
-                requireHierarchy(root, key);
                 return createDataset(root, key, dtype, shape, chunk_shape, compression, copts, fill_value);
             },
             py::arg("root"), py::arg("key"),
@@ -42,12 +41,10 @@ namespace z5 {
 
         // group factories
         m.def("create_group", [](const FILE_ & file, const std::string & key){
-            requireHierarchy(file, key);
             createGroup(file, key);
             return std::unique_ptr<GROUP>(new GROUP(file, key));
         });
         m.def("create_group", [](const GROUP & group, const std::string & key){
-            requireHierarchy(group, key);
             createGroup(group, key);
             return std::unique_ptr<GROUP>(new GROUP(group, key));
         });

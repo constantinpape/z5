@@ -138,16 +138,20 @@ class S3File(Group):
 
     Args:
     """
-    # TODO args for AWS
-    def __init__(self, *, mode='a', use_zarr_format=None):
+    # TODO refactor aws args in some config object?
+    def __init__(self, bucket_name,
+                 name_in_bucket='',
+                 mode='a',
+                 use_zarr_format=None):
 
         if not hasattr(_z5py, "S3File"):
             raise AttributeError("z5 was not compiled with s3 support")
-        handle = _z5py.S3File(_z5py.FileMode(self.file_modes[mode]))
+        handle = _z5py.S3File(bucket_name, name_in_bucket, _z5py.FileMode(self.file_modes[mode]))
 
         # TODO handle zarr/n5 flag properly
         is_zarr = use_zarr_format
 
         if not handle.exists():
+            raise NotImplementedError
             _z5py.create_file(handle, is_zarr)
         super().__init__(handle, _z5py.S3Group)

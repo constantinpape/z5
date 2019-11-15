@@ -134,27 +134,6 @@ namespace z5 {
     }
 
 
-    // make sure that top level key in hierarchy exists
-    template<class GROUP>
-    inline void requireHierarchy(const handle::Group<GROUP> & g, const std::string & key) {
-        std::vector<std::string> keys;
-        util::split(key, keys, "/");
-        if(keys.size() <= 1) {
-            return;
-        }
-
-        std::string currentKey = "";
-        for(int k = 0; k < keys.size() - 1; ++k) {
-            currentKey += keys[k];
-            if(g.in(currentKey)) {
-                continue;
-            }
-            createGroup(g, currentKey);
-            currentKey += "/";
-        }
-    }
-
-
     template<class GROUP1, class GROUP2>
     inline std::string relativePath(const handle::Group<GROUP1> & g1,
                                     const GROUP2 & g2) {

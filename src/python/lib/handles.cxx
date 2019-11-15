@@ -125,7 +125,8 @@ namespace z5 {
         auto f = getGroupHandle<File, File, Dataset>(m, "S3File");
         f
             // dummy construnctor
-            .def(py::init<FileMode>(), py::arg("mode"))
+            .def(py::init<const std::string &, const std::string &, FileMode>(),
+                 py::arg("bucket_name"), py::arg("name_in_bucket"), py::arg("mode"))
         ;
 
         py::class_<Dataset>(m, "S3DatasetHandle")

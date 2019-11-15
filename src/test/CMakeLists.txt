@@ -4,6 +4,7 @@ SET(TEST_LIBS
     gtest_main
     ${CMAKE_THREAD_LIBS_INIT}
     ${FILESYSTEM_LIBRARIES}
+    ${CLOUD_LIBRARIES}
 )
 
 # add handle test

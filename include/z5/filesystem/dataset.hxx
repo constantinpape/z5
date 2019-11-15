@@ -122,8 +122,7 @@ namespace filesystem {
 
         inline std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
-            const auto & cshape = chunk.shape();
-            return cshape[dim];
+            return chunk.shape()[dim];
         }
 
 

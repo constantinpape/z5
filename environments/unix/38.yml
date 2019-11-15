@@ -1,0 +1,21 @@
+name: z5-py38
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - cmake
+  - gcc_linux-64
+  - gxx_linux-64
+  - bzip2
+  - lz4-c
+  - xz
+  - zlib
+  - boost-cpp>=1.63
+  - xtensor>=0.20,<0.21
+  - xtensor-python>=0.23,<0.24
+  - xsimd
+  - blosc
+  - imageio
+  - nlohmann_json
+  - zarr
+  - h5py

@@ -57,9 +57,4 @@ cmake .. \
 ##
 ## Compile
 ##
-make -j${CPU_COUNT}
-#make test
-
-##
-## Install to prefix
-cp -r ${SRC_DIR}/build/python/z5py ${PREFIX}/lib/python${PY_VER}/site-packages/
+make -j${CPU_COUNT} install
