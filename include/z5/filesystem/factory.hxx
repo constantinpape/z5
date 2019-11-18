@@ -101,9 +101,7 @@ namespace filesystem {
     template<class GROUP1, class GROUP2>
     inline std::string relativePath(const z5::handle::Group<GROUP1> & g1,
                                     const GROUP2 & g2) {
-        const auto & p1 = g1.path();
-        const auto & p2 = g2.path();
-        return fs::relative(p1, p2).string();
+        return relativeImpl(g1.path(), g2.path()).string();
     }
 
 }
