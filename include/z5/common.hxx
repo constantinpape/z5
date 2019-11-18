@@ -15,7 +15,9 @@
     #include <boost/filesystem/fstream.hpp>
     namespace fs = boost::filesystem;
 #else
-    // TODO what do we need to check for msvc here ?
+    // macos behaves very weird here, I can't get it to build on
+    // osx < 10.15 right now. For now the workaround is to use boost filesystem ...
+    // TODO MSVC check ?
     #if (defined(__GNUC__) && (__GNUC__ > 7)) || defined(__clang__)
         #include <filesystem>
         namespace fs = std::filesystem;

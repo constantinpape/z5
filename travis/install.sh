@@ -22,17 +22,32 @@ source ./environments/unix/env.sh
 ###############################################
 # configure cmake
 ###############################################
-cmake .\
-    -DWITHIN_TRAVIS=ON\
-    -DWITH_BLOSC=ON\
-    -DWITH_ZLIB=ON\
-    -DWITH_BZIP2=ON\
-    -DWITH_XZ=ON\
-    -DWITH_LZ4=ON\
-    -DWITH_S3=OFF\
-    -DCMAKE_PREFIX_PATH="$ENV_ROOT"\
-    -DPYTHON_EXECUTABLE="$PY_BIN"\
-    -DCMAKE_CXX_FLAGS="-std=c++17"
+if [ $TRAVIS_OS_NAME = 'osx' ]; then
+    cmake .\
+        -DWITHIN_TRAVIS=ON\
+        -DWITH_BLOSC=ON\
+        -DWITH_ZLIB=ON\
+        -DWITH_BZIP2=ON\
+        -DWITH_XZ=ON\
+        -DWITH_LZ4=ON\
+        -DWITH_S3=OFF\
+        -DCMAKE_PREFIX_PATH="$ENV_ROOT"\
+        -DPYTHON_EXECUTABLE="$PY_BIN"\
+        -DCMAKE_CXX_FLAGS="-std=c++17"\
+        -DWITH_BOOST_FS=ON
+else
+    cmake .\
+        -DWITHIN_TRAVIS=ON\
+        -DWITH_BLOSC=ON\
+        -DWITH_ZLIB=ON\
+        -DWITH_BZIP2=ON\
+        -DWITH_XZ=ON\
+        -DWITH_LZ4=ON\
+        -DWITH_S3=OFF\
+        -DCMAKE_PREFIX_PATH="$ENV_ROOT"\
+        -DPYTHON_EXECUTABLE="$PY_BIN"\
+        -DCMAKE_CXX_FLAGS="-std=c++17"
+fi
 
 
 ###############################################
