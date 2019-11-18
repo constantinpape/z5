@@ -11,6 +11,7 @@ namespace handle {
     class Handle {
     public:
         Handle(const FileMode mode) : mode_(mode){}
+        virtual ~Handle() {}
 
         // must impl API for all Handles
 
@@ -45,6 +46,8 @@ namespace handle {
     class Group : public Handle {
     public:
         Group(const FileMode mode) : Handle(mode){}
+        virtual ~Group() {}
+
         // must impl API for group handles
         virtual void keys(std::vector<std::string> &) const = 0;
         virtual bool in(const std::string &) const = 0;
@@ -55,6 +58,7 @@ namespace handle {
     class File : public Group<GROUP> {
     public:
         File(const FileMode mode) : Group<GROUP>(mode){}
+        virtual ~File() {}
     };
 
 
@@ -62,6 +66,7 @@ namespace handle {
     class Dataset : public Handle {
     public:
         Dataset(const FileMode mode) : Handle(mode){}
+        virtual ~Dataset() {}
     };
 
 
@@ -76,6 +81,7 @@ namespace handle {
                                      datasetShape_(datasetShape),
                                      boundedShape_(computeBoundedShape()),
                                      Handle(mode){}
+        virtual ~Chunk() {}
 
         // expose relevant part of the derived's class API
         inline bool exists() const {

@@ -35,8 +35,11 @@ namespace z5 {
                                                     chunking_(shape_, chunkShape_)
         {}
 
+        // Destructor
+        virtual ~Dataset(){}
+
         //
-        // API - already implemented and should not be overwritten
+        // API - already implemented and SHOULD NOT be overwritten
         //
 
         inline void checkRequestShape(const types::ShapeType & offset, const types::ShapeType & shape) const {
@@ -86,7 +89,7 @@ namespace z5 {
         inline bool isZarr() const {return isZarr_;}
 
         //
-        // API - must implement
+        // API - MUST implement
         //
 
         // we need to use void pointer here to have a generic API
@@ -138,6 +141,7 @@ namespace z5 {
         MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)) {
             init_compressor(metadata);
         }
+        ~MixinTyped(){}
 
     protected:
         T fillValue_;
