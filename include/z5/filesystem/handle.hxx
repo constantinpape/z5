@@ -15,6 +15,7 @@ namespace handle {
 
     public:
         HandleImpl(const fs::path & path) : path_(path) {}
+        ~HandleImpl() {}
 
         // check if the file managed by this handle exists
         inline bool pathExists() const {

@@ -21,6 +21,7 @@ namespace handle {
             : bucketName_(bucketName.c_str(), bucketName.size()),
               nameInBucket_(nameInBucket),
               options_(){}
+        ~S3HandleImpl() {}
 
         // check if this handle exists
         inline bool existsImpl() const {
