@@ -167,11 +167,14 @@ else()
         SET(FILESYSTEM_LIBRARIES "stdc++fs")
     endif()
 
-    # on clang, we need to enable libc++experimental, see
-    # https://stackoverflow.com/a/45332844
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        SET(FILESYSTEM_LIBRARIES "c++experimental")
-    endif()
+    # NOTE this depends on the clang compiler version / the
+    # mac os version. I don't know how exactly to find this in cmake,
+    # so leaving it out for now, because we are building with newer clang for conda
+    # # on clang, we need to enable libc++experimental, see
+    # # https://stackoverflow.com/a/45332844
+    # if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    #     SET(FILESYSTEM_LIBRARIES "c++experimental")
+    # endif()
 endif()
 include_directories(${Boost_INCLUDE_DIR})
 
