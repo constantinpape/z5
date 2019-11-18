@@ -12,7 +12,8 @@
     #include <boost/filesystem/fstream.hpp>
     namespace fs = boost::filesystem;
 #else
-    #if __GCC__ > 7 || _clang_major > 9
+    // TODO what do we need to check for msvc here ?
+    #if (defined(__GNUC__) && (__GNUC__ > 7)) || defined(__clang__)
         #include <filesystem>
         namespace fs = std::filesystem;
     #else
