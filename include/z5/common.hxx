@@ -2,6 +2,9 @@
 
 #include <fstream>
 
+// helpful summary of compiler versions
+// https://blog.kowalczyk.info/article/j/guide-to-predefined-macros-in-c-compilers-gcc-clang-msvc-etc..html
+
 // include boost::filesystem or std::filesystem header
 // and define the namespace fs
 #ifdef WITH_BOOST_FS
@@ -59,13 +62,14 @@
     #endif
 #endif
 
-// helpful summary of compiler versions
-// https://blog.kowalczyk.info/article/j/guide-to-predefined-macros-in-c-compilers-gcc-clang-msvc-etc..html
-#if (defined(__GNUC__) && (__GNUC__ > 6)) || (defined(_MSC_VER) && _MSC_VER > 1900)
-    #include <variant>
-#else
-    #include <experimental/variant>
-#endif
+// include the variant header
+// TODO is there even a experimental variant?
+#include <variant>
+// #if (defined(__GNUC__) && (__GNUC__ > 6)) || (defined(_MSC_VER) && _MSC_VER > 1900)
+//     #include <variant>
+// #else
+//     #include <experimental/variant>
+// #endif
 
 
 namespace z5 {
