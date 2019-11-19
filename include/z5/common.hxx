@@ -43,7 +43,7 @@
     // macos behaves very weird here, I can't get it to build on
     // osx < 10.15 right now. For now the workaround is to use boost filesystem ...
     // TODO MSVC check ?
-    #if (defined(__GNUC__) && (__GNUC__ > 7)) || defined(__clang__)
+    #if (defined(__GNUC__) && (__GNUC__ > 7)) || defined(__clang__) || (defined(_MSC_VER) && _MSC_VER > 1900)
         #include <filesystem>
         namespace fs = std::filesystem;
 
@@ -89,14 +89,14 @@
     #endif
 #endif
 
-// include the variant header
-// TODO is there even a experimental variant?
-#include <variant>
-// #if (defined(__GNUC__) && (__GNUC__ > 6)) || (defined(_MSC_VER) && _MSC_VER > 1900)
-//     #include <variant>
-// #else
-//     #include <experimental/variant>
-// #endif
+// // include the variant header
+// // TODO is there even a experimental variant?
+// #include <variant>
+#if (defined(_MSC_VER) && _MSC_VER <= 1900)
+    #include <experimental/variant>
+#else
+    #include <variant>
+#endif
 
 
 namespace z5 {
