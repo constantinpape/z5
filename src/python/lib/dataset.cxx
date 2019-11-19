@@ -11,7 +11,6 @@
 
 #include "z5/multiarray/broadcast.hxx"
 #include "z5/multiarray/xtensor_access.hxx"
-#include "variant_cast.hxx"
 
 
 namespace py = pybind11;
@@ -171,7 +170,9 @@ namespace z5 {
             .def_property_readonly("compression_options", [](const Dataset & ds){
                 types::CompressionOptions opts;
                 ds.getCompressionOptions(opts);
-                return opts;
+                nlohmann::json j;
+                types::compressionTypeToJson(opts, j);
+                return j.dump();
             })
 
             .def("remove_chunk", &Dataset::removeChunk, py::arg("chunk_id"),

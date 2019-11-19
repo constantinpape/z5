@@ -95,6 +95,33 @@ namespace z5 {
     }
 
 
+    // dataset creation from json, because wrapping the CompressionOptions type
+    // to python is very brittle
+    template<class GROUP>
+    inline std::unique_ptr<Dataset> createDataset(
+        const handle::Group<GROUP> & root,
+        const std::string & key,
+        const std::string & dtype,
+        const types::ShapeType & shape,
+        const types::ShapeType & chunkShape,
+        const std::string & compressor="raw",
+        const nlohmann::json & compressionOptions=nlohmann::json(),
+        const double fillValue=0
+    ) {
+        types::Compressor internalCompressor;
+        try {
+            internalCompressor = types::Compressors::stringToCompressor().at(compressor);
+        } catch(const std::out_of_range & e) {
+            throw std::runtime_error("z5::createDataset: Invalid compressor for dataset");
+        }
+
+        types::CompressionOptions cOpts;
+        types::jsonToCompressionType(compressionOptions, cOpts);
+
+        return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue);
+    }
+
+
     template<class GROUP>
     inline void createFile(const handle::File<GROUP> & file, const bool isZarr) {
         #ifdef WITH_S3

@@ -353,6 +353,40 @@ namespace types {
         }
     }
 
+    // generic translation from compression type to json
+    // for pybindings
+    inline void jsonToCompressionType(const nlohmann::json & j, CompressionOptions & opts) {
+        for(const auto & elem : j.items()) {
+            const std::string & key = elem.key();
+            const auto & val = elem.value();
+            if(val.type() == nlohmann::json::value_t::boolean) {
+                opts[key] = static_cast<bool>(val);
+            } else if (val.type() == nlohmann::json::value_t::number_integer || val.type() == nlohmann::json::value_t::number_unsigned) {
+                opts[key] = static_cast<int>(val);
+            } else if (val.type() == nlohmann::json::value_t::string) {
+                // msvc does not like the static cast here ....
+                const std::string tmp = val;
+                opts[key] = tmp;
+            } else {
+                std::cout << val.type_name() << std::endl;
+                throw std::runtime_error("Invalid type conversion for compression type");
+            }
+        }
+    }
+
+    inline void compressionTypeToJson(const CompressionOptions & opts, nlohmann::json & j) {
+        for(auto & elem : opts) {
+            const auto & val = elem.second;
+            const int type_id = val.which();
+            switch(type_id) {
+                case 0: j[elem.first] = boost::get<int>(val); break;
+                case 1: j[elem.first] = boost::get<bool>(val); break;
+                case 2: j[elem.first] = boost::get<std::string>(val); break;
+                default: throw std::runtime_error("Invalid type conversion for compression type");
+            }
+        }
+    }
+
 } // namespace::types
     // overload ostream operator for ShapeType (a.k.a) vector for convinience
     inline std::ostream & operator << (std::ostream & os, const types::ShapeType & coord) {

@@ -244,7 +244,7 @@ class DatasetTestMixin(ABC):
                                           level=5)
         with self.assertRaises(RuntimeError):
             self.root_file.create_dataset('test2', shape=self.shape, dtype='float32',
-                                          chunks=(10, 10, 10), compression='bzip2',
+                                          chunks=(10, 10, 10), compression='gzip',
                                           level=5, blub='blob')
 
     def test_readwrite_chunk(self):
