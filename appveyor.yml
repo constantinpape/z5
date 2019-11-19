@@ -4,8 +4,9 @@ platform:
   - x64
 
 image:
-  - Visual Studio 2015
   - Visual Studio 2017
+# Visual studio 15 is currently not working due to issues with compiling boost::variant in pybind11
+#  - Visual Studio 2015 
 
 environment:
   matrix:

@@ -89,16 +89,6 @@
     #endif
 #endif
 
-// // include the variant header
-// // TODO is there even a experimental variant?
-// #include <variant>
-#if (defined(_MSC_VER) && _MSC_VER <= 1900)
-    #include <experimental/variant>
-#else
-    #include <variant>
-#endif
-
-
 namespace z5 {
 
     // NOTE we can't just define variables, because that would not work as header-only include

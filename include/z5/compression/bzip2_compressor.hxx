@@ -105,7 +105,7 @@ namespace compression {
 
     private:
         void init(const DatasetMetadata & metadata) {
-            clevel_ = std::get<int>(metadata.compressionOptions.at("level"));
+            clevel_ = boost::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level
