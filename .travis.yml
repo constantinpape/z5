@@ -1,55 +1,30 @@
-# TODO osx
-os: linux
-dist: trusty
+jobs:
+  include:
+    - os: osx
+      osx_image: xcode11.2
+      env: CONDA_PYTHON_VERSION="38"
+    - os: linux
+      dist: trusty
+      env: CONDA_PYTHON_VERSION="36"
+    - os: linux
+      dist: trusty
+      env: CONDA_PYTHON_VERSION="37"
+    - os: linux
+      dist: trusty
+      env: CONDA_PYTHON_VERSION="38"
+
 sudo: required
-language: python
-env:
-  - CONDA_PYTHON_VERSION="36"
-  - CONDA_PYTHON_VERSION="37"
-  - CONDA_PYTHON_VERSION="38"
+language: generic
 addons:
   apt:
     update: true
 
-before_script:
-  # install conda
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  # update conda
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  # create the test environment
-  - conda env create -f ./environments/unix/$CONDA_PYTHON_VERSION.yml -n build-env
-  - source activate build-env
-  # install additional dependencies for tests
-  - conda install -c conda-forge zarr h5py aws-sdk-cpp
+install:
+  - ./travis/install.sh
 
 script:
-
-  - source ./environments/unix/env.sh
-  ###############################################
-  # configure cmake
-  ###############################################
-  - cmake
-          -DWITHIN_TRAVIS=ON
-          -DWITH_BLOSC=ON
-          -DWITH_ZLIB=ON
-          -DWITH_BZIP2=ON
-          -DWITH_XZ=ON
-          -DWITH_LZ4=ON
-          -DWITH_S3=OFF
-          -DCMAKE_PREFIX_PATH="$ENV_ROOT"
-          -DPYTHON_EXECUTABLE="$PY_BIN"
-          -DCMAKE_CXX_FLAGS="-std=c++17"
-
-
-  ###############################################
-  # the actual build
-  ###############################################
-  - make -j 4
-
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - source activate build-env
   ###############################################
   # test the project
   ###############################################

@@ -53,7 +53,7 @@ if h5py:
         """
         f_in = File(in_path, 'r')
         dtype = h5_kwargs.pop("dtype", None)
-        with h5py.File(out_path) as f_out:
+        with h5py.File(out_path, 'a') as f_out:
             copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
                               n_threads, chunks=chunks, block_shape=block_shape,
                               dtype=dtype, roi=roi, fit_to_roi=fit_to_roi,

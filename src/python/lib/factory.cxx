@@ -17,8 +17,9 @@ namespace z5 {
         py::arg("root"), py::arg("key"));
 
         m.def("create_dataset", [](const GROUP & root, const std::string & key,
-                                   const std::string & dtype, const std::vector<uint64_t>  & shape,
-                                   const std::vector<uint64_t> & chunk_shape,
+                                   const std::string & dtype,
+                                   const std::vector<std::size_t>  & shape,
+                                   const std::vector<std::size_t> & chunk_shape,
                                    const std::string & compression,
                                    const types::CompressionOptions & copts,
                                    const double fill_value){
