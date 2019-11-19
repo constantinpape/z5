@@ -2,7 +2,6 @@
 #include <pybind11/stl.h>
 
 #include "z5/factory.hxx"
-#include "variant_cast.hxx"
 
 namespace py = pybind11;
 
@@ -21,14 +20,15 @@ namespace z5 {
                                    const std::vector<std::size_t>  & shape,
                                    const std::vector<std::size_t> & chunk_shape,
                                    const std::string & compression,
-                                   const types::CompressionOptions & copts,
+                                   const std::string & copts,
                                    const double fill_value){
-                return createDataset(root, key, dtype, shape, chunk_shape, compression, copts, fill_value);
+                const nlohmann::json j = nlohmann::json::parse(copts);
+                return createDataset(root, key, dtype, shape, chunk_shape, compression, j, fill_value);
             },
             py::arg("root"), py::arg("key"),
             py::arg("dtype"), py::arg("shape"), py::arg("chunks"),
             py::arg("compression"),
-            py::arg("compression_options")=types::CompressionOptions(),
+            py::arg("compression_options")=std::string(),
             py::arg("fill_value")=0);
     }
 

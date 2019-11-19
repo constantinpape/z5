@@ -4,9 +4,10 @@ platform:
   - x64
 
 image:
-  - Visual Studio 2017
-# Visual studio 15 is currently not working due to issues with compiling boost::variant in pybind11
-#  - Visual Studio 2015 
+  - Visual Studio 2015 
+  # For now, only vs 2015 is relevant, because this is what's used by conda
+  # also, 2017 fails with a weird bug that I don't have time to investigate right now ...
+  # - Visual Studio 2017
 
 environment:
   matrix:

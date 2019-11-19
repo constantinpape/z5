@@ -1,4 +1,5 @@
 import numbers
+import json
 
 import numpy as np
 
@@ -201,6 +202,8 @@ class Dataset:
         else:
             copts = cls._to_n5_compression_options(compression, compression_options)
 
+        # convert the copts to json parseable string
+        copts = json.dumps(copts)
         # get the dataset and write data if necessary
         impl = _z5py.create_dataset(group, name, cls._dtype_dict[parsed_dtype],
                                     shape, chunks, compression, copts)
@@ -278,7 +281,10 @@ class Dataset:
     def compression_opts(self):
         """ Compression library options of this dataset.
         """
-        return self._impl.compression_options
+        copts = self._impl.compression_options
+        # decode to json
+        copts = json.loads(copts)
+        return copts
 
     def __len__(self):
         return self._impl.len

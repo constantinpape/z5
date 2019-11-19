@@ -42,15 +42,15 @@ class Group(Mapping):
         return len(self._handle.keys())
 
     def __contains__(self, name):
-        return self._handle.has(name)
+        return self._handle.has(name.lstrip('/'))
 
     def __delitem__(self, name):
         if not self._handle.mode().can_write():
             raise ValueError("Cannot call delete on file not opened with write permissions.")
         if name not in self:
             raise KeyError("%s does not exist" % name)
-        if self.is_sub_group(name):
-            handle = self._handle_factory(self._handle, name)
+        if self.is_sub_group(name.lstrip('/')):
+            handle = self._handle_factory(self._handle, name.lstrip('/'))
             handle.remove()
         else:
             _z5py.remove_dataset(self[name]._impl, 1)
@@ -69,11 +69,11 @@ class Group(Mapping):
         if name not in self:
             raise KeyError("Key %s does not exist" % name)
 
-        if self.is_sub_group(name):
-            handle = self._handle_factory(self._handle, name)
+        if self.is_sub_group(name.lstrip('/')):
+            handle = self._handle_factory(self._handle, name.lstrip('/'))
             return Group(handle, self._handle_factory)
         else:
-            return Dataset._open_dataset(self._handle, name)
+            return Dataset._open_dataset(self._handle, name.lstrip('/'))
 
     @property
     def attrs(self):
