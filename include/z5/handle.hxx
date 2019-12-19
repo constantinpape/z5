@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include "z5/types/types.hxx"
 #include "z5/util/file_mode.hxx"
 #include "z5/util/util.hxx"
