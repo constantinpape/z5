@@ -4,6 +4,9 @@
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
 [![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
+[![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
+
+
 
 C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file formats.
 Implements the file system specification of these formats. Implementations for cloud based storage are work in progress. Any
@@ -50,6 +53,13 @@ To specify where to install the package, set:
 - `PYTHON_MODULE_INSTALL_DIR`: where to install the python package (set to `site-packages` of active conda env by default)
 
 If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the compression codecs that you use.
+
+If you don't want to use conda for dependency management, the following dependencies are necessary:
+- [boost](https://www.boost.org/)
+- [xtensor](https://github.com/xtensor-stack/xtensor)
+- [nlohman_json](https://github.com/nlohmann/json)
+- [pybind11](https://github.com/pybind/pybind11) (only for python bindings)
+- [xtensor_python](https://github.com/xtensor-stack/xtensor-python) (only for python bindings)
 
 ## Examples / Usage
 
@@ -206,6 +216,20 @@ You can check it out [here](https://github.com/kmpaul/cz5test).
 
 There exists a prototype by @gdkrmr to provide [R bindings for z5](https://github.com/gdkrmr/zarr-R).
 It is still in an early stage, but looks very promising.
+
+## Citation
+
+If you use this library in your research, please cite it via the associated DOI:
+```
+@misc{pape_z5_2019,
+  doi = {10.5281/ZENODO.3585752},
+  url = {https://zenodo.org/record/3585752},
+  author = {Pape,  Constantin},
+  title = {constantinpape/z5},
+  publisher = {Zenodo},
+  year = {2019}
+}
+```
 
 ## When to use this library?
 
