@@ -104,8 +104,8 @@ namespace z5 {
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
-        const std::string & compressor="raw",
-        const nlohmann::json & compressionOptions=nlohmann::json(),
+        const std::string & compressor,
+        const nlohmann::json & compressionOptions,
         const double fillValue=0
     ) {
         types::Compressor internalCompressor;

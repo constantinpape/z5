@@ -14,17 +14,17 @@ source:
 
 
 build:
-  number: 1
+  number: 0
   string: py{{py}}_{{PKG_BUILDNUM}}_g{{GIT_FULL_HASH[:7]}}
 
 
 requirements:
   build:
-    - python {{PY_VER}}*
+    - python {{PY_VER}}
     - cmake
     - boost-cpp >=1.63
-    - xtensor 0.18.1
-    - xtensor-python 0.21.0
+    - xtensor 0.19.3
+    - xtensor-python 0.22.1
     - numpy >=1.15
     - nlohmann_json
     - blosc
@@ -32,9 +32,8 @@ requirements:
     - xz
     - zlib
   run:
-    - python {{PY_VER}}*
+    - python {{PY_VER}}
     - numpy >=1.15
-    - six
     - blosc
     - bzip2
     - xz
