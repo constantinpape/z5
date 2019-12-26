@@ -12,6 +12,9 @@ image:
 environment:
   matrix:
     - MINICONDA: C:\xtensor-conda
+      PYVER: 3.6
+    - MINICONDA: C:\xtensor-conda
+      PYVER: 3.7
 
 clone_script:
   - cmd: git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
@@ -35,8 +38,7 @@ install:
   - set CONDA_ACTIVE_ENV=%MINICONDA%
   - conda config --set always_yes yes --set changeps1 no
   - conda update conda
-  # - conda install -vv -c conda-forge xtensor>=0.20,<0.21 xtensor-python>=0.23,<0.24 boost-cpp bzip2 blosc nlohmann_json 
-  - conda install -c conda-forge boost-cpp bzip2 blosc nlohmann_json xtensor xtensor-python
+  - conda install -c conda-forge boost-cpp bzip2 blosc nlohmann_json xtensor xtensor-python python=%PYVER%
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
