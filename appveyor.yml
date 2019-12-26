@@ -49,7 +49,4 @@ before_test:
   - set PYTHONPATH=.\python;%PYTHONPATH%
 
 test_script:
-    # Appveyor tests take forever, so only running a simple one for now
-    # cf. https://github.com/constantinpape/z5/issues/125
-    # - python -m unittest discover -s python/test -v
-    - python python/test/test_group.py
+    - python -m unittest discover -s python/test -v
