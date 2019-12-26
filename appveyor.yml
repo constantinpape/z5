@@ -40,7 +40,7 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
   - mkdir build
   - cd build
-  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_BLOSC=ON -DWITHIN_TRAVIS=ON -DBUILD_TESTS=OFF
+  - cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH="%CONDA_ACTIVE_ENV%" -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_BLOSC=ON -DWITHIN_TRAVIS=ON -DBUILD_TESTS=OFF -DBUILD_Z5PY=ON
   - cmake --build . --config Release
 
 before_test:

@@ -23,30 +23,32 @@ conda install -c conda-forge zarr h5py  # aws-sdk-cpp
 ###############################################
 source ./environments/unix/env.sh
 if [ $TRAVIS_OS_NAME = 'osx' ]; then
-    cmake .\
-        -DWITHIN_TRAVIS=ON\
-        -DWITH_BLOSC=ON\
-        -DWITH_ZLIB=ON\
-        -DWITH_BZIP2=ON\
-        -DWITH_XZ=ON\
-        -DWITH_LZ4=ON\
-        -DWITH_S3=OFF\
-        -DCMAKE_PREFIX_PATH="$ENV_ROOT"\
-        -DPYTHON_EXECUTABLE="$PY_BIN"\
-        -DCMAKE_CXX_FLAGS="-std=c++17"\
-        -DWITH_BOOST_FS=ON
+    cmake . \
+        -DWITHIN_TRAVIS=ON \
+        -DWITH_BLOSC=ON \
+        -DWITH_ZLIB=ON \
+        -DWITH_BZIP2=ON \
+        -DWITH_XZ=ON \
+        -DWITH_LZ4=ON \
+        -DWITH_S3=OFF \
+        -DCMAKE_PREFIX_PATH="$ENV_ROOT" \
+        -DPYTHON_EXECUTABLE="$PY_BIN" \
+        -DCMAKE_CXX_FLAGS="-std=c++17" \
+        -DWITH_BOOST_FS=ON \
+        -DBUILD_Z5PY=ON
 else
-    cmake .\
-        -DWITHIN_TRAVIS=ON\
-        -DWITH_BLOSC=ON\
-        -DWITH_ZLIB=ON\
-        -DWITH_BZIP2=ON\
-        -DWITH_XZ=ON\
-        -DWITH_LZ4=ON\
-        -DWITH_S3=OFF\
-        -DCMAKE_PREFIX_PATH="$ENV_ROOT"\
-        -DPYTHON_EXECUTABLE="$PY_BIN"\
-        -DCMAKE_CXX_FLAGS="-std=c++17"
+    cmake . \
+        -DWITHIN_TRAVIS=ON \
+        -DWITH_BLOSC=ON \
+        -DWITH_ZLIB=ON \
+        -DWITH_BZIP2=ON \
+        -DWITH_XZ=ON \
+        -DWITH_LZ4=ON \
+        -DWITH_S3=OFF \
+        -DCMAKE_PREFIX_PATH="$ENV_ROOT" \
+        -DPYTHON_EXECUTABLE="$PY_BIN" \
+        -DCMAKE_CXX_FLAGS="-std=c++17" \
+        -DBUILD_Z5PY=ON
 fi
 
 ###############################################
