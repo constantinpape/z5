@@ -52,6 +52,7 @@ endif()
 ##############################
 # Build options
 ##############################
+
 # Compression Libraries
 option(WITH_BLOSC ON)
 option(WITH_ZLIB ON)
@@ -73,6 +74,10 @@ option(WITHIN_TRAVIS OFF)
 
 # build c++ tests
 option(BUILD_TESTS OFF)
+
+# do we build python bindings?
+# a.k.a z5py
+option(BUILD_Z5PY ON)
 
 
 ###############################
@@ -237,11 +242,14 @@ if(WITH_XZ)
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LIBLZMA_LIBRARIES}")
 endif()
 
+# findig lz4 does not work reliably on windows, so we don't make it required
 if(WITH_LZ4)
-    find_package(LZ4 REQUIRED)
-    include_directories(LZ4_INCLUDE_DIR)
-    add_definitions(-DWITH_LZ4)
-    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
+    find_package(LZ4)
+    if(LZ4_FOUND)
+        include_directories(LZ4_INCLUDE_DIR)
+        add_definitions(-DWITH_LZ4)
+        SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
+    endif()
 endif()
 
 
@@ -282,27 +290,33 @@ endif()
 # Python-bindings
 ###############################
 
-find_package(pybind11 REQUIRED)
-if (CPP17)
-    message(STATUS "Using c++ 17 for pybind")
-    if(MSVC)
-        set(PYBIND11_CPP_STANDARD /std:c++17)
+
+if(BUILD_Z5PY)
+    # find pybind11, which is required to build the python bindings
+    # the find package command will find python and set the python variables
+    find_package(pybind11 REQUIRED)
+    if (CPP17)
+        message(STATUS "Using c++ 17 for pybind")
+        if(MSVC)
+            set(PYBIND11_CPP_STANDARD /std:c++17)
+        else()
+            set(PYBIND11_CPP_STANDARD -std=c++17)
+        endif()
     else()
-        set(PYBIND11_CPP_STANDARD -std=c++17)
+        message(STATUS "Using c++ 14 for pybind")
+        if(MSVC)
+            set(PYBIND11_CPP_STANDARD /std:c++14)
+        else()
+            set(PYBIND11_CPP_STANDARD -std=c++14)
+        endif()
     endif()
-else()
-    message(STATUS "Using c++ 14 for pybind")
-    if(MSVC)
-        set(PYBIND11_CPP_STANDARD /std:c++14)
-    else()
-        set(PYBIND11_CPP_STANDARD -std=c++14)
-    endif()
+
+    # pybind11 does not include numpy, so we must search for it in addition here
+    find_package(NumPy REQUIRED)
+    include_directories(${NUMPY_INCLUDE_DIRS})
+    message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
 endif()
 
-# numpy
-find_package(NumPy REQUIRED)
-include_directories(${NUMPY_INCLUDE_DIRS})
-message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
 
 
 ###############################

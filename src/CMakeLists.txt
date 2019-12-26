@@ -1,4 +1,6 @@
 if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
-add_subdirectory(python)
+if(BUILD_Z5PY)
+    add_subdirectory(python)
+endif()

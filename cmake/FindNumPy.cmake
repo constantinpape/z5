@@ -38,15 +38,19 @@
 # 
 #============================================================================
 
-# Finding NumPy involves calling the Python interpreter
-if(NumPy_FIND_REQUIRED)
-    find_package(PythonInterp REQUIRED)
-else()
-    find_package(PythonInterp)
-endif()
-
-if(NOT PYTHONINTERP_FOUND)
-    set(NUMPY_FOUND FALSE)
+# Finding NumPy involves calling the Python interpreter,
+# if we have PYTHON_EXECUTABLE found already, we don't need to
+# check for it a second time, this might lead to version conflicts!
+if(NOT DEFINED PYTHON_EXECUTABLE OR PYTHON_EXECUTABLE MATCHES "^$")
+    if(NumPy_FIND_REQUIRED)
+        find_package(PythonInterp REQUIRED)
+    else()
+        find_package(PythonInterp)
+    endif()
+    
+    if(NOT PYTHONINTERP_FOUND)
+        set(NUMPY_FOUND FALSE)
+    endif()
 endif()
 
 execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
