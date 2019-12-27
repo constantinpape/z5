@@ -38,7 +38,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 # NOTE whether we need to enable the old ABI depends
 # on which ABI boost is compiled with.
 # If you get boost linker errors try to enable / disable the old ABI
-option(USE_OLD_ABI OFF)
+option(USE_OLD_ABI "Use the old GCC ABI to be compatible with old GLIBC versions" OFF)
 if(USE_OLD_ABI)
     message(STATUS "Using old GCC ABI")
     add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
@@ -54,30 +54,30 @@ endif()
 ##############################
 
 # Compression Libraries
-option(WITH_BLOSC ON)
-option(WITH_ZLIB ON)
-option(WITH_BZIP2 ON)
-option(WITH_XZ ON)
-option(WITH_LZ4 ON)
+option(WITH_BLOSC "Build with blosc compression" OFF)
+option(WITH_ZLIB "Build with zlib compression" ON)
+option(WITH_BZIP2 "Build with bzip2 compression" OFF)
+option(WITH_XZ "Build with xz compression" OFF)
+option(WITH_LZ4 "Build with lz4 compression" OFF)
 
 # build with amazon s3 storage
-option(WITH_S3 OFF)
+option(WITH_S3 "Build with AWS S3 support" OFF)
 
 # build with google cloud storage
-option(WITH_GCS OFF)
+option(WITH_GCS "Build with google cloud storage support" OFF)
 
 # marray multiarray
-option(WITH_MARRAY OFF)
+option(WITH_MARRAY "Build with c++ marray multiarray" OFF)
 
 # adaptions to travis build
-option(WITHIN_TRAVIS OFF)
+option(WITHIN_TRAVIS "Flag for builds within travis" OFF)
 
 # build c++ tests
-option(BUILD_TESTS OFF)
+option(BUILD_TESTS "Build c++ tests" OFF)
 
 # do we build python bindings?
 # a.k.a z5py
-option(BUILD_Z5PY ON)
+option(BUILD_Z5PY "Build z5 python bindings" ON)
 
 
 ###############################
