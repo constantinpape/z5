@@ -426,22 +426,44 @@ class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'n5'
 
     def test_varlen(self):
-        shape = (100, 100)
+        # 5 * 5 =  25 chunks
+        shape = (50, 50)
         chunks = (10, 10)
-        ds = self.root_file.create_dataset('varlen', dtype='float64',
-                                           shape=shape, chunks=chunks,
-                                           compression='raw')
 
-        # max_len = 100
-        max_len = 10
-        chunks_per_dim = ds.chunks_per_dimension
-        for x in range(chunks_per_dim[0]):
-            for y in range(chunks_per_dim[1]):
-                test_data = np.random.rand(np.random.randint(1, max_len))
-                ds.write_chunk((x, y), test_data, True)
-                out = ds.read_chunk((x, y))
-                self.assertEqual(test_data.shape, out.shape)
-                self.assertTrue(np.allclose(test_data, out))
+        def _test_data(max_len, dtype):
+            dlen = np.random.randint(1, max_len)
+            if dtype.startswith('float'):
+                return np.random.rand(dlen).astype(dtype)
+            elif dtype.startswith('uint'):
+                return np.random.randint(0, 255, size=(dlen,), dtype=dtype)
+            else:
+                return np.random.randint(-126, 126, size=(dlen,), dtype=dtype)
+
+        def _test_vlen(dtype, compression):
+            name = 'vlen_%s_%s' % (dtype, compression)
+            ds = self.root_file.create_dataset(name, dtype=dtype,
+                                               shape=shape, chunks=chunks,
+                                               compression=compression)
+
+            max_len = 1023
+            chunks_per_dim = ds.chunks_per_dimension
+            for x in range(chunks_per_dim[0]):
+                for y in range(chunks_per_dim[1]):
+                    test_data = _test_data(max_len, dtype)
+                    ds.write_chunk((x, y), test_data, True)
+                    out = ds.read_chunk((x, y))
+                    self.assertEqual(test_data.shape, out.shape)
+                    self.assertTrue(np.allclose(test_data, out))
+
+        # parameters for testing:
+        # 2 integer dtypes, 2 unsigned dtypes and the 2 float dtypes
+        dtypes = ['int8', 'int32', 'uint16', 'uint64', 'float32', 'float64']
+        # raw and gzip compression
+        compressions = ['raw', 'gzip']
+
+        for dtype in dtypes:
+            for compression in compressions:
+                _test_vlen(dtype, compression)
 
 
 if __name__ == '__main__':
