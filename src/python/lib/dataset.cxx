@@ -53,22 +53,22 @@ namespace z5 {
 
     template<class T>
     inline xt::pyarray<T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+
         typedef typename xt::pyarray<T>::shape_type ShapeType;
-        // check if the chunk exists
-        bool chunkExists;
+        ShapeType shape;
+
+        // make sure the chunk exists and get the shape of the chunk
         {
             py::gil_scoped_release lift_gil;
-            chunkExists = ds.chunkExists(chunkId);
-        }
-        // if the chunk does not exist, return None
-        if(!chunkExists) {
-            return py::none();
-        }
-        // get the shape of the output data
-        ShapeType shape;
-        {
-            // TODO can't lift gil here ?!
-            // py::gil_scoped_release lift_gil;
+            // returning None does not work properly, so we raise
+            // if the chunk does not exist and assume that this is checked
+            // in python beforehand
+            if(!ds.chunkExists(chunkId)) {
+                throw std::runtime_error("Cannot read chunk because it does not exist.");
+            }
+
+
+            // get the shape of the output data
             // varlen: return data as 1D array otherwise return ND array
             std::size_t chunkSize;
             const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
@@ -81,7 +81,8 @@ namespace z5 {
                 std::copy(chunkShape.begin(), chunkShape.end(), shape.begin());
             }
         }
-        // read the chunk
+
+        // allocate data and read the chunk
         xt::pyarray<T> out(shape);
         {
             py::gil_scoped_release lift_gil;

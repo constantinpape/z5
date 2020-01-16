@@ -466,17 +466,9 @@ class Dataset:
         Args:
             chunk_indices (tuple): indices of the chunk to write to
         Returns
-            np.ndarray
+            np.ndarray or None - chunk data, returns None if the chunk is empty
         """
-        chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
-        # FIXME this is super hacky, but for some reason returning none in pybind raises
-        # an exception for integer types:
-        # "TypeError: int() argument must be a string,
-        # a bytes-like object or a number, not 'NoneType"
-        # so for now we catch the exception
-        # for float types, it doesn't, but returns an array with `nan`
-        try:
-            out = chunk_reader(self._impl, chunk_indices)
-        except TypeError:
+        if not self._impl.chunkExists(chunk_indices):
             return None
-        return None if np.isnan(out).any() else out
+        chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
+        return chunk_reader(self._impl, chunk_indices)
