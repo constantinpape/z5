@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -80,7 +82,13 @@ namespace z5 {
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            j["fill_value"] = fillValue;
+            if (std::isnan(fillValue)) {
+              j["fill_value"] = "NaN";
+            } else if (std::isinf(fillValue)) {
+              j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
+            } else {
+              j["fill_value"] = fillValue;
+            }
 
             j["filters"] = nullptr;
             j["order"] = "C";
@@ -111,7 +119,18 @@ namespace z5 {
             dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
-            fillValue = static_cast<double>(j["fill_value"]);
+
+            const auto fill_value_string = static_cast<std::string>(j["fill_value"]);
+            if (fill_value_string == "NaN") {
+              fillValue = std::numeric_limits<double>::quiet_NaN();
+            } else if (fill_value_string == "Infinity") {
+              fillValue = std::numeric_limits<double>::infinity();
+            } else if (fill_value_string == "-Infinity") {
+              fillValue = -std::numeric_limits<double>::infinity();
+            } else {
+              fillValue = static_cast<double>(j["fill_value"]);
+            }
+
             const auto & compressionOpts = j["compressor"];
 
             std::string zarrCompressorId = compressionOpts.is_null() ? "raw" : compressionOpts["id"];
