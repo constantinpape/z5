@@ -144,6 +144,7 @@ namespace types {
 
         static InverseCompressorMap & compressorToZarr() {
             static InverseCompressorMap cMap({{
+                {raw, "raw"},
                 #ifdef WITH_BLOSC
                 {blosc, "blosc"},
                 #endif
