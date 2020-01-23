@@ -206,7 +206,7 @@ class Dataset:
         copts = json.dumps(copts)
         # get the dataset and write data if necessary
         impl = _z5py.create_dataset(group, name, cls._dtype_dict[parsed_dtype],
-                                    shape, chunks, compression, copts)
+                                    shape, chunks, compression, copts, fillvalue)
         handle = group.get_dataset_handle(name)
         ds = cls(impl, handle, n_threads)
         if have_data:
