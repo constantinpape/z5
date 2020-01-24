@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -80,7 +82,13 @@ namespace z5 {
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            j["fill_value"] = fillValue;
+            if (std::isnan(fillValue)) {
+              j["fill_value"] = "NaN";
+            } else if (std::isinf(fillValue)) {
+              j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
+            } else {
+              j["fill_value"] = fillValue;
+            }
 
             j["filters"] = nullptr;
             j["order"] = "C";
@@ -111,7 +119,22 @@ namespace z5 {
             dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
-            fillValue = static_cast<double>(j["fill_value"]);
+
+            const auto & fillValJson = j["fill_value"];
+            if(fillValJson.type() == nlohmann::json::value_t::string) {
+                if (fillValJson == "NaN") {
+                    fillValue = std::numeric_limits<double>::quiet_NaN();
+                } else if (fillValJson == "Infinity") {
+                    fillValue = std::numeric_limits<double>::infinity();
+                } else if (fillValJson == "-Infinity") {
+                    fillValue = -std::numeric_limits<double>::infinity();
+                } else {
+                    throw std::runtime_error("Invalid string value for fillValue");
+                }
+            } else {
+                fillValue = static_cast<double>(fillValJson);
+            }
+
             const auto & compressionOpts = j["compressor"];
 
             std::string zarrCompressorId = compressionOpts.is_null() ? "raw" : compressionOpts["id"];

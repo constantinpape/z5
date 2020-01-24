@@ -408,9 +408,25 @@ class DatasetTestMixin(ABC):
         out = ds[-32:]
         self.assertTrue(np.allclose(out, 0))
 
+    def test_fill_value(self):
+        """Check fill values, esp. special values for zarr, see Issue #148
+
+        https://github.com/constantinpape/z5/issues/148
+        """
+        shape = (100, 100)
+        chunks = (10, 10)
+        for i, fillval in enumerate(self.fill_values):
+            ds = self.root_file.create_dataset('fval_%i' % i, dtype='float32',
+                                               shape=shape, chunks=chunks,
+                                               fillvalue=fillval)
+            data = ds[:]
+            exp = np.full(shape, fillval, dtype='float32')
+            self.assertTrue(np.allclose(data, exp, equal_nan=np.isnan(fillval)))
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
+    fill_values = [0, 42, np.nan, np.inf, -np.inf]
 
     def test_varlen(self):
         shape = (100, 100)
@@ -424,6 +440,7 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
 
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'n5'
+    fill_values = [0]
 
     def test_varlen(self):
         # 5 * 5 =  25 chunks
