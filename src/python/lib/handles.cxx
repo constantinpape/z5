@@ -103,6 +103,7 @@ namespace z5 {
                     return filesystem::handle::Dataset(path, mode);
                 }
             ))
+            .def("path", [](const Dataset & ds){return ds.path().string();})
         ;
     }
 

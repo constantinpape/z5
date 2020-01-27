@@ -286,6 +286,10 @@ class Dataset:
         copts = json.loads(copts)
         return copts
 
+    @property
+    def path(self):
+        return self._handle.path()
+
     def __len__(self):
         return self._impl.len
 
