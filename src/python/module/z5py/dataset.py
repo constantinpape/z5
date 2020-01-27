@@ -41,11 +41,12 @@ class Dataset:
     # Default compression for n5 format
     n5_default_compressor = 'gzip' if AVAILABLE_COMPRESSORS['gzip'] else 'raw'
 
-    def __init__(self, dset_impl, handle, n_threads=1):
+    def __init__(self, dset_impl, handle, parent, n_threads=1):
         self._impl = dset_impl
         self._handle = handle
         self._attrs = AttributeManager(self._handle)
         self.n_threads = n_threads
+        self._parent = parent
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
@@ -106,13 +107,14 @@ class Dataset:
     def _require_dataset(cls, group, name,
                          shape, dtype,
                          chunks, n_threads, **kwargs):
-        if group.has(name):
+        ghandle = group._handle
+        if ghandle.has(name):
 
-            if group.is_sub_group(name):
+            if ghandle.is_sub_group(name):
                 raise TypeError("Incompatible object (Group) already exists")
 
-            handle = group.get_dataset_handle(name)
-            ds = cls(_z5py.open_dataset(group, name), handle, n_threads)
+            handle = ghandle.get_dataset_handle(name)
+            ds = cls(_z5py.open_dataset(ghandle, name), handle, group, n_threads)
             if shape != ds.shape:
                 raise TypeError("Shapes do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.shape)),
                                                                                      ', '.join(map(str, shape))))
@@ -144,6 +146,7 @@ class Dataset:
                         compression_options={}):
 
         # check shape, dtype and data
+        ghandle = group._handle
         have_data = data is not None
         if have_data:
             if shape is None:
@@ -175,7 +178,7 @@ class Dataset:
                                                                                 str(shape)))
         # limit chunks to shape
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
-        is_zarr = group.is_zarr()
+        is_zarr = ghandle.is_zarr()
 
         # check compression / get default compression
         # if no compression is given
@@ -205,19 +208,20 @@ class Dataset:
         # convert the copts to json parseable string
         copts = json.dumps(copts)
         # get the dataset and write data if necessary
-        impl = _z5py.create_dataset(group, name, cls._dtype_dict[parsed_dtype],
+        impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                     shape, chunks, compression, copts, fillvalue)
-        handle = group.get_dataset_handle(name)
-        ds = cls(impl, handle, n_threads)
+        handle = ghandle.get_dataset_handle(name)
+        ds = cls(impl, handle, group, n_threads)
         if have_data:
             ds[:] = data
         return ds
 
     @classmethod
     def _open_dataset(cls, group, name):
-        ds = _z5py.open_dataset(group, name)
-        handle = group.get_dataset_handle(name)
-        return cls(ds, handle)
+        ghandle = group._handle
+        ds = _z5py.open_dataset(ghandle, name)
+        handle = ghandle.get_dataset_handle(name)
+        return cls(ds, handle, group)
 
     @property
     def is_zarr(self):
@@ -287,8 +291,8 @@ class Dataset:
         return copts
 
     @property
-    def path(self):
-        return self._handle.path()
+    def parent(self):
+        return self._parent
 
     def __len__(self):
         return self._impl.len

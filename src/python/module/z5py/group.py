@@ -24,10 +24,11 @@ class Group(Mapping):
                   'r+': _z5py.FileMode.r_p, 'w': _z5py.FileMode.w,
                   'w-': _z5py.FileMode.w_m, 'x': _z5py.FileMode.w_m}
 
-    def __init__(self, handle, handle_factory):
+    def __init__(self, handle, handle_factory, parent):
         self._handle = handle
         self._handle_factory = handle_factory
         self._attrs = AttributeManager(self._handle)
+        self._parent = parent
 
     #
     # Magic Methods, Attributes, Keys, Contains
@@ -71,9 +72,9 @@ class Group(Mapping):
 
         if self.is_sub_group(name.lstrip('/')):
             handle = self._handle_factory(self._handle, name.lstrip('/'))
-            return Group(handle, self._handle_factory)
+            return Group(handle, self._handle_factory, self)
         else:
-            return Dataset._open_dataset(self._handle, name.lstrip('/'))
+            return Dataset._open_dataset(self, name.lstrip('/'))
 
     @property
     def attrs(self):
@@ -87,6 +88,10 @@ class Group(Mapping):
     @property
     def is_zarr(self):
         return self._handle.is_zarr()
+
+    @property
+    def parent(self):
+        return self._parent
 
     #
     # Group functionality
@@ -112,7 +117,7 @@ class Group(Mapping):
         if name in self:
             raise KeyError("An object with name %s already exists" % name)
         handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory)
+        return Group(handle, self._handle_factory, self)
 
     def require_group(self, name):
         """ Require group.
@@ -134,7 +139,7 @@ class Group(Mapping):
             if not self._handle.mode().can_write():
                 raise ValueError("Cannot create group with read-only permissions.")
             handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory)
+        return Group(handle, self._handle_factory, self)
 
     #
     # Dataset functionality
@@ -179,8 +184,7 @@ class Group(Mapping):
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
-        return Dataset._create_dataset(self._handle, name,
-                                       shape, dtype,
+        return Dataset._create_dataset(self, name, shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,
                                        compression_options)
@@ -209,7 +213,7 @@ class Group(Mapping):
         """
         if not self._handle.mode().can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
-        return Dataset._require_dataset(self._handle, name, shape, dtype, chunks,
+        return Dataset._require_dataset(self, name, shape, dtype, chunks,
                                         n_threads, **kwargs)
 
     def visititems(self, func, _root=None):

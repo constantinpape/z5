@@ -67,7 +67,7 @@ class File(Group):
         handle = _z5py.File(path, _z5py.FileMode(self.file_modes[mode]))
         mode = handle.mode()
 
-        super().__init__(handle, _z5py.Group)
+        super().__init__(handle, _z5py.Group, self)
 
         # at some point we should move more of this logic to c++ as well
         # if we open in 'w', remove the existing file existing
@@ -106,6 +106,10 @@ class File(Group):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+    @property
+    def filename(self):
+        return self._handle.path()
 
 
 class N5File(File):

@@ -8,7 +8,7 @@
 
 
 
-C++ and Python wrapper for [zarr](https://github.com/alimanfoo/zarr) and [n5](https://github.com/saalfeldlab/n5) file formats.
+C++ and Python wrapper for [zarr](https://github.com/zarr-developers/zarr-python) and [n5](https://github.com/saalfeldlab/n5) file formats.
 Implements the file system specification of these formats. Implementations for cloud based storage are work in progress. Any
 help is highly appreciated. See issues [#136](https://github.com/constantinpape/z5/issues/136) and [#137](https://github.com/constantinpape/z5/issues/137) for details.
 

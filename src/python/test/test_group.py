@@ -128,6 +128,14 @@ class GroupTestMixin(ABC):
         expected_names = {'d1', 'd2'}
         self.assertEqual(names, expected_names)
 
+    def test_parent(self):
+        f = self.root_file
+        g = f.create_group('g')
+        self.assertIs(f, g.parent)
+        gg = g.create_group('g')
+        self.assertIs(g, gg.parent)
+        self.assertIs(f, gg.parent.parent)
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'

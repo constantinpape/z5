@@ -423,6 +423,13 @@ class DatasetTestMixin(ABC):
             exp = np.full(shape, fillval, dtype='float32')
             self.assertTrue(np.allclose(data, exp, equal_nan=np.isnan(fillval)))
 
+    def test_parent(self):
+        f = self.root_file
+        shape = (100, 100)
+        chunks = (10, 10)
+        ds = f.create_dataset('test', dtype='float32', shape=shape, chunks=chunks)
+        self.assertIs(f, ds.parent)
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'
