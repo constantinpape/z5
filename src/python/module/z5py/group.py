@@ -98,6 +98,15 @@ class Group(Mapping):
     def name(self):
         return self._name
 
+    @property
+    def file(self):
+        # we find the file by going up the parents till we find
+        # the root (which is it's own parent)
+        parent = self.parent
+        while parent is not parent.parent:
+            parent = parent.parent
+        return parent
+
     #
     # Group functionality
     #
