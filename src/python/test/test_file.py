@@ -49,6 +49,10 @@ class FileTestMixin(ABC):
         f = z5py.File(self.path)
         self.assertIs(f, f.parent)
 
+    def test_name(self):
+        f = z5py.File(self.path)
+        self.assertEqual(f.name, '/')
+
 
 class TestZarrFile(FileTestMixin, unittest.TestCase):
     data_format = 'zarr'

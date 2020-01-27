@@ -24,11 +24,12 @@ class Group(Mapping):
                   'r+': _z5py.FileMode.r_p, 'w': _z5py.FileMode.w,
                   'w-': _z5py.FileMode.w_m, 'x': _z5py.FileMode.w_m}
 
-    def __init__(self, handle, handle_factory, parent):
+    def __init__(self, handle, handle_factory, parent, name):
         self._handle = handle
         self._handle_factory = handle_factory
         self._attrs = AttributeManager(self._handle)
         self._parent = parent
+        self._name = name
 
     #
     # Magic Methods, Attributes, Keys, Contains
@@ -72,7 +73,7 @@ class Group(Mapping):
 
         if self.is_sub_group(name.lstrip('/')):
             handle = self._handle_factory(self._handle, name.lstrip('/'))
-            return Group(handle, self._handle_factory, self)
+            return Group(handle, self._handle_factory, self, self._name + '/' + name)
         else:
             return Dataset._open_dataset(self, name.lstrip('/'))
 
@@ -92,6 +93,10 @@ class Group(Mapping):
     @property
     def parent(self):
         return self._parent
+
+    @property
+    def name(self):
+        return self._name
 
     #
     # Group functionality
@@ -117,7 +122,7 @@ class Group(Mapping):
         if name in self:
             raise KeyError("An object with name %s already exists" % name)
         handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name)
 
     def require_group(self, name):
         """ Require group.
@@ -139,7 +144,7 @@ class Group(Mapping):
             if not self._handle.mode().can_write():
                 raise ValueError("Cannot create group with read-only permissions.")
             handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name)
 
     #
     # Dataset functionality

@@ -136,6 +136,15 @@ class GroupTestMixin(ABC):
         self.assertIs(g, gg.parent)
         self.assertIs(f, gg.parent.parent)
 
+    def test_name(self):
+        f = self.root_file
+        g = f.create_group('g')
+        self.assertEqual(g.name, '/g')
+        gg = f.create_group('g/g')
+        self.assertEqual(gg.name, '/g/g')
+        g2 = g['g']
+        self.assertEqual(g2.name, '/g/g')
+
 
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'

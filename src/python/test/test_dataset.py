@@ -430,6 +430,16 @@ class DatasetTestMixin(ABC):
         ds = f.create_dataset('test', dtype='float32', shape=shape, chunks=chunks)
         self.assertIs(f, ds.parent)
 
+    def test_name(self):
+        f = self.root_file
+        shape = (100, 100)
+        chunks = (10, 10)
+        ds = f.create_dataset('test', dtype='float32', shape=shape, chunks=chunks)
+        self.assertEqual(ds.name, '/test')
+        g = f.create_group('g')
+        ds = g.create_dataset('test', dtype='float32', shape=shape, chunks=chunks)
+        self.assertEqual(ds.name, '/g/test')
+
 
 class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'zarr'

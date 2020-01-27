@@ -41,12 +41,13 @@ class Dataset:
     # Default compression for n5 format
     n5_default_compressor = 'gzip' if AVAILABLE_COMPRESSORS['gzip'] else 'raw'
 
-    def __init__(self, dset_impl, handle, parent, n_threads=1):
+    def __init__(self, dset_impl, handle, parent, name, n_threads=1):
         self._impl = dset_impl
         self._handle = handle
         self._attrs = AttributeManager(self._handle)
         self.n_threads = n_threads
         self._parent = parent
+        self._name = name
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
@@ -114,7 +115,8 @@ class Dataset:
                 raise TypeError("Incompatible object (Group) already exists")
 
             handle = ghandle.get_dataset_handle(name)
-            ds = cls(_z5py.open_dataset(ghandle, name), handle, group, n_threads)
+            ds = cls(_z5py.open_dataset(ghandle, name), handle, group,
+                     group._name + '/' + name, n_threads)
             if shape != ds.shape:
                 raise TypeError("Shapes do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.shape)),
                                                                                      ', '.join(map(str, shape))))
@@ -211,7 +213,7 @@ class Dataset:
         impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                     shape, chunks, compression, copts, fillvalue)
         handle = ghandle.get_dataset_handle(name)
-        ds = cls(impl, handle, group, n_threads)
+        ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
         if have_data:
             ds[:] = data
         return ds
@@ -221,7 +223,7 @@ class Dataset:
         ghandle = group._handle
         ds = _z5py.open_dataset(ghandle, name)
         handle = ghandle.get_dataset_handle(name)
-        return cls(ds, handle, group)
+        return cls(ds, handle, group, group._name + '/' + name)
 
     @property
     def is_zarr(self):
@@ -293,6 +295,10 @@ class Dataset:
     @property
     def parent(self):
         return self._parent
+
+    @property
+    def name(self):
+        return self._name
 
     def __len__(self):
         return self._impl.len
