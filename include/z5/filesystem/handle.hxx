@@ -83,6 +83,10 @@ namespace handle {
             : BaseType(group.mode()), HandleImpl(group.path() / key) {
         }
 
+        Group(const fs::path & path, const FileMode mode=FileMode())
+            : BaseType(mode), HandleImpl(path) {
+        }
+
         // Implement th handle API
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return false;}

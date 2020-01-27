@@ -64,6 +64,23 @@ namespace z5 {
                  py::arg("group"), py::arg("key"))
             .def(py::init<File, const std::string &>(),
                  py::arg("file"), py::arg("key"))
+            .def(py::pickle(
+                // __getstate__ -> we simply pickle the path,
+                // the rest will be read from the attributes
+                [](const Group & self) {
+                    return py::make_tuple(self.path().string(), self.mode().mode());
+                },
+
+                // __setstate__
+                [](py::tuple tup) {
+                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
+                        throw std::runtime_error("Invalid state for unpickling handle.");
+                    }
+                    fs::path path(tup[0].cast<std::string>());
+                    FileMode mode(tup[1].cast<FileMode::modes>());
+                    return filesystem::handle::Group(path, mode);
+                }
+            ))
         ;
 
         auto f = getGroupHandle<File, Group, Dataset>(m, "File");
@@ -75,6 +92,23 @@ namespace z5 {
                 filesystem::readMetadata(self, j);
                 return j.dump();
             })
+            .def(py::pickle(
+                // __getstate__ -> we simply pickle the path,
+                // the rest will be read from the attributes
+                [](const File & self) {
+                    return py::make_tuple(self.path().string(), self.mode().mode());
+                },
+
+                // __setstate__
+                [](py::tuple tup) {
+                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
+                        throw std::runtime_error("Invalid state for unpickling handle.");
+                    }
+                    fs::path path(tup[0].cast<std::string>());
+                    FileMode mode(tup[1].cast<FileMode::modes>());
+                    return filesystem::handle::File(path, mode);
+                }
+            ))
         ;
 
         py::class_<Dataset>(m, "DatasetHandle")
@@ -84,22 +118,16 @@ namespace z5 {
                 // __getstate__ -> we simply pickle the path,
                 // the rest will be read from the attributes
                 [](const Dataset & ds) {
-                    std::string path;
-                    try {
-                        path = ds.path().string();
-                    } catch(...) {
-                        throw std::runtime_error("Can only picke filesystem datasets");
-                    }
-                    return py::make_tuple(path, ds.mode().mode());
+                    return py::make_tuple(ds.path().string(), ds.mode().mode());
                 },
 
                 // __setstate__
                 [](py::tuple tup) {
-                    if(tup.size() != 2) { // the serialization size is 1, because we only pickle the path
-                        throw std::runtime_error("Invalid state for unpickling dataset handle");
+                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
+                        throw std::runtime_error("Invalid state for unpickling handle.");
                     }
-                    FileMode mode(tup[1].cast<FileMode::modes>());
                     fs::path path(tup[0].cast<std::string>());
+                    FileMode mode(tup[1].cast<FileMode::modes>());
                     return filesystem::handle::Dataset(path, mode);
                 }
             ))
