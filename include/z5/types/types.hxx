@@ -335,7 +335,7 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: if(options.find("name") == options.end()){options["name"] = "lzf";}
+            case blosc: if(options.find("name") == options.end()){options["name"] = "lz4";}
                         if(options.find("level") == options.end()){options["level"] = 5;}
                         if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
                         break;
