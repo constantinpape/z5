@@ -11,35 +11,35 @@ echo "Running Attributes Test"
 ./test_attributes
 
 echo "Running Compression Tests"
-echo "Raw Compression"
 ./compression/test_raw
-echo "Zlib Compression"
-./compression/test_zlib
-echo "Bzip2 Compression"
-./compression/test_bzip2
-echo "Blosc Compression"
-./compression/test_blosc
+if [ -f ./compression/test_blosc ]; then
+    ./compression/test_blosc
+fi
+if [ -f ./compression/test_bzip2 ]; then
+    ./compression/test_bzip2
+fi
+if [ -f ./compression/test_lz4 ]; then
+    ./compression/test_lz4
+fi
+if [ -f ./compression/test_xz ]; then
+    ./compression/test_xz
+fi
+if [ -f ./compression/test_zlib ]; then
+    ./compression/test_zlib
+fi
 
-echo "Running IO Tests"
-echo "Io N5"
-./io/test_io_n5
-echo "Io Zarr"
-./io/test_io_zarr
-
-echo "Running Multiarray Tests"
 if [ -f ./multiarray/test_marray ]; then
-    echo "Marray Tests"
+    echo "Running Marray Tests"
     ./multiarray/test_marray
 fi
 
-echo "XT Tests"
-cd multiarray
-./test_broadcast
-./test_xtensor
-./test_xtnd
-cd ..
+echo "Running Xtensor Tests"
+./multiarray/test_broadcast
+./multiarray/test_xtensor
+./multiarray/test_xtnd
 
-echo "Running N5 Tests"
-cd test_n5
-./run_test.bash
-cd ..
+# don't run n5 tests in test runner, we can't run them in travis
+# echo "Running N5 Tests"
+# cd test_n5
+# ./run_test.bash
+# cd ..

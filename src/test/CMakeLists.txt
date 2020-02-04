@@ -29,8 +29,8 @@ target_link_libraries(test_attributes ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
  
 add_subdirectory(compression)
 add_subdirectory(multiarray)
-# add_subdirectory(test_n5)
 add_subdirectory(util)
+# add_subdirectory(test_n5)
 
 if(WITH_S3)
     add_subdirectory(s3)
