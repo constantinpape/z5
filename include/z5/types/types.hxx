@@ -234,6 +234,9 @@ namespace types {
             #ifdef WITH_BZIP2
             case bzip2: options["level"] = jOpts["level"].get<int>(); break;
             #endif
+            #ifdef WITH_LZ4
+            case lz4: options["level"] = jOpts["acceleration"].get<int>(); break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
@@ -267,6 +270,9 @@ namespace types {
             #endif
             #ifdef WITH_BZIP2
             case bzip2: jOpts["level"] = boost::get<int>(options.at("level")); break;
+            #endif
+            #ifdef WITH_LZ4
+            case lz4: jOpts["acceleration"] = boost::get<int>(options.at("level")); break;
             #endif
             // raw compression has no parameters
             default: break;
