@@ -349,6 +349,14 @@ namespace types {
             case bzip2: if(options.find("level") == options.end()){options["level"] = 5;}
                         break;
             #endif
+            #ifdef WITH_LZ4
+            case lz4: if(options.find("level") == options.end()){options["level"] = 6;}
+                      break;
+            #endif
+            #ifdef WITH_XZ
+            case xz: if(options.find("level") == options.end()){options["level"] = 6;}
+                     break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
