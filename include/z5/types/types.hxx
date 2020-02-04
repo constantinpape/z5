@@ -174,7 +174,10 @@ namespace types {
                 {"xz", xz},
                 #endif
                 #ifdef WITH_LZ4
-                {"lz4", lz4}
+                {"lz4", lz4},
+                #endif
+                #ifdef WITH_BLOSC
+                {"blosc", blosc}
                 #endif
             }});
             return cMap;
@@ -193,7 +196,10 @@ namespace types {
                 {xz, "xz"},
                 #endif
                 #ifdef WITH_LZ4
-                {lz4, "lz4"}
+                {lz4, "lz4"},
+                #endif
+                #ifdef WITH_LZ4
+                {blosc, "blosc"}
                 #endif
             }});
             return cMap;
@@ -299,6 +305,12 @@ namespace types {
             #ifdef WITH_LZ4
             case lz4: options["level"] = jOpts["blockSize"].get<int>(); break;
             #endif
+            #ifdef WITH_BLOSC
+            case blosc: options["codec"] = jOpts["cname"].get<std::string>();
+                        options["level"] = jOpts["clevel"].get<int>();
+                        options["shuffle"] = jOpts["shuffle"].get<int>();
+                        break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
@@ -328,6 +340,12 @@ namespace types {
             #endif
             #ifdef WITH_LZ4
             case lz4: jOpts["blockSize"] = boost::get<int>(options.at("level")); break;
+            #endif
+            #ifdef WITH_BLOSC
+            case blosc: jOpts["cname"] = boost::get<std::string>(options.at("codec"));
+                        jOpts["clevel"] = boost::get<int>(options.at("level"));
+                        jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
+                        break;
             #endif
             // raw compression has no parameters
             default: break;
