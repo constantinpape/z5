@@ -43,3 +43,7 @@ requirements:
 test:
   imports:
     - z5py
+  source_files:
+    - src/python/test/*.py
+  commands:
+    - python -m unittest discover -s src/python/test -v

@@ -1,6 +1,7 @@
 import json
 import os
 import errno
+import pathlib
 
 from . import _z5py
 from .group import Group
@@ -48,6 +49,8 @@ class File(Group):
 
     def __init__(self, path, mode='a', use_zarr_format=None):
 
+        if isinstance(path, os.PathLike):
+            path = os.fspath(path)
         # infer the file format from the path
         is_zarr = self.infer_format(path)
         # check if the format that was infered is consistent with `use_zarr_format`

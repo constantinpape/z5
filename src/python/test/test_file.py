@@ -2,6 +2,7 @@ import unittest
 import os
 from shutil import rmtree
 from abc import ABC
+import pathlib
 
 import z5py
 
@@ -82,6 +83,16 @@ class TestN5File(FileTestMixin, unittest.TestCase):
     def test_direct_constructor(self):
         self.assertFalse(os.path.exists(self.path))
         f = z5py.N5File(self.path)
+        self.assertFalse(f.is_zarr)
+
+
+class TestPathlibPath(FileTestMixin, unittest.TestCase):
+    data_format = 'n5'
+
+    def test_direct_constructor(self):
+        self.assertFalse(os.path.exists(self.path))
+        path = pathlib.Path(self.path)
+        f = z5py.N5File(path)
         self.assertFalse(f.is_zarr)
 
 
