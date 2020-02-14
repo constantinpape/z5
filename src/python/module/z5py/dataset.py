@@ -8,7 +8,9 @@ from .attribute_manager import AttributeManager
 from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
-COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
+# TODO lz4 compression is currently not compatible with zarr
+# COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
+COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip')
 COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4')
 
 
