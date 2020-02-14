@@ -299,6 +299,28 @@ namespace handle {
     };
 
 
+    //
+    // additional handle factory functions for compatability with C
+    //
+
+    // TODO
+    // implement handle factories for File and Group
+    /*
+    // get z5::filesystem::handle::File from char pointer corresponding
+    // to the file on filesystem
+    inline File getFileHandle(const char *) {
+        File ret();
+        return ret;
+    }
+
+    // get z5::filesystem::handle::File from char pointer corresponding
+    // to the file on filesystem and char pointer corresponding to key of the group
+    inline Group getGroupHandle(const char *, const char *) {
+        Group ret();
+        return ret;
+    }
+    */
+
 }
 }
 }
