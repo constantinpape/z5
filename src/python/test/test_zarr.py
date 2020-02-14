@@ -60,6 +60,8 @@ class TestZarr(unittest.TestCase):
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
                             'bzip2': numcodecs.BZ2()}
+        # TODO lz4 compression is currently not compatible with zarr
+        # 'lz4': numcodecs.LZ4()}
 
         # conda-forge version of numcodecs is not up-to-data
         # for python 3.5 and GZip is missing

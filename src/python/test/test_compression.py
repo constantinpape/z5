@@ -8,7 +8,8 @@ import z5py
 
 class CompressionTestMixin(ABC):
     def setUp(self):
-        self.shape = (100, 100, 100)
+        self.shape = (500, 500)
+        self.chunks = (100, 100)
         self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
 
         self.dtypes = [
@@ -48,7 +49,7 @@ class CompressionTestMixin(ABC):
                 try:
                     ds = f.create_dataset(ds_name,
                                           data=in_array,
-                                          chunks=(10, 10, 10),
+                                          chunks=self.chunks,
                                           compression=compression)
                     out_array = ds[:]
                     self.check_array(out_array, in_array,
@@ -80,7 +81,7 @@ class CompressionTestMixin(ABC):
             np.random.shuffle(in_array)
             ds = f.create_dataset(ds_name,
                                   data=in_array,
-                                  chunks=(10, 10, 10),
+                                  chunks=self.chunks,
                                   compression=compression)
             out_array = ds[:]
             self.check_array(out_array, in_array,

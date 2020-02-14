@@ -8,8 +8,10 @@ from .attribute_manager import AttributeManager
 from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
+# TODO lz4 compression is currently not compatible with zarr
+# COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip')
-COMPRESSORS_N5 = ('raw', 'gzip', 'bzip2', 'xz', 'lz4')
+COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4')
 
 
 class Dataset:
@@ -59,6 +61,8 @@ class Dataset:
             default_opts = {'id': 'gzip', 'level': 5}
         elif compression == 'bzip2':
             default_opts = {'level': 5}
+        elif compression == 'lz4':
+            default_opts = {'level': 6}
         elif compression == 'raw':
             default_opts = {}
         else:
@@ -89,6 +93,8 @@ class Dataset:
             default_opts = {'level': 6}
         elif compression == 'lz4':
             default_opts = {'level': 6}
+        elif compression == 'blosc':
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
 
