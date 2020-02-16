@@ -501,3 +501,16 @@ class Dataset:
             return None
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
+
+    def get_chunk_shape(self, chunk_indices):
+        """ Get the shape of chunk.
+
+        This returns the actual chunk shape, which can be different
+        from self.chunks for border chunks.
+
+        Args:
+            chunk_indices (tuple): indices of the chunk to write to
+        Returns:
+            tuple - shape of the chunk
+        """
+        self._impl.getChunkShape(chunk_indices)

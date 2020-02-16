@@ -146,6 +146,11 @@ namespace z5 {
             .def("chunkExists", [](const Dataset & ds, const types::ShapeType & chunkIndices){
                 return ds.chunkExists(chunkIndices);
             })
+            .def("getChunkShape", [](const Dataset & ds, const types::ShapeType & chunkIndices){
+                types::ShapeType chunkShape;
+                ds.getChunkShape(chunkIndices, chunkShape);
+                return chunkShape;
+            })
 
             //
             // shapes and stuff
