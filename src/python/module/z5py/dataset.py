@@ -513,4 +513,4 @@ class Dataset:
         Returns:
             tuple - shape of the chunk
         """
-        self._impl.getChunkShape(chunk_indices)
+        return self._impl.getChunkShape(chunk_indices)
