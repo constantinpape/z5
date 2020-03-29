@@ -4,6 +4,24 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 project(z5)
 
+set(Z5_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+
+##############################
+# Versioning
+##############################
+
+file(STRINGS "${Z5_INCLUDE_DIR}/z5/z5.hxx" z5_version_defines
+     REGEX "#define Z5_VERSION_(MAJOR|MINOR|PATCH)")
+foreach(ver ${z5_version_defines})
+    if(ver MATCHES "#define Z5_VERSION_(MAJOR|MINOR|PATCH) +([^ ]+)$")
+        set(Z5_VERSION_${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE INTERNAL "")
+    endif()
+endforeach()
+set(${PROJECT_NAME}_VERSION
+    ${Z5_VERSION_MAJOR}.${Z5_VERSION_MINOR}.${Z5_VERSION_PATCH})
+message(STATUS "Building z5 v${${PROJECT_NAME}_VERSION}")
+
 
 ##############################
 # C++ Standard
@@ -47,6 +65,9 @@ endif()
 if(MSVC)
     add_definitions(/DNOMINMAX)
 endif()
+
+
+include(CMakePackageConfigHelpers)
 
 
 ##############################
@@ -317,6 +338,11 @@ if(BUILD_Z5PY)
     message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
 endif()
 
+add_library(z5 INTERFACE)
+
+target_include_directories(z5 INTERFACE
+    $<BUILD_INTERFACE:${Z5_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:include>)
 
 
 ###############################
@@ -339,3 +365,25 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
   PATTERN "*.hpp"
   PATTERN "*.h"
 )
+
+install(TARGETS z5
+        EXPORT ${PROJECT_NAME}-targets)
+
+set(Z5_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}" CACHE
+    STRING "install path for z5-config.cmake")
+
+configure_package_config_file("${PROJECT_NAME}-config.cmake"
+                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+                              INSTALL_DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+                                 VERSION ${${PROJECT_NAME}_VERSION}
+                                 COMPATIBILITY AnyNewerVersion)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+
+install(EXPORT ${PROJECT_NAME}-targets
+        FILE ${PROJECT_NAME}-targets.cmake
+        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
