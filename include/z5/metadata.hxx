@@ -14,12 +14,17 @@ namespace z5 {
     // general format
     struct Metadata {
         bool isZarr; // flag to specify whether we have a zarr or n5 array
-        const static int zarrFormat = 2;
-        const static int n5Major = 2;
-        const static int n5Minor = 0;
-        const static int n5Patch = 0;
+        int zarrFormat;
+        int n5Major;
+        int n5Minor;
+        int n5Patch;
 
-        Metadata(const bool isZarr) : isZarr(isZarr) {}
+        Metadata(const bool isZarr) : isZarr(isZarr),
+                                      zarrFormat(2),
+                                      n5Major(2),
+                                      n5Minor(0),
+                                      n5Patch(0)
+        {}
         inline std::string n5Format() const {
             return std::to_string(n5Major) + "." + std::to_string(n5Minor) + "." + std::to_string(n5Patch);
         }
@@ -49,7 +54,7 @@ namespace z5 {
         }
 
 
-        // empty constructur
+        // empty constructor
         DatasetMetadata() : Metadata(true)
         {}
 
