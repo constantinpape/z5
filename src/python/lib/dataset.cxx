@@ -210,6 +210,49 @@ namespace z5 {
                     return filesystem::openDataset(handle);
                 }
             ))
+
+            .def("chunks_in_request", [](const Dataset & ds,
+                                         const std::vector<size_t> & roiBegin,
+                                         const std::vector<size_t> & roiShape){
+                std::vector<std::vector<size_t>> chunkIds;
+                {
+                    // TODO I am not sure if it's thread-safe when we push back to the vectores
+                    // inside of the gil release
+                    py::gil_scoped_release lift_gil;
+                    const auto & chunking = ds.chunking();
+                    chunking.getBlocksOverlappingRoi(roiBegin, roiShape, chunkIds);
+                }
+                return chunkIds;
+            })
+
+
+            .def("chunks_and_slices_in_request", [](const Dataset & ds,
+                                                    const std::vector<size_t> & roiBegin,
+                                                    const std::vector<size_t> & roiShape){
+                std::vector<std::vector<size_t>> chunkIds;
+                std::vector<std::vector<size_t>> chunkBegins;
+                std::vector<std::vector<size_t>> chunkShapes;
+                {
+                    // TODO I am not sure if it's thread-safe when we push back to the vectores
+                    // inside of the gil release
+                    py::gil_scoped_release lift_gil;
+                    const auto & chunking = ds.chunking();
+                    chunking.getBlocksOverlappingRoi(roiBegin, roiShape, chunkIds);
+                    types::ShapeType offsetInRequest, requestShape, offsetInChunk;
+                    for(const auto & chunkId : chunkIds) {
+                        chunking.getCoordinatesInRoi(chunkId,
+                                                     roiBegin,
+                                                     roiShape,
+                                                     offsetInRequest,
+                                                     requestShape,
+                                                     offsetInChunk);
+                        chunkBegins.push_back(offsetInChunk);
+                        chunkShapes.push_back(requestShape);
+                    }
+                    // TODO if this is an n5 dataset we probably need to reverse the chunk ids
+                }
+                return std::make_tuple(chunkIds, chunkBegins, chunkShapes);
+            })
         ;
 
         // export I/O for all dtypes

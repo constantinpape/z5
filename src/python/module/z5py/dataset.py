@@ -514,3 +514,24 @@ class Dataset:
             tuple - shape of the chunk
         """
         return self._impl.getChunkShape(chunk_indices)
+
+    # TODO name??
+    # WIP implement
+    def get_chunks_in_request(self, index, return_chunk_slices=False):
+        roi_begin, shape, _ = self.index_to_roi(index)
+
+        # empty request
+        if 0 in shape:
+            return [], [] if return_chunk_slices else []
+
+        if return_chunk_slices:
+            (chunk_list,
+             chunk_bb_starts,
+             chunk_bb_shapes) = self._impl.chunks_and_slices_in_request(roi_begin, shape)
+            chunk_slices = [tuple(slice(start, start + sh) for start, sh in zip(bb_start, bb_shape))
+                            for bb_start, bb_shape in zip(chunk_bb_starts, chunk_bb_shapes)]
+            assert len(chunk_list) == len(chunk_slices)
+            return chunk_list, chunk_slices
+        else:
+            chunk_list = self._impl.chunks_in_request(roi_begin, shape)
+            return chunk_list
