@@ -221,6 +221,13 @@ namespace z5 {
                     py::gil_scoped_release lift_gil;
                     const auto & chunking = ds.chunking();
                     chunking.getBlocksOverlappingRoi(roiBegin, roiShape, chunkIds);
+
+                    // need to reverse the chunk ids for n5 datasets
+                    if(!ds.isZarr()) {
+                        for(auto & chunkId : chunkIds) {
+                            std::reverse(chunkId.begin(), chunkId.end());
+                        }
+                    }
                 }
                 return chunkIds;
             })
@@ -238,6 +245,13 @@ namespace z5 {
                     py::gil_scoped_release lift_gil;
                     const auto & chunking = ds.chunking();
                     chunking.getBlocksOverlappingRoi(roiBegin, roiShape, chunkIds);
+                    // need to reverse the chunk ids for n5 datasets
+                    if(!ds.isZarr()) {
+                        for(auto & chunkId : chunkIds) {
+                            std::reverse(chunkId.begin(), chunkId.end());
+                        }
+                    }
+
                     types::ShapeType offsetInRequest, requestShape, offsetInChunk;
                     for(const auto & chunkId : chunkIds) {
                         chunking.getCoordinatesInRoi(chunkId,
