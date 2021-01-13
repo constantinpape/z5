@@ -134,10 +134,9 @@ namespace handle {
             // otherwise (n5-format), each chunk index has
             // its own directory
             else {
+                std::string delimiter = "/";
                 // N5-Axis order: we need to read the chunks in reverse order
-                for(auto it = indices.rbegin(); it != indices.rend(); ++it) {
-                    name += ("/" + std::to_string(*it));
-                }
+                util::join(indices.rbegin(), indices.rend(), name, delimiter);
             }
             return name;
         }

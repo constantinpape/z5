@@ -49,7 +49,7 @@
 
         // need to be consistent with the other implementations
         inline fs::path relativeImpl(const fs::path & from, const fs::path & to){
-            return fs::relative(from, to);
+            return fs::relative(to, from);
         }
 
     #else
