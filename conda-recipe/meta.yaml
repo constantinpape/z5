@@ -23,8 +23,8 @@ requirements:
     - python {{PY_VER}}
     - cmake
     - boost-cpp >=1.63
-    - xtensor 0.19.3
-    - xtensor-python 0.22.1
+    - xtensor
+    - xtensor-python
     - numpy >=1.15
     - nlohmann_json
     - blosc

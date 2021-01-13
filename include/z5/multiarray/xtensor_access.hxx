@@ -57,6 +57,7 @@ namespace multiarray {
 
             // check if this chunk exists, if not fill output with fill value
             if(!ds.chunkExists(chunkId)) {
+                // std::cout << "Chunk does not exist" << std::endl;
                 view = fillValue;;
                 continue;
             }
