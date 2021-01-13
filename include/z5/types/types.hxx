@@ -16,8 +16,6 @@ namespace types {
     // Coordinates
     //
 
-    // TODO implement class that inherits from std::vector and overloads useful operators (+, -, etc.)
-    // TODO rename to coordinate type
     // type for array shapes
     typedef std::vector<std::size_t> ShapeType;
 
@@ -32,7 +30,6 @@ namespace types {
         float32, float64
     };
 
-    // TODO handle endianness differently ?
     struct Datatypes {
         typedef std::map<std::string, Datatype> DtypeMap;
         typedef std::map<Datatype, std::string> InverseDtypeMap;
@@ -221,7 +218,8 @@ namespace types {
             case blosc: options["codec"] = jOpts["cname"].get<std::string>();
                         options["level"] = jOpts["clevel"].get<int>();
                         options["shuffle"] = jOpts["shuffle"].get<int>();
-                        options["blocksize"] = jOpts["blocksize"].get<int>();
+                        // load blocksize with default value 0
+                        options["blocksize"] = (jOpts.find("blocksize") == jOpts.end()) ? 0 : jOpts["blocksize"].get<int>();
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -302,8 +300,10 @@ namespace types {
             case blosc: options["codec"] = jOpts["cname"].get<std::string>();
                         options["level"] = jOpts["clevel"].get<int>();
                         options["shuffle"] = jOpts["shuffle"].get<int>();
-                        options["blocksize"] = jOpts["blocksize"].get<int>();
-                        options["nthreads"] = jOpts["nthreads"].get<int>();
+                        // load blocksize with default value 0
+                        options["blocksize"] = (jOpts.find("blocksize") == jOpts.end()) ? 0 : jOpts["blocksize"].get<int>();
+                        // load nthreads with default value 1
+                        options["nthreads"] = (jOpts.find("nthreads") == jOpts.end()) ? 1 : jOpts["nthreads"].get<int>();
                         break;
             #endif
             // raw compression has no parameters
