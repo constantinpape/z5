@@ -1,3 +1,4 @@
 bld/*
 build/*
 python/*
+__pycache__/
