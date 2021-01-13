@@ -239,13 +239,8 @@ namespace handle {
               const types::ShapeType & chunkIndices,
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
-                                                dsHandle_(ds) {
-            // weird behaviour on the cluster with gcc9, where the previous concat did not work.
-            // no idea why
-            fs::path this_path(ds.path());
-            this_path += fs::path(getChunkKey(ds.isZarr()));
-            path_ = this_path;
-        }
+                                                dsHandle_(ds),
+                                                path_(ds.path() / getChunkKey(ds.isZarr())){}
 
         // make the top level directories for a n5 chunk
         inline void create() const {
