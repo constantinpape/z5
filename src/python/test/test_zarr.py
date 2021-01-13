@@ -92,9 +92,6 @@ class ZarrTestMixin(ABC):
         f_zarr = zarr.open(self.path, mode='r')
         for dtype in dtypes:
             for compression in compressions:
-                # FIXME enable blosc compression in n5
-                if compression == 'blosc':
-                    continue
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 key = 'test_%s_%s' % (dtype, compression)
                 # write with z5py

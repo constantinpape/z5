@@ -54,7 +54,7 @@ class Dataset:
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
         if compression == 'blosc':
-            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1, 'blocksize': 0}
         elif compression == 'zlib':
             default_opts = {'id': 'zlib', 'level': 5}
         elif compression == 'gzip':
@@ -94,7 +94,7 @@ class Dataset:
         elif compression == 'lz4':
             default_opts = {'level': 6}
         elif compression == 'blosc':
-            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1, 'blocksize': 0, 'nthreads': 1}
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
 

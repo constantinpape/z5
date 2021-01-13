@@ -30,8 +30,8 @@ namespace compression {
                 sizeIn * sizeof(T), dataIn,
                 &dataOut[0], sizeOut,
                 compressor_.c_str(),
-                0, // blosc blocksize, 0 means automatic value
-                1  // number of internal threads -> we set this to 1 for now
+                blocksize_,
+                nthreads_
             );
 
             // check for errors
@@ -48,7 +48,8 @@ namespace compression {
             // decompress the data
             int sizeDecompressed = blosc_decompress_ctx(
                 &dataIn[0], dataOut,
-                sizeOut * sizeof(T), 1 // number of internal threads
+                sizeOut * sizeof(T),
+                nthreads_
             );
 
             // check for errors
@@ -65,22 +66,36 @@ namespace compression {
             opts["codec"] = compressor_;
             opts["shuffle"] = shuffle_;
             opts["level"] = clevel_;
+            opts["blocksize"] = blocksize_;
+            opts["nthreads"] = nthreads_;
         }
 
     private:
         // set the compression parameters from metadata
         void init(const DatasetMetadata & metadata) {
-            clevel_     = boost::get<int>(metadata.compressionOptions.at("level"));
-            shuffle_    = boost::get<int>(metadata.compressionOptions.at("shuffle"));
-            compressor_ = boost::get<std::string>(metadata.compressionOptions.at("codec"));
+            const auto & cOpts = metadata.compressionOptions;
+
+            clevel_     = boost::get<int>(cOpts.at("level"));
+            shuffle_    = boost::get<int>(cOpts.at("shuffle"));
+            compressor_ = boost::get<std::string>(cOpts.at("codec"));
+            blocksize_ = boost::get<int>(cOpts.at("blocksize"));
+
+            // set nthreads with a default value of 1
+            nthreads_ = 1;
+            auto threadsIt = cOpts.find("nthreads");
+            if(threadsIt != cOpts.end()) {
+                nthreads_ = boost::get<int>(threadsIt->second);
+            }
         }
 
         // the blosc compressor
         std::string compressor_;
         // compression level
         int clevel_;
-        // blsoc shuffle
+        // blosc shuffle
         int shuffle_;
+        int blocksize_;
+        int nthreads_;
     };
 
 } // namespace compression
