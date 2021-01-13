@@ -34,7 +34,7 @@ if [ $TRAVIS_OS_NAME = 'osx' ]; then
         -DCMAKE_PREFIX_PATH="$ENV_ROOT" \
         -DPYTHON_EXECUTABLE="$PY_BIN" \
         -DCMAKE_CXX_FLAGS="-std=c++17" \
-        -DWITH_BOOST_FS=ON \
+        -DWITH_BOOST_FS=OFF \
         -DBUILD_TESTS=ON \
         -DBUILD_Z5PY=ON
 else

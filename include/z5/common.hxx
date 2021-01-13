@@ -42,7 +42,6 @@
 #else
     // macos behaves very weird here, I can't get it to build on
     // osx < 10.15 right now. For now the workaround is to use boost filesystem ...
-    // TODO MSVC check ?
     #if (defined(__GNUC__) && (__GNUC__ > 7)) || defined(__clang__) || (defined(_MSC_VER) && _MSC_VER > 1900)
         #include <filesystem>
         namespace fs = std::filesystem;
