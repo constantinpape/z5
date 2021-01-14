@@ -71,6 +71,12 @@ namespace s3 {
         }
 
 
+        inline void readRawChunk(const types::ShapeType & chunkIndices,
+                                 std::vector<char> & buffer) const {
+            // TODO implement
+        }
+
+
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
                 // TODO all in error message
@@ -90,14 +96,18 @@ namespace s3 {
             return chunk.size();
         }
 
-        inline void getChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
+        inline void getChunkShape(const types::ShapeType & chunkId,
+                                  types::ShapeType & chunkShape,
+                                  const bool fromHeader=false) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
             const auto & cshape = chunk.shape();
             chunkShape.resize(cshape.size());
             std::copy(cshape.begin(), cshape.end(), chunkShape.begin());
         }
 
-        inline std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+        inline std::size_t getChunkShape(const types::ShapeType & chunkId,
+                                         const unsigned dim,
+                                         const bool fromHeader=false) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
             return chunk.shape()[dim];
         }
@@ -118,6 +128,11 @@ namespace s3 {
             *((T*) fillValue) = Mixin::fillValue_;
         }
 
+        inline void decompress(const std::vector<char> & buffer,
+                               void * dataOut,
+                               const std::size_t data_size) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
+        }
 
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());

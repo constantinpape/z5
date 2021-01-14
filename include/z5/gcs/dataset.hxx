@@ -36,12 +36,15 @@ namespace gcs {
             }
         }
 
-
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
         }
 
+        inline void readRawChunk(const types::ShapeType & chunkIndices,
+                                 std::vector<char> & buffer) const {
+            // TODO implement
+        }
 
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
@@ -56,9 +59,13 @@ namespace gcs {
         }
         inline std::size_t getChunkSize(const types::ShapeType & chunkId) const {
         }
-        inline void getChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
+        inline void getChunkShape(const types::ShapeType & chunkId,
+                                  types::ShapeType & chunkShape,
+                                  const bool fromHeader=false) const {
         }
-        inline std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+        inline std::size_t getChunkShape(const types::ShapeType & chunkId,
+                                         const unsigned dim,
+                                         const bool fromHeader=false) const {
         }
 
 
@@ -73,6 +80,11 @@ namespace gcs {
             *((T*) fillValue) = Mixin::fillValue_;
         }
 
+        inline void decompress(const std::vector<char> & buffer,
+                               void * dataOut,
+                               const std::size_t data_size) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
+        }
 
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
         }

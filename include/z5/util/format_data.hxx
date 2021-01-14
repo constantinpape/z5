@@ -150,38 +150,8 @@ namespace util {
         }
     }
 
-
-    inline bool read_n5_header(std::vector<char> & buffer, std::size_t & data_size) {
-        // read the mode
-        uint16_t mode;
-        memcpy(&mode, &buffer[0], 2);
-        util::reverseEndiannessInplace(mode);
-
-        // read the number of dimensions
-        uint16_t ndim;
-        memcpy(&ndim, &buffer[2], 2);
-        util::reverseEndiannessInplace(ndim);
-
-        bool is_varlen = mode == 1;
-        std::size_t headerlen = (ndim + 1) * 4;
-        // read the varlength if the chunk is in varlength mode
-        if(is_varlen) {
-            uint32_t varlength;
-            memcpy(&varlength, &buffer[headerlen], 4);
-            util::reverseEndiannessInplace(varlength);
-            data_size = varlength;
-            headerlen += 4;
-        }
-
-        // cut header from the buffer
-        buffer.erase(buffer.begin(), buffer.begin() + headerlen);
-
-        return is_varlen;
-    }
-
-
-    inline bool read_n5_header(std::vector<char> & buffer, std::size_t & data_size,
-                               const types::ShapeType & expected_shape) {
+    inline bool read_n5_header(std::vector<char> & buffer,
+                               std::size_t & data_size) {
         // read the mode
         uint16_t mode;
         memcpy(&mode, &buffer[0], 2);
@@ -202,16 +172,9 @@ namespace util {
         // // N5-Axis order: we need to reverse the chunk shape read from the header
         std::reverse(shape.begin(), shape.end());
 
-        // check that expected and shape from header agree
-        for(int d = 0; d < ndim; ++d) {
-            if(shape[d] != expected_shape[d]) {
-                throw std::runtime_error("Chunk shape from header does not agree with expected shape.");
-            }
-        }
-
         std::size_t headerlen = (ndim + 1) * 4;
 
-        bool is_varlen = mode == 1;
+        const bool is_varlen = mode == 1;
         // read the varlength if the chunk is in varlength mode
         if(is_varlen) {
             uint32_t varlength;
@@ -219,6 +182,9 @@ namespace util {
             util::reverseEndiannessInplace(varlength);
             data_size = varlength;
             headerlen += 4;
+        } else {
+            data_size = std::accumulate(shape.begin(), shape.end(),
+                                        1, std::multiplies<uint32_t>());
         }
 
         // cut header from the buffer
@@ -235,18 +201,10 @@ namespace util {
                                const COMPRESSOR & compressor) {
 
         const bool is_zarr = chunk.isZarr();
-        std::size_t chunk_size = is_zarr ? chunk.defaultSize() : chunk.size();
+        std::size_t chunk_size = chunk.defaultSize();
         bool is_varlen = false;
 
         if(!is_zarr) {
-            // the N5 spec supports writing data with a shape that does not correspond to the chunk shape.
-            // I have never seen that used in practice and it is not supported by z5.
-            // the version of 'read_n5_header' with shape argument checks that
-            // the shapes match and throws a runtime error if they don't.
-            // This is not activated for now, but could consider adding a debug mode and then
-            // using it.
-            // is_varlen = read_n5_header(buffer, chunk_size, chunk.shape());
-
             is_varlen = read_n5_header(buffer, chunk_size);
         }
 

@@ -91,6 +91,11 @@ namespace filesystem {
             return is_varlen;
         }
 
+        inline void readRawChunk(const types::ShapeType & chunkIndices,
+                                 std::vector<char> & buffer) const {
+            handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
+            read(chunk.path(), buffer);
+        }
 
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
@@ -112,17 +117,31 @@ namespace filesystem {
         }
 
 
-        inline void getChunkShape(const types::ShapeType & chunkId, types::ShapeType & chunkShape) const {
+        inline void getChunkShape(const types::ShapeType & chunkId,
+                                  types::ShapeType & chunkShape,
+                                  const bool fromHeader=false) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
-            const auto & cshape = chunk.shape();
-            chunkShape.resize(cshape.size());
-            std::copy(cshape.begin(), cshape.end(), chunkShape.begin());
+            if(!isZarr_ && fromHeader) {
+                read_shape_from_n5_header(chunk.path(), chunkShape);
+            } else {
+                const auto & cshape = chunk.shape();
+                chunkShape.resize(cshape.size());
+                std::copy(cshape.begin(), cshape.end(), chunkShape.begin());
+            }
         }
 
 
-        inline std::size_t getChunkShape(const types::ShapeType & chunkId, const unsigned dim) const {
+        inline std::size_t getChunkShape(const types::ShapeType & chunkId,
+                                         const unsigned dim,
+                                         const bool fromHeader=false) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
-            return chunk.shape()[dim];
+            if(!isZarr_ && fromHeader) {
+                types::ShapeType chunkShape;
+                read_shape_from_n5_header(chunk.path(), chunkShape);
+                return chunkShape[dim];
+            } else {
+                return chunk.shape()[dim];
+            }
         }
 
 
@@ -136,6 +155,11 @@ namespace filesystem {
             Mixin::compressor_->getOptions(opts);
         }
 
+        inline void decompress(const std::vector<char> & buffer,
+                               void * dataOut,
+                               const std::size_t data_size) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
+        }
 
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
@@ -149,7 +173,7 @@ namespace filesystem {
                 return false;
             }
 
-            const bool is_varlen = read_n5_header(chunk.path(), chunkSize);
+            const bool is_varlen = read_varlen_from_n5_header(chunk.path(), chunkSize);
             if(!is_varlen) {
                 chunkSize = chunk.size();
             }
@@ -230,7 +254,8 @@ namespace filesystem {
         }
 
 
-        inline bool read_n5_header(const fs::path & path, std::size_t & chunkSize) const {
+        inline bool read_varlen_from_n5_header(const fs::path & path,
+                                               std::size_t & chunkSize) const {
             #ifdef WITH_BOOST_FS
             fs::ifstream file(path, std::ios::binary);
             #else
@@ -261,6 +286,39 @@ namespace filesystem {
 
             file.close();
             return true;
+        }
+
+
+        inline void read_shape_from_n5_header(const fs::path & path,
+                                              types::ShapeType & chunkShape) const {
+            #ifdef WITH_BOOST_FS
+            fs::ifstream file(path, std::ios::binary);
+            #else
+            std::ifstream file(path, std::ios::binary);
+            #endif
+
+            // advance the file by 2 to skip the mode
+            file.seekg(2);
+
+            // read the number of dimensions
+            uint16_t ndim;
+            file.read((char *) &ndim, 2);
+            util::reverseEndiannessInplace(ndim);
+
+            // read tempory shape with uint32 entries
+            std::vector<uint32_t> shapeTmp(ndim);
+            for(int d = 0; d < ndim; ++d) {
+                file.read((char *) &shapeTmp[d], 4);
+            }
+            util::reverseEndiannessInplace<uint32_t>(shapeTmp.begin(), shapeTmp.end());
+
+            // // N5-Axis order: we need to reverse the chunk shape read from the header
+            std::reverse(shapeTmp.begin(), shapeTmp.end());
+
+            chunkShape.resize(ndim);
+            std::copy(shapeTmp.begin(), shapeTmp.end(), chunkShape.begin());
+
+            file.close();
         }
 
     private:

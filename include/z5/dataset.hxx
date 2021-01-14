@@ -98,6 +98,8 @@ namespace z5 {
                                 const bool=false, const std::size_t=0) const = 0;
         // read a chunk - returns True if this is a varlen chunk
         virtual bool readChunk(const types::ShapeType &, void *) const = 0;
+        // read a chunk; return the unformatted data
+        virtual void readRawChunk(const types::ShapeType &, std::vector<char> &) const = 0;
 
         // check the request type
         virtual void checkRequestType(const std::type_info &) const = 0;
@@ -105,8 +107,8 @@ namespace z5 {
         // size and shape of an actual chunk
         virtual bool chunkExists(const types::ShapeType &) const = 0;
         virtual std::size_t getChunkSize(const types::ShapeType &) const = 0;
-        virtual void getChunkShape(const types::ShapeType &, types::ShapeType &) const = 0;
-        virtual std::size_t getChunkShape(const types::ShapeType &, const unsigned) const = 0;
+        virtual void getChunkShape(const types::ShapeType &, types::ShapeType &, const bool=false) const = 0;
+        virtual std::size_t getChunkShape(const types::ShapeType &, const unsigned, const bool=false) const = 0;
         virtual bool checkVarlenChunk(const types::ShapeType &, std::size_t &) const = 0;
 
         // compression options and fill value
@@ -114,6 +116,7 @@ namespace z5 {
         virtual void getCompressor(std::string &) const = 0;
         virtual void getFillValue(void *) const = 0;
         virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
+        virtual void decompress(const std::vector<char> &, void *, const std::size_t) const = 0;
 
         // file paths, permissions and removal
         virtual const FileMode & mode() const = 0;

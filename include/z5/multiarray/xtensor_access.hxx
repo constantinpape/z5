@@ -29,7 +29,9 @@ namespace multiarray {
         types::ShapeType offsetInChunk;
 
         const std::size_t maxChunkSize = ds.defaultChunkSize();
-        std::size_t chunkSize = maxChunkSize;
+        const auto & maxChunkShape = ds.defaultChunkShape();
+
+        std::size_t chunkSize, chunkStoreSize;
         std::vector<T> buffer(chunkSize);
 
         const auto & chunking = ds.chunking();
@@ -61,18 +63,31 @@ namespace multiarray {
                 continue;
             }
 
-            // get the current chunk-shape
+            // get the shape and size of the chunk (in the actual grid)
             ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
-            // if this is an edge chunk and we are writing zarr format,
-            // we need to set complete ovlp to false
-            if(chunkSize != maxChunkSize && isZarr) {
+            // read the data from storge
+            std::vector<char> dataBuffer;
+            ds.readRawChunk(chunkId, dataBuffer);
+
+            // get the shape of the chunk (as stored it is stored)
+            chunkStoreSize = maxChunkSize;
+            if(!isZarr) {
+                if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
+                    throw std::runtime_error("Can't read from varlen chunks to multiarray");
+                }
+            }
+
+            // if this is an edge chunk and the size of the chunk stored is different from
+            // the size of the chunk in the grid (this is the case when written by zarr)
+            // we need to set complete ovlp to false and use the chunkStoreSize
+            if(chunkStoreSize != chunkSize) {
                 completeOvlp = false;
-                // reset chunk shape and chunk size
-                chunkShape = ds.defaultChunkShape();
+                // reset chunk shape and chunk size to the full chunk size/shape
                 chunkSize = maxChunkSize;
+                chunkShape = maxChunkShape;
             }
 
             // resize the buffer if necessary
@@ -80,9 +95,12 @@ namespace multiarray {
                 buffer.resize(chunkSize);
             }
 
-            // read the current chunk into the buffer
-            if(ds.readChunk(chunkId, &buffer[0])) {
-                throw std::runtime_error("Can't read from varlen chunks to multiarray");
+            // decompress the data
+            ds.decompress(dataBuffer, &buffer[0], chunkSize);
+
+            // reverse the endianness for N5 data (unless datatype is byte)
+            if(!isZarr && sizeof(T) > 1) {
+                util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
             }
 
             // request and chunk overlap completely
@@ -123,7 +141,11 @@ namespace multiarray {
         const int nThreads = tp.nThreads();
 
         const std::size_t maxChunkSize = ds.defaultChunkSize();
+        const auto & maxChunkShape = ds.defaultChunkShape();
+
         typedef std::vector<T> Buffer;
+        // TODO the thread buffers should be allocated by the thread that uses them
+        // for optimal performance
         std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
 
         const auto & chunking = ds.chunking();
@@ -167,13 +189,26 @@ namespace multiarray {
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
-            // if this is an edge chunk and we are writing zarr format,
-            // we need to set complete ovlp to false
-            if(chunkSize != maxChunkSize && isZarr) {
+            // read the data from storge
+            std::vector<char> dataBuffer;
+            ds.readRawChunk(chunkId, dataBuffer);
+
+            // get the shape of the chunk (as stored it is stored)
+            std::size_t chunkStoreSize = maxChunkSize;
+            if(!isZarr) {
+                if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
+                    throw std::runtime_error("Can't read from varlen chunks to multiarray");
+                }
+            }
+
+            // if this is an edge chunk and the size of the chunk stored is different from
+            // the size of the chunk in the grid (this is the case when written by zarr)
+            // we need to set complete ovlp to false and use the chunkStoreSize
+            if(chunkStoreSize != chunkSize) {
                 completeOvlp = false;
-                // reset chunk shape and chunk size
-                chunkShape = ds.defaultChunkShape();
+                // reset chunk shape and chunk size to the full chunk size/shape
                 chunkSize = maxChunkSize;
+                chunkShape = maxChunkShape;
             }
 
             // resize the buffer if necessary
@@ -181,10 +216,14 @@ namespace multiarray {
                 buffer.resize(chunkSize);
             }
 
-            // read the current chunk into the buffer
-            if(ds.readChunk(chunkId, &buffer[0])){
-                throw std::runtime_error("Can't read from varlen chunks to multiarray");
+            // decompress the data
+            ds.decompress(dataBuffer, &buffer[0], chunkSize);
+
+            // reverse the endianness for N5 data (unless datatype is byte)
+            if(!isZarr && sizeof(T) > 1) {
+                util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
             }
+
             // request and chunk overlap completely
             // -> we can read all the data from the chunk
             if(completeOvlp) {
