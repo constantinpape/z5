@@ -92,6 +92,11 @@ class ZarrTestMixin(ABC):
         f_zarr = zarr.open(self.path, mode='r')
         for dtype in dtypes:
             for compression in compressions:
+
+                # lz4 compressions are not compatible
+                if compression == 'lz4':
+                    continue
+
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 key = 'test_%s_%s' % (dtype, compression)
                 # write with z5py
