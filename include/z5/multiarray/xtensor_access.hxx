@@ -32,7 +32,7 @@ namespace multiarray {
         const auto & maxChunkShape = ds.defaultChunkShape();
 
         std::size_t chunkSize, chunkStoreSize;
-        std::vector<T> buffer(chunkSize);
+        std::vector<T> buffer(maxChunkSize);
 
         const auto & chunking = ds.chunking();
         const bool isZarr = ds.isZarr();
