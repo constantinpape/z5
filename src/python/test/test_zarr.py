@@ -1,5 +1,6 @@
-import unittest
 import os
+import unittest
+from abc import ABC
 from shutil import rmtree
 
 import numpy as np
@@ -12,11 +13,9 @@ except ImportError:
     zarr = None
 
 
-class TestZarr(unittest.TestCase):
-    def setUp(self):
-        self.path = 'f.zr'
-        self.shape = (100, 100)
-        self.chunks = (20, 20)
+class ZarrTestMixin(ABC):
+    shape = (100, 100)
+    chunks = (20, 20)
 
     def tearDown(self):
         try:
@@ -24,7 +23,6 @@ class TestZarr(unittest.TestCase):
         except OSError:
             pass
 
-    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_read_zarr_irregular(self):
         shape = (123, 97)
         chunks = (17, 32)
@@ -38,7 +36,6 @@ class TestZarr(unittest.TestCase):
         self.assertEqual(data.shape, out.shape)
         self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_write_zarr_irregular(self):
         shape = (123, 97)
         chunks = (17, 32)
@@ -52,7 +49,6 @@ class TestZarr(unittest.TestCase):
         self.assertEqual(data.shape, out.shape)
         self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_read_zarr(self):
         from z5py.dataset import Dataset
         dtypes = list(Dataset._dtype_dict.keys())
@@ -69,54 +65,48 @@ class TestZarr(unittest.TestCase):
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
 
-        zarr.open(self.path)
+        f_zarr = zarr.open(self.path, mode='a')
+        f_z5 = z5py.File(self.path, mode='r')
         for dtype in dtypes:
             for compression in zarr_compressors:
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 # write the data with zarr
                 key = 'test_%s_%s' % (dtype, compression)
-                ar = zarr.open(os.path.join(self.path, key), mode='w',
-                               shape=self.shape, chunks=self.chunks,
-                               dtype=dtype, compressor=zarr_compressors[compression])
+                ar = f_zarr.create_dataset(key,
+                                           shape=self.shape,
+                                           chunks=self.chunks,
+                                           dtype=dtype,
+                                           compressor=zarr_compressors[compression])
                 ar[:] = data
                 # read with z5py
                 out = z5py.File(self.path)[key][:]
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_write_zarr(self):
         from z5py.dataset import Dataset
         dtypes = list(Dataset._dtype_dict.keys())
-        compressions = Dataset.compressors_zarr
+        compressions = Dataset.compressors_zarr if self.path.endswith('.zr') else Dataset.compressors_n5
 
+        f_z5 = z5py.File(self.path, mode='a')
+        f_zarr = zarr.open(self.path, mode='r')
         for dtype in dtypes:
             for compression in compressions:
+
+                # lz4 compressions are not compatible
+                if compression == 'lz4':
+                    continue
+
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 key = 'test_%s_%s' % (dtype, compression)
-                # read with z5py
-                ds = z5py.File(self.path)
-                ds.create_dataset(key, data=data, compression=compression,
-                                  chunks=self.chunks)
-                # read the data with z5py
-                ar = zarr.open(os.path.join(self.path, key))
-                out = ar[:]
+                # write with z5py
+                f_z5.create_dataset(key, data=data, compression=compression,
+                                    chunks=self.chunks)
+                # read the data with zarr
+                out = f_zarr[key][:]
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
-    @unittest.skipUnless(zarr, 'Requires zarr package')
-    def test_fillvalue(self):
-        test_values = [0, 10, 42, 255]
-        zarr.open(self.path)
-        for val in test_values:
-            key = 'test_%i' % val
-            zarr.open(os.path.join(self.path, key), shape=self.shape,
-                      fill_value=val, dtype='<u1')
-            out = z5py.File(self.path)[key][:]
-            self.assertEqual(self.shape, out.shape)
-            self.assertTrue(np.allclose(val, out))
-
-    @unittest.skipUnless(zarr, 'Requires zarr package')
     def test_attributes(self):
         f = zarr.open(self.path)
         test_attrs = {"a": "b", "1": 2, "x": ["y", "z"]}
@@ -129,6 +119,28 @@ class TestZarr(unittest.TestCase):
         for k, v in test_attrs.items():
             self.assertTrue(k in attrs)
             self.assertEqual(attrs[k], v)
+
+
+@unittest.skipUnless(zarr, 'Requires zarr package')
+class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
+    path = 'f.zr'
+
+    # custom fill-value is only supported in zarr format
+    def test_fillvalue(self):
+        test_values = [0, 10, 42, 255]
+        zarr.open(self.path)
+        for val in test_values:
+            key = 'test_%i' % val
+            zarr.open(os.path.join(self.path, key), shape=self.shape,
+                      fill_value=val, dtype='<u1')
+            out = z5py.File(self.path)[key][:]
+            self.assertEqual(self.shape, out.shape)
+            self.assertTrue(np.allclose(val, out))
+
+
+@unittest.skipUnless(zarr, 'Requires zarr package')
+class TestZarrN5(ZarrTestMixin, unittest.TestCase):
+    path = 'f.n5'
 
 
 if __name__ == '__main__':

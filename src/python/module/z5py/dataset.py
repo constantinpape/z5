@@ -54,7 +54,7 @@ class Dataset:
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
         if compression == 'blosc':
-            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1, 'blocksize': 0}
         elif compression == 'zlib':
             default_opts = {'id': 'zlib', 'level': 5}
         elif compression == 'gzip':
@@ -94,7 +94,7 @@ class Dataset:
         elif compression == 'lz4':
             default_opts = {'level': 6}
         elif compression == 'blosc':
-            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1}
+            default_opts = {'codec': 'lz4', 'clevel': 5, 'shuffle': 1, 'blocksize': 0, 'nthreads': 1}
         else:
             raise RuntimeError("Compression %s is not supported in n5 format" % compression)
 
@@ -502,7 +502,7 @@ class Dataset:
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 
-    def get_chunk_shape(self, chunk_indices):
+    def get_chunk_shape(self, chunk_indices, from_header=False):
         """ Get the shape of chunk.
 
         This returns the actual chunk shape, which can be different
@@ -510,7 +510,9 @@ class Dataset:
 
         Args:
             chunk_indices (tuple): indices of the chunk to write to
+            from_header (bool): whether to read the chunk shape from the
+                chunk header (only applicable for n5 format). (default: False)
         Returns:
             tuple - shape of the chunk
         """
-        return self._impl.getChunkShape(chunk_indices)
+        return self._impl.getChunkShape(chunk_indices, from_header)

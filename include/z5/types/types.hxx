@@ -16,8 +16,6 @@ namespace types {
     // Coordinates
     //
 
-    // TODO implement class that inherits from std::vector and overloads useful operators (+, -, etc.)
-    // TODO rename to coordinate type
     // type for array shapes
     typedef std::vector<std::size_t> ShapeType;
 
@@ -32,7 +30,6 @@ namespace types {
         float32, float64
     };
 
-    // TODO handle endianness differently ?
     struct Datatypes {
         typedef std::map<std::string, Datatype> DtypeMap;
         typedef std::map<Datatype, std::string> InverseDtypeMap;
@@ -198,7 +195,7 @@ namespace types {
                 #ifdef WITH_LZ4
                 {lz4, "lz4"},
                 #endif
-                #ifdef WITH_LZ4
+                #ifdef WITH_BLOSC
                 {blosc, "blosc"}
                 #endif
             }});
@@ -210,16 +207,7 @@ namespace types {
     //
     // Compression Options and Fill Value
     //
-
-    // TODO explore use of boost::variant and boost::optional here
-    /*
-    typedef boost::variant::variant<int8_t, int16_t, int32_t, int64_t,
-                                    uint8_t, uint16_t, uint32_t, uint64_t,
-                                    float, double> InternalFillValueType;
-    typedef boost::optional::optional<InternalFillValueType> FillValueType;
-    */
     typedef std::map<std::string, boost::variant<int, bool, std::string>> CompressionOptions;
-
 
     inline void readZarrCompressionOptionsFromJson(Compressor compressor,
                                                    const nlohmann::json & jOpts,
@@ -230,6 +218,8 @@ namespace types {
             case blosc: options["codec"] = jOpts["cname"].get<std::string>();
                         options["level"] = jOpts["clevel"].get<int>();
                         options["shuffle"] = jOpts["shuffle"].get<int>();
+                        // load blocksize with default value 0
+                        options["blocksize"] = (jOpts.find("blocksize") == jOpts.end()) ? 0 : jOpts["blocksize"].get<int>();
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -267,6 +257,7 @@ namespace types {
             case blosc: jOpts["cname"]   = boost::get<std::string>(options.at("codec"));
                         jOpts["clevel"]  = boost::get<int>(options.at("level"));
                         jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
+                        jOpts["blocksize"] = boost::get<int>(options.at("blocksize"));
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -309,6 +300,10 @@ namespace types {
             case blosc: options["codec"] = jOpts["cname"].get<std::string>();
                         options["level"] = jOpts["clevel"].get<int>();
                         options["shuffle"] = jOpts["shuffle"].get<int>();
+                        // load blocksize with default value 0
+                        options["blocksize"] = (jOpts.find("blocksize") == jOpts.end()) ? 0 : jOpts["blocksize"].get<int>();
+                        // load nthreads with default value 1
+                        options["nthreads"] = (jOpts.find("nthreads") == jOpts.end()) ? 1 : jOpts["nthreads"].get<int>();
                         break;
             #endif
             // raw compression has no parameters
@@ -345,6 +340,8 @@ namespace types {
             case blosc: jOpts["cname"] = boost::get<std::string>(options.at("codec"));
                         jOpts["clevel"] = boost::get<int>(options.at("level"));
                         jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
+                        jOpts["blocksize"] = boost::get<int>(options.at("blocksize"));
+                        jOpts["nthreads"] = boost::get<int>(options.at("nthreads"));
                         break;
             #endif
             // raw compression has no parameters
