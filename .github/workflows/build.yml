@@ -1,0 +1,60 @@
+---
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: ${{ matrix.os }} ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO windows tests hang, try again once macbuild works
+        # os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
+        python-version: [3.7, 3.8, 3.9]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+            submodules: 'recursive'
+
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: z5-build-env
+          auto-update-conda: true
+          channels: conda-forge
+          environment-file: .github/workflows/environment.yaml
+          python-version: ${{ matrix.python-version }}
+          auto-activate-base: false
+        env:
+          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
+      # this will set the system compiler;
+      # I don't know how to set the conda compilers for windows
+      - name: Set windows env
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash -l {0}
+        run: .github/workflows/build_linux.sh
+      
+      - name: Build mac
+        if: matrix.os == 'macos-latest'
+        shell: bash -l {0}
+        run: .github/workflows/build_mac.sh
+      
+      - name: Build win
+        if: matrix.os == 'windows-latest'
+        shell: bash -l {0}
+        run: .github/workflows/build_win.bat
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: python -m unittest discover -s src/python/test -v
