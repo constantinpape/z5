@@ -1,8 +1,9 @@
 # z5
 
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
+<!--- TODO add github-ci batch
 [![Build Status](https://travis-ci.org/constantinpape/z5.svg?branch=master)](https://travis-ci.org/constantinpape/z5)
-[![Build status](https://ci.appveyor.com/api/projects/status/ca0jf7dpm1ica8h1/branch/master?svg=true)](https://ci.appveyor.com/project/constantinpape/z5/branch/master)
+-->
 [![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
 [![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
 
