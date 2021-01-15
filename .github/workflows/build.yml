@@ -1,5 +1,5 @@
 ---
-name: Build
+name: build
 
 on: [push, pull_request]
 
@@ -11,9 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO windows tests hang, try again once macbuild works
-        # os: [macos-latest, windows-latest, ubuntu-latest]
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
         python-version: [3.7, 3.8, 3.9]
 
     steps:
