@@ -51,6 +51,9 @@ class Dataset:
         self._parent = parent
         self._name = name
 
+    def __array__(self):
+        return self[...]
+
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
         if compression == 'blosc':
