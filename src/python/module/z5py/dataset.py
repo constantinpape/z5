@@ -51,8 +51,16 @@ class Dataset:
         self._parent = parent
         self._name = name
 
-    def __array__(self):
-        return self[...]
+    def __array__(self, dtype=None):
+        """ Create a numpy array containing the whole dataset.
+
+        NOTE: Datasets are not interchangeble with arrays!
+        Every time this method is called the whole dataset is loaded into memory!
+        """
+        arr = self[...]
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
 
     @staticmethod
     def _to_zarr_compression_options(compression, compression_options):
