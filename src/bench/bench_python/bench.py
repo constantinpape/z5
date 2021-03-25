@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     if os.path.exists(save_folder):
         rmtree(save_folder)
-    os.mkdir(save_folder)
+    os.makedirs(save_folder)
 
     print("Running hdf5 benchmarks ...")
     t_w_h5, sizes_h5 = time_write_h5(data)
