@@ -34,7 +34,7 @@ def _write_result(results, result, compression, chunk, **copts):
     return results
 
 
-def read_h5(data, chunk, compression):
+def read_h5(data, chunk, compression, save_folder, iterations):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk),
                      compression if compression is not None else 'raw')
     save_path = os.path.join(save_folder, 'h5_%s.h5' % key)
@@ -49,18 +49,21 @@ def read_h5(data, chunk, compression):
     return read_times
 
 
-def time_read_h5(data):
-    compressors_h5 = [None, 'gzip']
+def time_read_h5(data, save_folder, iterations, compressors_h5=None):
+    if compressors_h5 is None:
+        compressors_h5 = [None, 'gzip']
     times = {}
     for chunk in chunks:
         for compression in compressors_h5:
+            if compression == 'raw':
+                compression = None
             print("Read", chunk, compression)
-            t_read = read_h5(data, chunk, compression)
+            t_read = read_h5(data, chunk, compression, save_folder, iterations)
             times = _write_result(times, t_read, compression, chunk)
     return times
 
 
-def write_h5(data, chunk, compression):
+def write_h5(data, chunk, compression, save_folder, iterations):
     opts = 5 if compression == 'gzip' else None
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk),
                      compression if compression is not None else 'raw')
@@ -85,21 +88,24 @@ def write_h5(data, chunk, compression):
     return write_times, size
 
 
-def time_write_h5(data):
-    compressors_h5 = [None, 'gzip']
+def time_write_h5(data, save_folder, iterations, compressors_h5=None):
+    if compressors_h5 is None:
+        compressors_h5 = [None, 'gzip']
     times = {}
     sizes = {}
     for chunk in chunks:
         for compression in compressors_h5:
+            if compression == 'raw':
+                compression = None
             print("Write", chunk, compression)
-            t_write, size = write_h5(data, chunk, compression)
+            t_write, size = write_h5(data, chunk, compression, save_folder, iterations)
             print("Data size", size)
             times = _write_result(times, t_write, compression, chunk)
             sizes = _write_result(sizes, size, compression, chunk)
     return times, sizes
 
 
-def write_n5(data, chunk, compression):
+def write_n5(data, chunk, compression, save_folder, iterations):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk),
                      compression)
     save_path = os.path.join(save_folder, 'n5_%s.n5' % key)
@@ -122,21 +128,22 @@ def write_n5(data, chunk, compression):
     return write_times, size
 
 
-def time_write_n5(data):
-    compressors_n5 = z5py.Dataset.compressors_n5
+def time_write_n5(data, save_folder, iterations, compressors_n5=None):
+    if compressors_n5 is None:
+        compressors_n5 = z5py.Dataset.compressors_n5
     times = {}
     sizes = {}
     for chunk in chunks:
         for compression in compressors_n5:
             print("Write", chunk, compression)
-            t_write, size = write_n5(data, chunk, compression)
+            t_write, size = write_n5(data, chunk, compression, save_folder, iterations)
             print("Data size", size)
             times = _write_result(times, t_write, compression, chunk)
             sizes = _write_result(sizes, size, compression, chunk)
     return times, sizes
 
 
-def read_n5(data, chunk, compression):
+def read_n5(data, chunk, compression, save_folder, iterations):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk),
                      compression)
     save_path = os.path.join(save_folder, 'n5_%s.n5' % key)
@@ -152,18 +159,19 @@ def read_n5(data, chunk, compression):
     return read_times
 
 
-def time_read_n5(data):
-    compressors_n5 = z5py.Dataset.compressors_n5
+def time_read_n5(data, save_folder, iterations, compressors_n5=None):
+    if compressors_n5 is None:
+        compressors_n5 = z5py.Dataset.compressors_n5
     times = {}
     for chunk in chunks:
         for compression in compressors_n5:
             print("Read", chunk, compression)
-            t_read = read_n5(data, chunk, compression)
+            t_read = read_n5(data, chunk, compression, save_folder, iterations)
             times = _write_result(times, t_read, compression, chunk)
     return times
 
 
-def write_zarr(data, chunk, compression, **compression_opts):
+def write_zarr(data, chunk, compression, save_folder, iterations, **compression_opts):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk), compression)
     if compression_opts:
         key += '_'.join('%s=%s' % (str(kk), str(vv))
@@ -189,14 +197,17 @@ def write_zarr(data, chunk, compression, **compression_opts):
     return write_times, size
 
 
-def time_write_zarr(data, benchmark_blosc_options=False):
-    compressors_zarr = z5py.Dataset.compressors_zarr
+def time_write_zarr(data, save_folder, iterations, benchmark_blosc_options=False, compressors_zarr=None):
+    if compressors_zarr is None:
+        compressors_zarr = z5py.Dataset.compressors_zarr
     blosc_codecs = ['lz4', 'zlib']
     times = {}
     sizes = {}
     for chunk in chunks:
         for compression in compressors_zarr:
             print("Writing", chunk, compression)
+            if compression == 'raw':
+                compression = None
 
             if compression == 'blosc' and benchmark_blosc_options:
                 raise NotImplementedError  # TODO implement this again
@@ -210,14 +221,14 @@ def time_write_zarr(data, benchmark_blosc_options=False):
                                               codec=codec, shuffle=shuffle)
 
             else:
-                t_write, size = write_zarr(data, chunk, compression)
+                t_write, size = write_zarr(data, chunk, compression, save_folder, iterations)
                 times = _write_result(times, t_write, compression, chunk)
                 sizes = _write_result(sizes, size, compression, chunk)
             print("Data size", size)
     return times, sizes
 
 
-def read_zarr(data, chunk, compression, **compression_opts):
+def read_zarr(data, chunk, compression, save_folder, iterations, **compression_opts):
     key = '%s_%s' % ('_'.join(str(cc) for cc in chunk), compression)
     if compression_opts:
         key += '_'.join('%s=%s' % (str(kk), str(vv))
@@ -237,27 +248,63 @@ def read_zarr(data, chunk, compression, **compression_opts):
     return read_times
 
 
-def time_read_zarr(data, benchmark_blosc_options=False):
-    compressors_zarr = z5py.Dataset.compressors_zarr
+def time_read_zarr(data, save_folder, iterations, benchmark_blosc_options=False, compressors_zarr=None):
+    if compressors_zarr is None:
+        compressors_zarr = z5py.Dataset.compressors_zarr
     blosc_codecs = ['lz4', 'zlib']
     times = {}
     for chunk in chunks:
         for compression in compressors_zarr:
             print("Read", chunk, compression)
 
+            if compression == 'raw':
+                compression = None
+
             if compression == 'blosc' and benchmark_blosc_options:
                 raise NotImplementedError  # TODO implement this again
                 for codec in blosc_codecs:
                     for shuffle in (0, 1, 2):
-                        t_read = read_zarr(data, chunk, compression,
+                        t_read = read_zarr(data, chunk, compression, save_folder, iterations,
                                            codec=codec, shuffle=shuffle)
                         times = _write_result(times, t_read, compression, chunk,
                                               codec=codec, shuffle=shuffle)
 
             else:
-                t_read = read_zarr(data, chunk, compression)
+                t_read = read_zarr(data, chunk, compression, save_folder, iterations)
                 times = _write_result(times, t_read, compression, chunk)
     return times
+
+
+def main(path, name=None, save_folder='./tmp_files', iterations=5, compressors=None):
+    with h5py.File(path, 'r') as f:
+        data = f['volumes/raw'][:]
+
+    if os.path.exists(save_folder):
+        rmtree(save_folder)
+    os.makedirs(save_folder)
+
+    print("Running hdf5 benchmarks ...")
+    t_w_h5, sizes_h5 = time_write_h5(data, save_folder, iterations, compressors_h5=compressors)
+    t_r_h5 = time_read_h5(data, save_folder, iterations, compressors_h5=compressors)
+
+    print("Running n5 benchmarks ...")
+    t_w_n5, sizes_n5 = time_write_n5(data, save_folder, iterations, compressors_n5=compressors)
+    t_r_n5 = time_read_n5(data, save_folder, iterations, compressors_n5=compressors)
+
+    print("Running zarr benchmarks ...")
+    t_w_zarr, sizes_zarr = time_write_zarr(data, save_folder, iterations, compressors_zarr=compressors)
+    t_r_zarr = time_read_zarr(data, save_folder, iterations, compressors_zarr=compressors)
+
+    rmtree(save_folder)
+
+    res_path = 'bench_results.json' if name is None else name
+    if not res_path.endswith('.json'):
+        res_path += '.json'
+    with open(res_path, 'w') as f:
+        json.dump({'h5': {'read': t_r_h5, 'write': t_w_h5, "sizes": sizes_h5},
+                   'n5': {'read': t_r_n5, 'write': t_w_n5, "sizes": sizes_n5},
+                   'zarr': {'read': t_r_zarr, 'write': t_w_zarr, "sizes": sizes_zarr}},
+                  f, indent=2, sort_keys=True)
 
 
 if __name__ == '__main__':
@@ -270,35 +317,4 @@ if __name__ == '__main__':
     parser.add_argument('--iterations', '-i', default=5)
 
     args = parser.parse_args()
-    path = args.path
-    name = args.name
-    save_folder = args.save_folder
-    iterations = args.iterations
-
-    with h5py.File(path, 'r') as f:
-        data = f['volumes/raw'][:]
-
-    if os.path.exists(save_folder):
-        rmtree(save_folder)
-    os.makedirs(save_folder)
-
-    print("Running hdf5 benchmarks ...")
-    t_w_h5, sizes_h5 = time_write_h5(data)
-    t_r_h5 = time_read_h5(data)
-
-    print("Running n5 benchmarks ...")
-    t_w_n5, sizes_n5 = time_write_n5(data)
-    t_r_n5 = time_read_n5(data)
-
-    print("Running zarr benchmarks ...")
-    t_w_zarr, sizes_zarr = time_write_zarr(data)
-    t_r_zarr = time_read_zarr(data)
-
-    rmtree(save_folder)
-
-    res_path = 'bench_results.json' if name is None else f'bench_results_{name}.json'
-    with open(res_path, 'w') as f:
-        json.dump({'h5': {'read': t_r_h5, 'write': t_w_h5, "sizes": sizes_h5},
-                   'n5': {'read': t_r_n5, 'write': t_w_n5, "sizes": sizes_n5},
-                   'zarr': {'read': t_r_zarr, 'write': t_w_zarr, "sizes": sizes_zarr}},
-                  f, indent=2, sort_keys=True)
+    main(args.path, args.name, args.save_folder, args.iterstions)
