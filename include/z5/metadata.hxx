@@ -146,7 +146,7 @@ namespace z5 {
             try {
                 compressor = types::Compressors::zarrToCompressor().at(zarrCompressorId);
             } catch(std::out_of_range) {
-                throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format");
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format: " + zarrCompressorId);
             }
 
             types::readZarrCompressionOptionsFromJson(compressor, compressionOpts,
