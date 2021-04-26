@@ -36,7 +36,7 @@ jobs:
       # I don't know how to set the conda compilers for windows
       - name: Set windows env
         if: matrix.os == 'windows-latest'
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@v1.7.0
 
       - name: Build linux
         if: matrix.os == 'ubuntu-latest'
