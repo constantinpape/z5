@@ -8,6 +8,33 @@
 namespace z5 {
 namespace handle {
 
+    // TODO this should go into docstrings and then a documnetation should be generated from them
+    // (using doxygen?!)
+    /*
+     * This header includes the base classes for the z5 handle objects.
+     * The handles represent the different objects in the zarr/n5 spec:
+     * - File: the root group (= top level directory) for a zarr/n5 container
+     * - Group: a directory that is not a dataset, i.e. does not contain nd-data
+     * - Dataset: a directory that contains nd-data stored in chunks (individual files)
+     * - Chunk: an individual chunk fule in an dataset
+     *
+     * The common functionality for all handles is defined in the class Handle.
+     * It includes checking whether the current object is part of a zarr or an n5 container,
+     * checking if the object exists, creating or removing the object, etc.
+     *
+     * The handles are passed to the functions in the header "factory.hxx", which should be
+     * used to create or load groups / datasets and to the functions in the header "attributes.hxx",
+     * which enable reading and writing additional metadata.
+     *
+     * All classes defined in this header are abstract and they need to be implemented to provide
+     * an implementation for a specific backend.
+     * For example, "filesystem/handle.hxx" contains the implementations that are used to represent
+     * zarr/n5 containers on the local filesystem, "s3/handle.hxx" the implementations for an s3 object store
+     * (still work in progress) and "gcs/handle.hxx" the implementations for a google cloud object store (mock implementation).
+     *
+     * Note that for the datasets, additional logic is defined in the header "dataset.hxx", which also has to
+     * be implemented for each backend, see for example "filesystem/dataset.hxx".
+     */
 
     class Handle {
     public:
