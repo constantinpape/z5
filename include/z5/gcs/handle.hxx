@@ -7,8 +7,17 @@ namespace gcs {
 namespace handle {
 
     // TODO implement for gcs
+    class GcsHandleImpl {
+    public:
+        inline const std::string & bucketNameImpl() const {
+        }
 
-    class File : public z5::handle::File<File> {
+        inline const std::string & nameInBucketImpl() const {
+        }
+
+    };
+
+    class File : public z5::handle::File<File>, private GcsHandleImpl {
     public:
         typedef z5::handle::File<File> BaseType;
 
@@ -17,11 +26,13 @@ namespace handle {
         }
 
         // Implement the handle API
-        inline bool isS3() const {return true;}
-        inline bool isGcs() const {return false;}
+        inline bool isS3() const {return false;}
+        inline bool isGcs() const {return true;}
         inline bool exists() const {}
         inline bool isZarr() const {}
         const fs::path & path() const {}
+        inline const std::string & bucketName() const {return bucketNameImpl();}
+        inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
         inline void create() const {
             if(!mode().canCreate()) {
@@ -42,7 +53,7 @@ namespace handle {
     };
 
 
-    class Group : public z5::handle::Group<Group> {
+    class Group : public z5::handle::Group<Group>, private GcsHandleImpl {
     public:
         typedef z5::handle::Group<Group> BaseType;
 
@@ -52,11 +63,13 @@ namespace handle {
         }
 
         // Implement th handle API
-        inline bool isS3() const {return true;}
-        inline bool isGcs() const {return false;}
+        inline bool isS3() const {return false;}
+        inline bool isGcs() const {return true;}
         inline bool exists() const {}
         inline bool isZarr() const {}
         const fs::path & path() const {}
+        inline const std::string & bucketName() const {return bucketNameImpl();}
+        inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
         inline void create() const {
             if(mode().mode() == FileMode::modes::r) {
@@ -69,7 +82,16 @@ namespace handle {
                 throw std::invalid_argument("Creating new group failed because it already exists.");
             }
         }
-
+        
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove group in group mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing group.");
+            }
+        }
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
@@ -79,7 +101,7 @@ namespace handle {
     };
 
 
-    class Dataset : public z5::handle::Dataset<Dataset> {
+    class Dataset : public z5::handle::Dataset<Dataset>, private GcsHandleImpl {
     public:
         typedef z5::handle::Dataset<Dataset> BaseType;
 
@@ -89,11 +111,13 @@ namespace handle {
         }
 
         // Implement th handle API
-        inline bool isS3() const {return true;}
-        inline bool isGcs() const {return false;}
+        inline bool isS3() const {return false;}
+        inline bool isGcs() const {return true;}
         inline bool exists() const {}
         inline bool isZarr() const {}
         const fs::path & path() const {}
+        inline const std::string & bucketName() const {return bucketNameImpl();}
+        inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
         inline void create() const {
             // check if we have permissions to create a new dataset
@@ -106,10 +130,20 @@ namespace handle {
                 throw std::invalid_argument("Creating new dataset failed because it already exists.");
             }
         }
+
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove dataset in dataset mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
+            }
+            if(!exists()) {
+                throw std::invalid_argument("Cannot remove non-existing dataset.");
+            }
+        }
     };
 
 
-    class Chunk : public z5::handle::Chunk<Chunk> {
+    class Chunk : public z5::handle::Chunk<Chunk>, private GcsHandleImpl {
     public:
         typedef z5::handle::Chunk<Chunk> BaseType;
 
@@ -133,9 +167,14 @@ namespace handle {
 
         inline bool exists() const {}
         const fs::path & path() const {}
+        
+        inline void remove() const {
+        }
 
-        inline bool isS3() const {return true;}
-        inline bool isGcs() const {return false;}
+        inline bool isS3() const {return false;}
+        inline bool isGcs() const {return true;}
+        inline const std::string & bucketName() const {return bucketNameImpl();}
+        inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
     private:
 
