@@ -111,6 +111,9 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     chunks = ds_in.chunks if chunks is None else chunks
     dtype = ds_in.dtype if dtype is None else dtype
 
+    # zarr objects may not have compression attribute. if so set it to the settings sent to this function
+    if not hasattr(ds_in, "compression"):
+        ds_in.compression = new_compression
     compression = new_compression.pop("compression", ds_in.compression)
     compression_opts = new_compression
 
