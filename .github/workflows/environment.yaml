@@ -14,6 +14,6 @@ dependencies:
   - xsimd
   - blosc
   - imageio
-  - nlohmann_json
+  - nlohmann_json <3.10.3
   - zarr
   - h5py
