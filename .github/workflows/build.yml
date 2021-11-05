@@ -40,15 +40,10 @@ jobs:
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
-      - name: Build linux
-        if: matrix.os == 'ubuntu-latest'
+      - name: Build unix
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         shell: bash -l {0}
         run: .github/workflows/build_linux.sh
-      
-      - name: Build mac
-        if: matrix.os == 'macos-latest'
-        shell: bash -l {0}
-        run: .github/workflows/build_mac.sh
       
       - name: Build win
         if: matrix.os == 'windows-latest'
