@@ -11,7 +11,7 @@ dependencies:
   - boost-cpp>=1.63
   - xtensor>=0.21,<0.22
   - xtensor-python>=0.24,<0.25
-  - xsimd
+  - xsimd >=7,<8
   - blosc
   - imageio
   - nlohmann_json
