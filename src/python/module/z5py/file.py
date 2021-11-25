@@ -31,7 +31,7 @@ class File(Group):
         """ Infer the file format from the file extension.
 
             Returns:
-                bool: `True` for zarr, `False` for n5 and `None` if the format could not be infered.
+                bool: `True` for zarr, `False` for n5 and `None` if the format could not be inferred.
         """
         # first, try to infer the format from the file ending
         is_zarr = None
@@ -53,7 +53,7 @@ class File(Group):
             path = os.fspath(path)
         # infer the file format from the path
         is_zarr = self.infer_format(path)
-        # check if the format that was infered is consistent with `use_zarr_format`
+        # check if the format that was inferred is consistent with `use_zarr_format`
         if use_zarr_format is None:
             if is_zarr is None:
                 raise RuntimeError("Cannot infer the file format (zarr or N5)")

@@ -115,7 +115,7 @@ if imageio:
     def default_index_parser(fname):
         # get rid of the postfix
         parsed = os.path.splitext(fname)[0]
-        # try to convert to interger directly
+        # try to convert to integer directly
         if is_int(parsed):
             return int(parsed)
         # try to split at '_'
@@ -173,7 +173,7 @@ if imageio:
                 otherwise zarr will be used (default: None).
             parser (callable): function to parse the image indices for tifs in a folder.
                 If None, some default patterns are tried (default: None)
-            process (callable): function to preprocess chunks before wrting to n5/zarr
+            process (callable): function to preprocess chunks before writing to n5/zarr
                 Must take np.ndarray and int as arguments. (default: None)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """

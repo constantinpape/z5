@@ -30,7 +30,7 @@ namespace multiarray {
             flatOffset += (outStrides[d] * offsetInRequest[d]);
         }
 
-        // TODO this depends on the laout type.....
+        // TODO this depends on the layout type.....
         // next, calculate the new strides
         requestStrides.resize(requestShape.size());
         for(int d = 0; d < requestShape.size(); ++d) {

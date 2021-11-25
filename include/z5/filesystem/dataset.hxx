@@ -76,7 +76,7 @@ namespace filesystem {
             // make sure that we have a valid chunk
             checkChunk(chunk);
 
-            // throw runtime errror if trying to read non-existing chunk
+            // throw runtime error if trying to read non-existing chunk
             if(!chunk.exists()) {
                 throw std::runtime_error("Trying to read a chunk that does not exist");
             }
@@ -305,7 +305,7 @@ namespace filesystem {
             file.read((char *) &ndim, 2);
             util::reverseEndiannessInplace(ndim);
 
-            // read tempory shape with uint32 entries
+            // read temporary shape with uint32 entries
             std::vector<uint32_t> shapeTmp(ndim);
             for(int d = 0; d < ndim; ++d) {
                 file.read((char *) &shapeTmp[d], 4);

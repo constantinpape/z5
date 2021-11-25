@@ -55,7 +55,7 @@ namespace s3 {
             // make sure that we have a valid chunk
             // checkChunk(chunk);
 
-            // throw runtime errror if trying to read non-existing chunk
+            // throw runtime error if trying to read non-existing chunk
             if(!chunk.exists()) {
                 throw std::runtime_error("Trying to read a chunk that does not exist");
             }
