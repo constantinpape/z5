@@ -241,7 +241,7 @@ class Group(Mapping):
 
         Returning None continues iteration, returning anything else stops
         and immediately returns that value from the visit method.  No
-        particular order of iteration within groups is guranteed.
+        particular order of iteration within groups is guaranteed.
 
         calls the function @param func with the found items, appended to @param path
 

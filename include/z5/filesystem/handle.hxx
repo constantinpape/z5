@@ -296,7 +296,7 @@ namespace handle {
 
 
     //
-    // additional handle factory functions for compatability with C
+    // additional handle factory functions for compatibility with C
     //
 
     // TODO need to expose FileMode as well

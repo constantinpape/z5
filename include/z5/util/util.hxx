@@ -29,7 +29,7 @@ namespace util {
         out.push_back(in.substr(prev, curr - prev));
     }
 
-    // make regular grid betwee `minCoords` and `maxCoords` with step size 1.
+    // make regular grid between `minCoords` and `maxCoords` with step size 1.
     // uses imglib trick for ND code.
     inline void makeRegularGrid(const types::ShapeType & minCoords,
                                 const types::ShapeType & maxCoords,

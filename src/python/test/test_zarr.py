@@ -61,7 +61,7 @@ class ZarrTestMixin(ABC):
 
         # conda-forge version of numcodecs is not up-to-data
         # for python 3.5 and GZip is missing
-        # thats why we need to check explicitly here to not fail the test
+        # that's why we need to check explicitly here to not fail the test
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
 

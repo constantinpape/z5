@@ -80,7 +80,7 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
 
     Used to implement `copy_dataset`, `convert_to_h5` and `convert_from_h5`.
     Can also be used for more flexible use cases, like copying from a zarr/n5
-    cloud dataset to a filesytem dataset.
+    cloud dataset to a filesystem dataset.
 
     Args:
         f_in (File): input file object.
@@ -351,7 +351,7 @@ def remove_trivial_chunks(dataset, n_threads,
 
 
 def remove_dataset(dataset, n_threads):
-    """ Remvoe dataset multi-threaded.
+    """ Remove dataset multi-threaded.
     """
     _z5py.remove_dataset(dataset._impl, n_threads)
 

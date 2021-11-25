@@ -418,7 +418,7 @@ namespace types {
     }
 
 } // namespace::types
-    // overload ostream operator for ShapeType (a.k.a) vector for convinience
+    // overload ostream operator for ShapeType (a.k.a) vector for convenience
     inline std::ostream & operator << (std::ostream & os, const types::ShapeType & coord) {
         os << "Coordinates(";
         for(const auto & cc: coord) {

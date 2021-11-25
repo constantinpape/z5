@@ -162,7 +162,7 @@ namespace util {
         memcpy(&ndim, &buffer[2], 2);
         util::reverseEndiannessInplace(ndim);
 
-        // read tempory shape with uint32 entries
+        // read temporary shape with uint32 entries
         std::vector<uint32_t> shape(ndim);
         for(int d = 0; d < ndim; ++d) {
             memcpy(&shape[d], &buffer[(d + 1) * 4], 4);

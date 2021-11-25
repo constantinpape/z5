@@ -98,7 +98,7 @@ namespace compression {
             auto action = LZMA_RUN;
             std::size_t currentPosition = 0;
             do {
-                // set the stream outout to the output dat at the current position
+                // set the stream output to the output dat at the current position
                 // and set the available size to the remaining bytes in the output data
                 lzs.next_out = reinterpret_cast<uint8_t*>(dataOut + currentPosition);
                 lzs.avail_out = (sizeOut - currentPosition) * sizeof(T);

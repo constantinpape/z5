@@ -90,7 +90,7 @@ namespace z5 {
         int dataTmp[size_];
         ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
 
-        // test for 10 random chuks
+        // test for 10 random chunks
         for(unsigned _ = 0; _ < 10; ++_) {
             // get a random chunk
             types::ShapeType chunkId(ds->dimension());

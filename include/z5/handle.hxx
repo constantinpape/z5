@@ -16,7 +16,7 @@ namespace handle {
      * - File: the root group (= top level directory) for a zarr/n5 container
      * - Group: a directory that is not a dataset, i.e. does not contain nd-data
      * - Dataset: a directory that contains nd-data stored in chunks (individual files)
-     * - Chunk: an individual chunk fule in an dataset
+     * - Chunk: an individual chunk file in a dataset
      *
      * The common functionality for all handles is defined in the class Handle.
      * It includes checking whether the current object is part of a zarr or an n5 container,
@@ -65,7 +65,7 @@ namespace handle {
 
 
     //
-    // We use CRTP desing for Group, File, Dataset and Chunk handles
+    // We use CRTP design for Group, File, Dataset and Chunk handles
     // in order to infer the handle type from the base class
     // via 'derived_cast'. or call the derived class implementations (for Chunk)
     //
@@ -152,7 +152,7 @@ namespace handle {
 			std::string name;
 
             // if we have the zarr-format, chunk indices
-            // are seperated by a '.'
+            // are separated by a '.'
             if(isZarr) {
                 std::string delimiter = ".";
                 util::join(indices.begin(), indices.end(), name, delimiter);
