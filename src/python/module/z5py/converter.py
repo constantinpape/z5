@@ -29,7 +29,7 @@ if h5py:
                       fit_to_roi=False, **h5_kwargs):
         """ Convert n5 ot zarr dataset to hdf5 dataset.
 
-        The chunks of the output dataset must be spcified.
+        The chunks of the output dataset must be specified.
         The dataset is converted to hdf5 in parallel over the chunks.
         Note that hdf5 does not support parallel write access, so more threads
         may not speed up the conversion.

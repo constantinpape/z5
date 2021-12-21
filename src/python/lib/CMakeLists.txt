@@ -8,7 +8,7 @@ addPythonModule(
         factory.cxx
         handles.cxx
         util.cxx
-    LIBRRARIES
+    LIBRARIES
         ${COMPRESSION_LIBRARIES} 
         ${FILESYSTEM_LIBRARIES}
         ${CLOUD_LIBRARIES}

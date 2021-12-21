@@ -102,7 +102,7 @@ import java.io.IOException;
 //                         assert floatData[i] == 42.;
 //                     }
 //                     
-//                     // test the doubl block
+//                     // test the double block
 //                     final DataBlock<?> loadedDouble = n5.readBlock(doubleSetRaw, attrsDouble, new long[]{x, y, z});
 //                     final double[] doubleData = (double[]) loadedDouble.getData();
 //                     for(int i = 0; i < doubleData.length; i++) {

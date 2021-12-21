@@ -69,7 +69,7 @@ def rectify_shape(arr, required_shape):
     important_shape = tuple(important_shape)
 
     msg = ('could not broadcast input array from shape {} into shape {}; '
-           'complicated broacasting not supported').format(arr.shape, required_shape)
+           'complicated broadcasting not supported').format(arr.shape, required_shape)
 
     if len(important_shape) > len(required_shape):
         raise ValueError(msg)

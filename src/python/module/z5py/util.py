@@ -127,7 +127,7 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     else:
         compression_opts = {'compression_opts': None} if compression_opts is None else compression_opts
 
-    # if we don't have block-shape explitictly given, use chunk size
+    # if we don't have block-shape explicitly given, use chunk size
     # otherwise check that it's a multiple of chunks
     if block_shape is None:
         block_shape = chunks

@@ -54,7 +54,7 @@ class Dataset:
     def __array__(self, dtype=None):
         """ Create a numpy array containing the whole dataset.
 
-        NOTE: Datasets are not interchangeble with arrays!
+        NOTE: Datasets are not interchangeable with arrays!
         Every time this method is called the whole dataset is loaded into memory!
         """
         arr = self[...]
@@ -409,7 +409,7 @@ class Dataset:
             dest (array) destination object into which the read data is written to.
             dest_sel (slice array) selection of data to write to ``dest``. Defaults to the whole range of ``dest``.
             source_sel (slice array) selection in dataset to read from. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
+        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
         offset
         """
         if source_sel is None:
@@ -428,7 +428,7 @@ class Dataset:
             source_sel (slice array) selection of data to write from ``source``. Defaults to the whole range of
             ``source``.
             dest_sel (slice array) selection in dataset to write to. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but dont need to have the same
+        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
         offset
         """
         if dest_sel is None:

@@ -196,7 +196,7 @@ namespace z5 {
                     try {
                         path = ds.path().string();
                     } catch(...) {
-                        throw std::runtime_error("Can only picke filesystem datasets");
+                        throw std::runtime_error("Can only pick filesystem datasets");
                     }
                     return py::make_tuple(path, ds.mode().mode());
                 },

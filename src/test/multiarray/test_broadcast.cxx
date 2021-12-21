@@ -47,7 +47,7 @@ namespace multiarray {
             ArrayShape arrayShape(shape.begin(), shape.end());
             const T val = 42;
 
-            // write scalcar and load for completely overlapping array consisting of 8 chunks
+            // write scalar and load for completely overlapping array consisting of 8 chunks
             {
                 ArrayShape offset({0, 0, 0});
                 ArrayShape subShape({20, 20, 20});

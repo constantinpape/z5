@@ -165,7 +165,7 @@ int main() {
   // get handle to a File on the filesystem
   z5::filesystem::handle::File f("data.zr");
   // if you wanted to use a different backend, for example AWS, you
-  // would need to use this insetead:
+  // would need to use this instead:
   // z5::s3::handle::File f;
 
   // create the file in zarr format

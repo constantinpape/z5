@@ -8,7 +8,7 @@
 namespace z5 {
 namespace handle {
 
-    // TODO this should go into docstrings and then a documnetation should be generated from them
+    // TODO this should go into docstrings and then a documentation should be generated from them
     // (using doxygen?!)
     /*
      * This header includes the base classes for the z5 handle objects.

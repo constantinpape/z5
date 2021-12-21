@@ -8,8 +8,8 @@
 // include boost::filesystem or std::filesystem header
 // and define the namespace fs
 #ifdef WITH_BOOST_FS
-    #ifndef BOOST_FILESYSTEM_NO_DEPERECATED
-        #define BOOST_FILESYSTEM_NO_DEPERECATED
+    #ifndef BOOST_FILESYSTEM_NO_DEPRECATED
+        #define BOOST_FILESYSTEM_NO_DEPRECATED
     #endif
     #include <boost/filesystem.hpp>
     #include <boost/filesystem/fstream.hpp>

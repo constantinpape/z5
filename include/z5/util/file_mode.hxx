@@ -7,7 +7,7 @@ namespace z5 {
 
     class FileMode {
     public:
-        // the inidividual options
+        // the individual options
         static const char can_write = 1;
         static const char can_create = 2;
         static const char must_not_exist = 4;

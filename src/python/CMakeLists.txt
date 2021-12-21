@@ -60,7 +60,7 @@ macro(addPythonModule)
 
     set(options "")
     set(oneValueArgs NESTED_NAME)
-    set(multiValueArgs SOURCES LIBRRARIES)
+    set(multiValueArgs SOURCES LIBRARIES)
     cmake_parse_arguments(ADD_PY_MOD "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
     # get name of the module
@@ -84,7 +84,7 @@ macro(addPythonModule)
     # link additional libraries
     target_link_libraries(_${MODULE_NAME}
         PUBLIC
-        ${ADD_PY_MOD_LIBRRARIES}
+        ${ADD_PY_MOD_LIBRARIES}
     )
 
     IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
