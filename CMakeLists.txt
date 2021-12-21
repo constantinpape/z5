@@ -105,7 +105,7 @@ option(BUILD_Z5PY "Build z5 python bindings" ON)
 # Include gtest submodule
 ###############################
 
-# NOTE I tried to replace thhis with the conda package and
+# NOTE I tried to replace this with the conda package and
 # use find_pacakge(GTest), but although CMake could find the
 # libraries, this led to horrible linker errors
 if(BUILD_TESTS)

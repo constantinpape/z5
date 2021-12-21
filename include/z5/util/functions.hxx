@@ -67,7 +67,7 @@ namespace util {
 
 
     // TODO add option to ignore fill value
-    // TODO maybe it would be benefitial to have intermediate unordered sets
+    // TODO maybe it would be beneficial to have intermediate unordered sets
     template<class T>
     void unique(const Dataset & dataset, const int nThreads, std::set<T> & uniques) {
 
@@ -101,7 +101,7 @@ namespace util {
 
 
     // TODO add option to ignore fill value
-    // TODO maybe it would be benefitial to have intermediate unordered maps
+    // TODO maybe it would be beneficial to have intermediate unordered maps
     template<class T>
     void uniqueWithCounts(const Dataset & dataset, const int nThreads, std::map<T, size_t> & uniques) {
         // allocate the per thread data

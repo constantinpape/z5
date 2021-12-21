@@ -36,7 +36,7 @@ class TestS3(unittest.TestCase):
         if bucket_name is None:
             bucket_name = TestS3.bucket_name
 
-        # access the s3 filesysyem
+        # access the s3 filesystem
         fs = s3fs.S3FileSystem(anon=False)
         store = s3fs.S3Map(root=bucket_name, s3=fs)
 

@@ -43,10 +43,10 @@ namespace multiarray {
 
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToViewND(const std::vector<T> & buffer,
-                                   xt::xexpression<VIEW> & viewExperession,
+                                   xt::xexpression<VIEW> & viewExpression,
                                    const SHAPE_TYPE & arrayStrides) {
         // get the view into the out array and the number of dimension
-        auto & view = viewExperession.derived_cast();
+        auto & view = viewExpression.derived_cast();
         const std::size_t dim = view.dimension();
         // buffer size and view shape
         const std::size_t bufSize = buffer.size();
@@ -66,7 +66,7 @@ namespace multiarray {
         // we start the outer loop at the second from last dimension
         // (last dimension is the fastest moving and consecutive in memory)
         for(int d = dim - 2; d >= 0;) {
-            // copy the piece of buffer that is consectuve to our view
+            // copy the piece of buffer that is consecutive to our view
             std::copy(buffer.begin() + bufferOffset,
                       buffer.begin() + bufferOffset + memLen,
                       &view(0) + viewOffset);
@@ -127,26 +127,26 @@ namespace multiarray {
     // TODO this only works for row-major (C) memory layout
     template<typename T, typename VIEW, typename SHAPE_TYPE>
     inline void copyBufferToView(const std::vector<T> & buffer,
-                                 xt::xexpression<VIEW> & viewExperession,
+                                 xt::xexpression<VIEW> & viewExpression,
                                  const SHAPE_TYPE & arrayStrides) {
-        auto & view = viewExperession.derived_cast();
+        auto & view = viewExpression.derived_cast();
         // ND impl doesn't work for 1D
         if(view.dimension() == 1) {
             // std::copy(buffer.begin(), buffer.end(), view.begin());
             const auto bufferView = xt::adapt(buffer, view.shape());
             view = bufferView;
         } else {
-            copyBufferToViewND(buffer, viewExperession, arrayStrides);
+            copyBufferToViewND(buffer, viewExpression, arrayStrides);
         }
     }
 
 
     template<typename T, typename VIEW, typename SHAPE_TYPE>
-    inline void copyViewToBufferND(const xt::xexpression<VIEW> & viewExperession,
+    inline void copyViewToBufferND(const xt::xexpression<VIEW> & viewExpression,
                                   std::vector<T> & buffer,
                                   const SHAPE_TYPE & arrayStrides) {
         // get the view into the out array and the number of dimension
-        const auto & view = viewExperession.derived_cast();
+        const auto & view = viewExpression.derived_cast();
         const std::size_t dim = view.dimension();
         // buffer size and view shape
         const std::size_t bufSize = buffer.size();
@@ -166,7 +166,7 @@ namespace multiarray {
         // we start the outer loop at the second from last dimension
         // (last dimension is the fastest moving and consecutive in memory)
         for(int d = dim - 2; d >= 0;) {
-            // copy the piece of buffer that is consectuve to our view
+            // copy the piece of buffer that is consecutive to our view
             std::copy(&view(0) + viewOffset,
                       &view(0) + viewOffset + memLen,
                       buffer.begin() + bufferOffset);
@@ -226,10 +226,10 @@ namespace multiarray {
 
     // TODO this only works for row-major (C) memory layout
     template<typename T, typename VIEW, typename SHAPE_TYPE>
-    inline void copyViewToBuffer(const xt::xexpression<VIEW> & viewExperession,
+    inline void copyViewToBuffer(const xt::xexpression<VIEW> & viewExpression,
                                  std::vector<T> & buffer,
                                  const SHAPE_TYPE & arrayStrides) {
-        const auto & view = viewExperession.derived_cast();
+        const auto & view = viewExpression.derived_cast();
         // can't use the ND implementation in 1d, hence we resort to xtensor
         // which should be fine in 1D
         if(view.dimension() == 1) {
@@ -237,7 +237,7 @@ namespace multiarray {
             auto bufferView = xt::adapt(buffer, view.shape());
             bufferView = view;
         } else {
-            copyViewToBufferND(viewExperession, buffer, arrayStrides);
+            copyViewToBufferND(viewExpression, buffer, arrayStrides);
         }
     }
 

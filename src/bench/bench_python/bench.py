@@ -317,4 +317,4 @@ if __name__ == '__main__':
     parser.add_argument('--iterations', '-i', default=5)
 
     args = parser.parse_args()
-    main(args.path, args.name, args.save_folder, args.iterstions)
+    main(args.path, args.name, args.save_folder, args.iterations)

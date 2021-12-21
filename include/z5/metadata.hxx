@@ -220,7 +220,7 @@ namespace z5 {
         types::ShapeType shape;
         types::ShapeType chunkShape;
 
-        // compressor name and opyions
+        // compressor name and options
         types::Compressor compressor;
         types::CompressionOptions compressionOptions;
 

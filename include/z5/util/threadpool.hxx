@@ -459,7 +459,7 @@ inline void parallel_foreach_impl(
 }
 
 // Runs foreach on a single thread.
-// Used for API compatibility when the numbe of threads is 0.
+// Used for API compatibility when the number of threads is 0.
 template<class ITER, class F>
 inline void parallel_foreach_single_thread(
     ITER begin,
