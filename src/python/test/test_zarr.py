@@ -79,7 +79,7 @@ class ZarrTestMixin(ABC):
                                            compressor=zarr_compressors[compression])
                 ar[:] = data
                 # read with z5py
-                out = z5py.File(self.path)[key][:]
+                out = f_z5[key][:]
                 self.assertEqual(data.shape, out.shape)
                 self.assertTrue(np.allclose(data, out))
 
@@ -136,6 +136,15 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
             out = z5py.File(self.path)[key][:]
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
+
+    @unittest.skipIf(int(zarr.__version__.split(".")[1]) < 10, "Need zarr >= 2.10 for supported of nested storage")
+    def test_zarr_nested(self):
+        data = np.random.rand(128, 128)
+        with zarr.open(self.path, mode="a") as f:
+            f.create_dataset("data", data=data, chunks=(16, 16), dimension_separator="/")
+        with z5py.File(self.path, mode="r") as f:
+            res = f["data"][:]
+        self.assertTrue(np.allclose(data, res))
 
 
 @unittest.skipUnless(zarr, 'Requires zarr package')

@@ -271,7 +271,7 @@ namespace z5 {
 
             jIt = j.find("filters");
             if(jIt != j.end()) {
-                if(!j["filters"].is_null()) {
+                if(!j["filters"].is_null() && j["filters"].size() > 0) {
                     throw std::runtime_error(
                         "Invalid Filters: Z5 does not support filters"
                     );

@@ -12,31 +12,60 @@
 
 
 namespace z5 {
+    namespace factory_detail {
+        inline void getZarrDelimiter(const fs::path & root, const std::string & key, std::string & zarrDelimiter) {
+            const fs::path path = root / key / ".zarray";
+            if(!fs::exists(path)) {
+                return;
+            }
+            nlohmann::json j;
+
+            #ifdef WITH_BOOST_FS
+            fs::ifstream file(path);
+            #else
+            std::ifstream file(path);
+            #endif
+            file >> j;
+            file.close();
+
+            const auto it = j.find("dimension_separator");
+            if(it != j.end()) {
+                zarrDelimiter = *it;
+            }
+        }
+    }
 
 
     template<class GROUP>
     inline std::unique_ptr<Dataset> openDataset(const handle::Group<GROUP> & root,
                                                 const std::string & key) {
+        std::string zarrDelimiter = ".";
 
         // check if this is a s3 group
         #ifdef WITH_S3
         if(root.isS3()) {
+            // TODO support zarr dataset with dimension separator by reading this from s3
             s3::handle::Dataset ds(root, key);
             return s3::openDataset(ds);
         }
         #endif
         #ifdef WITH_GCS
         if(root.isGcs()) {
+            // TODO support zarr dataset with dimension separator by reading this from gcs
             gcs::handle::Dataset ds(root, key);
             return gcs::openDataset(ds);
         }
         #endif
 
-        filesystem::handle::Dataset ds(root, key);
+        if(root.isZarr()) {
+            factory_detail::getZarrDelimiter(root.path(), key, zarrDelimiter);
+        }
+        filesystem::handle::Dataset ds(root, key, zarrDelimiter);
         return filesystem::openDataset(ds);
     }
 
 
+    // TODO support passing zarr delimiter (need to also adapt this upstream)
     template<class GROUP>
     inline std::unique_ptr<Dataset> createDataset(
         const handle::Group<GROUP> & root,
@@ -61,6 +90,7 @@ namespace z5 {
     }
 
 
+    // TODO support passing zarr delimiter (need to also adapt this upstream)
     template<class GROUP>
     inline std::unique_ptr<Dataset> createDataset(
         const handle::Group<GROUP> & root,
@@ -95,6 +125,7 @@ namespace z5 {
     }
 
 
+    // TODO support passing zarr delimiter (need to also adapt this upstream)
     // dataset creation from json, because wrapping the CompressionOptions type
     // to python is very brittle
     template<class GROUP>

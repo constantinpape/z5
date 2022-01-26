@@ -188,8 +188,8 @@ namespace handle {
         typedef z5::handle::Dataset<Dataset> BaseType;
 
         template<class GROUP>
-        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key)
-            : BaseType(group.mode()), HandleImpl(group.path() / key) {
+        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key, const std::string & zarrDelimiter=".")
+            : BaseType(group.mode(), zarrDelimiter), HandleImpl(group.path() / key) {
         }
 
         Dataset(const fs::path & path, const FileMode & mode)
@@ -239,8 +239,8 @@ namespace handle {
               const types::ShapeType & chunkIndices,
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
-                                                dsHandle_(ds),
-                                                path_(ds.path() / getChunkKey(ds.isZarr())){}
+                                                       dsHandle_(ds),
+                                                       path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter())){}
 
         // make the top level directories for a n5 chunk
         inline void create() const {
