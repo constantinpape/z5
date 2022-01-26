@@ -93,8 +93,13 @@ namespace handle {
     template<class DATASET>
     class Dataset : public Handle {
     public:
-        Dataset(const FileMode mode) : Handle(mode){}
+        Dataset(const FileMode mode, const std::string zarrDelimiter=".") : Handle(mode), zarrDelimiter_(zarrDelimiter){}
         virtual ~Dataset() {}
+
+        const std::string & zarrDelimiter() const {return zarrDelimiter_;}
+
+    private:
+        std::string zarrDelimiter_;
     };
 
 
@@ -147,19 +152,17 @@ namespace handle {
         }
 
     protected:
-        inline std::string getChunkKey(const bool isZarr) const {
+        inline std::string getChunkKey(const bool isZarr, const std::string & zarrDelimiter=".") const {
             const auto & indices = chunkIndices();
 			std::string name;
 
             // if we have the zarr-format, chunk indices
-            // are separated by a '.'
+            // are separated by a '.' by default, but the delimiter may be changed in the metadata
             if(isZarr) {
-                std::string delimiter = ".";
-                util::join(indices.begin(), indices.end(), name, delimiter);
+                util::join(indices.begin(), indices.end(), name, zarrDelimiter);
             }
 
-            // otherwise (n5-format), each chunk index has
-            // its own directory
+            // in n5 each chunk index has its own directory, i.e. the delimiter is '/'
             else {
                 std::string delimiter = "/";
                 // N5-Axis order: we need to read the chunks in reverse order
