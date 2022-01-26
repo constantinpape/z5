@@ -57,7 +57,9 @@ namespace z5 {
         }
         #endif
 
-        factory_detail::getZarrDelimiter(root.path(), key, zarrDelimiter);
+        if(root.isZarr()) {
+            factory_detail::getZarrDelimiter(root.path(), key, zarrDelimiter);
+        }
         filesystem::handle::Dataset ds(root, key, zarrDelimiter);
         return filesystem::openDataset(ds);
     }
