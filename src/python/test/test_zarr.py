@@ -9,8 +9,10 @@ import z5py
 try:
     import zarr
     import numcodecs
+    zarr_version = zarr.__version__
 except ImportError:
     zarr = None
+    zarr_version = "0.0.0"
 
 
 class ZarrTestMixin(ABC):
@@ -137,7 +139,7 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
 
-    @unittest.skipIf(int(zarr.__version__.split(".")[1]) < 10, "Need zarr >= 2.10 for supported of nested storage")
+    @unittest.skipIf(int(zarr_version.split(".")[1]) < 10, "Need zarr >= 2.10 for supported of nested storage")
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
         with zarr.open(self.path, mode="a") as f:
