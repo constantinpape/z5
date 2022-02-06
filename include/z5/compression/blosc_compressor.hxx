@@ -75,16 +75,16 @@ namespace compression {
         void init(const DatasetMetadata & metadata) {
             const auto & cOpts = metadata.compressionOptions;
 
-            clevel_     = boost::get<int>(cOpts.at("level"));
-            shuffle_    = boost::get<int>(cOpts.at("shuffle"));
-            compressor_ = boost::get<std::string>(cOpts.at("codec"));
-            blocksize_ = boost::get<int>(cOpts.at("blocksize"));
+            clevel_     = std::get<int>(cOpts.at("level"));
+            shuffle_    = std::get<int>(cOpts.at("shuffle"));
+            compressor_ = std::get<std::string>(cOpts.at("codec"));
+            blocksize_ = std::get<int>(cOpts.at("blocksize"));
 
             // set nthreads with a default value of 1
             nthreads_ = 1;
             auto threadsIt = cOpts.find("nthreads");
             if(threadsIt != cOpts.end()) {
-                nthreads_ = boost::get<int>(threadsIt->second);
+                nthreads_ = std::get<int>(threadsIt->second);
             }
         }
 

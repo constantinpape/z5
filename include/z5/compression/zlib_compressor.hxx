@@ -148,8 +148,8 @@ namespace compression {
 
     private:
         void init(const DatasetMetadata & metadata) {
-            clevel_ = boost::get<int>(metadata.compressionOptions.at("level"));
-            useZlibEncoding_ = boost::get<bool>(metadata.compressionOptions.at("useZlib"));
+            clevel_ = std::get<int>(metadata.compressionOptions.at("level"));
+            useZlibEncoding_ = std::get<bool>(metadata.compressionOptions.at("useZlib"));
         }
 
         // compression level

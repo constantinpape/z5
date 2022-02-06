@@ -222,4 +222,44 @@ namespace z5 {
         }
     }
 
+
+    TEST_F(DatasetTest, CreateBloscDataset) {
+
+        types::ShapeType shape({100, 100, 100});
+        types::ShapeType chunks({10, 10, 10});
+
+        Metadata fMeta(true);
+        filesystem::writeMetadata(fileHandle_, fMeta);
+        auto ds = createDataset(fileHandle_, "blosc-ds", "float32", shape, chunks, "blosc");
+        const auto & chunksPerDim = ds->chunksPerDimension();
+
+        std::default_random_engine generator;
+
+        // test uninitialized chunk -> this is expected to throw a runtime error
+        float dataTmp[size_];
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
+
+        // test for 10 random chunks
+        for(unsigned t = 0; t < 10; ++t) {
+
+            // get a random chunk
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = distr(generator);
+            }
+
+            ds->writeChunk(chunkId, dataFloat_);
+
+            // read a chunk
+            float dataTmp[size_];
+            ds->readChunk(chunkId, dataTmp);
+
+            // check
+            for(std::size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataFloat_[i]);
+            }
+        }
+    }
+
 }
