@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include "boost/variant.hpp"
+#include <variant>
 
 #include "nlohmann/json.hpp"
 
@@ -207,7 +207,7 @@ namespace types {
     //
     // Compression Options and Fill Value
     //
-    typedef std::map<std::string, boost::variant<int, bool, std::string>> CompressionOptions;
+    typedef std::map<std::string, std::variant<int, bool, std::string>> CompressionOptions;
 
     inline void readZarrCompressionOptionsFromJson(Compressor compressor,
                                                    const nlohmann::json & jOpts,
@@ -254,22 +254,22 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: jOpts["cname"]   = boost::get<std::string>(options.at("codec"));
-                        jOpts["clevel"]  = boost::get<int>(options.at("level"));
-                        jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
-                        jOpts["blocksize"] = boost::get<int>(options.at("blocksize"));
+            case blosc: jOpts["cname"]   = std::get<std::string>(options.at("codec"));
+                        jOpts["clevel"]  = std::get<int>(options.at("level"));
+                        jOpts["shuffle"] = std::get<int>(options.at("shuffle"));
+                        jOpts["blocksize"] = std::get<int>(options.at("blocksize"));
                         break;
             #endif
             #ifdef WITH_ZLIB
-            case zlib: jOpts["id"] = boost::get<bool>(options.at("useZlib")) ? "zlib" : "gzip";
-                       jOpts["level"] = boost::get<int>(options.at("level"));
+            case zlib: jOpts["id"] = std::get<bool>(options.at("useZlib")) ? "zlib" : "gzip";
+                       jOpts["level"] = std::get<int>(options.at("level"));
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: jOpts["level"] = boost::get<int>(options.at("level")); break;
+            case bzip2: jOpts["level"] = std::get<int>(options.at("level")); break;
             #endif
             #ifdef WITH_LZ4
-            case lz4: jOpts["acceleration"] = boost::get<int>(options.at("level")); break;
+            case lz4: jOpts["acceleration"] = std::get<int>(options.at("level")); break;
             #endif
             // raw compression has no parameters
             default: break;
@@ -323,25 +323,25 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_ZLIB
-            case zlib: jOpts["level"] = boost::get<int>(options.at("level"));
+            case zlib: jOpts["level"] = std::get<int>(options.at("level"));
                        break;
             #endif
             #ifdef WITH_BZIP2
-            case bzip2: jOpts["blockSize"] = boost::get<int>(options.at("level"));
+            case bzip2: jOpts["blockSize"] = std::get<int>(options.at("level"));
                         break;
             #endif
             #ifdef WITH_XZ
-            case xz: jOpts["preset"] = boost::get<int>(options.at("level")); break;
+            case xz: jOpts["preset"] = std::get<int>(options.at("level")); break;
             #endif
             #ifdef WITH_LZ4
-            case lz4: jOpts["blockSize"] = boost::get<int>(options.at("level")); break;
+            case lz4: jOpts["blockSize"] = std::get<int>(options.at("level")); break;
             #endif
             #ifdef WITH_BLOSC
-            case blosc: jOpts["cname"] = boost::get<std::string>(options.at("codec"));
-                        jOpts["clevel"] = boost::get<int>(options.at("level"));
-                        jOpts["shuffle"] = boost::get<int>(options.at("shuffle"));
-                        jOpts["blocksize"] = boost::get<int>(options.at("blocksize"));
-                        jOpts["nthreads"] = boost::get<int>(options.at("nthreads"));
+            case blosc: jOpts["cname"] = std::get<std::string>(options.at("codec"));
+                        jOpts["clevel"] = std::get<int>(options.at("level"));
+                        jOpts["shuffle"] = std::get<int>(options.at("shuffle"));
+                        jOpts["blocksize"] = std::get<int>(options.at("blocksize"));
+                        jOpts["nthreads"] = std::get<int>(options.at("nthreads"));
                         break;
             #endif
             // raw compression has no parameters
@@ -356,9 +356,10 @@ namespace types {
 
         switch(compressor) {
             #ifdef WITH_BLOSC
-            case blosc: if(options.find("name") == options.end()){options["name"] = "lz4";}
+            case blosc: if(options.find("codec") == options.end()){options["codec"] = std::string("lz4");}
                         if(options.find("level") == options.end()){options["level"] = 5;}
                         if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
+                        if(options.find("blocksize") == options.end()){options["blocksize"] = 0;}
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -407,13 +408,16 @@ namespace types {
     inline void compressionTypeToJson(const CompressionOptions & opts, nlohmann::json & j) {
         for(auto & elem : opts) {
             const auto & val = elem.second;
-            const int type_id = val.which();
-            switch(type_id) {
-                case 0: j[elem.first] = boost::get<int>(val); break;
-                case 1: j[elem.first] = boost::get<bool>(val); break;
-                case 2: j[elem.first] = boost::get<std::string>(val); break;
-                default: throw std::runtime_error("Invalid type conversion for compression type");
+            if(std::holds_alternative<int>(val)){
+                j[elem.first] = std::get<int>(val);
+            } else if(std::holds_alternative<bool>(val)){
+                j[elem.first] = std::get<bool>(val);
+            } else if(std::holds_alternative<std::string>(val)){
+                j[elem.first] = std::get<std::string>(val);
+            } else {
+                throw std::runtime_error("Invalid type conversion for compression type");
             }
+
         }
     }
 

@@ -121,7 +121,11 @@ namespace z5 {
 
         void fromJsonZarr(const nlohmann::json & j) {
             checkJson(j);
-            dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
+            try {
+                dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
+            } catch(std::out_of_range) {
+                throw std::runtime_error("Unsupported zarr dtype: " + static_cast<std::string>(j["dtype"]));
+            }
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
 
