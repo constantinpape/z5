@@ -147,6 +147,13 @@ namespace z5 {
                 fillValue = static_cast<double>(fillValJson);
             }
 
+            auto jIt = j.find("dimension_separator");
+            if(jIt != j.end()) {
+                zarrDelimiter = *jIt;
+            } else {
+                zarrDelimiter = ".";
+            }
+
             const auto & compressionOpts = j["compressor"];
 
             std::string zarrCompressorId = compressionOpts.is_null() ? "raw" : compressionOpts["id"];
@@ -156,8 +163,7 @@ namespace z5 {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonZarr: wrong compressor for zarr format: " + zarrCompressorId);
             }
 
-            types::readZarrCompressionOptionsFromJson(compressor, compressionOpts,
-                                                      compressionOptions);
+            types::readZarrCompressionOptionsFromJson(compressor, compressionOpts, compressionOptions);
         }
 
 

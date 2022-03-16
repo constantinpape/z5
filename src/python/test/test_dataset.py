@@ -477,6 +477,22 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
         res = g['data'][:]
         self.assertTrue(np.allclose(data, res))
 
+    def test_nested2(self):
+        f = z5py.ZarrFile(self.path, mode='w', dimension_separator='/')
+        chunks = (10, 10, 10)
+        f.create_dataset('data', shape=self.shape, chunks=chunks, dtype='float64')
+
+        g = z5py.ZarrFile(self.path, mode='a')
+        ds = f['data']
+        data = np.random.rand(*self.shape)
+        ds[:] = data
+        self.assertTrue(os.path.exists(
+            os.path.join(self.path, 'data/0/0/0')
+        ))
+
+        res = ds[:]
+        self.assertTrue(np.allclose(data, res))
+
 
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):
     data_format = 'n5'
