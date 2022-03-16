@@ -41,14 +41,16 @@ namespace z5 {
             const bool isZarr,
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-            const double fillValue=0
+            const double fillValue=0,
+            const std::string & zarrDelimiter="."
             ) : Metadata(isZarr),
                 dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
-                fillValue(fillValue)
+                fillValue(fillValue),
+                zarrDelimiter(zarrDelimiter)
         {
             checkShapes();
         }
@@ -98,6 +100,7 @@ namespace z5 {
             j["filters"] = nullptr;
             j["order"] = "C";
             j["zarr_format"] = zarrFormat;
+            j["dimension_separator"] = zarrDelimiter;
         }
 
         void toJsonN5(nlohmann::json & j) const {
@@ -229,6 +232,7 @@ namespace z5 {
         types::CompressionOptions compressionOptions;
 
         double fillValue;
+        std::string zarrDelimiter;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -293,6 +297,7 @@ namespace z5 {
         const std::string & compressor,
         const types::CompressionOptions & compressionOptions,
         const double fillValue,
+        const std::string & zarrDelimiter,
         DatasetMetadata & metadata)
     {
         // get the internal data type
@@ -319,7 +324,7 @@ namespace z5 {
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
-                                   fillValue);
+                                   fillValue, zarrDelimiter);
     }
 
 

@@ -151,10 +151,11 @@ class Dataset:
             data = kwargs.pop('data', None)
             compression = kwargs.pop('compression', None)
             fillvalue = kwargs.pop('fillvalue', 0)
+            dimension_separator = kwargs.pop('dimension_separator', '.')
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
-                                       compression_options=kwargs)
+                                       compression_options=kwargs, dimension_separator=dimension_separator)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -162,7 +163,8 @@ class Dataset:
                         data=None, chunks=None,
                         compression=None,
                         fillvalue=0, n_threads=1,
-                        compression_options={}):
+                        compression_options={},
+                        dimension_separator="."):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -228,7 +230,8 @@ class Dataset:
         copts = json.dumps(copts)
         # get the dataset and write data if necessary
         impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
-                                    shape, chunks, compression, copts, fillvalue)
+                                    shape, chunks, compression, copts, fillvalue,
+                                    dimension_separator)
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
         if have_data:

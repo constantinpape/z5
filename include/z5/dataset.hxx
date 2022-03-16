@@ -32,6 +32,7 @@ namespace z5 {
                                                     shape_(metadata.shape),
                                                     chunkShape_(metadata.chunkShape),
                                                     chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>())),
+                                                    zarrDelimiter_(metadata.zarrDelimiter),
                                                     chunking_(shape_, chunkShape_)
         {}
 
@@ -132,6 +133,7 @@ namespace z5 {
         types::ShapeType shape_;
         types::ShapeType chunkShape_;
         std::size_t chunkSize_;
+        std::string zarrDelimiter_;
 
         util::Blocking chunking_;
     };

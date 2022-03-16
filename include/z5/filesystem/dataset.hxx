@@ -59,8 +59,8 @@ namespace filesystem {
             }
 
             // write the chunk to disc
-            if(!isZarr_) {
-                // need to make sure we have the root directory if this is an n5 chunk
+            if(!isZarr_ || zarrDelimiter_ == "/") {
+                // need to make sure we have the root directory if this is an nested chunk
                 chunk.create();
             }
             write(path, buffer);
