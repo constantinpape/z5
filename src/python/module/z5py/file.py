@@ -1,7 +1,6 @@
 import json
 import os
 import errno
-import pathlib
 
 from . import _z5py
 from .group import Group
@@ -47,7 +46,7 @@ class File(Group):
             is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
         return is_zarr
 
-    def __init__(self, path, mode='a', use_zarr_format=None):
+    def __init__(self, path, mode="a", use_zarr_format=None, dimension_separator="."):
 
         if isinstance(path, os.PathLike):
             path = os.fspath(path)
@@ -70,7 +69,7 @@ class File(Group):
         handle = _z5py.File(path, _z5py.FileMode(self.file_modes[mode]))
         mode = handle.mode()
 
-        super().__init__(handle, _z5py.Group, self, '')
+        super().__init__(handle, _z5py.Group, parent=self, name="", dimension_separator=dimension_separator)
 
         # at some point we should move more of this logic to c++ as well
         # if we open in 'w', remove the existing file existing
@@ -140,8 +139,8 @@ class ZarrFile(File):
         mode (str): file mode used to open / create the file (default: 'a').
     """
 
-    def __init__(self, path, mode='a'):
-        super().__init__(path=path, use_zarr_format=True, mode=mode)
+    def __init__(self, path, mode="a", dimension_separator="."):
+        super().__init__(path=path, use_zarr_format=True, mode=mode, dimension_separator=dimension_separator)
 
 
 # TODO can we implement automatic zarr/n5 inference for s3?

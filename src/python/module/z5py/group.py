@@ -24,12 +24,13 @@ class Group(Mapping):
                   'r+': _z5py.FileMode.r_p, 'w': _z5py.FileMode.w,
                   'w-': _z5py.FileMode.w_m, 'x': _z5py.FileMode.w_m}
 
-    def __init__(self, handle, handle_factory, parent, name):
+    def __init__(self, handle, handle_factory, parent, name, dimension_separator):
         self._handle = handle
         self._handle_factory = handle_factory
         self._attrs = AttributeManager(self._handle)
         self._parent = parent
         self._name = name
+        self._dimension_separator = dimension_separator
 
     #
     # Magic Methods, Attributes, Keys, Contains
@@ -73,7 +74,7 @@ class Group(Mapping):
 
         if self.is_sub_group(name.lstrip('/')):
             handle = self._handle_factory(self._handle, name.lstrip('/'))
-            return Group(handle, self._handle_factory, self, self._name + '/' + name)
+            return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
         else:
             return Dataset._open_dataset(self, name.lstrip('/'))
 
@@ -131,7 +132,7 @@ class Group(Mapping):
         if name in self:
             raise KeyError("An object with name %s already exists" % name)
         handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self, self._name + '/' + name)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
 
     def require_group(self, name):
         """ Require group.
@@ -153,7 +154,7 @@ class Group(Mapping):
             if not self._handle.mode().can_write():
                 raise ValueError("Cannot create group with read-only permissions.")
             handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self, self._name + '/' + name)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
 
     #
     # Dataset functionality
@@ -201,7 +202,8 @@ class Group(Mapping):
         return Dataset._create_dataset(self, name, shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,
-                                       compression_options)
+                                       compression_options,
+                                       self._dimension_separator)
 
     def require_dataset(self, name, shape,
                         dtype=None, chunks=None,
@@ -228,7 +230,7 @@ class Group(Mapping):
         if not self._handle.mode().can_write():
             raise ValueError("Cannot create dataset with read-only permissions.")
         return Dataset._require_dataset(self, name, shape, dtype, chunks,
-                                        n_threads, **kwargs)
+                                        n_threads, dimension_separator=self._dimension_separator, **kwargs)
 
     def visititems(self, func, _root=None):
         """ Recursively visit names and objects in this group.

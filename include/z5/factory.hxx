@@ -74,18 +74,20 @@ namespace z5 {
     ) {
         #ifdef WITH_S3
         if(root.isS3()) {
+            // TODO support zarr dataset with dimension separator in s3
             s3::handle::Dataset ds(root, key);
             return s3::createDataset(ds, metadata);
         }
         #endif
         #ifdef WITH_GCS
         if(root.isGcs()) {
+            // TODO support zarr dataset with dimension separator in gcs
             gcs::handle::Dataset ds(root, key);
             return gcs::createDataset(ds, metadata);
         }
         #endif
 
-        filesystem::handle::Dataset ds(root, key);
+        filesystem::handle::Dataset ds(root, key, metadata.zarrDelimiter);
         return filesystem::createDataset(ds, metadata);
     }
 
@@ -100,32 +102,34 @@ namespace z5 {
         const types::ShapeType & chunkShape,
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-        const double fillValue=0
+        const double fillValue=0,
+        const std::string & zarrDelimiter="."
     ) {
         DatasetMetadata metadata;
         createDatasetMetadata(dtype, shape, chunkShape, root.isZarr(),
                               compressor, compressionOptions, fillValue,
-                              metadata);
+                              zarrDelimiter, metadata);
 
         #ifdef WITH_S3
         if(root.isS3()) {
+            // TODO support zarr dataset with dimension separator in s3
             s3::handle::Dataset ds(root, key);
             return s3::createDataset(ds, metadata);
         }
         #endif
         #ifdef WITH_GCS
         if(root.isGcs()) {
+            // TODO support zarr dataset with dimension separator in gcs
             gcs::handle::Dataset ds(root, key);
             return gcs::createDataset(ds, metadata);
         }
         #endif
 
-        filesystem::handle::Dataset ds(root, key);
+        filesystem::handle::Dataset ds(root, key, zarrDelimiter);
         return filesystem::createDataset(ds, metadata);
     }
 
 
-    // TODO support passing zarr delimiter (need to also adapt this upstream)
     // dataset creation from json, because wrapping the CompressionOptions type
     // to python is very brittle
     template<class GROUP>
@@ -137,7 +141,8 @@ namespace z5 {
         const types::ShapeType & chunkShape,
         const std::string & compressor,
         const nlohmann::json & compressionOptions,
-        const double fillValue=0
+        const double fillValue=0,
+        const std::string & zarrDelimiter="."
     ) {
         types::Compressor internalCompressor;
         try {
@@ -149,7 +154,7 @@ namespace z5 {
         types::CompressionOptions cOpts;
         types::jsonToCompressionType(compressionOptions, cOpts);
 
-        return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue);
+        return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue, zarrDelimiter);
     }
 
 

@@ -21,15 +21,17 @@ namespace z5 {
                                    const std::vector<std::size_t> & chunk_shape,
                                    const std::string & compression,
                                    const std::string & copts,
-                                   const double fill_value){
+                                   const double fill_value,
+                                   const std::string & dimension_separator){
                 const nlohmann::json j = nlohmann::json::parse(copts);
-                return createDataset(root, key, dtype, shape, chunk_shape, compression, j, fill_value);
+                return createDataset(root, key, dtype, shape, chunk_shape, compression, j, fill_value, dimension_separator);
             },
             py::arg("root"), py::arg("key"),
             py::arg("dtype"), py::arg("shape"), py::arg("chunks"),
             py::arg("compression"),
             py::arg("compression_options")=std::string(),
-            py::arg("fill_value")=0);
+            py::arg("fill_value")=0,
+            py::arg("dimension_separator")=".");
     }
 
 

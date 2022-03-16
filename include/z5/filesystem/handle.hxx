@@ -239,13 +239,13 @@ namespace handle {
               const types::ShapeType & chunkIndices,
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
-                                                       dsHandle_(ds),
-                                                       path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter())){}
+                                                         dsHandle_(ds),
+                                                         path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter())){}
 
-        // make the top level directories for a n5 chunk
+        // make the top level directories for a nested chunk
         inline void create() const {
-            // don't need to do anything for zarr format
-            if(dsHandle_.isZarr()) {
+            // don't need to do anything for chunks that are not nested
+            if(dsHandle_.isZarr() && dsHandle_.zarrDelimiter() != "/") {
                 return;
             }
 
