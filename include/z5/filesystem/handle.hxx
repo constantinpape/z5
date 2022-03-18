@@ -258,7 +258,7 @@ namespace handle {
                 // throws an exception
                 try {
                     fs::create_directories(root);
-                } catch (...) {}
+                } catch (fs::filesystem_error) {}
             }
         }
 
