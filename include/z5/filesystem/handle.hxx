@@ -251,7 +251,14 @@ namespace handle {
 
             fs::path root = path_.parent_path();
             if(!fs::exists(root)) {
-                fs::create_directories(root);
+                // this is not safe for parallel writing since multiple jobs
+                // can try to create the same directories at the same time
+                // it should be safe to just skip the resulting errors since
+                // the directory will be created by the other worker if this
+                // throws an exception
+                try {
+                    fs::create_directories(root);
+                } catch (fs::filesystem_error) {}
             }
         }
 
