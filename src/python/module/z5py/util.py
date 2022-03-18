@@ -5,6 +5,11 @@ from contextlib import closing
 from datetime import datetime
 import numpy as np
 
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
+
 from . import _z5py
 from .file import File, S3File
 from .dataset import Dataset
@@ -75,7 +80,7 @@ def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
 
 def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
                       n_threads, chunks=None, block_shape=None, dtype=None,
-                      roi=None, fit_to_roi=False, **new_compression):
+                      roi=None, fit_to_roi=False, verbose=False, **new_compression):
     """ Implementation of copy dataset.
 
     Used to implement `copy_dataset`, `convert_to_h5` and `convert_from_h5`.
@@ -97,6 +102,7 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
         fit_to_roi (bool): if given a roi, whether to set the shape of
             the output dataset to the roi's shape
             and align chunks with the roi's origin. (default: False)
+        verbose (bool): whether to print a progress bar. Only works if tqdm is installed. (default: False)
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
     """
@@ -172,8 +178,15 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     write_single = write_single_chunk if copy_chunks else write_single_block
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
-        tasks = [tp.submit(write_single, bb) for bb in blocks]
-        [t.result() for t in tasks]
+        if verbose and tqdm is not None:
+            if roi is None:
+                roi_shape = [r.stop - r.start for r in roi]
+                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(roi_shape, block_shape)]))
+            else:
+                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(shape, block_shape)]))
+            list(tqdm(tp.map(write_single, blocks), total=n_blocks))
+        else:
+            tp.map(write_single, blocks)
 
     # copy attributes
     in_attrs = ds_in.attrs
@@ -187,7 +200,7 @@ def copy_dataset(in_path, out_path,
                  n_threads, chunks=None,
                  block_shape=None, dtype=None,
                  use_zarr_format=None, roi=None,
-                 fit_to_roi=False, **new_compression):
+                 fit_to_roi=False, verbose=False, **new_compression):
     """ Copy dataset, optionally change metadata.
 
     The input dataset will be copied to the output dataset chunk by chunk.
@@ -211,6 +224,7 @@ def copy_dataset(in_path, out_path,
         fit_to_roi (bool): if given a roi, whether to set the shape of
             the output dataset to the roi's shape
             and align chunks with the roi's origin. (default: False)
+        verbose (bool): whether to print a progress bar (default: False)
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
     """
@@ -223,7 +237,7 @@ def copy_dataset(in_path, out_path,
 
     copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
                       n_threads, chunks=chunks, block_shape=block_shape,
-                      dtype=dtype, roi=roi, fit_to_roi=fit_to_roi,
+                      dtype=dtype, roi=roi, fit_to_roi=fit_to_roi, verbose=verbose,
                       **new_compression)
 
 
