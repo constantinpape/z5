@@ -143,7 +143,7 @@ class Dataset:
                                                                                          ', '.join(map(str, chunks))))
             if dtype is not None:
                 if np.dtype(dtype) != ds.dtype:
-                    raise TypeError("Datatypes do not match (existing %s vs new %s)" % str(ds.dtype), str(dtype))
+                    raise TypeError("Datatypes do not match (existing %s vs new %s)" % (str(ds.dtype), str(dtype)))
             return ds
 
         else:
