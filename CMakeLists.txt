@@ -209,8 +209,10 @@ include_directories(${Boost_INCLUDE_DIR})
 find_package(xtensor REQUIRED)
 include_directories(xtensor_INCLUDE_DIRS)
 
-find_package(xtensor-python REQUIRED)
-include_directories(xtensor-python_INCLUDE_DIRS)
+if(BUILD_Z5PY)
+    find_package(xtensor-python REQUIRED)
+    include_directories(xtensor-python_INCLUDE_DIRS)
+endif()
 
 find_package(xsimd)
 if(xsimd_FOUND)
