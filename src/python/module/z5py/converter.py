@@ -67,7 +67,7 @@ if h5py:
                         **z5_kwargs):
         """ Convert hdf5 dataset to n5 or zarr dataset.
 
-        The chunks of the output dataset must be spcified.
+        The chunks of the output dataset must be specified.
         The dataset is converted in parallel over the chunks.
         Datatype and compression can be specified, otherwise defaults will be used.
 
