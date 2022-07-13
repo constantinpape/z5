@@ -189,7 +189,7 @@ namespace multiarray {
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
-            // read the data from storge
+            // read the data from storage
             std::vector<char> dataBuffer;
             ds.readRawChunk(chunkId, dataBuffer);
 
