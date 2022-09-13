@@ -9,9 +9,9 @@ dependencies:
   - xz
   - zlib
   - boost-cpp>=1.63
-  - xtensor>=0.21,<0.22
-  - xtensor-python>=0.24,<0.25
-  - xsimd >=7,<8
+  - xtensor >=0.24,<0.25
+  - xtensor-python >=0.26,<0.27
+  - xsimd >=8,<9
   - blosc
   - imageio
   - nlohmann_json
