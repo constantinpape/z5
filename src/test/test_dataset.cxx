@@ -72,7 +72,7 @@ namespace z5 {
         nlohmann::json jInt_;
         nlohmann::json jFloat_;
 
-        const static std::size_t size_ = 10*10*10;
+        static const std::size_t size_ = 10*10*10;
         int dataInt_[size_];
         float dataFloat_[size_];
 
