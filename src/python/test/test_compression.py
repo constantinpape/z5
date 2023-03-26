@@ -1,4 +1,3 @@
-import os
 import unittest
 from shutil import rmtree
 from abc import ABC

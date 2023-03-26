@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import z5py
 from shutil import rmtree
