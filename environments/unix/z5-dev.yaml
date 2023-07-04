@@ -1,8 +1,8 @@
-name: z5-py36
+name: z5-dev
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python
   - cmake
   - compilers
   - bzip2
@@ -10,11 +10,11 @@ dependencies:
   - xz
   - zlib
   - boost-cpp>=1.63
-  - xtensor>=0.20,<0.21
-  - xtensor-python>=0.23,<0.24
-  - xsimd
+  - xtensor >=0.24,<0.25
+  - xtensor-python >=0.26,<0.27
+  - xsimd >=8,<9
   - blosc
   - imageio
-  - h5py
   - nlohmann_json
   - zarr
+  - h5py

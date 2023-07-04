@@ -31,13 +31,13 @@ $ conda install -c conda-forge z5py
 ### From Source
 
 The easiest way to build the library from source is using a conda-environment with all necessary dependencies.
-You can find the conda environment files for build environments in each of the supported python versions under unix in `.environments/unix`
+You can find the conda environment files for build environments in `.environments/unix`
 
-To set up the conda environment and install the package on Unix (for python 3.6):
+To set up the conda environment and install the package on unix:
 
 ```bash
-$ conda env create -f environments/unix/36.yml
-$ conda activate z5-py36
+$ conda env create -f environments/unix/z5-dev.yaml
+$ conda activate z5-dev
 $ mkdir bld
 $ cd bld
 $ cmake -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DCMAKE_INSTALL_PREFIX=/path/to/install ..
