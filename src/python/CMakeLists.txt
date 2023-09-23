@@ -54,7 +54,7 @@ ENDFOREACH()
 
 
 ###########################################################################
-# macro to simplyfy the adding of a submodule
+# macro to simplify the adding of a submodule
 ###########################################################################
 macro(addPythonModule)
 
