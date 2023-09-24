@@ -11,7 +11,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import mock
+from unittest import mock
 import sys
 z5py_path = os.path.join('..', 'src', 'python', 'module')
 sys.path.insert(0, z5py_path)
