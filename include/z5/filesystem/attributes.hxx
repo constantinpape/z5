@@ -14,11 +14,7 @@ namespace attrs_detail {
         if(!fs::exists(path)) {
             return;
         }
-        #ifdef WITH_BOOST_FS
-        fs::ifstream file(path);
-        #else
         std::ifstream file(path);
-        #endif
         file >> j;
         file.close();
     }
@@ -27,22 +23,14 @@ namespace attrs_detail {
         nlohmann::json jOut;
         // if we already have attributes, read them
         if(fs::exists(path)) {
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path);
-            #else
             std::ifstream file(path);
-            #endif
             file >> jOut;
             file.close();
         }
         for(auto jIt = j.begin(); jIt != j.end(); ++jIt) {
             jOut[jIt.key()] = jIt.value();
         }
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(path);
-        #else
         std::ofstream file(path);
-        #endif
         file << jOut;
         file.close();
     }
@@ -51,11 +39,7 @@ namespace attrs_detail {
         nlohmann::json jOut;
         // if we already have attributes, read them
         if(fs::exists(path)) {
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path);
-            #else
             std::ifstream file(path);
-            #endif
             file >> jOut;
             file.close();
         }
@@ -63,11 +47,7 @@ namespace attrs_detail {
             return;
         }
         jOut.erase(key);
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(path);
-        #else
         std::ofstream file(path);
-        #endif
         file << jOut;
         file.close();
     }

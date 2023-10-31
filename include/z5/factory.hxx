@@ -19,12 +19,7 @@ namespace z5 {
                 return;
             }
             nlohmann::json j;
-
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path);
-            #else
             std::ifstream file(path);
-            #endif
             file >> j;
             file.close();
 

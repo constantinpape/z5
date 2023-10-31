@@ -9,10 +9,7 @@
 #include <condition_variable>
 #include <stdexcept>
 #include <cmath>
-
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/counting_iterator.hpp>
-
+#include <numeric>
 
 /*
  * Copied and slightly adapted from
@@ -353,13 +350,13 @@ inline void parallel_foreach_impl(
     const std::ptrdiff_t chunkedWorkPerThread = (std::max<std::ptrdiff_t>)(int(workPerThread/3.0f + 0.5f), 1);
 
     std::vector<std::future<void> > futures;
-    for( ;iter<end; iter+=chunkedWorkPerThread)
+    while(iter<end)
     {
         const std::size_t lc = (std::min)(workload, chunkedWorkPerThread);
         workload-=lc;
         futures.emplace_back(
             pool.enqueue(
-                [&f, iter, lc]
+                [&f, iter=iter, lc=lc]
                 (int id)
                 {
                     for(std::size_t i=0; i<lc; ++i)
@@ -367,6 +364,11 @@ inline void parallel_foreach_impl(
                 }
             )
         );
+
+        iter+=lc;
+
+        if(workload==0)
+            break;
     }
     for (auto & fut : futures)
     {
@@ -617,10 +619,11 @@ inline void parallel_foreach(
     std::ptrdiff_t nItems,
     F && f)
 {
-    auto beginIter  = boost::counting_iterator<int64_t>(0);
-    auto endIter  = boost::counting_iterator<int64_t>(nItems);
+    std::vector<int64_t> indices(nItems);
+    std::iota(indices.begin(), indices.end(), 0);
 
-    parallel_foreach(nThreads, beginIter, endIter, f, nItems);
+    parallel_foreach(nThreads, indices.begin(), indices.end(), std::forward<F>(f), nItems);
+
 }
 
 
@@ -630,11 +633,10 @@ inline void parallel_foreach(
     std::ptrdiff_t nItems,
     F && f)
 {
+    std::vector<int64_t> indices(nItems);
+    std::iota(indices.begin(), indices.end(), 0);
 
-    auto beginIter  = boost::counting_iterator<int64_t>(0);
-    auto endIter  = boost::counting_iterator<int64_t>(nItems);
-
-    parallel_foreach(threadpool, beginIter, endIter, f, nItems);
+    parallel_foreach(threadpool, indices.begin(), indices.end(), std::forward<F>(f), nItems);
 }
 
 //@}

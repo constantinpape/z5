@@ -9,21 +9,13 @@ namespace filesystem {
 namespace metadata_detail {
 
     inline void writeMetadata(const fs::path & path, const nlohmann::json & j) {
-        #ifdef WITH_BOOST_FS
-        fs::ofstream file(path);
-        #else
         std::ofstream file(path);
-        #endif
         file << std::setw(4) << j << std::endl;
         file.close();
     }
 
     inline void readMetadata(const fs::path & path, nlohmann::json & j) {
-        #ifdef WITH_BOOST_FS
-        fs::ifstream file(path);
-        #else
         std::ifstream file(path);
-        #endif
         file >> j;
         file.close();
     }

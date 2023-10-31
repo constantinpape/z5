@@ -310,7 +310,7 @@ namespace handle {
     // get z5::filesystem::handle::File from char pointer corresponding
     // to the file on filesystem
     inline File getFileHandle(const char * path) {
-        fs::path path_(std::string(path));
+        fs::path path_{std::string(path)};
         File ret(path);
         return ret;
     }

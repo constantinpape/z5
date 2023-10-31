@@ -28,11 +28,7 @@ namespace z5 {
             dsZarr.create();
             auto mdata = dsZarr.path();
             mdata /= ".zarray";
-            #ifdef WITH_BOOST_FS
-            fs::ofstream file(mdata);
-            #else
             std::ofstream file(mdata);
-            #endif
             file << jZarr;
             file.close();
 
@@ -41,11 +37,7 @@ namespace z5 {
             dsN5.create();
             auto mdataN5 = dsN5.path();
             mdataN5 /= "attributes.json";
-            #ifdef WITH_BOOST_FS
-            fs::ofstream fileN5(mdataN5);
-            #else
             std::ofstream fileN5(mdataN5);
-            #endif
             fileN5 << jN5;
             fileN5.close();
         }
