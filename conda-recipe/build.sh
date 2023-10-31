@@ -43,7 +43,6 @@ cmake .. \
         -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" \
         -DCMAKE_CXX_FLAGS="${CXXFLAGS} -O3 -DNDEBUG -std=c++17" \
 \
-        -DBOOST_ROOT=${PREFIX} \
         -DWITH_BLOSC=ON \
         -DWITH_ZLIB=ON \
         -DWITH_BZIP2=ON \

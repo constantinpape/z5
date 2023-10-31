@@ -54,7 +54,6 @@ To specify where to install the package, set:
 If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the compression codecs that you use.
 
 If you don't want to use conda for dependency management, the following dependencies are necessary:
-- [boost](https://www.boost.org/)
 - [xtensor](https://github.com/xtensor-stack/xtensor)
 - [nlohman_json](https://github.com/nlohmann/json)
 - [pybind11](https://github.com/pybind/pybind11) (only for python bindings)

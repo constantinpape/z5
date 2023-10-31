@@ -22,7 +22,6 @@ requirements:
   build:
     - python {{PY_VER}}
     - cmake
-    - boost-cpp >=1.63
     - xtensor
     - xtensor-python
     - numpy >=1.15

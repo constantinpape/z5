@@ -9,4 +9,3 @@ export PY_BIN=$ENV_BIN/python
 # export CC="$ENV_BIN/cc"
 # export CXX="$ENV_BIN/c++"
 
-export BOOST_INCLUDEDIR=$CONDA_PREFIX/include
