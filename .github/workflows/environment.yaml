@@ -8,7 +8,6 @@ dependencies:
   - lz4-c
   - xz
   - zlib
-  - boost-cpp>=1.63
   - xtensor >=0.24,<0.25
   - xtensor-python >=0.26,<0.27
   - xsimd >=8,<9

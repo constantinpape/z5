@@ -209,22 +209,14 @@ namespace filesystem {
     private:
 
         inline void write(const fs::path & path, const std::vector<char> & buffer) const {
-            #ifdef WITH_BOOST_FS
-            fs::ofstream file(path, std::ios::binary);
-            #else
             std::ofstream file(path, std::ios::binary);
-            #endif
             file.write(&buffer[0], buffer.size());
             file.close();
         }
 
         inline void read(const fs::path & path, std::vector<char> & buffer) const {
             // open input stream and read the filesize
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path, std::ios::binary);
-            #else
             std::ifstream file(path, std::ios::binary);
-            #endif
 
             file.seekg(0, std::ios::end);
             const std::size_t file_size = file.tellg();
@@ -256,11 +248,7 @@ namespace filesystem {
 
         inline bool read_varlen_from_n5_header(const fs::path & path,
                                                std::size_t & chunkSize) const {
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path, std::ios::binary);
-            #else
             std::ifstream file(path, std::ios::binary);
-            #endif
 
             // read the mode
             uint16_t mode;
@@ -291,11 +279,7 @@ namespace filesystem {
 
         inline void read_shape_from_n5_header(const fs::path & path,
                                               types::ShapeType & chunkShape) const {
-            #ifdef WITH_BOOST_FS
-            fs::ifstream file(path, std::ios::binary);
-            #else
             std::ifstream file(path, std::ios::binary);
-            #endif
 
             // advance the file by 2 to skip the mode
             file.seekg(2);

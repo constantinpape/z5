@@ -27,17 +27,7 @@ message(STATUS "Building z5 v${${PROJECT_NAME}_VERSION}")
 # C++ Standard
 ##############################
 
-# check whether we have c++ 17
-
-message(STATUS "CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-set(CPP17 "${CMAKE_CXX_FLAGS}" MATCHES "-std=c\\+\\+17" CACHE INTERNAL "")
-if (CPP17)
-    message(STATUS "Using c++ 17")
-    set(CMAKE_CXX_STANDARD 17)
-else()
-    message(STATUS "Using c++ 14")
-    set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 17)
 
 # make sure the compiler supports the requested c++ standard
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -53,14 +43,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
-# NOTE whether we need to enable the old ABI depends
-# on which ABI boost is compiled with.
-# If you get boost linker errors try to enable / disable the old ABI
-option(USE_OLD_ABI "Use the old GCC ABI to be compatible with old GLIBC versions" OFF)
-if(USE_OLD_ABI)
-    message(STATUS "Using old GCC ABI")
-    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-endif()
 
 if(MSVC)
     add_definitions(/DNOMINMAX)
@@ -155,52 +137,10 @@ endif()
 # find libraries - pthread
 find_package(Threads)
 
-
-###############################
-# Boost
-###############################
-
-# If WITH_BOOST_FS is set, we always use the boost filesystem library
-# otherwise, we check if we have c++17 support. If so, we use std::filesystem,
-# otherwise we fall back to boost filesystem.
-if(CPP17)
-    SET(WITH_BOOST_FS FALSE CACHE BOOL "")
-else()
-    SET(WITH_BOOST_FS TRUE CACHE BOOL "")
+# add C++ filesystem
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    SET(FILESYSTEM_LIBRARIES "stdc++fs")
 endif()
-
-if (MSVC)
-    SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}/Library")
-    SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/Library/lib")
-else()
-    SET(BOOST_ROOT "${CMAKE_PREFIX_PATH}")
-    SET(BOOST_LIBRARYDIR "${CMAKE_PREFIX_PATH}/lib")
-endif()
-SET(Boost_NO_SYSTEM_PATHS ON)
-
-if(WITH_BOOST_FS)
-    message(STATUS "With boost filesystem")
-    find_package(Boost 1.63.0 COMPONENTS system filesystem REQUIRED)
-    add_definitions(-DWITH_BOOST_FS)
-    SET(FILESYSTEM_LIBRARIES "${Boost_FILESYSTEM_LIBRARY};${Boost_SYSTEM_LIBRARY}")
-else()
-    message(STATUS "With std filesystem")
-    find_package(Boost 1.63.0 REQUIRED)
-
-    # see this issue for discussions about the filesystem lib in CMake
-    # https://gitlab.kitware.com/cmake/cmake/issues/17834
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        SET(FILESYSTEM_LIBRARIES "stdc++fs")
-    endif()
-
-    # on clang, we need to enable libc++experimental, see
-    # https://stackoverflow.com/a/45332844
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        SET(FILESYSTEM_LIBRARIES "c++experimental")
-    endif()
-endif()
-include_directories(${Boost_INCLUDE_DIR})
-
 
 ###################
 # xtensor libraries
@@ -318,22 +258,6 @@ if(BUILD_Z5PY)
     # find pybind11, which is required to build the python bindings
     # the find package command will find python and set the python variables
     find_package(pybind11 REQUIRED)
-    if (CPP17)
-        message(STATUS "Using c++ 17 for pybind")
-        if(MSVC)
-            set(PYBIND11_CPP_STANDARD /std:c++17)
-        else()
-            set(PYBIND11_CPP_STANDARD -std=c++17)
-        endif()
-    else()
-        message(STATUS "Using c++ 14 for pybind")
-        if(MSVC)
-            set(PYBIND11_CPP_STANDARD /std:c++14)
-        else()
-            set(PYBIND11_CPP_STANDARD -std=c++14)
-        endif()
-    endif()
-
     # pybind11 does not include numpy, so we must search for it in addition here
     find_package(NumPy REQUIRED)
     include_directories(${NUMPY_INCLUDE_DIRS})
