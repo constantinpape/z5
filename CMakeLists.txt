@@ -258,22 +258,6 @@ if(BUILD_Z5PY)
     # find pybind11, which is required to build the python bindings
     # the find package command will find python and set the python variables
     find_package(pybind11 REQUIRED)
-    if (CPP17)
-        message(STATUS "Using c++ 17 for pybind")
-        if(MSVC)
-            set(PYBIND11_CPP_STANDARD /std:c++17)
-        else()
-            set(PYBIND11_CPP_STANDARD -std=c++17)
-        endif()
-    else()
-        message(STATUS "Using c++ 14 for pybind")
-        if(MSVC)
-            set(PYBIND11_CPP_STANDARD /std:c++14)
-        else()
-            set(PYBIND11_CPP_STANDARD -std=c++14)
-        endif()
-    endif()
-
     # pybind11 does not include numpy, so we must search for it in addition here
     find_package(NumPy REQUIRED)
     include_directories(${NUMPY_INCLUDE_DIRS})
