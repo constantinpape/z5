@@ -55,7 +55,7 @@ If you want to include z5 in another C++ project, note that the library itself i
 
 If you don't want to use conda for dependency management, the following dependencies are necessary:
 - [xtensor](https://github.com/xtensor-stack/xtensor)
-- [nlohman_json](https://github.com/nlohmann/json)
+- [nlohmann_json](https://github.com/nlohmann/json)
 - [pybind11](https://github.com/pybind/pybind11) (only for python bindings)
 - [xtensor_python](https://github.com/xtensor-stack/xtensor-python) (only for python bindings)
 
