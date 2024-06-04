@@ -163,7 +163,7 @@ class ThreadPool
      * If the task throws an exception, it will be raised on the call to get().
      */
     template<class F>
-    std::future<typename std::result_of<F(int)>::type>  enqueueReturning(F&& f) ;
+    std::future<typename std::invoke_result_t<F, int>>  enqueueReturning(F&& f) ;
 
     /**
      * Enqueue function for tasks without return value.
@@ -263,10 +263,10 @@ inline ThreadPool::~ThreadPool()
 }
 
 template<class F>
-inline std::future<typename std::result_of<F(int)>::type>
+inline std::future<typename std::invoke_result_t<F, int>>
 ThreadPool::enqueueReturning(F&& f)
 {
-    typedef typename std::result_of<F(int)>::type result_type;
+    typedef typename std::invoke_result_t<F, int> result_type;
     typedef std::packaged_task<result_type(int)> PackageType;
 
     auto task = std::make_shared<PackageType>(f);
