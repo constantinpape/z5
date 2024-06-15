@@ -96,8 +96,8 @@ class File(Group):
             version = metadata.get('n5', None)
             if version is not None:
                 major_version = int(version[0])
-                if major_version > 2:
-                    raise RuntimeError("Can't open n5 file with major version bigger than 2")
+                if major_version > 4:
+                    raise RuntimeError("Can't open n5 file with major version bigger than 4")
 
     def close(self):
         # This function exists just for conformity with the standard file-handling procedure.

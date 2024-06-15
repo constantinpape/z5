@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11']
 
     steps:
       - name: Checkout
@@ -27,18 +27,11 @@ jobs:
       - name: Set windows env
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
+      
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v1
         with:
-          activate-environment: z5-build-env
-          auto-update-conda: true
-          channels: conda-forge
           environment-file: .github/workflows/environment.yaml
-          python-version: ${{ matrix.python-version }}
-          auto-activate-base: false
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
       - name: Build unix
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
