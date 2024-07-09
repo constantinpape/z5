@@ -10,7 +10,7 @@ dependencies:
   - zlib
   - xtensor >=0.24,<0.25
   - xtensor-python >=0.26,<0.27
-  - xsimd >=8,<9
+  - xsimd >=10,<11
   - blosc
   - imageio
   - nlohmann_json
