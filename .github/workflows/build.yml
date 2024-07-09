@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
       - name: Checkout
@@ -32,6 +32,8 @@ jobs:
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: .github/workflows/environment.yaml
+          create-args: >-
+            python=${{ matrix.python-version }}
 
       - name: Build unix
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
