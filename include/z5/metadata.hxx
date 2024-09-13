@@ -252,12 +252,6 @@ namespace z5 {
             if(shape.size() != chunkShape.size()) {
                 throw std::runtime_error("Dimension of shape and chunks does not agree");
             }
-            // if the chunk-shape is bigger than the shape in any dimension, we set it to the shape
-            for(unsigned d = 0; d < shape.size(); ++d) {
-                if(chunkShape[d] > shape[d]) {
-                    chunkShape[d] = shape[d];
-                }
-            }
         }
 
 
