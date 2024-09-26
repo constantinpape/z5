@@ -143,6 +143,8 @@ namespace z5 {
                 } else {
                     throw std::runtime_error("Invalid string value for fillValue");
                 }
+            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
+                fillValue = std::numeric_limits<double>::quiet_NaN();
             } else {
                 fillValue = static_cast<double>(fillValJson);
             }
