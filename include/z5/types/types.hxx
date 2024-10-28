@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <variant>
+#include <complex>
 
 #include "nlohmann/json.hpp"
 
@@ -28,7 +29,8 @@ namespace types {
     enum Datatype {
         int8, int16, int32, int64,
         uint8, uint16, uint32, uint64,
-        float32, float64
+        float32, float64,
+        complex64, complex128, complex256
     };
 
     struct Datatypes {
@@ -38,7 +40,8 @@ namespace types {
         static DtypeMap & zarrToDtype() {
             static DtypeMap dtypeMap({{{"|i1", int8}, {"<i2", int16}, {"<i4", int32}, {"<i8", int64},
                                        {"|u1", uint8}, {"<u2", uint16}, {"<u4", uint32}, {"<u8", uint64},
-                                       {"<f4", float32}, {"<f8", float64}}});
+                                       {"<f4", float32}, {"<f8", float64},
+                                       {"<c8", complex64}, {"<c16", complex128}, {"<c32", complex256}}});
             return dtypeMap;
         }
 
@@ -46,7 +49,8 @@ namespace types {
 
             static InverseDtypeMap dtypeMap({{{int8   , "|i1"}, {int16,  "<i2"}, {int32, "<i4"}, {int64, "<i8"},
                                               {uint8  , "|u1"}, {uint16, "<u2"}, {uint32, "<u4"},{uint64,"<u8"},
-                                              {float32, "<f4"}, {float64,"<f8"}}});
+                                              {float32, "<f4"}, {float64,"<f8"},
+                                              {complex64, "<c8"}, {complex128, "<c16"}, {complex256, "<c32"}}});
             return dtypeMap;
         }
 

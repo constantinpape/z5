@@ -13,10 +13,11 @@ namespace z5 {
     class DatasetTest : public ::testing::Test {
 
     protected:
-        DatasetTest() : fileHandle_("data.zr"), floatHandle_(fileHandle_, "float"), intHandle_(fileHandle_, "int") {
+        DatasetTest() : fileHandle_("data.zr"), intHandle_(fileHandle_, "int"), floatHandle_(fileHandle_, "float"), complexFloatHandle_(fileHandle_, "complexFloat") {
             // int zarray metadata
             jInt_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
-            jFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<i4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
+            jFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<f4\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
+            jComplexFloat_ = "{ \"chunks\": [10, 10, 10], \"compressor\": { \"clevel\": 5, \"cname\": \"lz4\", \"id\": \"blosc\", \"shuffle\": 1}, \"dtype\": \"<c8\", \"fill_value\": 42, \"filters\": null, \"order\": \"C\", \"shape\": [100, 100, 100], \"zarr_format\": 2}"_json;
 
         }
 
@@ -44,20 +45,31 @@ namespace z5 {
                 dataFloat_[i] = drawFloat();
             }
 
+            // fill 'dataComplexFloat_' with random values
+            for(std::size_t i = 0; i < size_; ++i) {
+                dataComplexFloat_[i].real(drawFloat());
+                dataComplexFloat_[i].imag(drawFloat());
+            }
+
             //
             // create files for reading
             //
             fileHandle_.create();
-            floatHandle_.create();
             intHandle_.create();
-
-            DatasetMetadata floatMeta;
-            floatMeta.fromJson(jFloat_, true);
-            filesystem::writeMetadata(floatHandle_, floatMeta);
+            floatHandle_.create();
+            complexFloatHandle_.create();
 
             DatasetMetadata intMeta;
             intMeta.fromJson(jInt_, true);
             filesystem::writeMetadata(intHandle_, intMeta);
+
+            DatasetMetadata floatMeta;
+            floatMeta.fromJson(jFloat_, true);
+            filesystem::writeMetadata(floatHandle_, floatMeta);
+            
+            DatasetMetadata complexFloatMeta;
+            complexFloatMeta.fromJson(jComplexFloat_, true);
+            filesystem::writeMetadata(complexFloatHandle_, complexFloatMeta);
         }
 
         virtual void TearDown() {
@@ -66,15 +78,18 @@ namespace z5 {
         }
 
         filesystem::handle::File fileHandle_;
-        filesystem::handle::Dataset floatHandle_;
         filesystem::handle::Dataset intHandle_;
+        filesystem::handle::Dataset floatHandle_;
+        filesystem::handle::Dataset complexFloatHandle_;
 
         nlohmann::json jInt_;
         nlohmann::json jFloat_;
+        nlohmann::json jComplexFloat_;
 
         static const std::size_t size_ = 10*10*10;
         int dataInt_[size_];
         float dataFloat_[size_];
+        std::complex<float> dataComplexFloat_[size_];
 
     };
 
@@ -222,6 +237,76 @@ namespace z5 {
         }
     }
 
+    TEST_F(DatasetTest, OpenComplexFloatDataset) {
+
+        auto ds = openDataset(fileHandle_, "complexFloat");
+        const auto & chunksPerDim = ds->chunksPerDimension();
+
+        std::default_random_engine generator;
+
+        // test uninitialized chunk -> this is expected to throw a runtime error
+        std::complex<float> dataTmp[size_];
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
+
+        // test for 10 random chunks
+        for(unsigned t = 0; t < 10; ++t) {
+
+            // get a random chunk
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = distr(generator);
+            }
+
+            ds->writeChunk(chunkId, dataComplexFloat_);
+
+            // read a chunk
+            std::complex<float> dataTmp[size_];
+            ds->readChunk(chunkId, dataTmp);
+
+            // check
+            for(std::size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataComplexFloat_[i]);
+            }
+        }
+    }
+
+    TEST_F(DatasetTest, CreateComplexFloatDataset) {
+
+        DatasetMetadata complexFloatMeta;
+        complexFloatMeta.fromJson(jComplexFloat_, true);
+
+        auto ds = createDataset(fileHandle_, "complexFloat1", complexFloatMeta);
+        const auto & chunksPerDim = ds->chunksPerDimension();
+
+        std::default_random_engine generator;
+
+        // test uninitialized chunk -> this is expected to throw a runtime error
+        std::complex<float> dataTmp[size_];
+        ASSERT_THROW(ds->readChunk(types::ShapeType({0, 0, 0}), dataTmp), std::runtime_error);
+
+        // test for 10 random chunks
+        for(unsigned t = 0; t < 10; ++t) {
+
+            // get a random chunk
+            types::ShapeType chunkId(ds->dimension());
+            for(unsigned d = 0; d < ds->dimension(); ++d) {
+                std::uniform_int_distribution<std::size_t> distr(0, chunksPerDim[d] - 1);
+                chunkId[d] = distr(generator);
+            }
+
+            ds->writeChunk(chunkId, dataComplexFloat_);
+
+            // read a chunk
+            std::complex<float> dataTmp[size_];
+            ds->readChunk(chunkId, dataTmp);
+
+            // check
+            for(std::size_t i = 0; i < size_; ++i) {
+                ASSERT_EQ(dataTmp[i], dataComplexFloat_[i]);
+            }
+        }
+    }
 
     TEST_F(DatasetTest, CreateBloscDataset) {
 

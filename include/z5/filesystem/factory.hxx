@@ -42,6 +42,12 @@ namespace filesystem {
                 ptr.reset(new Dataset<float>(dataset, metadata)); break;
             case types::float64:
                 ptr.reset(new Dataset<double>(dataset, metadata)); break;
+            case types::complex64:
+                ptr.reset(new Dataset<std::complex<float>>(dataset, metadata)); break;
+            case types::complex128:
+                ptr.reset(new Dataset<std::complex<double>>(dataset, metadata)); break;
+            case types::complex256:
+                ptr.reset(new Dataset<std::complex<long double>>(dataset, metadata)); break;
         }
         return ptr;
     }
@@ -78,6 +84,12 @@ namespace filesystem {
                 ptr.reset(new Dataset<float>(dataset, metadata)); break;
             case types::float64:
                 ptr.reset(new Dataset<double>(dataset, metadata)); break;
+            case types::complex64:
+                ptr.reset(new Dataset<std::complex<float>>(dataset, metadata)); break;
+            case types::complex128:
+                ptr.reset(new Dataset<std::complex<double>>(dataset, metadata)); break;
+            case types::complex256:
+                ptr.reset(new Dataset<std::complex<long double>>(dataset, metadata)); break;
         }
         return ptr;
     }

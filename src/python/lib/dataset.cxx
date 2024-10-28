@@ -228,6 +228,10 @@ namespace z5 {
         // float types
         exportIoT<float>(module, "float32");
         exportIoT<double>(module, "float64");
+        // complex types
+        exportIoT<std::complex<float>>(module, "complex64");
+        exportIoT<std::complex<double>>(module, "complex128");
+        exportIoT<std::complex<long double>>(module, "complex256");
 
         // export writing scalars
         // The overloads cannot be properly resolved,
@@ -279,6 +283,18 @@ namespace z5 {
                                                         break;
                         case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape,
                                                                               static_cast<double>(val),
+                                                                              numberOfThreads);
+                                                        break;
+                        case types::Datatype::complex64 : writePyScalar<std::complex<float>>(ds, roiBegin, roiShape,
+                                                                              static_cast<std::complex<float>>(val),
+                                                                              numberOfThreads);
+                                                        break;
+                        case types::Datatype::complex128 : writePyScalar<std::complex<double>>(ds, roiBegin, roiShape,
+                                                                              static_cast<std::complex<double>>(val),
+                                                                              numberOfThreads);
+                                                        break;
+                        case types::Datatype::complex256 : writePyScalar<std::complex<long double>>(ds, roiBegin, roiShape,
+                                                                              static_cast<std::complex<long double>>(val),
                                                                               numberOfThreads);
                                                         break;
                         default: throw(std::runtime_error("Invalid datatype"));
