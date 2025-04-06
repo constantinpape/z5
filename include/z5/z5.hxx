@@ -2,4 +2,4 @@
 
 #define Z5_VERSION_MAJOR 2
 #define Z5_VERSION_MINOR 0
-#define Z5_VERSION_PATCH 18
+#define Z5_VERSION_PATCH 19
