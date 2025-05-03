@@ -7,9 +7,9 @@
 #include "z5/multiarray/xtensor_util.hxx"
 #include "z5/util/threadpool.hxx"
 
-#include "xtensor/xarray.hpp"
-#include "xtensor/xstrided_view.hpp"
-#include "xtensor/xadapt.hpp"
+#include "xtensor.hpp"
+#include "xtensor/views/xstrided_view.hpp"
+#include "xtensor/containers/xadapt.hpp"
 
 
 namespace z5 {

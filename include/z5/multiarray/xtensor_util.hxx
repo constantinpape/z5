@@ -1,8 +1,8 @@
 #pragma once
 
-#include "xtensor/xarray.hpp"
-#include "xtensor/xadapt.hpp"
-#include "xtensor/xstrided_view.hpp"
+#include "xtensor.hpp"
+#include "xtensor/containers/xadapt.hpp"
+#include "xtensor/views/xstrided_view.hpp"
 
 namespace z5 {
 namespace multiarray {

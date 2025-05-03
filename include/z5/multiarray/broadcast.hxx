@@ -4,7 +4,7 @@
 #include "z5/multiarray/xtensor_access.hxx"
 #include "z5/util/threadpool.hxx"
 
-#include "xtensor/xeval.hpp"
+#include "xtensor/core/xeval.hpp"
 
 
 namespace z5 {
