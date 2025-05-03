@@ -71,7 +71,7 @@ class CompressionTestMixin(ABC):
     def test_large_values_gzip(self):
         f = self.root_file
         compression = 'zlib' if f.is_zarr else 'gzip'
-        size = np.product(self.shape)
+        size = np.prod(self.shape)
         for dtype in self.dtypes:
             ds_name = "ds_%s" % dtype
             min_val, max_val = self.dtype_min_max(dtype)
