@@ -47,7 +47,7 @@ endif()
 if(BLOSC_SEARCH_LIB_PATH)
   find_library(
       BLOSC_LIBRARIES NAMES blosc
-      PATHS ${BLOSC_SEARCH_LIB_PATH}$
+      PATHS ${BLOSC_SEARCH_LIB_PATH}
       NO_DEFAULT_PATH
   )
 else()
