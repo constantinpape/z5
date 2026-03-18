@@ -48,6 +48,11 @@ namespace z5 {
         flags["gzip"] = true;
         #endif
 
+        flags["zstd"] = false;
+        #ifdef WITH_ZSTD
+        flags["zstd"] = true;
+        #endif
+
         return flags;
     }
 

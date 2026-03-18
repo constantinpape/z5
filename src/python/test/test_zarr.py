@@ -29,11 +29,11 @@ class ZarrTestMixin(ABC):
         shape = (123, 97)
         chunks = (17, 32)
         data = np.random.rand(*shape)
-        fz = zarr.open(self.path)
-        fz.create_dataset('test', data=data, chunks=chunks)
+        fz = zarr.open(self.path, zarr_format=2)
+        fz.create_array("test", data=data, chunks=chunks)
 
         f = z5py.File(self.path)
-        out = f['test'][:]
+        out = f["test"][:]
 
         self.assertEqual(data.shape, out.shape)
         self.assertTrue(np.allclose(data, out))
@@ -57,9 +57,8 @@ class ZarrTestMixin(ABC):
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
-                            'bzip2': numcodecs.BZ2()}
-        # TODO lz4 compression is currently not compatible with zarr
-        # 'lz4': numcodecs.LZ4()}
+                            'bzip2': numcodecs.BZ2(),
+                            'zstd': numcodecs.Zstd()}
 
         # conda-forge version of numcodecs is not up-to-data
         # for python 3.5 and GZip is missing
@@ -67,7 +66,7 @@ class ZarrTestMixin(ABC):
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
 
-        f_zarr = zarr.open(self.path, mode='a')
+        f_zarr = zarr.open(self.path, mode='a', zarr_format=2)
         f_z5 = z5py.File(self.path, mode='r')
         for dtype in dtypes:
             for compression in zarr_compressors:
@@ -91,7 +90,7 @@ class ZarrTestMixin(ABC):
         compressions = Dataset.compressors_zarr if self.path.endswith('.zr') else Dataset.compressors_n5
 
         f_z5 = z5py.File(self.path, mode='a')
-        f_zarr = zarr.open(self.path, mode='r')
+        f_zarr = zarr.open(self.path, mode='r', zarr_format=2)
         for dtype in dtypes:
             for compression in compressions:
 
@@ -110,7 +109,7 @@ class ZarrTestMixin(ABC):
                 self.assertTrue(np.allclose(data, out))
 
     def test_attributes(self):
-        f = zarr.open(self.path)
+        f = zarr.open(self.path, zarr_format=2)
         test_attrs = {"a": "b", "1": 2, "x": ["y", "z"]}
         attrs = f.attrs
         for k, v in test_attrs.items():
@@ -130,26 +129,29 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     # custom fill-value is only supported in zarr format
     def test_fillvalue(self):
         test_values = [0, 10, 42, 255]
-        zarr.open(self.path)
+        zarr.open(self.path, zarr_format=2)
         for val in test_values:
             key = 'test_%i' % val
             zarr.open(os.path.join(self.path, key), shape=self.shape,
-                      fill_value=val, dtype='<u1')
+                      fill_value=val, dtype='<u1', zarr_format=2)
             out = z5py.File(self.path)[key][:]
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
 
-    @unittest.skipIf(int(zarr_version.split(".")[1]) < 10, "Need zarr >= 2.10 for supported of nested storage")
+    @unittest.skipIf(
+        int(zarr_version.split(".")[1]) < 10 or int(zarr_version.split(".")[0]) != 2, "Need zarr >= 2.10, < 3 for this."
+    )
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
-        with zarr.open(self.path, mode="a") as f:
-            f.create_dataset("data", data=data, chunks=(16, 16), dimension_separator="/")
-        with z5py.File(self.path, mode="r") as f:
-            res = f["data"][:]
+        f = zarr.open(self.path, mode="a", zarr_format=2)
+        f.create_array("data", data=data, chunks=(16, 16), dimension_separator="/")
+        with z5py.File(self.path, mode="r") as f_z5:
+            res = f_z5["data"][:]
         self.assertTrue(np.allclose(data, res))
 
 
 @unittest.skipUnless(zarr, 'Requires zarr package')
+@unittest.skipUnless(int(zarr_version.split(".")[0]) == 2, 'Requires zarr v2')
 class TestZarrN5(ZarrTestMixin, unittest.TestCase):
     path = 'f.n5'
 

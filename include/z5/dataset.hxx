@@ -16,6 +16,7 @@
 #include "z5/compression/bzip2_compressor.hxx"
 #include "z5/compression/xz_compressor.hxx"
 #include "z5/compression/lz4_compressor.hxx"
+#include "z5/compression/zstd_compressor.hxx"
 
 
 namespace z5 {
@@ -177,6 +178,10 @@ namespace z5 {
                 #ifdef WITH_LZ4
                 case types::lz4:
                     compressor_.reset(new compression::Lz4Compressor<T>(metadata)); break;
+                #endif
+                #ifdef WITH_ZSTD
+                case types::zstd:
+                    compressor_.reset(new compression::ZstdCompressor<T>(metadata)); break;
                 #endif
             }
         }

@@ -199,6 +199,18 @@ class Group(Mapping):
             raise ValueError("Cannot create dataset with read-only permissions.")
         if name in self:
             raise KeyError("Dataset %s is already existing." % name)
+
+        # For nested paths, create intermediate groups with proper metadata
+        parts = name.lstrip('/').split('/')
+        if len(parts) > 1:
+            group = self
+            for part in parts[:-1]:
+                group = group.require_group(part)
+            return group.create_dataset(parts[-1], shape, dtype,
+                                        data, chunks, compression,
+                                        fillvalue, n_threads,
+                                        **compression_options)
+
         return Dataset._create_dataset(self, name, shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,

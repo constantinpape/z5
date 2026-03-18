@@ -45,7 +45,6 @@ class CompressionTestMixin(ABC):
                 np.multiply(in_array, max_val, casting='unsafe')
                 in_array += min_val
 
-                # FIXME not all compression methods in travis yet
                 try:
                     ds = f.create_dataset(ds_name,
                                           data=in_array,

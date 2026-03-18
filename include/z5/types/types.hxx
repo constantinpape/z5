@@ -91,7 +91,10 @@ namespace types {
         lz4,
         #endif
         #ifdef WITH_XZ
-        xz
+        xz,
+        #endif
+        #ifdef WITH_ZSTD
+        zstd
         #endif
     };
 
@@ -118,7 +121,10 @@ namespace types {
                 {"lz4", lz4},
                 #endif
                 #ifdef WITH_XZ
-                {"xz", xz}
+                {"xz", xz},
+                #endif
+                #ifdef WITH_ZSTD
+                {"zstd", zstd}
                 #endif
             }});
             return cMap;
@@ -140,6 +146,9 @@ namespace types {
                 #ifdef WITH_LZ4
                 {"lz4", lz4},
                 #endif
+                #ifdef WITH_ZSTD
+                {"zstd", zstd}
+                #endif
             }});
             return cMap;
         }
@@ -158,6 +167,9 @@ namespace types {
                 #endif
                 #ifdef WITH_LZ4
                 {lz4, "lz4"},
+                #endif
+                #ifdef WITH_ZSTD
+                {zstd, "zstd"}
                 #endif
             }});
             return cMap;
@@ -179,7 +191,10 @@ namespace types {
                 {"lz4", lz4},
                 #endif
                 #ifdef WITH_BLOSC
-                {"blosc", blosc}
+                {"blosc", blosc},
+                #endif
+                #ifdef WITH_ZSTD
+                {"zstd", zstd}
                 #endif
             }});
             return cMap;
@@ -201,7 +216,10 @@ namespace types {
                 {lz4, "lz4"},
                 #endif
                 #ifdef WITH_BLOSC
-                {blosc, "blosc"}
+                {blosc, "blosc"},
+                #endif
+                #ifdef WITH_ZSTD
+                {zstd, "zstd"}
                 #endif
             }});
             return cMap;
@@ -237,6 +255,9 @@ namespace types {
             #endif
             #ifdef WITH_LZ4
             case lz4: options["level"] = jOpts["acceleration"].get<int>(); break;
+            #endif
+            #ifdef WITH_ZSTD
+            case zstd: options["level"] = jOpts["level"].get<int>(); break;
             #endif
             // raw compression has no parameters
             default: break;
@@ -276,6 +297,9 @@ namespace types {
             #ifdef WITH_LZ4
             case lz4: jOpts["acceleration"] = std::get<int>(options.at("level")); break;
             #endif
+            #ifdef WITH_ZSTD
+            case zstd: jOpts["level"] = std::get<int>(options.at("level")); break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
@@ -310,6 +334,9 @@ namespace types {
                         // load nthreads with default value 1
                         options["nthreads"] = (jOpts.find("nthreads") == jOpts.end()) ? 1 : jOpts["nthreads"].get<int>();
                         break;
+            #endif
+            #ifdef WITH_ZSTD
+            case zstd: options["level"] = jOpts["level"].get<int>(); break;
             #endif
             // raw compression has no parameters
             default: break;
@@ -349,6 +376,9 @@ namespace types {
                         jOpts["nthreads"] = std::get<int>(options.at("nthreads"));
                         break;
             #endif
+            #ifdef WITH_ZSTD
+            case zstd: jOpts["level"] = std::get<int>(options.at("level")); break;
+            #endif
             // raw compression has no parameters
             default: break;
         }
@@ -383,6 +413,10 @@ namespace types {
             #ifdef WITH_XZ
             case xz: if(options.find("level") == options.end()){options["level"] = 6;}
                      break;
+            #endif
+            #ifdef WITH_ZSTD
+            case zstd: if(options.find("level") == options.end()){options["level"] = 3;}
+                       break;
             #endif
             // raw compression has no parameters
             default: break;
