@@ -156,6 +156,16 @@ class GroupTestMixin(ABC):
 class TestGroupZarr(GroupTestMixin, unittest.TestCase):
     data_format = 'zr'
 
+    def test_metadata_creation(self):
+        """Issue #231
+        """
+        f = self.root_file
+        data = (np.random.rand(1, 10, 20, 1, 1) * 255).astype(np.uint8)
+        f.create_dataset("data", data=data)
+        f.visititems(print)  # Try 1: works
+        f.create_dataset("volume/data", data=data)
+        f.visititems(print)  # Try 2: breaks
+
 
 class TestGroupN5(GroupTestMixin, unittest.TestCase):
     data_format = 'n5'
