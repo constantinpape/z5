@@ -14,7 +14,7 @@ try:
 except ImportError:
     zarr = None
     zarr_version = "0.0.0"
-    zarr_major_version = 0
+    zarr_major_version = 3
 
 
 class ZarrTestMixin(ABC):
@@ -34,7 +34,7 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, **self.zarr_kwargs)
-        fz.create_dataset("test", data=data, chunks=chunks)
+        fz.create_dataset("test", data=data, chunks=chunks, shape=shape)
 
         f = z5py.File(self.path)
         out = f["test"][:]
@@ -148,7 +148,7 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
         f = zarr.open(self.path, mode="a", **self.zarr_kwargs)
-        f.create_dataset("data", data=data, chunks=(16, 16), dimension_separator="/")
+        f.create_dataset("data", data=data, chunks=(16, 16), dimension_separator="/", shape=data.shape)
         with z5py.File(self.path, mode="r") as f_z5:
             res = f_z5["data"][:]
         self.assertTrue(np.allclose(data, res))
