@@ -18,6 +18,8 @@ except ImportError:
 class ZarrTestMixin(ABC):
     shape = (100, 100)
     chunks = (20, 20)
+    # Support for zarr v2 and v3
+    zarr_kwargs = {"zarr_format": 2} if int(zarr_version.split(".")[0]) == 3 else {}
 
     def tearDown(self):
         try:
@@ -29,7 +31,7 @@ class ZarrTestMixin(ABC):
         shape = (123, 97)
         chunks = (17, 32)
         data = np.random.rand(*shape)
-        fz = zarr.open(self.path, zarr_format=2)
+        fz = zarr.open(self.path, **self.zarr_kwargs)
         fz.create_array("test", data=data, chunks=chunks)
 
         f = z5py.File(self.path)
@@ -66,7 +68,7 @@ class ZarrTestMixin(ABC):
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
 
-        f_zarr = zarr.open(self.path, mode='a', zarr_format=2)
+        f_zarr = zarr.open(self.path, mode='a', **self.zarr_kwargs)
         f_z5 = z5py.File(self.path, mode='r')
         for dtype in dtypes:
             for compression in zarr_compressors:
@@ -90,7 +92,7 @@ class ZarrTestMixin(ABC):
         compressions = Dataset.compressors_zarr if self.path.endswith('.zr') else Dataset.compressors_n5
 
         f_z5 = z5py.File(self.path, mode='a')
-        f_zarr = zarr.open(self.path, mode='r', zarr_format=2)
+        f_zarr = zarr.open(self.path, mode='r', **self.zarr_kwargs)
         for dtype in dtypes:
             for compression in compressions:
 
@@ -109,7 +111,7 @@ class ZarrTestMixin(ABC):
                 self.assertTrue(np.allclose(data, out))
 
     def test_attributes(self):
-        f = zarr.open(self.path, zarr_format=2)
+        f = zarr.open(self.path, **self.zarr_kwargs)
         test_attrs = {"a": "b", "1": 2, "x": ["y", "z"]}
         attrs = f.attrs
         for k, v in test_attrs.items():
@@ -129,11 +131,11 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     # custom fill-value is only supported in zarr format
     def test_fillvalue(self):
         test_values = [0, 10, 42, 255]
-        zarr.open(self.path, zarr_format=2)
+        zarr.open(self.path, **self.zarr_kwargs)
         for val in test_values:
             key = 'test_%i' % val
             zarr.open(os.path.join(self.path, key), shape=self.shape,
-                      fill_value=val, dtype='<u1', zarr_format=2)
+                      fill_value=val, dtype='<u1', **self.zarr_kwargs)
             out = z5py.File(self.path)[key][:]
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
@@ -143,7 +145,7 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     )
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
-        f = zarr.open(self.path, mode="a", zarr_format=2)
+        f = zarr.open(self.path, mode="a", **self.zarr_kwargs)
         f.create_array("data", data=data, chunks=(16, 16), dimension_separator="/")
         with z5py.File(self.path, mode="r") as f_z5:
             res = f_z5["data"][:]
