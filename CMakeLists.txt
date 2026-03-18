@@ -62,6 +62,7 @@ option(WITH_ZLIB "Build with zlib compression" ON)
 option(WITH_BZIP2 "Build with bzip2 compression" OFF)
 option(WITH_XZ "Build with xz compression" OFF)
 option(WITH_LZ4 "Build with lz4 compression" OFF)
+option(WITH_ZSTD "Build with zstd compression" OFF)
 
 # build with amazon s3 storage
 option(WITH_S3 "Build with AWS S3 support" OFF)
@@ -213,6 +214,13 @@ if(WITH_LZ4)
         set(Z5_DEFINES "${Z5_DEFINES};-DWITH_LZ4")
         SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
     endif()
+endif()
+
+if(WITH_ZSTD)
+    find_package(ZSTD REQUIRED)
+    include_directories(${ZSTD_INCLUDE_DIR})
+    set(Z5_DEFINES "${Z5_DEFINES};-DWITH_ZSTD")
+    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZSTD_LIBRARY}")
 endif()
 
 

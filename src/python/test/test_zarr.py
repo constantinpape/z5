@@ -30,7 +30,7 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, zarr_format=2)
-        fz.create_dataset("test", data=data, shape=data.shape, chunks=chunks)
+        fz.create_array("test", data=data, shape=data.shape, chunks=chunks)
 
         f = z5py.File(self.path)
         out = f["test"][:]
@@ -57,9 +57,8 @@ class ZarrTestMixin(ABC):
         zarr_compressors = {'blosc': numcodecs.Blosc(),
                             'zlib': numcodecs.Zlib(),
                             'raw': None,
-                            'bzip2': numcodecs.BZ2()}
-        # TODO lz4 compression is currently not compatible with zarr
-        # 'lz4': numcodecs.LZ4()}
+                            'bzip2': numcodecs.BZ2(),
+                            'zstd': numcodecs.Zstd()}
 
         # conda-forge version of numcodecs is not up-to-data
         # for python 3.5 and GZip is missing
@@ -145,7 +144,7 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
         f = zarr.open(self.path, mode="a", zarr_format=2)
-        f.create_dataset("data", data=data, shape=data.shape, chunks=(16, 16), dimension_separator="/")
+        f.create_array("data", data=data, shape=data.shape, chunks=(16, 16), dimension_separator="/")
         with z5py.File(self.path, mode="r") as f_z5:
             res = f_z5["data"][:]
         self.assertTrue(np.allclose(data, res))
