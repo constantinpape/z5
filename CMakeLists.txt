@@ -27,7 +27,7 @@ message(STATUS "Building z5 v${${PROJECT_NAME}_VERSION}")
 # C++ Standard
 ##############################
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # make sure the compiler supports the requested c++ standard
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
