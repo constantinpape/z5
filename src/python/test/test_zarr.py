@@ -30,7 +30,7 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, zarr_format=2)
-        fz.create_array("test", data=data, shape=data.shape, chunks=chunks)
+        fz.create_array("test", data=data, chunks=chunks)
 
         f = z5py.File(self.path)
         out = f["test"][:]
@@ -144,7 +144,7 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
         f = zarr.open(self.path, mode="a", zarr_format=2)
-        f.create_array("data", data=data, shape=data.shape, chunks=(16, 16), dimension_separator="/")
+        f.create_array("data", data=data, chunks=(16, 16), dimension_separator="/")
         with z5py.File(self.path, mode="r") as f_z5:
             res = f_z5["data"][:]
         self.assertTrue(np.allclose(data, res))
