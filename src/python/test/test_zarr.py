@@ -10,16 +10,18 @@ try:
     import zarr
     import numcodecs
     zarr_version = zarr.__version__
+    zarr_major_version = int(zarr_version.split(".")[0])
 except ImportError:
     zarr = None
     zarr_version = "0.0.0"
+    zarr_major_version = 0
 
 
 class ZarrTestMixin(ABC):
     shape = (100, 100)
     chunks = (20, 20)
     # Support for zarr v2 and v3
-    zarr_kwargs = {"zarr_format": 2} if int(zarr_version.split(".")[0]) == 3 else {}
+    zarr_kwargs = {"zarr_format": 2} if zarr_major_version == 3 else {}
 
     def tearDown(self):
         try:
@@ -32,7 +34,7 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, **self.zarr_kwargs)
-        fz.create_array("test", data=data, chunks=chunks)
+        fz.create_dataset("test", data=data, chunks=chunks)
 
         f = z5py.File(self.path)
         out = f["test"][:]
@@ -141,19 +143,19 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
             self.assertTrue(np.allclose(val, out))
 
     @unittest.skipIf(
-        int(zarr_version.split(".")[1]) < 10 or int(zarr_version.split(".")[0]) != 2, "Need zarr >= 2.10, < 3 for this."
+        int(zarr_version.split(".")[1]) < 10 or zarr_major_version != 2, "Need zarr >= 2.10, < 3 for this."
     )
     def test_zarr_nested(self):
         data = np.random.rand(128, 128)
         f = zarr.open(self.path, mode="a", **self.zarr_kwargs)
-        f.create_array("data", data=data, chunks=(16, 16), dimension_separator="/")
+        f.create_dataset("data", data=data, chunks=(16, 16), dimension_separator="/")
         with z5py.File(self.path, mode="r") as f_z5:
             res = f_z5["data"][:]
         self.assertTrue(np.allclose(data, res))
 
 
 @unittest.skipUnless(zarr, 'Requires zarr package')
-@unittest.skipUnless(int(zarr_version.split(".")[0]) == 2, 'Requires zarr v2')
+@unittest.skipUnless(zarr_major_version == 2, 'Requires zarr v2')
 class TestZarrN5(ZarrTestMixin, unittest.TestCase):
     path = 'f.n5'
 
