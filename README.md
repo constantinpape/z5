@@ -135,12 +135,12 @@ convert_from_h5(h5_file, n5_file,
 ### C++
 
 `Z5` aims to supports different storage implementations. The default is to use the filesystem, implementations to also supports AWS-S3 and Google Cloud Storage are work in progress.
-The API implements factory functions like `createFile` or `createDataset` in [the factory header](https://github.com/constantinpape/z5/blob/master/include/z5/factory.hxx). 
+The API implements factory functions like `createFile` or `createDataset` in [the factory header](https://github.com/constantinpape/z5/blob/main/include/z5/factory.hxx). 
 These functions need to be called with the corresponding handle, like `z5::filesystem::handle::File` or `z5::s3::handle::File` in order to specify which backend to use.
 
 The library is intended to be used with a multiarray, that holds data in memory.
-By default [xtensor](https://github.com/QuantStack/xtensor) is used, see [implementation](https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/xtensor_access.hxx).
-There also exists an interface for [marray](https://github.com/bjoern-andres/marray), see [implementation](https://github.com/constantinpape/z5/blob/master/include/z5/multiarray/marray_access.hxx).
+By default [xtensor](https://github.com/QuantStack/xtensor) is used, see [implementation](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/xtensor_access.hxx).
+There also exists an interface for [marray](https://github.com/bjoern-andres/marray), see [implementation](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/marray_access.hxx).
 To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
 Pull requests for additional multiarray support are welcome.
 

@@ -1,39 +1,58 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-z5 is a library for reading and writing zarr and n5 files. It is written in C++ and uses the xtensor library to represent multi-dimensional arrays. It provides python bindngs via pybind11.
-The python library is called z5py. The library uses CMake as build system.
+
+z5 is a library for reading and writing zarr and n5 files. It is written in C++ (header-only, requires **C++20**) and uses the xtensor library to represent multi-dimensional arrays. It provides Python bindings via pybind11. The Python library is called z5py. The build system is CMake.
 
 ## Common Commands
 
-### Compilation
+### Build (Python bindings — the usual case)
+Dependencies come from a conda env (`.github/environment.yaml`, or `environments/unix/z5-dev.yaml`). CMake auto-detects the active conda env as `CMAKE_PREFIX_PATH`; if that fails, pass `-DCMAKE_PREFIX_PATH=/path/to/conda-env`.
+
 ```bash
-# Create an empty build folder, configure cmake, and build it.
-rm -rf bld
-mkdir bld
-cd bld
-cmake ..
+rm -rf bld && mkdir bld && cd bld
+cmake .. -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_XZ=ON -DWITH_LZ4=ON -DWITH_ZSTD=ON
 make -j 4
 ```
 
-### Tests
+`make` compiles the `_z5py` pybind11 extension and copies the pure-Python `z5py` package + tests into `bld/python/`. `make install` additionally installs headers and the Python package into the conda env.
+
+Key CMake options (see `CMakeLists.txt`): compression codecs `WITH_BLOSC` / `WITH_BZIP2` / `WITH_XZ` / `WITH_LZ4` / `WITH_ZSTD` are **OFF by default** (`WITH_ZLIB` is ON); a codec must be compiled in to read/write chunks using it. Backends: `WITH_S3`, `WITH_GCS` (both incomplete). Also `WITH_MARRAY`, `BUILD_TESTS` (C++ tests, OFF), `BUILD_Z5PY` (ON).
+
+### Python tests
 ```bash
-# To run all python tests, first compile the package as described above.
-# Then change to the directory 'python' within the 'bld' folder.
-cd python
-# And run all tests.
-python -m unittest discover -s test -v
+cd bld/python
+python -m unittest discover -s test -v          # all tests
+python -m unittest test.test_dataset -v          # one module
+python -m unittest test.test_dataset.TestDataset.test_ds_open -v   # one test
 ```
+CI instead runs `make install` then `python -m unittest discover -s src/python/test -v` against the installed package.
+
+### C++ tests
+Configure with `-DBUILD_TESTS=ON` (uses the bundled googletest submodule — clone with `--recursive` or run `git submodule update --init`), build, then run the gtest binaries under `bld/src/test/`.
+
+There is no configured linter/formatter in this repo.
 
 ## Code Architecture
 
-### Overall Organization
+### Layers
 
-The C++ headers are located in `include/z5`, the code for compiling the python bindings is in `src/python/lib`, additional python code of the library in `src/python/module`, and the tests for the python library in `src/python/test`.
+- **Abstract base classes** in `include/z5/`: `Dataset` (`dataset.hxx`), and the handle/metadata/attribute interfaces (`handle.hxx`, `metadata.hxx`, `attributes.hxx`). `Dataset` declares pure-virtual chunk-level IO (`writeChunk`/`readChunk`/`readRawChunk`), compression, and path operations.
+- **Backend implementations** of those bases live in `include/z5/filesystem/` (complete), `include/z5/s3/`, and `include/z5/gcs/` (both incomplete). Each provides its own `handle`, `dataset`, `metadata`, `attributes`, and `factory`.
+- **`factory.hxx`** is the entry point (`createFile`, `createDataset`, `openDataset`, etc.). It dispatches to a backend **at runtime** by inspecting the passed handle (`root.isS3()` / `root.isGcs()` / `root.isZarr()`), guarded by `WITH_S3` / `WITH_GCS` compile flags. To use a backend, call the factory with that backend's handle type (e.g. `z5::filesystem::handle::File`).
+- **`include/z5/compression/`**: one compressor per codec, all deriving from `CompressorBase` (`compress`/`decompress`/`type`). Each is gated behind its `WITH_*` define.
+- **`include/z5/multiarray/`**: in-memory IO. `xtensor_access.hxx` implements `readSubarray`/`writeSubarray` (the main user-facing IO functions); `marray_access.hxx` is an alternate backend. To support another multiarray type, reimplement `readSubarray`/`writeSubarray`.
+- **`include/z5/util/`**: threadpool, chunk blocking/iteration, file modes.
 
-### Key Design Patterns
+### Python binding layout
 
-The headers in `include/z5` implement the abstract base classes for file handles, groups, and datasets, which represent the structure of the zarr or n5 containers.
-The actual implementations of these classes can be found in `include/z5/filesystem` for the file syste, `include/z5/gcs` for google cloud storage and `include/z5/s3` for s3 storage. Note that GCS and S3 storage are not fully implemented.
+- `src/python/lib/*.cxx` — pybind11 sources compiled into the `_z5py` extension module (`z5py.cxx` registers submodules: attributes, dataset, factory, handles, util).
+- `src/python/module/z5py/*.py` — pure-Python package wrapping `_z5py`; the user-facing `h5py`-like API (`File`, `Group`, `Dataset`, `attribute_manager`, `converter`).
+- `src/python/test/*.py` — Python tests. `src/test/` holds C++ gtest sources.
 
-In addition, `include/z5/compression` implements the different compression libraries that are supported for compressing chunks. `include/z5/multiarray` implements IO to and from memory. Other files implement helper functionality.
+### Gotchas
+
+- **Axis ordering**: n5 is column-major (x, y, z), z5 is row-major (z, y, x). Handled internally, but n5 metadata (shape, chunk shape, chunk ids) is stored reversed relative to z5's in-memory order. Both zarr v2 and v3 are exercised in the tests.
+- **No thread/process synchronization**: concurrent writes to the same chunk are undefined behavior.
+- The zarr format here supports only little-endian and C-order.
+- The version is the single source of truth in `include/z5/z5.hxx` (`Z5_VERSION_*`); CMake parses it from there, and it is mirrored in `src/python/module/z5py/__init__.py`.
