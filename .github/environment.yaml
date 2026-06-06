@@ -8,11 +8,10 @@ dependencies:
   - lz4-c
   - xz
   - zlib
-  - xtensor >=0.27,<0.28
-  - xtensor-python >=0.29,<0.30
-  - xsimd >=13,<14
+  - nanobind
+  - numpy
   - blosc
   - imageio
   - nlohmann_json
-  - zarr
+  - zarr <3
   - h5py

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -70,9 +70,6 @@ option(WITH_S3 "Build with AWS S3 support" OFF)
 # build with google cloud storage
 option(WITH_GCS "Build with google cloud storage support" OFF)
 
-# marray multiarray
-option(WITH_MARRAY "Build with c++ marray multiarray" OFF)
-
 # adaptions to travis build
 option(WITHIN_TRAVIS "Flag for builds within travis" OFF)
 
@@ -92,7 +89,12 @@ option(BUILD_Z5PY "Build z5 python bindings" ON)
 # use find_pacakge(GTest), but although CMake could find the
 # libraries, this led to horrible linker errors
 if(BUILD_TESTS)
-    # add gtest external project and include the directories
+    # add gtest external project and include the directories.
+    # we enter the inner googletest dir directly, so we must provide
+    # GOOGLETEST_VERSION (normally set by the outer CMakeLists) ourselves.
+    if(NOT DEFINED GOOGLETEST_VERSION)
+        set(GOOGLETEST_VERSION 1.15.0)
+    endif()
     add_subdirectory(external/googletest/googletest)
     include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
 endif()
@@ -104,8 +106,10 @@ endif()
 
 # This does not work within travis or appveyor, because
 # we set the CMAKE_PREFIX_PATH
+# It is also skipped under scikit-build-core (pip wheel builds), where the
+# dependencies come from the vcpkg toolchain instead of a conda env.
 # TODO rename this to USE_CONDA_PREFIX or similar
-if(NOT WITHIN_TRAVIS)
+if(NOT WITHIN_TRAVIS AND NOT SKBUILD)
     # Find the current conda env and set it as CMAKE_PREFIX_PATH
     execute_process(COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
                     OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
@@ -125,10 +129,15 @@ endif()
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
 MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
 
-if (MSVC)
-    include_directories("${CMAKE_PREFIX_PATH}/Library/include")
-else()
-    include_directories("${CMAKE_PREFIX_PATH}/include")
+# Only add the prefix include dir when we actually have a prefix (conda/dev
+# builds). Under scikit-build-core the prefix is empty and deps are found via
+# the vcpkg toolchain.
+if(CMAKE_PREFIX_PATH)
+    if (MSVC)
+        include_directories("${CMAKE_PREFIX_PATH}/Library/include")
+    else()
+        include_directories("${CMAKE_PREFIX_PATH}/include")
+    endif()
 endif()
 
 ###############################
@@ -142,28 +151,6 @@ find_package(Threads)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     SET(FILESYSTEM_LIBRARIES "stdc++fs")
 endif()
-
-###################
-# xtensor libraries
-###################
-
-find_package(xtensor REQUIRED)
-include_directories(xtensor_INCLUDE_DIRS)
-
-if(BUILD_Z5PY)
-    find_package(xtensor-python REQUIRED)
-    include_directories(xtensor-python_INCLUDE_DIRS)
-endif()
-
-find_package(xsimd)
-if(xsimd_FOUND)
-    message(STATUS "Found xsimd, compiling with XTENSOR_USE_XSIMD")
-    include_directories(xsimd_INCLUDE_DIRS)
-    add_definitions(-DXTENSOR_USE_XSIMD)
-else()
-    message(STATUS "xsimd not found, compiling without vector instructions")
-endif()
-
 
 ###########################
 # nlohmann_json library
@@ -183,6 +170,17 @@ if(WITH_BLOSC)
     include_directories(${BLOSC_INCLUDE_DIR})
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_BLOSC")
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BLOSC_LIBRARIES}")
+
+    # vcpkg's static libblosc is built with snappy and references its symbols;
+    # z5's FindBLOSC only returns the blosc lib, not its transitive deps, so add
+    # snappy explicitly for the wheel (SKBUILD) build. Conda ships a shared
+    # libblosc that carries its own deps, so this is skipped there.
+    if(SKBUILD)
+        find_library(SNAPPY_LIBRARY NAMES snappy)
+        if(SNAPPY_LIBRARY)
+            SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${SNAPPY_LIBRARY}")
+        endif()
+    endif()
 endif()
 
 if(WITH_ZLIB)
@@ -247,29 +245,30 @@ message(STATUS "CLOUD LIBS: ${CLOUD_LIBRARIES}")
 
 
 ###############################
-# Include marray (optional)
-###############################
-
-if(WITH_MARRAY)
-    set(MARRAY_INCLUDE_DIR ${CMAKE_PREFIX_PATH} CACHE PATH "")
-    set(Z5_DEFINES "${Z5_DEFINES};-DWITH_MARRAY")
-    include_directories(${MARRAY_INCLUDE_DIR})
-endif()
-
-
-###############################
 # Python-bindings
 ###############################
 
 
 if(BUILD_Z5PY)
-    # find pybind11, which is required to build the python bindings
-    # the find package command will find python and set the python variables
-    find_package(pybind11 REQUIRED)
-    # pybind11 does not include numpy, so we must search for it in addition here
-    find_package(NumPy REQUIRED)
-    include_directories(${NUMPY_INCLUDE_DIRS})
-    message(STATUS "Using numpy from ${NUMPY_INCLUDE_DIRS}")
+    # find Python (needed by nanobind to build the extension module)
+    if(CMAKE_VERSION VERSION_LESS 3.18)
+        set(DEV_MODULE Development)
+    else()
+        set(DEV_MODULE Development.Module)
+    endif()
+    find_package(Python 3.9 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+
+    # locate nanobind's cmake config via the installed package
+    # (works for both pip and conda installs). We point nanobind_DIR directly
+    # at the config directory so this works regardless of the CMP0074 policy.
+    if(NOT nanobind_DIR)
+        execute_process(
+            COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            OUTPUT_VARIABLE nanobind_DIR)
+    endif()
+    find_package(nanobind CONFIG REQUIRED)
+    message(STATUS "Using nanobind from ${nanobind_DIR}")
 endif()
 
 add_library(z5 INTERFACE)
@@ -297,33 +296,38 @@ include_directories(include)
 # add subdirectories
 add_subdirectory(src)
 
-# install the headers
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
-  FILES_MATCHING
-  PATTERN "*.hxx"
-  PATTERN "*.hpp"
-  PATTERN "*.h"
-)
+# Install the header-only C++ library and its CMake package config.
+# Skipped under scikit-build-core: pip wheels only ship the z5py extension,
+# not the C++ headers / CMake config.
+if(NOT SKBUILD)
+    # install the headers
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
+      DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
+      FILES_MATCHING
+      PATTERN "*.hxx"
+      PATTERN "*.hpp"
+      PATTERN "*.h"
+    )
 
-install(TARGETS z5
-        EXPORT ${PROJECT_NAME}-targets)
+    install(TARGETS z5
+            EXPORT ${PROJECT_NAME}-targets)
 
-set(Z5_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}" CACHE
-    STRING "install path for z5-config.cmake")
+    set(Z5_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}" CACHE
+        STRING "install path for z5-config.cmake")
 
-configure_package_config_file("${PROJECT_NAME}-config.cmake"
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-                              INSTALL_DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    configure_package_config_file("${PROJECT_NAME}-config.cmake"
+                                  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+                                  INSTALL_DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
 
-write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
-                                 VERSION ${${PROJECT_NAME}_VERSION}
-                                 COMPATIBILITY AnyNewerVersion)
+    write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+                                     VERSION ${${PROJECT_NAME}_VERSION}
+                                     COMPATIBILITY AnyNewerVersion)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
-        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+                  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+            DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
 
-install(EXPORT ${PROJECT_NAME}-targets
-        FILE ${PROJECT_NAME}-targets.cmake
-        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    install(EXPORT ${PROJECT_NAME}-targets
+            FILE ${PROJECT_NAME}-targets.cmake
+            DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+endif()

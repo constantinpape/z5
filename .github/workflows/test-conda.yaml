@@ -1,5 +1,5 @@
 ---
-name: build
+name: test-conda
 
 on: [push, pull_request]
 
@@ -48,3 +48,8 @@ jobs:
       - name: Run tests
         shell: bash -l {0}
         run: python -m unittest discover -s src/python/test -v
+
+      - name: Run C++ tests
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash -l {0}
+        run: .github/workflows/cpp_tests.sh

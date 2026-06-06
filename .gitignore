@@ -1,4 +1,9 @@
 bld/*
+bld_cpp/*
 build/*
 python/*
 __pycache__/
+dist/
+wheelhouse/
+_skbuild/
+*.egg-info/

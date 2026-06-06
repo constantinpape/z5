@@ -1,10 +1,11 @@
 #pragma once
 
-#include "z5/dataset.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
-#include "z5/util/threadpool.hxx"
+#include <numeric>
 
-#include "xtensor/core/xeval.hpp"
+#include "z5/dataset.hxx"
+#include "z5/multiarray/array_view.hxx"
+#include "z5/multiarray/array_util.hxx"
+#include "z5/util/threadpool.hxx"
 
 
 namespace z5 {
@@ -70,14 +71,11 @@ namespace multiarray {
                 }
 
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-                bufView = val;
+                const auto bufferView = makeView(buffer.data(), chunkShape);
+                fillView(subview(bufferView, offsetInChunk, requestShape), val);
                 ds.writeChunk(chunkId, &buffer[0]);
 
-                // need to reset the buffer to our fill value
+                // need to reset the buffer to our scalar value
                 std::fill(buffer.begin(), buffer.end(), val);
             }
         }
@@ -153,14 +151,11 @@ namespace multiarray {
                 }
 
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-                bufView = val;
+                const auto bufferView = makeView(buffer.data(), chunkShape);
+                fillView(subview(bufferView, offsetInChunk, requestShape), val);
                 ds.writeChunk(chunkId, &buffer[0]);
 
-                // need to reset the buffer to our fill value
+                // need to reset the buffer to our scalar value
                 std::fill(buffer.begin(), buffer.end(), val);
             }
         });

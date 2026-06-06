@@ -1,19 +1,21 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/unique_ptr.h>
 
 #include "z5/factory.hxx"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace z5 {
 
 
     template<class GROUP>
-    void exportDsFactories(py::module & m) {
+    void exportDsFactories(nb::module_ & m) {
         m.def("open_dataset", [](const GROUP & root, const std::string & key){
             return openDataset(root, key);
         },
-        py::arg("root"), py::arg("key"));
+        nb::arg("root"), nb::arg("key"));
 
         m.def("create_dataset", [](const GROUP & root, const std::string & key,
                                    const std::string & dtype,
@@ -26,21 +28,21 @@ namespace z5 {
                 const nlohmann::json j = nlohmann::json::parse(copts);
                 return createDataset(root, key, dtype, shape, chunk_shape, compression, j, fill_value, dimension_separator);
             },
-            py::arg("root"), py::arg("key"),
-            py::arg("dtype"), py::arg("shape"), py::arg("chunks"),
-            py::arg("compression"),
-            py::arg("compression_options")=std::string(),
-            py::arg("fill_value")=0,
-            py::arg("dimension_separator")=".");
+            nb::arg("root"), nb::arg("key"),
+            nb::arg("dtype"), nb::arg("shape"), nb::arg("chunks"),
+            nb::arg("compression"),
+            nb::arg("compression_options")=std::string(),
+            nb::arg("fill_value")=0,
+            nb::arg("dimension_separator")=".");
     }
 
 
     template<class GROUP, class FILE_>
-    void exportFactoriesT(py::module & m) {
+    void exportFactoriesT(nb::module_ & m) {
         // file factories
         m.def("create_file", [](const FILE_ & file, const bool is_zarr){
             createFile(file, is_zarr);
-        }, py::arg("file"), py::arg("is_zarr"));
+        }, nb::arg("file"), nb::arg("is_zarr"));
 
         // group factories
         m.def("create_group", [](const FILE_ & file, const std::string & key){
@@ -58,7 +60,7 @@ namespace z5 {
     }
 
 
-    void exportFactory(py::module & m) {
+    void exportFactory(nb::module_ & m) {
         // for filesystem
         exportFactoriesT<filesystem::handle::Group, filesystem::handle::File>(m);
         // for s3

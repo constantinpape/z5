@@ -1,50 +1,76 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <iostream>
+#include <complex>
+#include <numeric>
 
-// for xtensor numpy bindings
-#include "xtensor-python/pyarray.hpp"
-#include "xtensor-python/pytensor.hpp"
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/complex.h>
 
 #include "z5/dataset.hxx"
-#include "z5/factory.hxx"
 
+#include "z5/multiarray/array_view.hxx"
+#include "z5/multiarray/array_access.hxx"
 #include "z5/multiarray/broadcast.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
 
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace z5 {
 
+    //
+    // helpers to build (Const)ArrayView from a numpy ndarray
+    // strides are reported by nanobind in elements, matching ArrayView's convention
+    //
+    template<class T>
+    inline multiarray::ConstArrayView<T> constViewFromArray(
+            const nb::ndarray<nb::numpy, const T, nb::c_contig> & arr) {
+        const std::size_t nd = arr.ndim();
+        types::ShapeType shape(nd), strides(nd);
+        for(std::size_t d = 0; d < nd; ++d) {
+            shape[d] = arr.shape(d);
+            strides[d] = static_cast<std::size_t>(arr.stride(d));
+        }
+        return multiarray::ConstArrayView<T>(arr.data(), std::move(shape), std::move(strides));
+    }
+
+    template<class T>
+    inline multiarray::ArrayView<T> viewFromArray(
+            const nb::ndarray<nb::numpy, T, nb::c_contig> & arr) {
+        const std::size_t nd = arr.ndim();
+        types::ShapeType shape(nd), strides(nd);
+        for(std::size_t d = 0; d < nd; ++d) {
+            shape[d] = arr.shape(d);
+            strides[d] = static_cast<std::size_t>(arr.stride(d));
+        }
+        return multiarray::ArrayView<T>(arr.data(), std::move(shape), std::move(strides));
+    }
+
+
     template<class T>
     inline void writePySubarray(const Dataset & ds,
-                                // TODO specifying the strides might speed provide some speed-up
-                                // TODO but it prevents singleton dimensions in the shapes
-                                // const xt::pyarray<T, xt::layout_type::row_major> & in,
-                                const xt::pyarray<T> & in,
-                                const std::vector<size_t> & roiBegin,
+                                const nb::ndarray<nb::numpy, const T, nb::c_contig> in,
+                                const std::vector<std::size_t> & roiBegin,
                                 const int numberOfThreads) {
-        multiarray::writeSubarray<T>(ds, in, roiBegin.begin(), numberOfThreads);
+        const auto view = constViewFromArray<T>(in);
+        multiarray::writeSubarray<T>(ds, view, roiBegin.begin(), numberOfThreads);
     }
 
 
     template<class T>
     inline void readPySubarray(const Dataset & ds,
-                               // TODO specifying the strides might speed provide some speed-up
-                               // TODO but it prevents singleton dimensions in the shapes
-                               // xt::pyarray<T, xt::layout_type::row_major> & out,
-                               xt::pyarray<T> & out,
-                               const std::vector<size_t> & roiBegin,
+                               nb::ndarray<nb::numpy, T, nb::c_contig> out,
+                               const std::vector<std::size_t> & roiBegin,
                                const int numberOfThreads) {
-        multiarray::readSubarray<T>(ds, out, roiBegin.begin(), numberOfThreads);
+        const auto view = viewFromArray<T>(out);
+        multiarray::readSubarray<T>(ds, view, roiBegin.begin(), numberOfThreads);
     }
 
 
     template<class T>
     inline void writePyScalar(const Dataset & ds,
-                              const std::vector<size_t> & roiBegin,
-                              const std::vector<size_t> & roiShape,
+                              const std::vector<std::size_t> & roiBegin,
+                              const std::vector<std::size_t> & roiShape,
                               const T val,
                               const int numberOfThreads) {
         multiarray::writeScalar<T>(ds, roiBegin.begin(), roiShape.begin(), val, numberOfThreads);
@@ -52,14 +78,13 @@ namespace z5 {
 
 
     template<class T>
-    inline xt::pyarray<T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+    inline nb::ndarray<nb::numpy, T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
-        typedef typename xt::pyarray<T>::shape_type ShapeType;
-        ShapeType shape;
+        types::ShapeType shape;
 
         // make sure the chunk exists and get the shape of the chunk
         {
-            py::gil_scoped_release lift_gil;
+            nb::gil_scoped_release lift_gil;
             // returning None does not work properly, so we raise
             // if the chunk does not exist and assume that this is checked
             // in python beforehand
@@ -67,80 +92,81 @@ namespace z5 {
                 throw std::runtime_error("Cannot read chunk because it does not exist.");
             }
 
-
             // get the shape of the output data
             // varlen: return data as 1D array otherwise return ND array
             std::size_t chunkSize;
             const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
             if(isVarlen) {
-                shape = ShapeType({chunkSize});
+                shape = types::ShapeType({chunkSize});
             } else {
-                types::ShapeType chunkShape;
-                ds.getChunkShape(chunkId, chunkShape);
-                shape.resize(chunkShape.size());
-                std::copy(chunkShape.begin(), chunkShape.end(), shape.begin());
+                ds.getChunkShape(chunkId, shape);
             }
         }
 
-        // allocate data and read the chunk
-        xt::pyarray<T> out(shape);
+        // allocate the data and read the chunk
+        const std::size_t size = std::accumulate(shape.begin(), shape.end(),
+                                                 static_cast<std::size_t>(1),
+                                                 std::multiplies<std::size_t>());
+        T * data = new T[size];
         {
-            py::gil_scoped_release lift_gil;
-            ds.readChunk(chunkId, &out[0]);
+            nb::gil_scoped_release lift_gil;
+            ds.readChunk(chunkId, data);
         }
-        return out;
+
+        // hand ownership of the buffer to numpy via a capsule
+        nb::capsule owner(data, [](void * p) noexcept { delete[] static_cast<T*>(p); });
+        return nb::ndarray<nb::numpy, T>(data, shape.size(), shape.data(), owner);
     }
 
 
     template<class T>
     inline void writePyChunk(const Dataset & ds,
                              const types::ShapeType & chunkId,
-                             const xt::pyarray<T> & in,
+                             const nb::ndarray<nb::numpy, const T, nb::c_contig> in,
                              const bool isVarlen) {
-        ds.writeChunk(chunkId, &in[0], isVarlen,
+        ds.writeChunk(chunkId, in.data(), isVarlen,
                       isVarlen ? in.size() : 0);
     }
 
 
     template<class T>
-    void exportIoT(py::module & module, const std::string & dtype) {
+    void exportIoT(nb::module_ & module, const std::string & dtype) {
 
         // export writing subarrays
         module.def("write_subarray",
                    &writePySubarray<T>,
-                   py::arg("ds"),
-                   py::arg("in").noconvert(),
-                   py::arg("roi_begin"),
-                   py::arg("n_threads")=1,
-                   py::call_guard<py::gil_scoped_release>());
+                   nb::arg("ds"),
+                   nb::arg("in").noconvert(),
+                   nb::arg("roi_begin"),
+                   nb::arg("n_threads")=1,
+                   nb::call_guard<nb::gil_scoped_release>());
 
         // export reading subarrays
         module.def("read_subarray",
                    &readPySubarray<T>,
-                   py::arg("ds"),
-                   py::arg("out").noconvert(),
-                   py::arg("roi_begin"),
-                   py::arg("n_threads")=1,
-                   py::call_guard<py::gil_scoped_release>());
+                   nb::arg("ds"),
+                   nb::arg("out").noconvert(),
+                   nb::arg("roi_begin"),
+                   nb::arg("n_threads")=1,
+                   nb::call_guard<nb::gil_scoped_release>());
 
         // export write_chunk
         module.def("write_chunk",
                    &writePyChunk<T>,
-                   py::arg("ds"), py::arg("chunkId"),
-                   py::arg("in").noconvert(), py::arg("isVarlen")=false,
-                   py::call_guard<py::gil_scoped_release>());
+                   nb::arg("ds"), nb::arg("chunkId"),
+                   nb::arg("in").noconvert(), nb::arg("isVarlen")=false,
+                   nb::call_guard<nb::gil_scoped_release>());
 
         // export chunk reading for all datatypes
-        // integer types
         const std::string readChunkName = "read_chunk_" + dtype;
         module.def(readChunkName.c_str(), &readPyChunk<T>,
-                   py::arg("ds"), py::arg("chunkId"));
+                   nb::arg("ds"), nb::arg("chunkId"));
     }
 
 
-    void exportDataset(py::module & module) {
+    void exportDataset(nb::module_ & module) {
 
-        auto dsClass = py::class_<Dataset>(module, "DatasetImpl");
+        auto dsClass = nb::class_<Dataset>(module, "DatasetImpl");
 
         dsClass
             .def("chunkExists", [](const Dataset & ds, const types::ShapeType & chunkIndices){
@@ -157,25 +183,25 @@ namespace z5 {
             //
             // shapes and stuff
             //
-            .def_property_readonly("shape", [](const Dataset & ds){return ds.shape();})
-            .def_property_readonly("len", [](const Dataset & ds){return ds.shape(0);})
-            .def_property_readonly("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
-            .def_property_readonly("ndim", [](const Dataset & ds){return ds.dimension();})
-            .def_property_readonly("size", [](const Dataset & ds){return ds.size();})
-            .def_property_readonly("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
-            .def_property_readonly("is_zarr", [](const Dataset & ds){return ds.isZarr();})
-            .def_property_readonly("number_of_chunks", [](const Dataset & ds){return ds.numberOfChunks();})
-            .def_property_readonly("chunks_per_dimension", [](const Dataset & ds){
+            .def_prop_ro("shape", [](const Dataset & ds){return ds.shape();})
+            .def_prop_ro("len", [](const Dataset & ds){return ds.shape(0);})
+            .def_prop_ro("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
+            .def_prop_ro("ndim", [](const Dataset & ds){return ds.dimension();})
+            .def_prop_ro("size", [](const Dataset & ds){return ds.size();})
+            .def_prop_ro("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
+            .def_prop_ro("is_zarr", [](const Dataset & ds){return ds.isZarr();})
+            .def_prop_ro("number_of_chunks", [](const Dataset & ds){return ds.numberOfChunks();})
+            .def_prop_ro("chunks_per_dimension", [](const Dataset & ds){
                 return ds.chunksPerDimension();
             })
 
             // compression, compression_opts, fillvalue
-            .def_property_readonly("compressor", [](const Dataset & ds){
+            .def_prop_ro("compressor", [](const Dataset & ds){
                 std::string compressor;
                 ds.getCompressor(compressor);
                 return compressor;
             })
-            .def_property_readonly("compression_options", [](const Dataset & ds){
+            .def_prop_ro("compression_options", [](const Dataset & ds){
                 types::CompressionOptions opts;
                 ds.getCompressionOptions(opts);
                 nlohmann::json j;
@@ -183,35 +209,8 @@ namespace z5 {
                 return j.dump();
             })
 
-            .def("remove_chunk", &Dataset::removeChunk, py::arg("chunk_id"),
-                 py::call_guard<py::gil_scoped_release>())
-
-            // for now, we only support picking if we can get the path
-            // of the dataset, i.e. if we have a filesystem dataset
-            .def(py::pickle(
-                // __getstate__ -> we simply pickle the path,
-                // the rest will be read from the attributes
-                [](const Dataset & ds) {
-                    std::string path;
-                    try {
-                        path = ds.path().string();
-                    } catch(...) {
-                        throw std::runtime_error("Can only pick filesystem datasets");
-                    }
-                    return py::make_tuple(path, ds.mode().mode());
-                },
-
-                // __setstate__
-                [](py::tuple tup) {
-                    if(tup.size() != 2) { // the serialization size is 1, because we only pickle the path
-                        throw std::runtime_error("Invalid state for unpickling z5::Dataset");
-                    }
-                    FileMode mode(tup[1].cast<FileMode::modes>());
-                    fs::path path(tup[0].cast<std::string>());
-                    filesystem::handle::Dataset handle(path, mode);
-                    return filesystem::openDataset(handle);
-                }
-            ))
+            .def("remove_chunk", &Dataset::removeChunk, nb::arg("chunk_id"),
+                 nb::call_guard<nb::gil_scoped_release>())
         ;
 
         // export I/O for all dtypes
@@ -231,15 +230,14 @@ namespace z5 {
         // complex types
         exportIoT<std::complex<float>>(module, "complex64");
         exportIoT<std::complex<double>>(module, "complex128");
-        exportIoT<std::complex<long double>>(module, "complex256");
 
         // export writing scalars
         // The overloads cannot be properly resolved,
         // that's why we give the datatype as additional argument
         // and then cast to the correct type
         module.def("write_scalar", [](const Dataset & ds,
-                                      const std::vector<size_t> & roiBegin,
-                                      const std::vector<size_t> & roiShape,
+                                      const std::vector<std::size_t> & roiBegin,
+                                      const std::vector<std::size_t> & roiShape,
                                       const double val,
                                       const std::string & dtype,
                                       const int numberOfThreads) {
@@ -293,20 +291,16 @@ namespace z5 {
                                                                               static_cast<std::complex<double>>(val),
                                                                               numberOfThreads);
                                                         break;
-                        case types::Datatype::complex256 : writePyScalar<std::complex<long double>>(ds, roiBegin, roiShape,
-                                                                              static_cast<std::complex<long double>>(val),
-                                                                              numberOfThreads);
-                                                        break;
                         default: throw(std::runtime_error("Invalid datatype"));
 
                     }
-                },py::arg("ds"),
-                  py::arg("roi_begin"),
-                  py::arg("roi_shape"),
-                  py::arg("val"),
-                  py::arg("dtype"),
-                  py::arg("n_threads")=1,
-                  py::call_guard<py::gil_scoped_release>());
+                },nb::arg("ds"),
+                  nb::arg("roi_begin"),
+                  nb::arg("roi_shape"),
+                  nb::arg("val"),
+                  nb::arg("dtype"),
+                  nb::arg("n_threads")=1,
+                  nb::call_guard<nb::gil_scoped_release>());
     }
 
 }

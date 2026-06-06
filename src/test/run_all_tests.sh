@@ -28,15 +28,11 @@ if [ -f ./compression/test_zlib ]; then
     ./compression/test_zlib
 fi
 
-if [ -f ./multiarray/test_marray ]; then
-    echo "Running Marray Tests"
-    ./multiarray/test_marray
-fi
-
-echo "Running Xtensor Tests"
+echo "Running Multiarray Tests"
+./multiarray/test_array_util
 ./multiarray/test_broadcast
-./multiarray/test_xtensor
-./multiarray/test_xtnd
+./multiarray/test_array
+./multiarray/test_array_nd
 
 # don't run n5 tests in test runner, we can't run them in travis
 # echo "Running N5 Tests"

@@ -1,0 +1,127 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "z5py"
+dynamic = ["version"]
+description = "Lightweight C++ and Python library for reading and writing zarr and n5 files"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+license = { text = "MIT" }
+authors = [
+    { name = "Constantin Pape", email = "constantin.pape@cs.uni-goettingen.de" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/constantinpape/z5"
+Repository = "https://github.com/constantinpape/z5"
+Issues = "https://github.com/constantinpape/z5/issues"
+
+[project.optional-dependencies]
+# zarr is pinned to v2: z5 interops with the zarr v2 on-disk format, and the
+# compat tests use the v2 library API (zarr 3.2 removed Group.create_dataset).
+test = ["zarr<3", "h5py", "imageio"]
+
+[tool.scikit-build]
+cmake.version = ">=3.15"
+cmake.build-type = "Release"
+wheel.packages = ["src/python/module/z5py"]
+sdist.exclude = [
+    "bld/",
+    "build/",
+    "dist/",
+    "wheelhouse/",
+    "_skbuild/",
+    "*.egg-info/",
+    ".pytest_cache/",
+    "__pycache__/",
+    "external/",
+    ".claude/",
+]
+
+# Compile every codec into the wheel so the published package can read/write
+# all chunk encodings (the external C libraries are provided by vcpkg, see
+# vcpkg.json and the wheels.yml workflow).
+[tool.scikit-build.cmake.define]
+BUILD_Z5PY = "ON"
+BUILD_TESTS = "OFF"
+WITH_ZLIB = "ON"
+WITH_BLOSC = "ON"
+WITH_BZIP2 = "ON"
+WITH_XZ = "ON"
+WITH_LZ4 = "ON"
+WITH_ZSTD = "ON"
+WITH_S3 = "OFF"
+WITH_GCS = "OFF"
+
+# The version is single-sourced from the Python package's __version__ string,
+# which is kept in sync with include/z5/z5.hxx (the C++ source of truth).
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/python/module/z5py/__init__.py"
+regex = '^__version__ = "(?P<value>.+)"$'
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux_*"
+build-frontend = "build"
+test-requires = ["zarr<3", "h5py", "imageio"]
+# {project} is the checked-out repo, which still contains the test suite.
+test-command = "python -m unittest discover -s {project}/src/python/test -v"
+
+[tool.cibuildwheel.linux]
+# manylinux_2_28 ships GCC 12+, which is required for the C++20 sources
+# (manylinux2014's GCC 10 is too old).
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# vcpkg is not present inside the manylinux container, so clone + bootstrap it,
+# then point CMake at its toolchain so the manifest deps are auto-installed.
+before-all = [
+    "git clone --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg",
+    "/opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
+]
+
+[tool.cibuildwheel.linux.environment]
+VCPKG_ROOT = "/opt/vcpkg"
+CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+[tool.cibuildwheel.macos]
+before-all = [
+    "git clone --depth 1 https://github.com/microsoft/vcpkg $HOME/vcpkg",
+    "$HOME/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
+]
+
+[tool.cibuildwheel.macos.environment]
+VCPKG_ROOT = "$HOME/vcpkg"
+CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake"
+# C++20 <filesystem> needs a recent deployment target (arm64 is 11.0 anyway).
+MACOSX_DEPLOYMENT_TARGET = "10.15"
+
+[tool.cibuildwheel.windows]
+before-all = [
+    "git clone --depth 1 https://github.com/microsoft/vcpkg C:/vcpkg",
+    "C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics",
+]
+
+[tool.cibuildwheel.windows.environment]
+VCPKG_ROOT = "C:/vcpkg"
+# static libs + dynamic CRT is the correct triplet for CPython extensions. The
+# vcpkg toolchain only honors the triplet as a CMake cache var (it ignores the
+# env var), so it must be a -D define in CMAKE_ARGS.
+CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md"

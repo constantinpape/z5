@@ -8,6 +8,26 @@ from .attribute_manager import AttributeManager
 from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
+
+
+def _navigate(file_obj, name):
+    """ Navigate from a (root) file to the object with the given (absolute) name.
+
+    Used for unpickling: re-opens the object by traversing the container one
+    path component at a time, which reconstructs the proper parent chain.
+    """
+    obj = file_obj
+    rel = name.strip('/')
+    if rel:
+        for part in rel.split('/'):
+            obj = obj[part]
+    return obj
+
+
+def _unpickle_dataset(file_obj, name, n_threads):
+    ds = _navigate(file_obj, name)
+    ds.n_threads = n_threads
+    return ds
 # TODO lz4 compression is currently not compatible with zarr
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
@@ -50,6 +70,12 @@ class Dataset:
         self.n_threads = n_threads
         self._parent = parent
         self._name = name
+
+    def __reduce__(self):
+        # pickle by re-opening from the (picklable) root file; this avoids
+        # pickling the underlying C++ objects, which are not constructible
+        # outside of the factory functions.
+        return (_unpickle_dataset, (self.file, self._name, self.n_threads))
 
     def __array__(self, dtype=None):
         """ Create a numpy array containing the whole dataset.

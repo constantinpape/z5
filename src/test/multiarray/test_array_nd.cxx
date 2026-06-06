@@ -1,10 +1,11 @@
 #include "gtest/gtest.h"
 
 #include <random>
-#include "xtensor/xarray.hpp"
 
 #include "z5/factory.hxx"
-#include "z5/multiarray/xtensor_access.hxx"
+#include "z5/multiarray/array_access.hxx"
+
+#include "array_helper.hxx"
 
 #define MIN_DIM 1
 #define MAX_DIM 6
@@ -12,11 +13,11 @@
 namespace z5 {
 namespace multiarray {
 
-    // fixture for the zarr array test
-    class XtensorNDTest : public ::testing::Test {
+    // fixture for the n-dimensional array IO test
+    class ArrayNDTest : public ::testing::Test {
 
     protected:
-        XtensorNDTest() : path_("test.n5"), size_(100), chunkSize_(10){
+        ArrayNDTest() : path_("test.n5"), size_(100), chunkSize_(10){
         }
 
         auto writeData(const std::size_t dim) {
@@ -56,26 +57,23 @@ namespace multiarray {
         }
 
         void testArrayRead(const std::size_t dim) {
-            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
             auto ds = writeData(dim);
             const auto & shape = ds->shape();
-            ArrayShape arrayShape(shape.begin(), shape.end());
 
-            std::cout << "d: " << dim << std::endl;
-            // load a completely overlapping array consisting of 8 chunks
+            // load a completely overlapping sub-array
             {
                 types::ShapeType offset(dim, 0);
-                ArrayShape subShape(dim, 20);
+                types::ShapeType subShape(dim, 20);
                 if(dim > 3) {
                     for(int d = 3; d < dim; ++d) {
                         subShape[d] = 2;
                     }
                 }
 
-                xt::xarray<int32_t> data(subShape);
-                readSubarray<int32_t>(ds, data, offset.begin());
+                TestArray<int32_t> data(subShape);
+                readSubarray<int32_t>(ds, data.view(), offset.begin());
 
-                for(const auto elem: data) {
+                for(const auto elem : data.data) {
                     ASSERT_EQ(elem, 42);
                 }
             }
@@ -83,21 +81,17 @@ namespace multiarray {
             // load the complete array
             {
                 types::ShapeType offset(dim, 0);
-                xt::xarray<int32_t> data(arrayShape);
-                readSubarray<int32_t>(ds, data, offset.begin());
+                TestArray<int32_t> data(types::ShapeType(shape.begin(), shape.end()));
+                readSubarray<int32_t>(ds, data.view(), offset.begin());
 
-                for(const auto elem: data) {
+                for(const auto elem : data.data) {
                     ASSERT_EQ(elem, 42);
                 }
             }
-
         }
 
 
         void testArrayWriteRead(const std::size_t dim) {
-
-            std::cout << "d: " << dim << std::endl;
-            typedef typename xt::xarray<int32_t>::shape_type ArrayShape;
 
             // need smaller shapes for dim > 3
             std::vector<std::size_t> shape, chunkShape;
@@ -121,54 +115,40 @@ namespace multiarray {
             std::default_random_engine gen;
             auto draw = std::bind(distr, gen);
 
-            // write and read a completely overlapping array consisting of 8 chunks
+            // write and read a completely overlapping sub-array
             {
                 types::ShapeType offset(dim, 0);
-                ArrayShape subShape(dim, 20);
+                types::ShapeType subShape(dim, 20);
                 if(dim > 3) {
                     for(int d = 3; d < dim; ++d) {
                         subShape[d] = 2;
                     }
                 }
 
-                // generate random in data
-                xt::xarray<int32_t> dataIn(subShape);
-                for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
-                    *it = draw();
+                TestArray<int32_t> dataIn(subShape);
+                for(auto & v : dataIn.data) {
+                    v = draw();
                 }
-                writeSubarray<int32_t>(ds, dataIn, offset.begin());
+                writeSubarray<int32_t>(ds, dataIn.cview(), offset.begin());
 
-                // read the out data
-                xt::xarray<int32_t> dataOut(subShape);
-                readSubarray<int32_t>(ds, dataOut, offset.begin());
-
-                auto itIn = dataIn.begin();
-                auto itOut = dataOut.begin();
-                for(; itIn != dataIn.end(); ++itIn, ++itOut) {
-                    ASSERT_EQ(*itIn, *itOut);
-                }
+                TestArray<int32_t> dataOut(subShape);
+                readSubarray<int32_t>(ds, dataOut.view(), offset.begin());
+                ASSERT_EQ(dataIn.data, dataOut.data);
             }
 
-            // load the complete array
+            // write and read the complete array
             {
                 types::ShapeType offset(dim, 0);
 
-                // generate random in data
-                xt::xarray<int32_t> dataIn(shape);
-                for(auto it = dataIn.begin(); it != dataIn.end(); ++it) {
-                    *it = draw();
+                TestArray<int32_t> dataIn(types::ShapeType(shape.begin(), shape.end()));
+                for(auto & v : dataIn.data) {
+                    v = draw();
                 }
-                writeSubarray<int32_t>(ds, dataIn, offset.begin());
+                writeSubarray<int32_t>(ds, dataIn.cview(), offset.begin());
 
-                // read the out data
-                xt::xarray<int32_t> dataOut(shape);
-                readSubarray<int32_t>(ds, dataOut, offset.begin());
-
-                auto itIn = dataIn.begin();
-                auto itOut = dataOut.begin();
-                for(; itIn != dataIn.end(); ++itIn, ++itOut) {
-                    ASSERT_EQ(*itIn, *itOut);
-                }
+                TestArray<int32_t> dataOut(types::ShapeType(shape.begin(), shape.end()));
+                readSubarray<int32_t>(ds, dataOut.view(), offset.begin());
+                ASSERT_EQ(dataIn.data, dataOut.data);
             }
         }
 
@@ -177,18 +157,16 @@ namespace multiarray {
         std::size_t chunkSize_;
     };
 
-    TEST_F(XtensorNDTest, TestRead) {
+    TEST_F(ArrayNDTest, TestRead) {
         for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayRead(dim);
-            // remove array
             fs::remove_all(path_);
         }
     }
 
-    TEST_F(XtensorNDTest, TestWriteRead) {
+    TEST_F(ArrayNDTest, TestWriteRead) {
         for(std::size_t dim = MIN_DIM; dim <= MAX_DIM; ++dim) {
             testArrayWriteRead(dim);
-            // remove array
             fs::remove_all(path_);
         }
     }

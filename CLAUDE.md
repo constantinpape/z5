@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-z5 is a library for reading and writing zarr and n5 files. It is written in C++ (header-only, requires **C++20**) and uses the xtensor library to represent multi-dimensional arrays. It provides Python bindings via pybind11. The Python library is called z5py. The build system is CMake.
+z5 is a library for reading and writing zarr and n5 files. It is written in C++ (header-only, requires **C++20**) and represents multi-dimensional arrays with a lightweight, non-owning strided view (`ArrayView`/`ConstArrayView`, numpy-compatible). It provides Python bindings via nanobind that pass numpy arrays directly. The Python library is called z5py. The build system is CMake.
 
 ## Common Commands
 
@@ -15,9 +15,9 @@ cmake .. -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_XZ=ON -DWITH_LZ4=
 make -j 4
 ```
 
-`make` compiles the `_z5py` pybind11 extension and copies the pure-Python `z5py` package + tests into `bld/python/`. `make install` additionally installs headers and the Python package into the conda env.
+`make` compiles the `_z5py` nanobind extension and copies the pure-Python `z5py` package + tests into `bld/python/`. `make install` additionally installs headers and the Python package into the conda env. nanobind is located via `python -m nanobind --cmake_dir` (or `CMAKE_PREFIX_PATH`); the active conda env must provide `nanobind` and `numpy`.
 
-Key CMake options (see `CMakeLists.txt`): compression codecs `WITH_BLOSC` / `WITH_BZIP2` / `WITH_XZ` / `WITH_LZ4` / `WITH_ZSTD` are **OFF by default** (`WITH_ZLIB` is ON); a codec must be compiled in to read/write chunks using it. Backends: `WITH_S3`, `WITH_GCS` (both incomplete). Also `WITH_MARRAY`, `BUILD_TESTS` (C++ tests, OFF), `BUILD_Z5PY` (ON).
+Key CMake options (see `CMakeLists.txt`): compression codecs `WITH_BLOSC` / `WITH_BZIP2` / `WITH_XZ` / `WITH_LZ4` / `WITH_ZSTD` are **OFF by default** (`WITH_ZLIB` is ON); a codec must be compiled in to read/write chunks using it. Backends: `WITH_S3`, `WITH_GCS` (both incomplete). Also `BUILD_TESTS` (C++ tests, OFF), `BUILD_Z5PY` (ON).
 
 ### Python tests
 ```bash
@@ -41,12 +41,12 @@ There is no configured linter/formatter in this repo.
 - **Backend implementations** of those bases live in `include/z5/filesystem/` (complete), `include/z5/s3/`, and `include/z5/gcs/` (both incomplete). Each provides its own `handle`, `dataset`, `metadata`, `attributes`, and `factory`.
 - **`factory.hxx`** is the entry point (`createFile`, `createDataset`, `openDataset`, etc.). It dispatches to a backend **at runtime** by inspecting the passed handle (`root.isS3()` / `root.isGcs()` / `root.isZarr()`), guarded by `WITH_S3` / `WITH_GCS` compile flags. To use a backend, call the factory with that backend's handle type (e.g. `z5::filesystem::handle::File`).
 - **`include/z5/compression/`**: one compressor per codec, all deriving from `CompressorBase` (`compress`/`decompress`/`type`). Each is gated behind its `WITH_*` define.
-- **`include/z5/multiarray/`**: in-memory IO. `xtensor_access.hxx` implements `readSubarray`/`writeSubarray` (the main user-facing IO functions); `marray_access.hxx` is an alternate backend. To support another multiarray type, reimplement `readSubarray`/`writeSubarray`.
+- **`include/z5/multiarray/`**: in-memory IO. `array_view.hxx` defines the non-owning strided `ArrayView`/`ConstArrayView` (element strides) plus `cOrderStrides`/`subview`/`makeView`; `array_util.hxx` provides the generic strided `copyView`/`fillView`; `array_access.hxx` implements `readSubarray`/`writeSubarray` (the main user-facing IO functions) on those views; `broadcast.hxx` implements `writeScalar`. To support another multiarray type, wrap its buffer in an `ArrayView` (data pointer + shape + element strides).
 - **`include/z5/util/`**: threadpool, chunk blocking/iteration, file modes.
 
 ### Python binding layout
 
-- `src/python/lib/*.cxx` — pybind11 sources compiled into the `_z5py` extension module (`z5py.cxx` registers submodules: attributes, dataset, factory, handles, util).
+- `src/python/lib/*.cxx` — nanobind sources compiled into the `_z5py` extension module (`z5py.cxx` registers submodules: attributes, dataset, factory, handles, util). IO bindings receive/return numpy arrays via `nb::ndarray<nb::numpy, T, nb::c_contig>` and wrap them in `ArrayView`. Pickling of `File`/`Group`/`Dataset` lives in the pure-Python layer (re-opens by path+mode), not in C++.
 - `src/python/module/z5py/*.py` — pure-Python package wrapping `_z5py`; the user-facing `h5py`-like API (`File`, `Group`, `Dataset`, `attribute_manager`, `converter`).
 - `src/python/test/*.py` — Python tests. `src/test/` holds C++ gtest sources.
 
