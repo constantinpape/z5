@@ -1,13 +1,11 @@
 #!/bin/bash
 set -e
 
-# build and run the C++ multiarray tests (covers the strided ArrayView IO and
+# Build and run the C++ multiarray tests (covers the strided ArrayView IO and
 # the copyView / fillView / subview logic) out-of-source against the bundled
-# googletest submodule.
-mkdir -p bld_cpp
-cd bld_cpp
-
-cmake .. \
+# googletest submodule. Explicit -S/-B keeps this independent of any build tree
+# the preceding conda build may have created.
+cmake -S . -B bld_cpp \
     -DWITH_BLOSC=ON \
     -DWITH_ZLIB=ON \
     -DWITH_BZIP2=ON \
@@ -19,9 +17,9 @@ cmake .. \
     -DBUILD_Z5PY=OFF \
     -DBUILD_TESTS=ON
 
-make -j 4 test_array_util test_broadcast test_array test_array_nd
+cmake --build bld_cpp -j 4 --target test_array_util test_broadcast test_array test_array_nd
 
-cd src/test/multiarray
+cd bld_cpp/src/test/multiarray
 ./test_array_util
 ./test_broadcast
 ./test_array
