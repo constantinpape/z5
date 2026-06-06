@@ -22,8 +22,7 @@ requirements:
   build:
     - python {{PY_VER}}
     - cmake
-    - xtensor
-    - xtensor-python
+    - nanobind
     - numpy >=1.15
     - nlohmann_json
     - blosc

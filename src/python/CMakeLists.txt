@@ -70,14 +70,15 @@ macro(addPythonModule)
 
 
     #Create the binding library
-    pybind11_add_module(_${MODULE_NAME}
+    # NOMINSIZE keeps -O3 (nanobind defaults to -Os) since the strided-copy
+    # hot loop is compiled into the extension; STABLE_ABI builds against the
+    # CPython limited API (3.12+) and is ignored on older versions.
+    nanobind_add_module(_${MODULE_NAME}
+        STABLE_ABI
+        NB_STATIC
+        NOMINSIZE
         ${ADD_PY_MOD_SOURCES}
     )
-    
-    # TODO Dunno if this is important, it produces a very ugly warning...
-    #if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    #  target_compile_options(_${MODULE_NAME} PRIVATE "-fvisibility=default")
-    #endif()
 
     set_target_properties(_${MODULE_NAME}  PROPERTIES PREFIX "")
 
@@ -121,8 +122,8 @@ add_subdirectory(lib)
 IF(NOT DEFINED PYTHON_MODULE_INSTALL_DIR OR PYTHON_MODULE_INSTALL_DIR MATCHES "^$")
     
     execute_process(
-      COMMAND "${PYTHON_EXECUTABLE}" -c 
-       "from __future__ import print_function; import sysconfig; print(sysconfig.get_path('platlib'))"
+      COMMAND "${Python_EXECUTABLE}" -c
+       "import sysconfig; print(sysconfig.get_path('platlib'))"
       OUTPUT_VARIABLE PYTHON_SITE
       OUTPUT_STRIP_TRAILING_WHITESPACE)
 

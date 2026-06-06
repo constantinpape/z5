@@ -1,29 +1,25 @@
 #pragma once
 
-#include <math.h>
+#include <cassert>
+#include <numeric>
 
 #include "z5/dataset.hxx"
 #include "z5/types/types.hxx"
-#include "z5/multiarray/xtensor_util.hxx"
+#include "z5/multiarray/array_view.hxx"
+#include "z5/multiarray/array_util.hxx"
 #include "z5/util/threadpool.hxx"
-
-#include "xtensor.hpp"
-#include "xtensor/views/xstrided_view.hpp"
-#include "xtensor/containers/xadapt.hpp"
 
 
 namespace z5 {
 namespace multiarray {
 
 
-    template<typename T, typename ARRAY>
+    template<typename T>
     inline void readSubarraySingleThreaded(const Dataset & ds,
-                                           xt::xexpression<ARRAY> & outExpression,
+                                           const ArrayView<T> & out,
                                            const types::ShapeType & offset,
                                            const types::ShapeType & shape,
                                            const std::vector<types::ShapeType> & chunkRequests) {
-        // need to cast to the actual xtensor implementation
-        auto & out = outExpression.derived_cast();
 
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
@@ -44,22 +40,15 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            // std::cout << "Reading chunk " << chunkId << std::endl;
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
-                                                             offset,
-                                                             shape,
-                                                             offsetInRequest,
-                                                             requestShape,
-                                                             offsetInChunk);
+            chunking.getCoordinatesInRoi(chunkId, offset, shape,
+                                         offsetInRequest, requestShape, offsetInChunk);
 
-            // get the view in our array
-            xt::xstrided_slice_vector offsetSlice;
-            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            auto view = xt::strided_view(out, offsetSlice);
+            // get the view into our array
+            const auto outView = subview(out, offsetInRequest, requestShape);
 
             // check if this chunk exists, if not fill output with fill value
             if(!ds.chunkExists(chunkId)) {
-                view = fillValue;;
+                fillView(outView, fillValue);
                 continue;
             }
 
@@ -72,7 +61,7 @@ namespace multiarray {
             std::vector<char> dataBuffer;
             ds.readRawChunk(chunkId, dataBuffer);
 
-            // get the shape of the chunk (as stored it is stored)
+            // get the shape of the chunk (as it is stored)
             chunkStoreSize = maxChunkSize;
             if(!isZarr) {
                 if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
@@ -82,10 +71,9 @@ namespace multiarray {
 
             // if this is an edge chunk and the size of the chunk stored is different from
             // the size of the chunk in the grid (this is the case when written by zarr)
-            // we need to set complete ovlp to false and use the chunkStoreSize
+            // we need to use the full (default) chunk shape for the buffer; the leading
+            // block of the buffer holds the valid data.
             if(chunkStoreSize != chunkSize) {
-                completeOvlp = false;
-                // reset chunk shape and chunk size to the full chunk size/shape
                 chunkSize = maxChunkSize;
                 chunkShape = maxChunkShape;
             }
@@ -103,38 +91,20 @@ namespace multiarray {
                 util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
             }
 
-            // request and chunk overlap completely
-            // -> we can read all the data from the chunk
-            if(completeOvlp) {
-                copyBufferToView(buffer, view, out.strides());
-            }
-            // request and chunk overlap only partially
-            // -> we can read the chunk data only partially
-            else {
-                // get a view to the part of the buffer we are interested in
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-
-                // could also implement fast copy for this
-                // but this would be harder and might be premature optimization
-                view = bufView;
-            }
+            // copy the requested sub-block of the chunk buffer into the output view
+            const ConstArrayView<T> chunkView(buffer.data(), chunkShape, cOrderStrides(chunkShape));
+            copyView(subview(chunkView, offsetInChunk, requestShape), outView);
         }
     }
 
 
-    template<typename T, typename ARRAY>
+    template<typename T>
     inline void readSubarrayMultiThreaded(const Dataset & ds,
-                                          xt::xexpression<ARRAY> & outExpression,
+                                          const ArrayView<T> & out,
                                           const types::ShapeType & offset,
                                           const types::ShapeType & shape,
                                           const std::vector<types::ShapeType> & chunkRequests,
                                           const int numberOfThreads) {
-        // need to cast to the actual xtensor implementation
-        auto & out = outExpression.derived_cast();
 
         // construct threadpool and make a buffer for each thread
         util::ThreadPool tp(numberOfThreads);
@@ -144,8 +114,6 @@ namespace multiarray {
         const auto & maxChunkShape = ds.defaultChunkShape();
 
         typedef std::vector<T> Buffer;
-        // TODO the thread buffers should be allocated by the thread that uses them
-        // for optimal performance
         std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
 
         const auto & chunking = ds.chunking();
@@ -165,22 +133,15 @@ namespace multiarray {
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
 
-            //std::cout << "Reading chunk " << chunkId << std::endl;
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
-                                                             offset,
-                                                             shape,
-                                                             offsetInRequest,
-                                                             requestShape,
-                                                             offsetInChunk);
+            chunking.getCoordinatesInRoi(chunkId, offset, shape,
+                                         offsetInRequest, requestShape, offsetInChunk);
 
-            // get the view in our array
-            xt::xstrided_slice_vector offsetSlice;
-            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            auto view = xt::strided_view(out, offsetSlice);
+            // get the view into our array
+            const auto outView = subview(out, offsetInRequest, requestShape);
 
             // check if this chunk exists, if not fill output with fill value
             if(!ds.chunkExists(chunkId)) {
-                view = fillValue;;
+                fillView(outView, fillValue);
                 return;
             }
 
@@ -193,7 +154,7 @@ namespace multiarray {
             std::vector<char> dataBuffer;
             ds.readRawChunk(chunkId, dataBuffer);
 
-            // get the shape of the chunk (as stored it is stored)
+            // get the shape of the chunk (as it is stored)
             std::size_t chunkStoreSize = maxChunkSize;
             if(!isZarr) {
                 if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
@@ -201,12 +162,8 @@ namespace multiarray {
                 }
             }
 
-            // if this is an edge chunk and the size of the chunk stored is different from
-            // the size of the chunk in the grid (this is the case when written by zarr)
-            // we need to set complete ovlp to false and use the chunkStoreSize
+            // edge chunk stored at full size (zarr) -> use the default chunk shape
             if(chunkStoreSize != chunkSize) {
-                completeOvlp = false;
-                // reset chunk shape and chunk size to the full chunk size/shape
                 chunkSize = maxChunkSize;
                 chunkShape = maxChunkShape;
             }
@@ -224,43 +181,24 @@ namespace multiarray {
                 util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
             }
 
-            // request and chunk overlap completely
-            // -> we can read all the data from the chunk
-            if(completeOvlp) {
-                // fast copy implementation
-                copyBufferToView(buffer, view, out.strides());
-            }
-            // request and chunk overlap only partially
-            // -> we can read the chunk data only partially
-            else {
-                // get a view to the part of the buffer we are interested in
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-
-                // could also implement smart view for this,
-                // but this would be kind of hard and premature optimization
-                view = bufView;
-            }
+            const ConstArrayView<T> chunkView(buffer.data(), chunkShape, cOrderStrides(chunkShape));
+            copyView(subview(chunkView, offsetInChunk, requestShape), outView);
         });
     }
 
 
-    template<typename T, typename ARRAY, typename ITER>
+    template<typename T, typename ITER>
     inline void readSubarray(const Dataset & ds,
-                             xt::xexpression<ARRAY> & outExpression,
+                             const ArrayView<T> & out,
                              ITER roiBeginIter,
                              const int numberOfThreads=1) {
 
-        // need to cast to the actual xtensor implementation
-        auto & out = outExpression.derived_cast();
-
         // get the offset and shape of the request and check if it is valid
-        types::ShapeType offset(roiBeginIter, roiBeginIter+out.dimension());
-        types::ShapeType shape(out.shape().begin(), out.shape().end());
+        types::ShapeType offset(roiBeginIter, roiBeginIter + out.ndim());
+        types::ShapeType shape(out.shape.begin(), out.shape.end());
         ds.checkRequestShape(offset, shape);
         ds.checkRequestType(typeid(T));
+        assert(out.ndim() == ds.dimension());
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
@@ -276,14 +214,13 @@ namespace multiarray {
     }
 
 
-    template<typename T, typename ARRAY>
+    template<typename T>
     inline void writeSubarraySingleThreaded(const Dataset & ds,
-                                            const xt::xexpression<ARRAY> & inExpression,
+                                            const ConstArrayView<T> & in,
                                             const types::ShapeType & offset,
                                             const types::ShapeType & shape,
                                             const std::vector<types::ShapeType> & chunkRequests) {
 
-        const auto & in = inExpression.derived_cast();
         types::ShapeType offsetInRequest, requestShape, chunkShape;
         types::ShapeType offsetInChunk;
 
@@ -303,27 +240,23 @@ namespace multiarray {
         // iterate over the chunks
         for(const auto & chunkId : chunkRequests) {
 
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
-                                                             shape, offsetInRequest,
-                                                             requestShape, offsetInChunk);
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset, shape,
+                                                             offsetInRequest, requestShape,
+                                                             offsetInChunk);
             // get shape and size of this chunk
             ds.getChunkShape(chunkId, chunkShape);
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::xstrided_slice_vector offsetSlice;
-            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            const auto view = xt::strided_view(in, offsetSlice);
+            const auto inView = subview(in, offsetInRequest, requestShape);
 
             // if this is an edge chunk and we are writing zarr format,
-            // we need to set complete ovlp to false and clear the buffer
+            // we need to write the full chunk padded with the fill value
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
-                // reset chunk shape and chunk size
                 chunkShape = ds.defaultChunkShape();
                 chunkSize = maxChunkSize;
-                // clear the buffer
                 std::fill(buffer.begin(), buffer.end(), fillValue);
             }
 
@@ -335,7 +268,7 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                copyViewToBuffer(view, buffer, in.strides());
+                copyView(inView, makeView(buffer.data(), chunkShape));
                 ds.writeChunk(chunkId, &buffer[0]);
             }
 
@@ -356,14 +289,8 @@ namespace multiarray {
                 }
 
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-
-                // could also implement smart view for this,
-                // but this would be kind of hard and premature optimization
-                bufView = view;
+                const auto bufferView = makeView(buffer.data(), chunkShape);
+                copyView(inView, subview(bufferView, offsetInChunk, requestShape));
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
@@ -372,15 +299,13 @@ namespace multiarray {
     }
 
 
-    template<typename T, typename ARRAY>
+    template<typename T>
     inline void writeSubarrayMultiThreaded(const Dataset & ds,
-                                           const xt::xexpression<ARRAY> & inExpression,
+                                           const ConstArrayView<T> & in,
                                            const types::ShapeType & offset,
                                            const types::ShapeType & shape,
                                            const std::vector<types::ShapeType> & chunkRequests,
                                            const int numberOfThreads) {
-
-        const auto & in = inExpression.derived_cast();
 
         // get the fillvalue
         T fillValue;
@@ -407,26 +332,22 @@ namespace multiarray {
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
 
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset,
-                                                             shape, offsetInRequest,
-                                                             requestShape, offsetInChunk);
+            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset, shape,
+                                                             offsetInRequest, requestShape,
+                                                             offsetInChunk);
             ds.getChunkShape(chunkId, chunkShape);
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
             // get the view into the in-array
-            xt::xstrided_slice_vector offsetSlice;
-            sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
-            const auto view = xt::strided_view(in, offsetSlice);
+            const auto inView = subview(in, offsetInRequest, requestShape);
 
             // if this is an edge chunk and we are writing zarr format,
-            // we need to set complete ovlp to false and clear the buffer
+            // we need to write the full chunk padded with the fill value
             if(chunkSize != maxChunkSize && isZarr) {
                 completeOvlp = false;
-                // reset chunk shape and chunk size
                 chunkSize = maxChunkSize;
                 chunkShape = ds.defaultChunkShape();
-                // clear the buffer
                 std::fill(buffer.begin(), buffer.end(), fillValue);
             }
 
@@ -438,7 +359,7 @@ namespace multiarray {
             // request and chunk overlap completely
             // -> we can write the whole chunk
             if(completeOvlp) {
-                copyViewToBuffer(view, buffer, in.strides());
+                copyView(inView, makeView(buffer.data(), chunkShape));
                 ds.writeChunk(chunkId, &buffer[0]);
             }
 
@@ -447,7 +368,6 @@ namespace multiarray {
             // to preserve the data that will not be written
             else {
                 if(ds.chunkExists(chunkId)) {
-
                     // load the current data into the buffer
                     if(ds.readChunk(chunkId, &buffer[0])) {
                         throw std::runtime_error("Can't write to varlen chunks from multiarray");
@@ -457,14 +377,8 @@ namespace multiarray {
                 }
 
                 // overwrite the data that is covered by the request
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
-                xt::xstrided_slice_vector bufSlice;
-                sliceFromRoi(bufSlice, offsetInChunk, requestShape);
-                auto bufView = xt::strided_view(fullBuffView, bufSlice);
-
-                // could also implement smart view for this,
-                // but this would be kind of hard and premature optimization
-                bufView = view;
+                const auto bufferView = makeView(buffer.data(), chunkShape);
+                copyView(inView, subview(bufferView, offsetInChunk, requestShape));
 
                 // write the chunk
                 ds.writeChunk(chunkId, &buffer[0]);
@@ -473,20 +387,19 @@ namespace multiarray {
     }
 
 
-    template<typename T, typename ARRAY, typename ITER>
+    template<typename T, typename ITER>
     inline void writeSubarray(const Dataset & ds,
-                              const xt::xexpression<ARRAY> & inExpression,
+                              const ConstArrayView<T> & in,
                               ITER roiBeginIter,
                               const int numberOfThreads=1) {
 
-        const auto & in = inExpression.derived_cast();
-
         // get the offset and shape of the request and check if it is valid
-        types::ShapeType offset(roiBeginIter, roiBeginIter+in.dimension());
-        types::ShapeType shape(in.shape().begin(), in.shape().end());
+        types::ShapeType offset(roiBeginIter, roiBeginIter + in.ndim());
+        types::ShapeType shape(in.shape.begin(), in.shape.end());
 
         ds.checkRequestShape(offset, shape);
         ds.checkRequestType(typeid(T));
+        assert(in.ndim() == ds.dimension());
 
         // get the chunks that are involved in this request
         std::vector<types::ShapeType> chunkRequests;
@@ -499,23 +412,22 @@ namespace multiarray {
         } else {
             writeSubarrayMultiThreaded<T>(ds, in, offset, shape, chunkRequests, numberOfThreads);
         }
-
     }
 
 
     // unique ptr API
-    template<typename T, typename ARRAY, typename ITER>
+    template<typename T, typename ITER>
     inline void readSubarray(std::unique_ptr<Dataset> & ds,
-                             xt::xexpression<ARRAY> & out,
+                             const ArrayView<T> & out,
                              ITER roiBeginIter,
                              const int numberOfThreads=1) {
        readSubarray<T>(*ds, out, roiBeginIter, numberOfThreads);
     }
 
 
-    template<typename T, typename ARRAY, typename ITER>
+    template<typename T, typename ITER>
     inline void writeSubarray(std::unique_ptr<Dataset> & ds,
-                              const xt::xexpression<ARRAY> & in,
+                              const ConstArrayView<T> & in,
                               ITER roiBeginIter,
                               const int numberOfThreads=1) {
         writeSubarray<T>(*ds, in, roiBeginIter, numberOfThreads);

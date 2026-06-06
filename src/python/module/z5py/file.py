@@ -6,6 +6,16 @@ from . import _z5py
 from .group import Group
 
 
+def _unpickle_file(path, mode_str, dimension_separator):
+    # reconstruct the File handle directly (without running File.__init__, which
+    # would truncate / (re-)create the file) and set up the Group state.
+    handle = _z5py.File(path, _z5py.FileMode(Group.file_modes[mode_str]))
+    obj = File.__new__(File)
+    Group.__init__(obj, handle, _z5py.Group, parent=obj, name="",
+                   dimension_separator=dimension_separator)
+    return obj
+
+
 class File(Group):
     """ File to access zarr or n5 containers on disc.
 
@@ -84,6 +94,11 @@ class File(Group):
                 raise OSError(errno.EROFS, os.strerror(errno.EROFS), handle.path())
             # if we don't have the file, create it
             _z5py.create_file(handle, is_zarr)
+
+    def __reduce__(self):
+        # pickle by storing path + mode and re-opening on unpickle
+        return (_unpickle_file,
+                (self._handle.path(), self._handle.mode().mode(), self._dimension_separator))
 
     def _check_version(self):
         metadata = self._handle.read_metadata()

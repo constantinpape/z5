@@ -1,8 +1,12 @@
 from collections.abc import Mapping
 
 from . import _z5py
-from .dataset import Dataset
+from .dataset import Dataset, _navigate
 from .attribute_manager import AttributeManager
+
+
+def _unpickle_group(file_obj, name):
+    return _navigate(file_obj, name)
 
 
 class Group(Mapping):
@@ -31,6 +35,10 @@ class Group(Mapping):
         self._parent = parent
         self._name = name
         self._dimension_separator = dimension_separator
+
+    def __reduce__(self):
+        # pickle by re-opening from the (picklable) root file; see Dataset.__reduce__
+        return (_unpickle_group, (self.file, self._name))
 
     #
     # Magic Methods, Attributes, Keys, Contains

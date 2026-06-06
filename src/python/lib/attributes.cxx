@@ -1,16 +1,16 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include "z5/attributes.hxx"
 
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace z5 {
 
 
     template<class OBJECT>
-    void exportAttributesT(py::module & m) {
+    void exportAttributesT(nb::module_ & m) {
         m.def("write_attributes", [](const OBJECT & g, const std::string & attrs){
             const nlohmann::json j = nlohmann::json::parse(attrs);
             writeAttributes(g, j);
@@ -28,7 +28,7 @@ namespace z5 {
     }
 
 
-    void exportAttributes(py::module & m) {
+    void exportAttributes(nb::module_ & m) {
 
         exportAttributesT<filesystem::handle::File>(m);
         exportAttributesT<filesystem::handle::Group>(m);
