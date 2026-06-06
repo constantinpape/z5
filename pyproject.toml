@@ -34,7 +34,9 @@ Repository = "https://github.com/constantinpape/z5"
 Issues = "https://github.com/constantinpape/z5/issues"
 
 [project.optional-dependencies]
-test = ["zarr", "h5py", "imageio"]
+# zarr is pinned to v2: z5 interops with the zarr v2 on-disk format, and the
+# compat tests use the v2 library API (zarr 3.2 removed Group.create_dataset).
+test = ["zarr<3", "h5py", "imageio"]
 
 [tool.scikit-build]
 cmake.version = ">=3.15"
@@ -79,7 +81,7 @@ regex = '^__version__ = "(?P<value>.+)"$'
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "*-win32 *-manylinux_i686 *-musllinux_*"
 build-frontend = "build"
-test-requires = ["zarr", "h5py", "imageio"]
+test-requires = ["zarr<3", "h5py", "imageio"]
 # {project} is the checked-out repo, which still contains the test suite.
 test-command = "python -m unittest discover -s {project}/src/python/test -v"
 
