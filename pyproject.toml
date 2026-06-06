@@ -121,6 +121,7 @@ before-all = [
 
 [tool.cibuildwheel.windows.environment]
 VCPKG_ROOT = "C:/vcpkg"
-# static libs + dynamic CRT is the correct triplet for CPython extensions.
-VCPKG_TARGET_TRIPLET = "x64-windows-static-md"
+# static libs + dynamic CRT is the correct triplet for CPython extensions. The
+# vcpkg toolchain only honors the triplet as a CMake cache var (it ignores the
+# env var), so it must be a -D define in CMAKE_ARGS.
 CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md"

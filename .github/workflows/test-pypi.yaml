@@ -32,9 +32,9 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       # Wire the build up to the runner's preinstalled vcpkg. CMake >= 3.21 reads
-      # CMAKE_TOOLCHAIN_FILE from the environment, so scikit-build-core picks it
-      # up without any CMAKE_ARGS plumbing. The codecs in vcpkg.json are then
-      # auto-installed during the CMake configure (cached via x-gha).
+      # CMAKE_TOOLCHAIN_FILE from the environment, so scikit-build-core picks the
+      # toolchain up. The codecs in vcpkg.json are auto-installed during the
+      # CMake configure (cached via x-gha).
       - name: Configure vcpkg toolchain and cache
         shell: bash
         run: |
@@ -43,9 +43,12 @@ jobs:
           echo "CMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
           echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> "$GITHUB_ENV"
           if [ "$RUNNER_OS" = "Windows" ]; then
-            # static libs + dynamic CRT, matching the published wheels so the
-            # imported extension needs no external DLLs on PATH.
-            echo "VCPKG_TARGET_TRIPLET=x64-windows-static-md" >> "$GITHUB_ENV"
+            # The vcpkg toolchain reads the triplet from the CMake cache var, NOT
+            # the env var, and otherwise defaults to the dynamic x64-windows
+            # triplet (whose DLLs aren't on PATH at import). Pass static-md as a
+            # -D define (via CMAKE_ARGS, forwarded by scikit-build-core) so the
+            # codecs are baked statically into _z5py.pyd.
+            echo "CMAKE_ARGS=-DVCPKG_TARGET_TRIPLET=x64-windows-static-md" >> "$GITHUB_ENV"
           fi
           if [ "$RUNNER_OS" = "macOS" ]; then
             # C++20 <filesystem> floor (arm64 is effectively 11.0 anyway).
