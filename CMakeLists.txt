@@ -170,6 +170,17 @@ if(WITH_BLOSC)
     include_directories(${BLOSC_INCLUDE_DIR})
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_BLOSC")
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BLOSC_LIBRARIES}")
+
+    # vcpkg's static libblosc is built with snappy and references its symbols;
+    # z5's FindBLOSC only returns the blosc lib, not its transitive deps, so add
+    # snappy explicitly for the wheel (SKBUILD) build. Conda ships a shared
+    # libblosc that carries its own deps, so this is skipped there.
+    if(SKBUILD)
+        find_library(SNAPPY_LIBRARY NAMES snappy)
+        if(SNAPPY_LIBRARY)
+            SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${SNAPPY_LIBRARY}")
+        endif()
+    endif()
 endif()
 
 if(WITH_ZLIB)
