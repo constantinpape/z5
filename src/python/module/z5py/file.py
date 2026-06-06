@@ -11,8 +11,14 @@ def _unpickle_file(path, mode_str, dimension_separator):
     # would truncate / (re-)create the file) and set up the Group state.
     handle = _z5py.File(path, _z5py.FileMode(Group.file_modes[mode_str]))
     obj = File.__new__(File)
+    zarr_format = 2
+    if handle.is_zarr():
+        try:
+            zarr_format = json.loads(handle.read_metadata()).get('zarr_format', 2)
+        except Exception:
+            pass
     Group.__init__(obj, handle, _z5py.Group, parent=obj, name="",
-                   dimension_separator=dimension_separator)
+                   dimension_separator=dimension_separator, zarr_format=zarr_format)
     return obj
 
 
@@ -53,10 +59,12 @@ class File(Group):
         if is_zarr is None:
             zarr_group = os.path.join(path, '.zgroup')
             zarr_array = os.path.join(path, '.zarray')
-            is_zarr = os.path.exists(zarr_group) or os.path.exists(zarr_array)
+            zarr_json = os.path.join(path, 'zarr.json')  # zarr v3
+            is_zarr = (os.path.exists(zarr_group) or os.path.exists(zarr_array)
+                       or os.path.exists(zarr_json))
         return is_zarr
 
-    def __init__(self, path, mode="a", use_zarr_format=None, dimension_separator="."):
+    def __init__(self, path, mode="a", use_zarr_format=None, dimension_separator=".", zarr_format=2):
 
         if isinstance(path, os.PathLike):
             path = os.fspath(path)
@@ -79,7 +87,8 @@ class File(Group):
         handle = _z5py.File(path, _z5py.FileMode(self.file_modes[mode]))
         mode = handle.mode()
 
-        super().__init__(handle, _z5py.Group, parent=self, name="", dimension_separator=dimension_separator)
+        super().__init__(handle, _z5py.Group, parent=self, name="",
+                         dimension_separator=dimension_separator, zarr_format=zarr_format)
 
         # at some point we should move more of this logic to c++ as well
         # if we open in 'w', remove the existing file existing
@@ -88,12 +97,13 @@ class File(Group):
         if handle.exists():
             if mode.must_not_exist():
                 raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), handle.path())
+            # recovers the actual on-disk zarr_format into self._zarr_format
             self._check_version()
         else:
             if not mode.can_create():
                 raise OSError(errno.EROFS, os.strerror(errno.EROFS), handle.path())
             # if we don't have the file, create it
-            _z5py.create_file(handle, is_zarr)
+            _z5py.create_file(handle, is_zarr, zarr_format)
 
     def __reduce__(self):
         # pickle by storing path + mode and re-opening on unpickle
@@ -105,8 +115,9 @@ class File(Group):
         metadata = json.loads(metadata)
         if self._handle.is_zarr():
             version = metadata['zarr_format']
-            if version != 2:
-                raise RuntimeError("z5 only supports zarr format 2")
+            if version not in (2, 3):
+                raise RuntimeError("z5 only supports zarr format 2 and 3")
+            self._zarr_format = version
         else:
             version = metadata.get('n5', None)
             if version is not None:
@@ -154,8 +165,9 @@ class ZarrFile(File):
         mode (str): file mode used to open / create the file (default: 'a').
     """
 
-    def __init__(self, path, mode="a", dimension_separator="."):
-        super().__init__(path=path, use_zarr_format=True, mode=mode, dimension_separator=dimension_separator)
+    def __init__(self, path, mode="a", dimension_separator=".", zarr_format=2):
+        super().__init__(path=path, use_zarr_format=True, mode=mode,
+                         dimension_separator=dimension_separator, zarr_format=zarr_format)
 
 
 # TODO can we implement automatic zarr/n5 inference for s3?

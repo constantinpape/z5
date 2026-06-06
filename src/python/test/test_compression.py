@@ -5,12 +5,16 @@ from abc import ABC
 import numpy as np
 import z5py
 
+from _v3_capability import (available_v3_compressors, format_ext,
+                            open_root_file, requires_z5_v3)
+
 
 class CompressionTestMixin(ABC):
     def setUp(self):
         self.shape = (500, 500)
         self.chunks = (100, 100)
-        self.root_file = z5py.File('array.' + self.data_format, use_zarr_format=self.data_format == 'zarr')
+        self.path = 'array.' + format_ext(self.data_format)
+        self.root_file = open_root_file(self.path, self.data_format)
 
         self.dtypes = [
             'int8', 'int16', 'int32', 'int64',
@@ -20,7 +24,7 @@ class CompressionTestMixin(ABC):
 
     def tearDown(self):
         try:
-            rmtree('array.' + self.data_format)
+            rmtree(self.path)
         except OSError:
             pass
 
@@ -31,8 +35,12 @@ class CompressionTestMixin(ABC):
     def test_compression(self):
         from z5py.dataset import Dataset
         f = self.root_file
-        compressions = Dataset.compressors_n5 if self.data_format == 'n5' else\
-            Dataset.compressors_zarr
+        if self.data_format == 'n5':
+            compressions = Dataset.compressors_n5
+        elif self.data_format == 'zarr_v3':
+            compressions = available_v3_compressors()
+        else:
+            compressions = Dataset.compressors_zarr
 
         # iterate over the compression libraries
         for compression in compressions:
@@ -69,7 +77,10 @@ class CompressionTestMixin(ABC):
 
     def test_large_values_gzip(self):
         f = self.root_file
-        compression = 'zlib' if f.is_zarr else 'gzip'
+        if self.data_format == 'zarr_v3':
+            compression = 'gzip'
+        else:
+            compression = 'zlib' if f.is_zarr else 'gzip'
         size = np.prod(self.shape)
         for dtype in self.dtypes:
             ds_name = "ds_%s" % dtype
@@ -117,6 +128,11 @@ class CompressionTestMixin(ABC):
 
 class TestZarrCompression(CompressionTestMixin, unittest.TestCase):
     data_format = 'zarr'
+
+
+@requires_z5_v3
+class TestZarrV3Compression(CompressionTestMixin, unittest.TestCase):
+    data_format = 'zarr_v3'
 
 
 class TestN5Compression(CompressionTestMixin, unittest.TestCase):

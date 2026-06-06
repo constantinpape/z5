@@ -7,14 +7,16 @@ from abc import ABC
 import numpy as np
 import z5py
 
+from _v3_capability import format_ext, open_root_file, requires_z5_v3
+
 
 class GroupTestMixin(ABC):
 
     def setUp(self):
         self.shape = (100, 100, 100)
 
-        self.path = 'array.%s' % self.data_format
-        self.root_file = z5py.File(self.path)
+        self.path = 'array.' + format_ext(self.data_format)
+        self.root_file = open_root_file(self.path, self.data_format)
         g = self.root_file.create_group('test')
         g.create_dataset('test',
                          dtype='float32',
@@ -165,6 +167,24 @@ class TestGroupZarr(GroupTestMixin, unittest.TestCase):
         f.visititems(print)  # Try 1: works
         f.create_dataset("volume/data", data=data)
         f.visititems(print)  # Try 2: breaks
+
+
+@requires_z5_v3
+class TestGroupZarrV3(GroupTestMixin, unittest.TestCase):
+    data_format = 'zarr_v3'
+
+    def test_group_metadata_v3(self):
+        import json
+        self.root_file.create_group('sub')
+        # root, the group created in setUp, and a freshly created group all
+        # carry a v3 group ``zarr.json``
+        for rel in ('', 'test', 'sub'):
+            meta_path = os.path.join(self.path, rel, 'zarr.json')
+            self.assertTrue(os.path.exists(meta_path))
+            with open(meta_path) as fobj:
+                meta = json.load(fobj)
+            self.assertEqual(meta['zarr_format'], 3)
+            self.assertEqual(meta['node_type'], 'group')
 
 
 class TestGroupN5(GroupTestMixin, unittest.TestCase):

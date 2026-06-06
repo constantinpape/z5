@@ -6,12 +6,14 @@ from abc import ABC
 import numpy as np
 import z5py
 
+from _v3_capability import format_ext, open_root_file, requires_z5_v3
+
 
 class DatasetTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.path = 'array.' + self.data_format
-        self.root_file = z5py.File(self.path, use_zarr_format=self.data_format == 'zarr')
+        self.path = 'array.' + format_ext(self.data_format)
+        self.root_file = open_root_file(self.path, self.data_format)
 
         self.base_dtypes = [
             'int8', 'int16', 'int32', 'int64',
@@ -226,7 +228,10 @@ class DatasetTestMixin(ABC):
                                            shape=self.shape,
                                            chunks=(10, 10, 10))
         bb = np.s_[:10, :10, :10]
-        if ds.is_zarr:
+        if self.data_format == 'zarr_v3':
+            # v3 default chunk-key encoding nests chunks under 'c/' with '/' sep
+            chunk_path = os.path.join(self.path, 'test', 'c', '0', '0', '0')
+        elif ds.is_zarr:
             chunk_path = os.path.join(self.path, 'test', '0.0.0')
         else:
             chunk_path = os.path.join(self.path, 'test', '0', '0', '0')
@@ -492,6 +497,22 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
 
         res = ds[:]
         self.assertTrue(np.allclose(data, res))
+
+
+@requires_z5_v3
+class TestZarrV3Dataset(DatasetTestMixin, unittest.TestCase):
+    data_format = 'zarr_v3'
+    fill_values = [0, 42, np.nan, np.inf, -np.inf]
+
+    def test_varlen(self):
+        # variable-length chunks are not part of the zarr v3 spec
+        shape = (100, 100)
+        chunks = (10, 10)
+        ds = self.root_file.create_dataset('varlen', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+        with self.assertRaises(RuntimeError):
+            ds.write_chunk((0, 0), np.random.rand(10), True)
 
 
 class TestN5Dataset(DatasetTestMixin, unittest.TestCase):

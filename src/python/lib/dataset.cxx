@@ -186,6 +186,7 @@ namespace z5 {
             .def_prop_ro("shape", [](const Dataset & ds){return ds.shape();})
             .def_prop_ro("len", [](const Dataset & ds){return ds.shape(0);})
             .def_prop_ro("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
+            .def_prop_ro("shards", [](const Dataset & ds){return ds.shardShape();})
             .def_prop_ro("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_prop_ro("size", [](const Dataset & ds){return ds.size();})
             .def_prop_ro("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})

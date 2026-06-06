@@ -14,5 +14,6 @@ dependencies:
   - blosc
   - imageio
   - nlohmann_json
-  - zarr <3
+  - zarr >=3
+  - tensorstore
   - h5py

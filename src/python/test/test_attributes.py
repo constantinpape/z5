@@ -6,6 +6,8 @@ from abc import ABC
 import numpy as np
 import z5py
 
+from _v3_capability import format_ext, open_root_file, requires_z5_v3
+
 
 # Just a dummy numpy encoder to test custom encoders
 class NumpyEncoder(json.JSONEncoder):
@@ -35,14 +37,15 @@ class AttributesTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
 
-        self.root_file = z5py.File('array.%s' % self.data_format)
+        self.path = 'array.' + format_ext(self.data_format)
+        self.root_file = open_root_file(self.path, self.data_format)
         self.root_file.create_dataset('ds', dtype='float32',
                                       shape=self.shape, chunks=(10, 10, 10))
         self.root_file.create_group('group')
 
     def tearDown(self):
         try:
-            rmtree('array.%s' % self.data_format)
+            rmtree(self.path)
         except OSError:
             pass
 
@@ -131,6 +134,11 @@ class AttributesTestMixin(ABC):
 
 class TestAttributesZarr(AttributesTestMixin, unittest.TestCase):
     data_format = 'zarr'
+
+
+@requires_z5_v3
+class TestAttributesZarrV3(AttributesTestMixin, unittest.TestCase):
+    data_format = 'zarr_v3'
 
 
 class TestAttributesN5(AttributesTestMixin, unittest.TestCase):
