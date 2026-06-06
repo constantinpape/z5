@@ -32,6 +32,8 @@ def _unpickle_dataset(file_obj, name, n_threads):
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
 COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4', 'zstd')
+# zarr v3 core codecs ('raw' == the v3 'bytes' codec)
+COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd')
 
 
 class Dataset:
@@ -62,6 +64,11 @@ class Dataset:
     compressors_n5 = tuple(comp for comp in COMPRESSORS_N5 if AVAILABLE_COMPRESSORS[comp])
     # Default compression for n5 format
     n5_default_compressor = 'gzip' if AVAILABLE_COMPRESSORS['gzip'] else 'raw'
+
+    # Compression codecs supported by the zarr v3 format
+    compressors_zarr_v3 = tuple(comp for comp in COMPRESSORS_ZARR_V3 if AVAILABLE_COMPRESSORS[comp])
+    # Default compression for zarr v3 format
+    zarr_v3_default_compressor = 'blosc' if AVAILABLE_COMPRESSORS['blosc'] else 'raw'
 
     def __init__(self, dset_impl, handle, parent, name, n_threads=1):
         self._impl = dset_impl
@@ -117,6 +124,33 @@ class Dataset:
             return {}
 
         # update the default options
+        default_opts.update(compression_options)
+        return default_opts
+
+    @staticmethod
+    def _to_zarr_v3_compression_options(compression, compression_options):
+        # the options below populate the runtime CompressionOptions; the C++
+        # toJsonV3 turns them into the on-disk v3 codec configuration. NOTE: gzip
+        # must set useZlib=False so the zlib compressor emits a gzip wrapper.
+        if compression == 'blosc':
+            default_opts = {'codec': 'lz4', 'level': 5, 'shuffle': 1, 'blocksize': 0}
+        elif compression == 'gzip':
+            default_opts = {'level': 5, 'useZlib': False}
+        elif compression == 'zstd':
+            default_opts = {'level': 3}
+        elif compression == 'raw':
+            default_opts = {}
+        else:
+            raise RuntimeError("Compression %s is not supported in zarr v3 format" % compression)
+
+        # check for invalid options
+        extra_args = set(compression_options) - set(default_opts)
+        if extra_args:
+            raise RuntimeError("Invalid options for %s compression: %s" % (compression, ' '.join(list(extra_args))))
+
+        if not default_opts:
+            return {}
+
         default_opts.update(compression_options)
         return default_opts
 
@@ -182,10 +216,15 @@ class Dataset:
             compression = kwargs.pop('compression', None)
             fillvalue = kwargs.pop('fillvalue', 0)
             dimension_separator = kwargs.pop('dimension_separator', '.')
+            zarr_format = kwargs.pop('zarr_format', 2)
+            shards = kwargs.pop('shards', None)
+            chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
-                                       compression_options=kwargs, dimension_separator=dimension_separator)
+                                       compression_options=kwargs, dimension_separator=dimension_separator,
+                                       zarr_format=zarr_format, shards=shards,
+                                       chunk_key_encoding=chunk_key_encoding)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -194,7 +233,10 @@ class Dataset:
                         compression=None,
                         fillvalue=0, n_threads=1,
                         compression_options={},
-                        dimension_separator="."):
+                        dimension_separator=".",
+                        zarr_format=2,
+                        shards=None,
+                        chunk_key_encoding="default"):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -231,37 +273,54 @@ class Dataset:
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
         is_zarr = ghandle.is_zarr()
 
-        # check compression / get default compression
-        # if no compression is given
-        if compression is None:
-            compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
-        else:
-            valid_compression = compression in cls.compressors_zarr if is_zarr else\
-                compression in cls.compressors_n5
-            if not valid_compression:
-                raise ValueError("Compression filter \"%s\" is unavailable" % compression)
-
-        # get and check compression
-        if is_zarr and compression not in cls.compressors_zarr:
-            compression = cls.zarr_default_compressor
-        elif not is_zarr and compression not in cls.compressors_n5:
-            compression = cls.n5_default_compressor
-
         if parsed_dtype not in cls._dtype_dict:
-            raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
+            raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
 
-        # update the compression options
-        if is_zarr:
-            copts = cls._to_zarr_compression_options(compression, compression_options)
+        if shards is not None and not (is_zarr and zarr_format == 3):
+            raise ValueError("Sharding is only supported for zarr v3 datasets")
+
+        if is_zarr and zarr_format == 3:
+            # zarr v3
+            if compression is None:
+                compression = cls.zarr_v3_default_compressor
+            if compression not in cls.compressors_zarr_v3:
+                raise ValueError("Compression filter \"%s\" is unavailable for zarr v3" % compression)
+            copts = json.dumps(cls._to_zarr_v3_compression_options(compression, compression_options))
+            # the chunk key separator is determined by the chunk key encoding
+            separator = '.' if chunk_key_encoding == 'v2' else '/'
+            shards_arg = list(shards) if shards is not None else []
+            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+                                        shape, chunks, compression, copts, fillvalue,
+                                        separator, 3, shards_arg, chunk_key_encoding)
         else:
-            copts = cls._to_n5_compression_options(compression, compression_options)
+            # zarr v2 / n5
+            # check compression / get default compression if no compression is given
+            if compression is None:
+                compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
+            else:
+                valid_compression = compression in cls.compressors_zarr if is_zarr else\
+                    compression in cls.compressors_n5
+                if not valid_compression:
+                    raise ValueError("Compression filter \"%s\" is unavailable" % compression)
 
-        # convert the copts to json parseable string
-        copts = json.dumps(copts)
-        # get the dataset and write data if necessary
-        impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
-                                    shape, chunks, compression, copts, fillvalue,
-                                    dimension_separator)
+            # get and check compression
+            if is_zarr and compression not in cls.compressors_zarr:
+                compression = cls.zarr_default_compressor
+            elif not is_zarr and compression not in cls.compressors_n5:
+                compression = cls.n5_default_compressor
+
+            # update the compression options
+            if is_zarr:
+                copts = cls._to_zarr_compression_options(compression, compression_options)
+            else:
+                copts = cls._to_n5_compression_options(compression, compression_options)
+
+            # convert the copts to json parseable string
+            copts = json.dumps(copts)
+            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+                                        shape, chunks, compression, copts, fillvalue,
+                                        dimension_separator)
+
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
         if have_data:
@@ -310,6 +369,13 @@ class Dataset:
         """ Chunks of this dataset.
         """
         return tuple(self._impl.chunks)
+
+    @property
+    def shards(self):
+        """ Shard shape of this dataset (zarr v3 sharding), or None if not sharded.
+        """
+        shards = tuple(self._impl.shards)
+        return shards if shards else None
 
     @property
     def dtype(self):

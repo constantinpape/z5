@@ -34,14 +34,16 @@ namespace handle {
             if(!pathExists()) {
                throw std::runtime_error("Cannot infer zarr format because the dataset has not been created yet.");
             }
-            return fs::exists(path_ / ".zarray");
+            // .zarray -> zarr v2, zarr.json -> zarr v3
+            return fs::exists(path_ / ".zarray") || fs::exists(path_ / "zarr.json");
         }
 
         inline bool isZarrGroup() const {
             if(!pathExists()) {
                throw std::runtime_error("Cannot infer zarr format because the group has not been created yet.");
             }
-            return fs::exists(path_ / ".zgroup");
+            // .zgroup -> zarr v2, zarr.json -> zarr v3
+            return fs::exists(path_ / ".zgroup") || fs::exists(path_ / "zarr.json");
         }
 
         inline void listSubDirs(std::vector<std::string> & out) const {
@@ -188,8 +190,11 @@ namespace handle {
         typedef z5::handle::Dataset<Dataset> BaseType;
 
         template<class GROUP>
-        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key, const std::string & zarrDelimiter=".")
-            : BaseType(group.mode(), zarrDelimiter), HandleImpl(group.path() / key) {
+        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key,
+                const std::string & zarrDelimiter=".", const int zarrFormat=2,
+                const std::string & chunkKeyEncoding="default")
+            : BaseType(group.mode(), zarrDelimiter, zarrFormat, chunkKeyEncoding),
+              HandleImpl(group.path() / key) {
         }
 
         Dataset(const fs::path & path, const FileMode & mode)
@@ -240,7 +245,7 @@ namespace handle {
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
                                                          dsHandle_(ds),
-                                                         path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter())){}
+                                                         path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter(), ds.zarrFormat(), ds.chunkKeyEncoding())){}
 
         // make the top level directories for a nested chunk
         inline void create() const {

@@ -13,5 +13,10 @@ dependencies:
   - blosc
   - imageio
   - nlohmann_json
-  - zarr <3
+  - zarr >=3
   - h5py
+  # tensorstore has no conda-forge win-64 build, so install it from PyPI
+  # (wheels exist for win/mac/linux on py>=3.11); interop tests skip if absent
+  - pip
+  - pip:
+    - tensorstore

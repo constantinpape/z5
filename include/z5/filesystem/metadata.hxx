@@ -21,19 +21,40 @@ namespace metadata_detail {
     }
 
     inline bool getMetadataPath(const handle::Dataset & handle, fs::path & path) {
-        fs::path zarrPath = handle.path();
-        fs::path n5Path = handle.path();
-        zarrPath /= ".zarray";
-        n5Path /= "attributes.json";
-        if(fs::exists(zarrPath) && fs::exists(n5Path)) {
+        const fs::path zarrPath = handle.path() / ".zarray";      // zarr v2
+        const fs::path v3Path = handle.path() / "zarr.json";      // zarr v3
+        const fs::path n5Path = handle.path() / "attributes.json"; // n5
+        const bool hasZarr = fs::exists(zarrPath);
+        const bool hasV3 = fs::exists(v3Path);
+        const bool hasN5 = fs::exists(n5Path);
+        if((hasZarr || hasV3) && hasN5) {
             throw std::runtime_error("Zarr and N5 specification are not both supported");
         }
-        if(!fs::exists(zarrPath) && !fs::exists(n5Path)){
+        if(!hasZarr && !hasV3 && !hasN5){
             throw std::runtime_error("Invalid path: no metadata existing");
         }
-        const bool isZarr = fs::exists(zarrPath);
-        path = isZarr ? zarrPath : n5Path;
+        // zarr v3 takes precedence over v2 if both are somehow present
+        const bool isZarr = hasZarr || hasV3;
+        path = hasV3 ? v3Path : (hasZarr ? zarrPath : n5Path);
         return isZarr;
+    }
+}
+
+namespace metadata_detail {
+    // write zarr v3 group metadata (zarr.json with node_type "group"),
+    // preserving any inline user attributes already on disk
+    inline void writeV3GroupMetadata(const fs::path & dir, const Metadata & metadata) {
+        const auto path = dir / "zarr.json";
+        nlohmann::json j;
+        if(fs::exists(path)) {
+            metadata_detail::readMetadata(path, j);
+        }
+        j["zarr_format"] = 3;
+        j["node_type"] = "group";
+        if(j.find("attributes") == j.end()) {
+            j["attributes"] = nlohmann::json::object();
+        }
+        metadata_detail::writeMetadata(path, j);
     }
 }
 
@@ -41,6 +62,10 @@ namespace metadata_detail {
     inline void writeMetadata(const z5::handle::File<GROUP> & handleBase, const Metadata & metadata) {
         const auto & handle = handleBase;
         const bool isZarr = metadata.isZarr;
+        if(isZarr && metadata.zarrFormat == 3) {
+            metadata_detail::writeV3GroupMetadata(handle.path(), metadata);
+            return;
+        }
         const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
         nlohmann::json j;
         if(isZarr) {
@@ -60,6 +85,10 @@ namespace metadata_detail {
     template<class GROUP>
     inline void writeMetadata(const z5::handle::Group<GROUP> & handle, const Metadata & metadata) {
         const bool isZarr = metadata.isZarr;
+        if(isZarr && metadata.zarrFormat == 3) {
+            metadata_detail::writeV3GroupMetadata(handle.path(), metadata);
+            return;
+        }
         const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
         nlohmann::json j;
         if(isZarr) {
@@ -73,6 +102,21 @@ namespace metadata_detail {
 
 
     inline void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
+        if(metadata.isZarr && metadata.zarrFormat == 3) {
+            const auto path = handle.path() / "zarr.json";
+            // preserve inline user attributes already on disk
+            nlohmann::json existing;
+            if(fs::exists(path)) {
+                metadata_detail::readMetadata(path, existing);
+            }
+            nlohmann::json j;
+            metadata.toJson(j);
+            if(existing.contains("attributes")) {
+                j["attributes"] = existing["attributes"];
+            }
+            metadata_detail::writeMetadata(path, j);
+            return;
+        }
         const auto path = handle.path() / (metadata.isZarr ? ".zarray" : "attributes.json");
         nlohmann::json j;
         metadata.toJson(j);
@@ -83,12 +127,23 @@ namespace metadata_detail {
     template<class GROUP>
     inline void readMetadata(const z5::handle::Group<GROUP> & handle, nlohmann::json & j) {
         const bool isZarr = handle.isZarr();
-        const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
-        nlohmann::json jTmp;
-        metadata_detail::readMetadata(path, jTmp);
         if(isZarr) {
-            j["zarr_format"] = jTmp["zarr_format"];
+            const fs::path v3Path = handle.path() / "zarr.json";
+            if(fs::exists(v3Path)) {
+                nlohmann::json jTmp;
+                metadata_detail::readMetadata(v3Path, jTmp);
+                j["zarr_format"] = jTmp["zarr_format"];
+                if(jTmp.contains("node_type")) {
+                    j["node_type"] = jTmp["node_type"];
+                }
+            } else {
+                nlohmann::json jTmp;
+                metadata_detail::readMetadata(handle.path() / ".zgroup", jTmp);
+                j["zarr_format"] = jTmp["zarr_format"];
+            }
         } else {
+            nlohmann::json jTmp;
+            metadata_detail::readMetadata(handle.path() / "attributes.json", jTmp);
             auto jIt = jTmp.find("n5");
             if(jIt != jTmp.end()) {
                 j["n5"] = jIt.value();

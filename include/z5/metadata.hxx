@@ -19,8 +19,8 @@ namespace z5 {
         int n5Minor;
         int n5Patch;
 
-        Metadata(const bool isZarr) : isZarr(isZarr),
-                                      zarrFormat(2),
+        Metadata(const bool isZarr, const int zarrFormat=2) : isZarr(isZarr),
+                                      zarrFormat(zarrFormat),
                                       n5Major(2),
                                       n5Minor(0),
                                       n5Patch(0)
@@ -42,15 +42,20 @@ namespace z5 {
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
             const double fillValue=0,
-            const std::string & zarrDelimiter="."
-            ) : Metadata(isZarr),
+            const std::string & zarrDelimiter=".",
+            const int zarrFormat=2,
+            const std::string & chunkKeyEncoding="default",
+            const types::ShapeType & shardShape=types::ShapeType()
+            ) : Metadata(isZarr, zarrFormat),
                 dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
                 fillValue(fillValue),
-                zarrDelimiter(zarrDelimiter)
+                zarrDelimiter(zarrDelimiter),
+                chunkKeyEncoding(chunkKeyEncoding),
+                shardShape(shardShape)
         {
             checkShapes();
         }
@@ -63,7 +68,9 @@ namespace z5 {
 
         //
         void toJson(nlohmann::json & j) const {
-            if(isZarr) {
+            if(isZarr && zarrFormat == 3) {
+                toJsonV3(j);
+            } else if(isZarr) {
                 toJsonZarr(j);
             } else {
                 toJsonN5(j);
@@ -74,7 +81,19 @@ namespace z5 {
         //
         void fromJson(nlohmann::json & j, const bool isZarrDs) {
             isZarr = isZarrDs;
-            isZarr ? fromJsonZarr(j) : fromJsonN5(j);
+            if(isZarr) {
+                // distinguish zarr v2 (.zarray) from v3 (zarr.json) by the version field
+                auto it = j.find("zarr_format");
+                if(it != j.end() && it->get<int>() == 3) {
+                    zarrFormat = 3;
+                    fromJsonV3(j);
+                } else {
+                    zarrFormat = 2;
+                    fromJsonZarr(j);
+                }
+            } else {
+                fromJsonN5(j);
+            }
             checkShapes();
         }
 
@@ -229,6 +248,135 @@ namespace z5 {
             fillValue = 0;
         }
 
+
+        void toJsonV3(nlohmann::json & j) const {
+            j["zarr_format"] = 3;
+            j["node_type"] = "array";
+            j["data_type"] = types::Datatypes::dtypeToN5().at(dtype);
+            j["shape"] = shape;
+
+            const bool sharded = !shardShape.empty();
+
+            // the chunk grid addresses shards when sharding, else (inner) chunks
+            j["chunk_grid"]["name"] = "regular";
+            j["chunk_grid"]["configuration"]["chunk_shape"] = sharded ? shardShape : chunkShape;
+
+            // chunk key encoding ("default" -> nested under 'c/', "v2" -> flat)
+            j["chunk_key_encoding"]["name"] = chunkKeyEncoding;
+            j["chunk_key_encoding"]["configuration"]["separator"] = zarrDelimiter;
+
+            if(std::isnan(fillValue)) {
+                j["fill_value"] = "NaN";
+            } else if(std::isinf(fillValue)) {
+                j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
+            } else {
+                // zarr v3 expects an integer fill_value for integer data types
+                switch(dtype) {
+                    case types::int8: case types::int16: case types::int32: case types::int64:
+                        j["fill_value"] = static_cast<int64_t>(fillValue); break;
+                    case types::uint8: case types::uint16: case types::uint32: case types::uint64:
+                        j["fill_value"] = static_cast<uint64_t>(fillValue); break;
+                    default:
+                        j["fill_value"] = fillValue;
+                }
+            }
+
+            nlohmann::json innerCodecs;
+            types::writeV3CodecsToJson(compressor, compressionOptions,
+                                       types::datatypeSize(dtype), innerCodecs);
+
+            if(sharded) {
+                nlohmann::json sharding;
+                sharding["name"] = "sharding_indexed";
+                sharding["configuration"]["chunk_shape"] = chunkShape;  // inner chunk shape
+                sharding["configuration"]["codecs"] = innerCodecs;
+                nlohmann::json indexCodecs = nlohmann::json::array();
+                nlohmann::json bytesCodec;
+                bytesCodec["name"] = "bytes";
+                bytesCodec["configuration"]["endian"] = "little";
+                indexCodecs.push_back(bytesCodec);
+                nlohmann::json crcCodec;
+                crcCodec["name"] = "crc32c";
+                indexCodecs.push_back(crcCodec);
+                sharding["configuration"]["index_codecs"] = indexCodecs;
+                sharding["configuration"]["index_location"] = "end";
+                j["codecs"] = nlohmann::json::array({sharding});
+            } else {
+                j["codecs"] = innerCodecs;
+            }
+
+            // user attributes are stored inline; preserved/merged by the attribute layer
+            if(j.find("attributes") == j.end()) {
+                j["attributes"] = nlohmann::json::object();
+            }
+        }
+
+
+        void fromJsonV3(const nlohmann::json & j) {
+            if(j.at("node_type") != "array") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: node_type is not 'array'");
+            }
+            try {
+                dtype = types::Datatypes::n5ToDtype().at(j.at("data_type"));
+            } catch(std::out_of_range) {
+                throw std::runtime_error("Unsupported zarr v3 data_type: " + j.at("data_type").get<std::string>());
+            }
+            shape = types::ShapeType(j.at("shape").begin(), j.at("shape").end());
+
+            // outer chunk grid (== shard shape when sharded, else inner chunk shape)
+            const auto & gridShape = j.at("chunk_grid").at("configuration").at("chunk_shape");
+            types::ShapeType outerShape(gridShape.begin(), gridShape.end());
+
+            // chunk key encoding
+            const auto & cke = j.at("chunk_key_encoding");
+            chunkKeyEncoding = cke.at("name").get<std::string>();
+            if(cke.contains("configuration") && cke.at("configuration").contains("separator")) {
+                zarrDelimiter = cke.at("configuration").at("separator").get<std::string>();
+            } else {
+                zarrDelimiter = (chunkKeyEncoding == "v2") ? "." : "/";
+            }
+
+            // fill value
+            const auto & fillValJson = j.at("fill_value");
+            if(fillValJson.type() == nlohmann::json::value_t::string) {
+                if(fillValJson == "NaN") {
+                    fillValue = std::numeric_limits<double>::quiet_NaN();
+                } else if(fillValJson == "Infinity") {
+                    fillValue = std::numeric_limits<double>::infinity();
+                } else if(fillValJson == "-Infinity") {
+                    fillValue = -std::numeric_limits<double>::infinity();
+                } else {
+                    throw std::runtime_error("Invalid string value for fillValue");
+                }
+            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
+                fillValue = 0;
+            } else {
+                fillValue = static_cast<double>(fillValJson);
+            }
+
+            // codecs: detect sharding, recover inner chunk shape + inner compressor
+            const auto & codecs = j.at("codecs");
+            const nlohmann::json * innerCodecs = &codecs;
+            shardShape.clear();
+            bool sharded = false;
+            for(const auto & c : codecs) {
+                if(c.at("name") == "sharding_indexed") {
+                    sharded = true;
+                    const auto & scfg = c.at("configuration");
+                    const auto & innerShapeJson = scfg.at("chunk_shape");
+                    chunkShape = types::ShapeType(innerShapeJson.begin(), innerShapeJson.end());
+                    shardShape = outerShape;
+                    innerCodecs = &scfg.at("codecs");
+                    break;
+                }
+            }
+            if(!sharded) {
+                chunkShape = outerShape;
+            }
+
+            types::readV3CodecsFromJson(*innerCodecs, compressor, compressionOptions);
+        }
+
     public:
         // metadata values that can be set
         types::Datatype dtype;
@@ -241,6 +389,11 @@ namespace z5 {
 
         double fillValue;
         std::string zarrDelimiter;
+
+        // zarr v3 specific: chunk key encoding ("default"/"v2") and the shard
+        // shape (empty unless the sharding_indexed codec is used)
+        std::string chunkKeyEncoding = "default";
+        types::ShapeType shardShape;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -300,7 +453,10 @@ namespace z5 {
         const types::CompressionOptions & compressionOptions,
         const double fillValue,
         const std::string & zarrDelimiter,
-        DatasetMetadata & metadata)
+        DatasetMetadata & metadata,
+        const int zarrFormat=2,
+        const std::string & chunkKeyEncoding="default",
+        const types::ShapeType & shardShape=types::ShapeType())
     {
         // get the internal data type
         types::Datatype internalDtype;
@@ -323,10 +479,27 @@ namespace z5 {
         auto internalCompressionOptions = compressionOptions;
         types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
 
+        // sharding is only valid for zarr v3, and the shard shape must be a
+        // whole multiple of the (inner) chunk shape along every axis
+        if(!shardShape.empty()) {
+            if(!(createAsZarr && zarrFormat == 3)) {
+                throw std::runtime_error("z5::createDatasetMetadata: sharding is only supported for zarr v3");
+            }
+            if(shardShape.size() != chunkShape.size()) {
+                throw std::runtime_error("z5::createDatasetMetadata: shard shape and chunk shape dimension mismatch");
+            }
+            for(std::size_t d = 0; d < shardShape.size(); ++d) {
+                if(shardShape[d] < chunkShape[d] || shardShape[d] % chunkShape[d] != 0) {
+                    throw std::runtime_error("z5::createDatasetMetadata: shard shape must be a multiple of the chunk shape");
+                }
+            }
+        }
+
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
-                                   fillValue, zarrDelimiter);
+                                   fillValue, zarrDelimiter,
+                                   zarrFormat, chunkKeyEncoding, shardShape);
     }
 
 

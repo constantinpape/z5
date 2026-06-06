@@ -93,13 +93,20 @@ namespace handle {
     template<class DATASET>
     class Dataset : public Handle {
     public:
-        Dataset(const FileMode mode, const std::string zarrDelimiter=".") : Handle(mode), zarrDelimiter_(zarrDelimiter){}
+        Dataset(const FileMode mode, const std::string zarrDelimiter=".",
+                const int zarrFormat=2, const std::string chunkKeyEncoding="default")
+            : Handle(mode), zarrDelimiter_(zarrDelimiter),
+              zarrFormat_(zarrFormat), chunkKeyEncoding_(chunkKeyEncoding){}
         virtual ~Dataset() {}
 
         const std::string & zarrDelimiter() const {return zarrDelimiter_;}
+        int zarrFormat() const {return zarrFormat_;}
+        const std::string & chunkKeyEncoding() const {return chunkKeyEncoding_;}
 
     private:
         std::string zarrDelimiter_;
+        int zarrFormat_;
+        std::string chunkKeyEncoding_;
     };
 
 
@@ -152,14 +159,25 @@ namespace handle {
         }
 
     protected:
-        inline std::string getChunkKey(const bool isZarr, const std::string & zarrDelimiter=".") const {
+        inline std::string getChunkKey(const bool isZarr, const std::string & zarrDelimiter=".",
+                                       const int zarrFormat=2,
+                                       const std::string & chunkKeyEncoding="default") const {
             const auto & indices = chunkIndices();
 			std::string name;
 
-            // if we have the zarr-format, chunk indices
-            // are separated by a '.' by default, but the delimiter may be changed in the metadata
             if(isZarr) {
-                util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                if(zarrFormat == 3 && chunkKeyEncoding == "default") {
+                    // zarr v3 default encoding: chunk keys are nested under 'c' and
+                    // joined by the separator (default '/'), e.g. "c/0/1/2"
+                    name = "c";
+                    for(const auto idx : indices) {
+                        name += zarrDelimiter + std::to_string(idx);
+                    }
+                } else {
+                    // zarr v2 (or zarr v3 "v2" chunk key encoding): flat key joined
+                    // by the delimiter, e.g. "0.1.2"
+                    util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                }
             }
 
             // in n5 each chunk index has its own directory, i.e. the delimiter is '/'

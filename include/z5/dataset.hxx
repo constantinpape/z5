@@ -90,6 +90,10 @@ namespace z5 {
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
 
+        // sharding (zarr v3) - default: not sharded; overridden by ShardedDataset
+        virtual bool isSharded() const {return false;}
+        virtual types::ShapeType shardShape() const {return types::ShapeType();}
+
         //
         // API - MUST implement
         //
