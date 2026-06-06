@@ -1,0 +1,68 @@
+---
+name: test-pypi
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Make the GitHub Actions cache reachable from vcpkg's x-gha binary cache
+      # backend (these env vars are only exposed to actions, not plain steps).
+      - name: Export GitHub Actions cache env for vcpkg
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # Wire the build up to the runner's preinstalled vcpkg. CMake >= 3.21 reads
+      # CMAKE_TOOLCHAIN_FILE from the environment, so scikit-build-core picks it
+      # up without any CMAKE_ARGS plumbing. The codecs in vcpkg.json are then
+      # auto-installed during the CMake configure (cached via x-gha).
+      - name: Configure vcpkg toolchain and cache
+        shell: bash
+        run: |
+          VCPKG_ROOT="${VCPKG_INSTALLATION_ROOT//\\//}"
+          echo "Using vcpkg at: ${VCPKG_ROOT}"
+          echo "CMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" >> "$GITHUB_ENV"
+          echo "VCPKG_BINARY_SOURCES=clear;x-gha,readwrite" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            # static libs + dynamic CRT, matching the published wheels so the
+            # imported extension needs no external DLLs on PATH.
+            echo "VCPKG_TARGET_TRIPLET=x64-windows-static-md" >> "$GITHUB_ENV"
+          fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # C++20 <filesystem> floor (arm64 is effectively 11.0 anyway).
+            echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
+          fi
+
+      # Builds z5py from source through scikit-build-core exactly as the
+      # published wheels are built (pyproject + vcpkg.json + the SKBUILD CMake
+      # guards), then pulls in the test dependencies (zarr, h5py, imageio).
+      - name: Install z5py from source
+        shell: bash
+        run: python -m pip install -v ".[test]"
+
+      - name: Import check
+        shell: bash
+        run: python -c "import z5py; print('z5py', z5py.__version__, 'from', z5py.__file__)"
+
+      - name: Run tests
+        shell: bash
+        run: python -m unittest discover -s src/python/test -v
