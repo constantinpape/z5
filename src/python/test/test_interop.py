@@ -246,6 +246,22 @@ class InteropMixin(ABC):
     def _msg(self, what, extra):
         return "%s failed for %s/%s %s" % (what, self.library, self.fmt, extra)
 
+    @property
+    def _available_codecs(self):
+        """self.codecs restricted to codecs actually compiled into this z5 build.
+
+        Not every codec is compiled on every platform (e.g. xz is not enabled in
+        the Windows build), so skip codecs that this z5 build cannot handle.
+        """
+        from z5py.dataset import Dataset
+        if self.fmt == "n5":
+            avail = set(Dataset.compressors_n5)
+        elif self.fmt == "zarr_v3":
+            avail = set(Dataset.compressors_zarr_v3)
+        else:  # zarr_v2
+            avail = set(Dataset.compressors_zarr)
+        return [c for c in self.codecs if c in avail]
+
     # ----------------------------------------------------------------- dtypes
     def test_z5_to_external_dtypes(self):
         f = open_z5(self.path, self.fmt)
@@ -271,7 +287,7 @@ class InteropMixin(ABC):
     # ----------------------------------------------------------------- codecs
     def test_z5_to_external_codecs(self):
         f = open_z5(self.path, self.fmt)
-        for comp in self.codecs:
+        for comp in self._available_codecs:
             data = self._data("int32")
             key = "c_%s" % comp
             f.create_dataset(key, data=data, chunks=self.chunks, compression=comp)
@@ -280,7 +296,7 @@ class InteropMixin(ABC):
 
     def test_external_to_z5_codecs(self):
         open_z5(self.path, self.fmt)
-        for comp in self.codecs:
+        for comp in self._available_codecs:
             data = self._data("int32")
             key = "c_%s" % comp
             external_write(self.library, self.fmt, self.path, key, data,
@@ -342,7 +358,7 @@ class InteropMixin(ABC):
             self.skipTest("sharding is zarr v3 only")
         shape, chunks, shards = (64, 64), (16, 16), (32, 32)
         f = open_z5(self.path, self.fmt)
-        for comp in self.codecs:
+        for comp in self._available_codecs:
             data = self._data("float32", shape)
             key = "s_%s" % comp
             f.create_dataset(key, data=data, chunks=chunks, shards=shards,
