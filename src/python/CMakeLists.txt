@@ -108,6 +108,14 @@ macro(addPythonModule)
         ${CMAKE_BINARY_DIR}/python/${ADD_PY_MOD_NESTED_NAME}/
         COMMENT "Copying target ${MODULE_NAME} to temporary module directory")
 
+    # Under scikit-build-core (pip wheel builds) install the extension straight
+    # into the package directory inside the wheel (e.g. z5py/_z5py...). The
+    # pure-Python files are added separately via the wheel.packages setting.
+    if(SKBUILD)
+        install(TARGETS _${MODULE_NAME}
+                LIBRARY DESTINATION ${ADD_PY_MOD_NESTED_NAME})
+    endif()
+
     add_dependencies(python-module _${MODULE_NAME})
 endmacro()
 
@@ -118,27 +126,35 @@ add_subdirectory(lib)
 # INSTALL THE PYTHON MODULE
 ###########################
 
-# Find the python install dir
-IF(NOT DEFINED PYTHON_MODULE_INSTALL_DIR OR PYTHON_MODULE_INSTALL_DIR MATCHES "^$")
-    
-    execute_process(
-      COMMAND "${Python_EXECUTABLE}" -c
-       "import sysconfig; print(sysconfig.get_path('platlib'))"
-      OUTPUT_VARIABLE PYTHON_SITE
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+# Legacy (conda / `make install`) installation: copy the assembled package from
+# the build directory into the Python site-packages dir. Under scikit-build-core
+# the wheel is assembled instead (extension via install(TARGETS) above,
+# pure-Python files via wheel.packages), so this is skipped.
+if(NOT SKBUILD)
 
-    SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_SITE})
+    # Find the python install dir
+    IF(NOT DEFINED PYTHON_MODULE_INSTALL_DIR OR PYTHON_MODULE_INSTALL_DIR MATCHES "^$")
 
-ENDIF()
+        execute_process(
+          COMMAND "${Python_EXECUTABLE}" -c
+           "import sysconfig; print(sysconfig.get_path('platlib'))"
+          OUTPUT_VARIABLE PYTHON_SITE
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+        SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_SITE})
 
-SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_MODULE_INSTALL_DIR}
-    CACHE PATH "where to install the z5py package" FORCE)
-
-# this is the install path relative to CMAKE_INSTALL_PREFIX,
-# use this in INSTALL() commands to get packaging right
-FILE(RELATIVE_PATH PYTHON_MODULE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX} ${PYTHON_MODULE_INSTALL_DIR})
+    ENDIF()
 
 
-install(DIRECTORY ${CMAKE_BINARY_DIR}/python/z5py
-    DESTINATION ${PYTHON_MODULE_INSTALL_DIR})
+    SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_MODULE_INSTALL_DIR}
+        CACHE PATH "where to install the z5py package" FORCE)
+
+    # this is the install path relative to CMAKE_INSTALL_PREFIX,
+    # use this in INSTALL() commands to get packaging right
+    FILE(RELATIVE_PATH PYTHON_MODULE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX} ${PYTHON_MODULE_INSTALL_DIR})
+
+
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/python/z5py
+        DESTINATION ${PYTHON_MODULE_INSTALL_DIR})
+
+endif()

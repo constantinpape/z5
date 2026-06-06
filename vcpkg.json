@@ -1,0 +1,13 @@
+{
+  "name": "z5py",
+  "description": "External C dependencies for building the z5py pip wheels",
+  "dependencies": [
+    "zlib",
+    "c-blosc",
+    "bzip2",
+    "liblzma",
+    "lz4",
+    "zstd",
+    "nlohmann-json"
+  ]
+}

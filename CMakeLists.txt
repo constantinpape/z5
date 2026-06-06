@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -106,8 +106,10 @@ endif()
 
 # This does not work within travis or appveyor, because
 # we set the CMAKE_PREFIX_PATH
+# It is also skipped under scikit-build-core (pip wheel builds), where the
+# dependencies come from the vcpkg toolchain instead of a conda env.
 # TODO rename this to USE_CONDA_PREFIX or similar
-if(NOT WITHIN_TRAVIS)
+if(NOT WITHIN_TRAVIS AND NOT SKBUILD)
     # Find the current conda env and set it as CMAKE_PREFIX_PATH
     execute_process(COMMAND bash -c "conda info | grep 'active env location' | awk '{print $5}'"
                     OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
@@ -127,10 +129,15 @@ endif()
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE PATH "")
 MESSAGE(STATUS "Setting cmake prefix path to ${CMAKE_PREFIX_PATH}")
 
-if (MSVC)
-    include_directories("${CMAKE_PREFIX_PATH}/Library/include")
-else()
-    include_directories("${CMAKE_PREFIX_PATH}/include")
+# Only add the prefix include dir when we actually have a prefix (conda/dev
+# builds). Under scikit-build-core the prefix is empty and deps are found via
+# the vcpkg toolchain.
+if(CMAKE_PREFIX_PATH)
+    if (MSVC)
+        include_directories("${CMAKE_PREFIX_PATH}/Library/include")
+    else()
+        include_directories("${CMAKE_PREFIX_PATH}/include")
+    endif()
 endif()
 
 ###############################
@@ -278,33 +285,38 @@ include_directories(include)
 # add subdirectories
 add_subdirectory(src)
 
-# install the headers
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
-  FILES_MATCHING
-  PATTERN "*.hxx"
-  PATTERN "*.hpp"
-  PATTERN "*.h"
-)
+# Install the header-only C++ library and its CMake package config.
+# Skipped under scikit-build-core: pip wheels only ship the z5py extension,
+# not the C++ headers / CMake config.
+if(NOT SKBUILD)
+    # install the headers
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/z5"
+      DESTINATION "${CMAKE_INSTALL_PREFIX}/include"
+      FILES_MATCHING
+      PATTERN "*.hxx"
+      PATTERN "*.hpp"
+      PATTERN "*.h"
+    )
 
-install(TARGETS z5
-        EXPORT ${PROJECT_NAME}-targets)
+    install(TARGETS z5
+            EXPORT ${PROJECT_NAME}-targets)
 
-set(Z5_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}" CACHE
-    STRING "install path for z5-config.cmake")
+    set(Z5_CMAKECONFIG_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/cmake/${PROJECT_NAME}" CACHE
+        STRING "install path for z5-config.cmake")
 
-configure_package_config_file("${PROJECT_NAME}-config.cmake"
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
-                              INSTALL_DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    configure_package_config_file("${PROJECT_NAME}-config.cmake"
+                                  "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+                                  INSTALL_DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
 
-write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
-                                 VERSION ${${PROJECT_NAME}_VERSION}
-                                 COMPATIBILITY AnyNewerVersion)
+    write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+                                     VERSION ${${PROJECT_NAME}_VERSION}
+                                     COMPATIBILITY AnyNewerVersion)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
-        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+                  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+            DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
 
-install(EXPORT ${PROJECT_NAME}-targets
-        FILE ${PROJECT_NAME}-targets.cmake
-        DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+    install(EXPORT ${PROJECT_NAME}-targets
+            FILE ${PROJECT_NAME}-targets.cmake
+            DESTINATION ${Z5_CMAKECONFIG_INSTALL_DIR})
+endif()
