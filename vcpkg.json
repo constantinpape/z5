@@ -1,7 +1,6 @@
 {
   "name": "z5py",
   "description": "External C dependencies for building the z5py pip wheels",
-  "builtin-baseline": "c16c1bd46c7f6de21efc6dcf19c1069d6825df23",
   "dependencies": [
     "zlib",
     "blosc",
