@@ -28,14 +28,14 @@ requirements:
     - blosc
     - bzip2
     - xz
-    - zlib
+    - libdeflate
   run:
     - python {{PY_VER}}
     - numpy >=1.15
     - blosc
     - bzip2
     - xz
-    - zlib
+    - libdeflate
 
 
 test:

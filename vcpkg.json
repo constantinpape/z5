@@ -2,7 +2,7 @@
   "name": "z5py",
   "description": "External C dependencies for building the z5py pip wheels",
   "dependencies": [
-    "zlib",
+    "libdeflate",
     "blosc",
     "bzip2",
     "liblzma",
