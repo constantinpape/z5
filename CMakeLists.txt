@@ -58,7 +58,11 @@ include(CMakePackageConfigHelpers)
 
 # Compression Libraries
 option(WITH_BLOSC "Build with blosc compression" OFF)
-option(WITH_ZLIB "Build with zlib compression" ON)
+option(WITH_ZLIB "Build with zlib/gzip compression" ON)
+# Use libdeflate (a faster, SIMD-accelerated gzip/zlib implementation) as the
+# backend for the gzip/zlib codec instead of stock zlib. On-disk format is
+# unchanged; set to OFF to fall back to the stock zlib code path.
+option(USE_LIBDEFLATE "Use libdeflate as the gzip/zlib backend instead of zlib" ON)
 option(WITH_BZIP2 "Build with bzip2 compression" OFF)
 option(WITH_XZ "Build with xz compression" OFF)
 option(WITH_LZ4 "Build with lz4 compression" OFF)
@@ -180,14 +184,43 @@ if(WITH_BLOSC)
         if(SNAPPY_LIBRARY)
             SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${SNAPPY_LIBRARY}")
         endif()
+
+        # libblosc's built-in zlib codec (zlib_wrap_compress/_decompress) references
+        # zlib's compress2/uncompress. The static wheel libblosc does not carry zlib,
+        # and the WITH_ZLIB block now links libdeflate (not zlib), so link zlib
+        # explicitly here (same rationale as the snappy handling above). Conda's
+        # shared libblosc carries its own zlib, so this SKBUILD-only block is skipped
+        # there.
+        find_package(ZLIB REQUIRED)
+        SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
     endif()
 endif()
 
 if(WITH_ZLIB)
-    find_package(ZLIB REQUIRED)
-    include_directories(ZLIB_INCLUDE_DIRS)
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_ZLIB")
-    SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
+    if(USE_LIBDEFLATE)
+        find_package(libdeflate CONFIG REQUIRED)
+        set(Z5_DEFINES "${Z5_DEFINES};-DWITH_LIBDEFLATE")
+        # the imported target name varies by packaging: conda-forge ships
+        # libdeflate::libdeflate_shared, vcpkg ships libdeflate::libdeflate_static,
+        # and some installs provide a plain libdeflate::libdeflate alias.
+        if(TARGET libdeflate::libdeflate)
+            set(LIBDEFLATE_TARGET libdeflate::libdeflate)
+        elseif(TARGET libdeflate::libdeflate_shared)
+            set(LIBDEFLATE_TARGET libdeflate::libdeflate_shared)
+        elseif(TARGET libdeflate::libdeflate_static)
+            set(LIBDEFLATE_TARGET libdeflate::libdeflate_static)
+        else()
+            message(FATAL_ERROR "libdeflate was found but exposes no known imported target "
+                                "(libdeflate::libdeflate[_shared|_static])")
+        endif()
+        message(STATUS "Using libdeflate target ${LIBDEFLATE_TARGET} as the gzip/zlib backend")
+        SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LIBDEFLATE_TARGET}")
+    else()
+        find_package(ZLIB REQUIRED)
+        include_directories(${ZLIB_INCLUDE_DIRS})
+        SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
+    endif()
 endif()
 
 if(WITH_BZIP2)
