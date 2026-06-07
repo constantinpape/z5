@@ -184,6 +184,15 @@ if(WITH_BLOSC)
         if(SNAPPY_LIBRARY)
             SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${SNAPPY_LIBRARY}")
         endif()
+
+        # libblosc's built-in zlib codec (zlib_wrap_compress/_decompress) references
+        # zlib's compress2/uncompress. The static wheel libblosc does not carry zlib,
+        # and the WITH_ZLIB block now links libdeflate (not zlib), so link zlib
+        # explicitly here (same rationale as the snappy handling above). Conda's
+        # shared libblosc carries its own zlib, so this SKBUILD-only block is skipped
+        # there.
+        find_package(ZLIB REQUIRED)
+        SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${ZLIB_LIBRARIES}")
     endif()
 endif()
 
