@@ -94,6 +94,21 @@ namespace z5 {
         virtual bool isSharded() const {return false;}
         virtual types::ShapeType shardShape() const {return types::ShapeType();}
 
+        // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
+        // do a single read-modify-write per shard and parallelize across shards. Default
+        // bodies are no-ops; only ShardedDataset overrides them (and the sub-array code
+        // only calls them when isSharded() is true).
+        // read all per-slot inner-chunk blobs of a shard (empty vector for empty slots)
+        virtual void readShardBlobs(const types::ShapeType &,
+                                    std::vector<std::vector<char>> &) const {}
+        // build and write a shard from its per-slot blobs (removes the file if all empty)
+        virtual void writeShardBlobs(const types::ShapeType &,
+                                     const std::vector<std::vector<char>> &) const {}
+        // compress one inner chunk to its on-disk blob; returns false if it is all-fill
+        // (-> empty slot), in which case 'blob' is left empty
+        virtual bool makeChunkBlob(const types::ShapeType &, const void *,
+                                   std::vector<char> &) const {return false;}
+
         //
         // API - MUST implement
         //

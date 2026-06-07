@@ -69,9 +69,10 @@ operation/thread-mode, faceted by dim × sharding) and a compression-ratio chart
 ### Results
 
 A full reference run is checked in under [`bench_python/results/`](bench_python/results)
-(`bench_v3_results.json` plus the generated plots). It was measured on an 8-core Linux box
-with z5py 2.1.2, zarr-python 3.1.3, tensorstore, numpy 1.26.4; `uint8` semi-compressible
-data (2D = 8192², 3D = 256×512×512, ≈64 MB each); best-of-3 iterations.
+(`bench_v3_results.json` plus the generated plots; the pre-optimization run is kept as
+`bench_v3_baseline.json` for the before/after below). Measured on an 8-core Linux box with
+z5py 2.1.2, zarr-python 3.1.3, tensorstore, numpy 1.26.4; `uint8` semi-compressible data
+(2D = 8192², 3D = 256×512×512, ≈64 MB each); best-of-3 iterations.
 
 Throughput in **MB/s**, higher is better.
 
@@ -80,48 +81,57 @@ Throughput in **MB/s**, higher is better.
 - **Unsharded zarr v3 — z5 wins, and the multi-threaded lead is large.** z5's C++
   chunk-level threadpool scales nearly linearly with thread count; zarr-python and
   tensorstore writes barely scale.
-- **Sharded zarr v3 — z5 is currently the weakest of the three on writes**, which do *not*
-  scale with threads (and sometimes regress). tensorstore is the sharding champion.
-- **Compression ratios match across all three libraries** (raw 1.00, gzip 1.84–1.98,
-  zstd 1.81–2.12, blosc 1.00–1.14) — confirming the codec settings were genuinely
-  apples-to-apples (this is also the `compression_ratio.png` sanity plot).
+- **Sharded zarr v3 — now strong too.** A shard-aware read/write path (one
+  read-modify-write per shard, parallel across shards) replaced the old per-inner-chunk,
+  globally-locked path. Sharded throughput rose by up to ~70× and once again scales with
+  thread count.
+- **Compression ratios match across all three libraries** (raw 1.00, gzip ~1.98,
+  zstd ~2.12, blosc 1.14) — confirming the codec settings are genuinely apples-to-apples
+  (the `compression_ratio.png` sanity plot); they are also byte-identical before/after the
+  optimization, so the on-disk format is unchanged.
 
-**Unsharded (z5's strong suit)**
-
-| measurement | z5py | zarr | tensorstore |
-|---|---:|---:|---:|
-| 2D raw write, 8 threads | **1635** | 135 | 38 |
-| 2D raw read, 8 threads  | **3829** | 280 | 2849 |
-| 3D raw write, 8 threads | **1964** | 210 | 110 |
-| 3D blosc read, 8 threads | 2867 | 564 | **3116** |
-
-z5 leads every unsharded write at 8 threads and most reads; threading multiplies z5's
-write throughput ~2.4–4× while the others gain little.
-
-![unsharded/sharded write, 8 threads](bench_python/results/throughput_write_t8.png)
-
-**Sharded (z5's weak spot)**
+**Unsharded (z5's strong suit), 8 threads**
 
 | measurement | z5py | zarr | tensorstore |
 |---|---:|---:|---:|
-| 2D raw write, 8 threads | 25 | 118 | **163** |
-| 3D raw write, 8 threads | 13 | 111 | **609** |
-| 3D raw read, 8 threads  | 227 | 584 | **3782** |
+| 2D raw write | **1642** | 135 | 38 |
+| 3D raw write | **1809** | 210 | 110 |
+| 3D blosc read | 3263 | 564 | **3116** |
 
-z5's sharded raw write at 8 threads is *slower* than at 1 thread (3D: 12.7 → 12.8; 2D:
-67 → 25): the per-shard read-modify-write under a single mutex serializes writes, so extra
-threads only add contention. tensorstore's sharded writes scale to 600+ MB/s.
+z5 leads every unsharded write and most reads; the unsharded paths were not modified, so
+these are unchanged from baseline (run-to-run noise aside).
+
+![write throughput, 8 threads](bench_python/results/throughput_write_t8.png)
+
+**Sharded — before → after the optimization (z5py only)**
+
+| measurement | baseline | optimized | speedup |
+|---|---:|---:|---:|
+| 3D raw write, 1 thread  | 12.7 | 278 | 21.9× |
+| 3D raw write, 8 threads | 12.8 | 890 | 69.7× |
+| 3D blosc write, 8 threads | 20.0 | 1192 | 59.7× |
+| 2D raw write, 8 threads | 25.3 | 1651 | 65.2× |
+| 3D raw read, 8 threads  | 227 | 2530 | 11.1× |
+| 3D blosc read, 8 threads | 263 | 3124 | 11.9× |
+
+The old path read-modify-wrote the whole shard once *per inner chunk* under a single
+dataset-wide mutex, so sharded writes were slow and got *slower* with more threads. The new
+path groups a request's inner chunks by shard, touches each shard file once, and
+parallelizes across shards — restoring thread scaling (3D raw write 278 → 890 from 1 → 8
+threads). Sharded z5 is now competitive with or ahead of the other libraries on writes and
+much closer on reads.
 
 ![read throughput, 8 threads](bench_python/results/throughput_read_t8.png)
 
 **Codec notes**
 
-- `gzip` is z5's softest codec — tensorstore is competitive or better on gzip even
-  unsharded (it beats z5 on gzip *read*). z5's v3 gzip is the zlib-with-gzip-wrapper path.
+- `gzip` is still z5's softest codec. The compress path was rewritten to a single
+  `deflateBound`-sized pass (no scratch buffer / per-block copies), a small write win
+  (e.g. 3D gzip write 8 threads 93 → 98); read speed is bounded by the linked zlib itself.
 - `blosc`/`zstd`: z5 is excellent unsharded; on this `uint8` gradient `blosc` (lz4) barely
-  compresses (ratio ≈ 1.0–1.14), so it is mostly a speed contest, which z5 wins unsharded.
+  compresses (ratio ≈ 1.14), so it is mostly a speed contest, which z5 wins unsharded.
 
-**Takeaway:** unsharded multi-threaded is where z5 shines, often by an order of magnitude
-over zarr-python and ahead of tensorstore. The clear optimization target is the
-**sharded-write path**, whose per-shard mutex caps throughput well below tensorstore and
-prevents it from scaling with threads.
+**Takeaway:** z5 leads unsharded zarr v3 by a wide margin and, after the shard-aware
+read/write rewrite, is now strong on sharded data too (up to ~70× faster than before, with
+thread scaling restored). The remaining gap is gzip *read*, which is limited by the zlib
+build rather than z5's code.
