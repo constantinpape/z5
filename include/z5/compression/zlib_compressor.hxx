@@ -69,7 +69,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
 
             // open the zlib stream
             z_stream zs;
@@ -82,8 +82,8 @@ namespace compression {
             }
 
             // set the stream input to the beginning of the input data
-            zs.next_in = (Bytef*) &dataIn[0];
-            zs.avail_in = dataIn.size();
+            zs.next_in = (Bytef*) dataIn;
+            zs.avail_in = nBytesIn;
 
             // let zlib decompress the bytes blockwise
             int ret;

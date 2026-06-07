@@ -17,31 +17,54 @@ namespace z5 {
 namespace multiarray {
 
 
-    template<typename T>
-    inline void readSubarraySingleThreaded(const Dataset & ds,
-                                           const ArrayView<T> & out,
-                                           const types::ShapeType & offset,
-                                           const types::ShapeType & shape,
-                                           const std::vector<types::ShapeType> & chunkRequests) {
+    // Run `body(buffer, unitIndex)` for each unit in [0, nUnits), single- or multi-threaded.
+    // Each thread gets its own reusable buffer of `bufSize` elements (initialised to `init`),
+    // so per-unit buffer reuse and the single-threaded (no-threadpool) fast path are kept.
+    // `body` is a template parameter -> no std::function indirection / zero abstraction cost.
+    template<typename T, typename BODY>
+    inline void forEachBuffered(const int numberOfThreads, const std::size_t nUnits,
+                                const std::size_t bufSize, const T init, BODY && body) {
+        if(numberOfThreads == 1) {
+            std::vector<T> buffer(bufSize, init);
+            for(std::size_t i = 0; i < nUnits; ++i) {
+                body(buffer, i);
+            }
+        } else {
+            util::ThreadPool tp(numberOfThreads);
+            // a pool created with n_threads <= 0 may have 0 workers; parallel_foreach then
+            // runs synchronously and still calls the task with thread id 0, so we need at
+            // least one per-thread buffer.
+            const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
+            std::vector<std::vector<T>> buffers(nThreads, std::vector<T>(bufSize, init));
+            util::parallel_foreach(tp, nUnits, [&](const int tId, const std::size_t i){
+                body(buffers[tId], i);
+            });
+        }
+    }
 
-        types::ShapeType offsetInRequest, requestShape, chunkShape;
-        types::ShapeType offsetInChunk;
+
+    template<typename T>
+    inline void readSubarrayPlain(const Dataset & ds,
+                                  const ArrayView<T> & out,
+                                  const types::ShapeType & offset,
+                                  const types::ShapeType & shape,
+                                  const std::vector<types::ShapeType> & chunkRequests,
+                                  const int numberOfThreads) {
 
         const std::size_t maxChunkSize = ds.defaultChunkSize();
         const auto & maxChunkShape = ds.defaultChunkShape();
-
-        std::size_t chunkSize, chunkStoreSize;
-        std::vector<T> buffer(maxChunkSize);
-
         const auto & chunking = ds.chunking();
         const bool isZarr = ds.isZarr();
 
-        // get the fillvalue
         T fillValue;
         ds.getFillValue(&fillValue);
 
-        // iterate over the chunks
-        for(const auto & chunkId : chunkRequests) {
+        // read buffer is always overwritten by decompress (or unused on the fill path), so
+        // value-initialising to T() matches the previous default-constructed buffer.
+        forEachBuffered<T>(numberOfThreads, chunkRequests.size(), maxChunkSize, T(),
+                           [&](std::vector<T> & buffer, const std::size_t chunkIndex){
+            const auto & chunkId = chunkRequests[chunkIndex];
+            types::ShapeType offsetInRequest, requestShape, chunkShape, offsetInChunk;
 
             chunking.getCoordinatesInRoi(chunkId, offset, shape,
                                          offsetInRequest, requestShape, offsetInChunk);
@@ -52,30 +75,28 @@ namespace multiarray {
             // check if this chunk exists, if not fill output with fill value
             if(!ds.chunkExists(chunkId)) {
                 fillView(outView, fillValue);
-                continue;
+                return;
             }
 
             // get the shape and size of the chunk (in the actual grid)
             ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                        1, std::multiplies<std::size_t>());
+            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                    1, std::multiplies<std::size_t>());
 
             // read the data from storage
             std::vector<char> dataBuffer;
             ds.readRawChunk(chunkId, dataBuffer);
 
             // get the shape of the chunk (as it is stored)
-            chunkStoreSize = maxChunkSize;
+            std::size_t chunkStoreSize = maxChunkSize;
             if(!isZarr) {
                 if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
                     throw std::runtime_error("Can't read from varlen chunks to multiarray");
                 }
             }
 
-            // if this is an edge chunk and the size of the chunk stored is different from
-            // the size of the chunk in the grid (this is the case when written by zarr)
-            // we need to use the full (default) chunk shape for the buffer; the leading
-            // block of the buffer holds the valid data.
+            // edge chunk stored at full size (zarr) -> use the default chunk shape; the
+            // leading block of the buffer holds the valid data.
             if(chunkStoreSize != chunkSize) {
                 chunkSize = maxChunkSize;
                 chunkShape = maxChunkShape;
@@ -95,98 +116,6 @@ namespace multiarray {
             }
 
             // copy the requested sub-block of the chunk buffer into the output view
-            const ConstArrayView<T> chunkView(buffer.data(), chunkShape, cOrderStrides(chunkShape));
-            copyView(subview(chunkView, offsetInChunk, requestShape), outView);
-        }
-    }
-
-
-    template<typename T>
-    inline void readSubarrayMultiThreaded(const Dataset & ds,
-                                          const ArrayView<T> & out,
-                                          const types::ShapeType & offset,
-                                          const types::ShapeType & shape,
-                                          const std::vector<types::ShapeType> & chunkRequests,
-                                          const int numberOfThreads) {
-
-        // construct threadpool and make a buffer for each thread
-        util::ThreadPool tp(numberOfThreads);
-        // a pool created with n_threads <= 0 may have 0 workers; parallel_foreach then
-        // runs synchronously and still calls the task with thread id 0, so we need at
-        // least one per-thread buffer.
-        const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
-
-        const std::size_t maxChunkSize = ds.defaultChunkSize();
-        const auto & maxChunkShape = ds.defaultChunkShape();
-
-        typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
-
-        const auto & chunking = ds.chunking();
-        const bool isZarr = ds.isZarr();
-
-        // get the fillvalue
-        T fillValue;
-        ds.getFillValue(&fillValue);
-
-        // read the chunks in parallel
-        const std::size_t nChunks = chunkRequests.size();
-        util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
-
-            const auto & chunkId = chunkRequests[chunkIndex];
-            auto & buffer = threadBuffers[tId];
-
-            types::ShapeType offsetInRequest, requestShape, chunkShape;
-            types::ShapeType offsetInChunk;
-
-            chunking.getCoordinatesInRoi(chunkId, offset, shape,
-                                         offsetInRequest, requestShape, offsetInChunk);
-
-            // get the view into our array
-            const auto outView = subview(out, offsetInRequest, requestShape);
-
-            // check if this chunk exists, if not fill output with fill value
-            if(!ds.chunkExists(chunkId)) {
-                fillView(outView, fillValue);
-                return;
-            }
-
-            // get the current chunk-shape
-            ds.getChunkShape(chunkId, chunkShape);
-            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                                    1, std::multiplies<std::size_t>());
-
-            // read the data from storage
-            std::vector<char> dataBuffer;
-            ds.readRawChunk(chunkId, dataBuffer);
-
-            // get the shape of the chunk (as it is stored)
-            std::size_t chunkStoreSize = maxChunkSize;
-            if(!isZarr) {
-                if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
-                    throw std::runtime_error("Can't read from varlen chunks to multiarray");
-                }
-            }
-
-            // edge chunk stored at full size (zarr) -> use the default chunk shape
-            if(chunkStoreSize != chunkSize) {
-                chunkSize = maxChunkSize;
-                chunkShape = maxChunkShape;
-            }
-
-            // resize the buffer if necessary
-            if(chunkSize != buffer.size()) {
-                buffer.resize(chunkSize);
-            }
-
-            // decompress the data
-            ds.decompress(dataBuffer, &buffer[0], chunkSize);
-
-            // reverse the endianness for N5 data (unless datatype is byte)
-            if(!isZarr && sizeof(T) > 1) {
-                util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
-            }
-
             const ConstArrayView<T> chunkView(buffer.data(), chunkShape, cOrderStrides(chunkShape));
             copyView(subview(chunkView, offsetInChunk, requestShape), outView);
         });
@@ -214,219 +143,18 @@ namespace multiarray {
         // sharded datasets use a shard-aware path (one read per shard, parallel across shards)
         if(ds.isSharded()) {
             readSubarraySharded<T>(ds, out, offset, shape, chunkRequests, numberOfThreads);
-        }
-        // read single or multi-threaded
-        else if(numberOfThreads == 1) {
-            readSubarraySingleThreaded<T>(ds, out, offset, shape, chunkRequests);
         } else {
-            readSubarrayMultiThreaded<T>(ds, out, offset, shape, chunkRequests, numberOfThreads);
+            readSubarrayPlain<T>(ds, out, offset, shape, chunkRequests, numberOfThreads);
         }
     }
 
-
-    template<typename T>
-    inline void writeSubarraySingleThreaded(const Dataset & ds,
-                                            const ConstArrayView<T> & in,
-                                            const types::ShapeType & offset,
-                                            const types::ShapeType & shape,
-                                            const std::vector<types::ShapeType> & chunkRequests) {
-
-        types::ShapeType offsetInRequest, requestShape, chunkShape;
-        types::ShapeType offsetInChunk;
-
-        // get the fillvalue
-        T fillValue;
-        ds.getFillValue(&fillValue);
-
-        const std::size_t maxChunkSize = ds.defaultChunkSize();
-        std::size_t chunkSize = maxChunkSize;
-        std::vector<T> buffer(chunkSize, fillValue);
-
-        const auto & chunking = ds.chunking();
-
-        // if we have a zarr dataset, we always write the full chunk
-        const bool isZarr = ds.isZarr();
-
-        // iterate over the chunks
-        for(const auto & chunkId : chunkRequests) {
-
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset, shape,
-                                                             offsetInRequest, requestShape,
-                                                             offsetInChunk);
-            // get shape and size of this chunk
-            ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                        1, std::multiplies<std::size_t>());
-
-            // get the view into the in-array
-            const auto inView = subview(in, offsetInRequest, requestShape);
-
-            // if this is an edge chunk and we are writing zarr format,
-            // we need to write the full chunk padded with the fill value
-            if(chunkSize != maxChunkSize && isZarr) {
-                completeOvlp = false;
-                chunkShape = ds.defaultChunkShape();
-                chunkSize = maxChunkSize;
-                std::fill(buffer.begin(), buffer.end(), fillValue);
-            }
-
-            // resize the buffer if necessary
-            if(chunkSize != buffer.size()) {
-                buffer.resize(chunkSize);
-            }
-
-            // request and chunk overlap completely
-            // -> we can write the whole chunk
-            if(completeOvlp) {
-                copyView(inView, makeView(buffer.data(), chunkShape));
-                ds.writeChunk(chunkId, &buffer[0]);
-            }
-
-            // request and chunk overlap only partially
-            // -> we can only write partial data and need
-            // to preserve the data that will not be written
-            else {
-
-                // check if this chunk exists, and if it does, read the chunk's data
-                // to preserve the part that is not written to
-                if(ds.chunkExists(chunkId)) {
-                    // load the current data into the buffer
-                    if(ds.readChunk(chunkId, &buffer[0])) {
-                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
-                    }
-                } else {
-                    std::fill(buffer.begin(), buffer.end(), fillValue);
-                }
-
-                // overwrite the data that is covered by the request
-                const auto bufferView = makeView(buffer.data(), chunkShape);
-                copyView(inView, subview(bufferView, offsetInChunk, requestShape));
-
-                // write the chunk
-                ds.writeChunk(chunkId, &buffer[0]);
-            }
-        }
-    }
-
-
-    template<typename T>
-    inline void writeSubarrayMultiThreaded(const Dataset & ds,
-                                           const ConstArrayView<T> & in,
-                                           const types::ShapeType & offset,
-                                           const types::ShapeType & shape,
-                                           const std::vector<types::ShapeType> & chunkRequests,
-                                           const int numberOfThreads) {
-
-        // get the fillvalue
-        T fillValue;
-        ds.getFillValue(&fillValue);
-
-        // construct threadpool and make a buffer for each thread
-        util::ThreadPool tp(numberOfThreads);
-        // a pool created with n_threads <= 0 may have 0 workers; parallel_foreach then
-        // runs synchronously and still calls the task with thread id 0, so we need at
-        // least one per-thread buffer.
-        const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
-
-        const std::size_t maxChunkSize = ds.defaultChunkSize();
-        typedef std::vector<T> Buffer;
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize, fillValue));
-
-        const auto & chunking = ds.chunking();
-        const bool isZarr = ds.isZarr();
-
-        // write the chunks in parallel
-        const std::size_t nChunks = chunkRequests.size();
-        util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
-
-            const auto & chunkId = chunkRequests[chunkIndex];
-            auto & buffer = threadBuffers[tId];
-
-            types::ShapeType offsetInRequest, requestShape, chunkShape;
-            types::ShapeType offsetInChunk;
-
-            bool completeOvlp = chunking.getCoordinatesInRoi(chunkId, offset, shape,
-                                                             offsetInRequest, requestShape,
-                                                             offsetInChunk);
-            ds.getChunkShape(chunkId, chunkShape);
-            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                                    1, std::multiplies<std::size_t>());
-
-            // get the view into the in-array
-            const auto inView = subview(in, offsetInRequest, requestShape);
-
-            // if this is an edge chunk and we are writing zarr format,
-            // we need to write the full chunk padded with the fill value
-            if(chunkSize != maxChunkSize && isZarr) {
-                completeOvlp = false;
-                chunkSize = maxChunkSize;
-                chunkShape = ds.defaultChunkShape();
-                std::fill(buffer.begin(), buffer.end(), fillValue);
-            }
-
-            // resize buffer if necessary
-            if(chunkSize != buffer.size()) {
-                buffer.resize(chunkSize);
-            }
-
-            // request and chunk overlap completely
-            // -> we can write the whole chunk
-            if(completeOvlp) {
-                copyView(inView, makeView(buffer.data(), chunkShape));
-                ds.writeChunk(chunkId, &buffer[0]);
-            }
-
-            // request and chunk overlap only partially
-            // -> we can only write partial data and need
-            // to preserve the data that will not be written
-            else {
-                if(ds.chunkExists(chunkId)) {
-                    // load the current data into the buffer
-                    if(ds.readChunk(chunkId, &buffer[0])) {
-                        throw std::runtime_error("Can't write to varlen chunks from multiarray");
-                    }
-                } else {
-                    std::fill(buffer.begin(), buffer.end(), fillValue);
-                }
-
-                // overwrite the data that is covered by the request
-                const auto bufferView = makeView(buffer.data(), chunkShape);
-                copyView(inView, subview(bufferView, offsetInChunk, requestShape));
-
-                // write the chunk
-                ds.writeChunk(chunkId, &buffer[0]);
-            }
-        });
-    }
-
-
-    //
-    // shard-aware paths (zarr v3 sharding)
-    //
-    // For a sharded dataset the chunk grid addresses INNER chunks, but the on-disk unit is
-    // the shard. The generic paths above would dispatch one task per inner chunk, each of
-    // which read-modify-writes (and, for writes, locks) the whole shard -- so K inner
-    // chunks in a shard cost K full shard reads/rebuilds and serialize. The paths below
-    // instead group the request's inner chunks by shard, touch each shard file exactly
-    // once, and parallelize ACROSS shards (one task per shard, so no shard-level locking is
-    // needed within a call).
-
-    // group the inner-chunk requests by their shard; returns stable pointers into the map.
-    inline void groupChunksByShard(
-            const std::vector<types::ShapeType> & chunkRequests,
-            const types::ShapeType & chunksPerShard,
-            std::map<types::ShapeType, std::vector<types::ShapeType>> & shardGroups) {
-        for(const auto & chunkId : chunkRequests) {
-            shardGroups[util::shardId(chunkId, chunksPerShard)].push_back(chunkId);
-        }
-    }
 
     // Prepare the full inner-chunk write buffer for `chunkId`, handling complete overlap,
     // zarr edge-chunk padding and partial overlap. For partial overlap the existing chunk
     // contents are obtained via `readExisting(buffer)` (must fill `buffer` and return true
     // if the chunk already existed, false otherwise). `chunkShape` is set to the shape to
-    // hand to the chunk writer. This mirrors the per-chunk logic of the non-sharded write
-    // paths, with the "read existing chunk" source made pluggable.
+    // hand to the chunk writer. Shared by the non-sharded and sharded write paths; the only
+    // difference between them is the "read existing chunk" source.
     template<typename T, typename READ_EXISTING>
     inline void prepareChunkWriteBuffer(const Dataset & ds,
                                         const ConstArrayView<T> & in,
@@ -472,6 +200,64 @@ namespace multiarray {
         }
     }
 
+
+    template<typename T>
+    inline void writeSubarrayPlain(const Dataset & ds,
+                                   const ConstArrayView<T> & in,
+                                   const types::ShapeType & offset,
+                                   const types::ShapeType & shape,
+                                   const std::vector<types::ShapeType> & chunkRequests,
+                                   const int numberOfThreads) {
+
+        const std::size_t maxChunkSize = ds.defaultChunkSize();
+        const auto & chunking = ds.chunking();
+        const bool isZarr = ds.isZarr();
+
+        T fillValue;
+        ds.getFillValue(&fillValue);
+
+        forEachBuffered<T>(numberOfThreads, chunkRequests.size(), maxChunkSize, fillValue,
+                           [&](std::vector<T> & buffer, const std::size_t chunkIndex){
+            const auto & chunkId = chunkRequests[chunkIndex];
+            types::ShapeType chunkShape;
+            // partial-overlap reads come from the chunk file (preserving the varlen guard)
+            prepareChunkWriteBuffer<T>(ds, in, chunking, offset, shape, chunkId, isZarr,
+                                       maxChunkSize, fillValue, buffer, chunkShape,
+                                       [&](std::vector<T> & buf) -> bool {
+                                           if(!ds.chunkExists(chunkId)) {
+                                               return false;
+                                           }
+                                           if(ds.readChunk(chunkId, &buf[0])) {
+                                               throw std::runtime_error(
+                                                   "Can't write to varlen chunks from multiarray");
+                                           }
+                                           return true;
+                                       });
+            ds.writeChunk(chunkId, &buffer[0]);
+        });
+    }
+
+
+    //
+    // shard-aware paths (zarr v3 sharding)
+    //
+    // For a sharded dataset the chunk grid addresses INNER chunks, but the on-disk unit is
+    // the shard. The generic paths above would dispatch one task per inner chunk, each of
+    // which read-modify-writes (and, for writes, locks) the whole shard -- so K inner
+    // chunks in a shard cost K full shard reads/rebuilds and serialize. The paths below
+    // instead group the request's inner chunks by shard, touch each shard file exactly
+    // once, and parallelize ACROSS shards (one task per shard, so no shard-level locking is
+    // needed within a call).
+
+    // group the inner-chunk requests by their shard; returns stable pointers into the map.
+    inline void groupChunksByShard(
+            const std::vector<types::ShapeType> & chunkRequests,
+            const types::ShapeType & chunksPerShard,
+            std::map<types::ShapeType, std::vector<types::ShapeType>> & shardGroups) {
+        for(const auto & chunkId : chunkRequests) {
+            shardGroups[util::shardId(chunkId, chunksPerShard)].push_back(chunkId);
+        }
+    }
 
     template<typename T>
     inline void writeSubarraySharded(const Dataset & ds,
@@ -526,24 +312,11 @@ namespace multiarray {
             ds.writeShardBlobs(shardCoord, blobs);
         };
 
-        if(numberOfThreads == 1) {
-            std::vector<T> buffer(maxChunkSize, fillValue);
-            for(const auto * g : groups) {
-                processShard(buffer, g->first, g->second);
-            }
-        } else {
-            util::ThreadPool tp(numberOfThreads);
-            // a pool created with n_threads <= 0 may have 0 workers; parallel_foreach then
-        // runs synchronously and still calls the task with thread id 0, so we need at
-        // least one per-thread buffer.
-        const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
-            std::vector<std::vector<T>> threadBuffers(nThreads,
-                                                      std::vector<T>(maxChunkSize, fillValue));
-            util::parallel_foreach(tp, groups.size(),
-                                   [&](const int tId, const std::size_t i){
-                processShard(threadBuffers[tId], groups[i]->first, groups[i]->second);
-            });
-        }
+        // one task per shard (so each shard file has a single writer -> no lock needed)
+        forEachBuffered<T>(numberOfThreads, groups.size(), maxChunkSize, fillValue,
+                           [&](std::vector<T> & buffer, const std::size_t i){
+            processShard(buffer, groups[i]->first, groups[i]->second);
+        });
     }
 
 
@@ -572,12 +345,17 @@ namespace multiarray {
             groups.push_back(&kv);
         }
 
-        // process a single shard: read it once, serve all requested inner chunks from it
+        // inner chunks are always stored at the full chunk shape (zarr v3); the strides are
+        // constant across chunks, so compute them once.
+        const auto chunkStrides = cOrderStrides(maxChunkShape);
+
+        // process a single shard: read it once, decode the requested inner chunks in place
         auto processShard = [&](std::vector<T> & buffer,
                                 const types::ShapeType & shardCoord,
                                 const std::vector<types::ShapeType> & innerChunks) {
-            std::vector<std::vector<char>> blobs;
-            ds.readShardBlobs(shardCoord, blobs);
+            std::vector<char> shardBuf;
+            std::vector<std::size_t> offsets, nbytes;
+            const bool exists = ds.readShardRaw(shardCoord, shardBuf, offsets, nbytes);
 
             types::ShapeType offsetInRequest, requestShape, offsetInChunk;
             for(const auto & chunkId : innerChunks) {
@@ -587,39 +365,26 @@ namespace multiarray {
                 const auto outView = subview(out, offsetInRequest, requestShape);
 
                 // empty / never-written slot -> fill value
-                if(blobs[slot].empty()) {
+                if(!exists || nbytes[slot] == 0) {
                     fillView(outView, fillValue);
                     continue;
                 }
 
-                // inner chunks are always stored at the full chunk shape (zarr v3)
+                // decode the inner chunk straight from the shard buffer (no per-slot copy)
                 if(buffer.size() != maxChunkSize) {
                     buffer.resize(maxChunkSize);
                 }
-                ds.decompress(blobs[slot], &buffer[0], maxChunkSize);
-                const ConstArrayView<T> chunkView(buffer.data(), maxChunkShape,
-                                                  cOrderStrides(maxChunkShape));
+                ds.decompress(shardBuf.data() + offsets[slot], nbytes[slot],
+                              &buffer[0], maxChunkSize);
+                const ConstArrayView<T> chunkView(buffer.data(), maxChunkShape, chunkStrides);
                 copyView(subview(chunkView, offsetInChunk, requestShape), outView);
             }
         };
 
-        if(numberOfThreads == 1) {
-            std::vector<T> buffer(maxChunkSize);
-            for(const auto * g : groups) {
-                processShard(buffer, g->first, g->second);
-            }
-        } else {
-            util::ThreadPool tp(numberOfThreads);
-            // a pool created with n_threads <= 0 may have 0 workers; parallel_foreach then
-        // runs synchronously and still calls the task with thread id 0, so we need at
-        // least one per-thread buffer.
-        const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
-            std::vector<std::vector<T>> threadBuffers(nThreads, std::vector<T>(maxChunkSize));
-            util::parallel_foreach(tp, groups.size(),
-                                   [&](const int tId, const std::size_t i){
-                processShard(threadBuffers[tId], groups[i]->first, groups[i]->second);
-            });
-        }
+        forEachBuffered<T>(numberOfThreads, groups.size(), maxChunkSize, T(),
+                           [&](std::vector<T> & buffer, const std::size_t i){
+            processShard(buffer, groups[i]->first, groups[i]->second);
+        });
     }
 
 
@@ -645,12 +410,8 @@ namespace multiarray {
         // sharded datasets use a shard-aware path (one RMW per shard, parallel across shards)
         if(ds.isSharded()) {
             writeSubarraySharded<T>(ds, in, offset, shape, chunkRequests, numberOfThreads);
-        }
-        // write data multi or single threaded
-        else if(numberOfThreads == 1) {
-            writeSubarraySingleThreaded<T>(ds, in, offset, shape, chunkRequests);
         } else {
-            writeSubarrayMultiThreaded<T>(ds, in, offset, shape, chunkRequests, numberOfThreads);
+            writeSubarrayPlain<T>(ds, in, offset, shape, chunkRequests, numberOfThreads);
         }
     }
 

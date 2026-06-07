@@ -51,9 +51,9 @@ namespace compression {
             dataOut.resize(compressed);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
-            const int compressed = LZ4_decompress_safe(&dataIn[0], (char *) dataOut,
-                                                       dataIn.size(), sizeOut * sizeof(T));
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
+            const int compressed = LZ4_decompress_safe(dataIn, (char *) dataOut,
+                                                       nBytesIn, sizeOut * sizeof(T));
             if(compressed <= 0) {
                 std::string err = "Exception during lz4 decompression: (" + std::to_string(compressed)  + ")";
     		    throw std::runtime_error(err);

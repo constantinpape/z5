@@ -144,6 +144,10 @@ namespace filesystem {
                                void * dataOut, const std::size_t data_size) const {
             util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
         }
+        inline void decompress(const char * buffer, std::size_t nBytes,
+                               void * dataOut, const std::size_t data_size) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+        }
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
         }
@@ -174,6 +178,31 @@ namespace filesystem {
             if(util::parseShardIndex(shardBuf, nSlots_, entries)) {
                 util::extractShardBlobs(shardBuf, entries, blobs);
             }
+        }
+
+        // read a shard once, reporting per-slot byte offset + length within shardBuf
+        // (length 0 for empty/never-written slots). Lets the read path decode each touched
+        // inner chunk straight from shardBuf with no per-slot copy. Returns false if absent.
+        inline bool readShardRaw(const types::ShapeType & shardCoord,
+                                 std::vector<char> & shardBuf,
+                                 std::vector<std::size_t> & offsets,
+                                 std::vector<std::size_t> & nbytes) const override {
+            handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
+            if(!fs::exists(shardChunk.path())) {
+                return false;
+            }
+            readFile(shardChunk.path(), shardBuf);
+            std::vector<util::ShardEntry> entries;
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+                throw std::runtime_error("z5::ShardedDataset: corrupt shard index");
+            }
+            offsets.resize(nSlots_);
+            nbytes.resize(nSlots_);
+            for(std::size_t s = 0; s < nSlots_; ++s) {
+                offsets[s] = entries[s].empty() ? 0 : entries[s].offset;
+                nbytes[s] = entries[s].empty() ? 0 : entries[s].nbytes;
+            }
+            return true;
         }
 
         // build & write a shard from its per-slot blobs (remove the file if all empty).

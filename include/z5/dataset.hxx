@@ -101,6 +101,12 @@ namespace z5 {
         // read all per-slot inner-chunk blobs of a shard (empty vector for empty slots)
         virtual void readShardBlobs(const types::ShapeType &,
                                     std::vector<std::vector<char>> &) const {}
+        // read a shard once into a raw buffer, reporting per-slot byte offset + length
+        // (length 0 for empty slots) so the read path can decode in-place without copying
+        // each blob out. Returns false if the shard file is absent.
+        virtual bool readShardRaw(const types::ShapeType &, std::vector<char> &,
+                                  std::vector<std::size_t> &,
+                                  std::vector<std::size_t> &) const {return false;}
         // build and write a shard from its per-slot blobs (removes the file if all empty)
         virtual void writeShardBlobs(const types::ShapeType &,
                                      const std::vector<std::vector<char>> &) const {}
@@ -138,6 +144,9 @@ namespace z5 {
         virtual void getFillValue(void *) const = 0;
         virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
         virtual void decompress(const std::vector<char> &, void *, const std::size_t) const = 0;
+        // decompress straight from a raw byte range (used by the sharded read path to decode
+        // an inner chunk in-place from the shard buffer, without copying the blob out first)
+        virtual void decompress(const char *, std::size_t, void *, const std::size_t) const = 0;
 
         // file paths, permissions and removal
         virtual const FileMode & mode() const = 0;
