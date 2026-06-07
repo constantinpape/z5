@@ -30,16 +30,6 @@ namespace compression {
             z_stream zs;
             memset(&zs, 0, sizeof(zs));
 
-            // resize the out data to input size
-            dataOut.clear();
-            dataOut.reserve(sizeIn * sizeof(T));
-
-            // intermediate output buffer
-            // size set to 256 kb, which is recommended in the zlib usage example:
-            // http://www.gzip.org/zlib/zlib_how.html/
-            const std::size_t bufferSize = 262144;
-            std::vector<Bytef> outbuffer(bufferSize);
-
             // init the zlib or gzip stream
             if(useZlibEncoding_) {
                 if(deflateInit(&zs, clevel_) != Z_OK){
@@ -51,37 +41,22 @@ namespace compression {
                                 MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
                     throw(std::runtime_error("Initializing zLib deflate failed"));
                 }
-                // gzip compression:
-                // prepend magic bits to the filename
-                // prepend date string to the data
             }
 
-            // set the stream in-pointer to the input data and the input size
-            // to the size of the input in bytes
+            // size the output to the worst-case bound so we can deflate in a single pass
+            // directly into it (no 256kb scratch buffer, no per-block vector::insert).
+            const std::size_t sizeInBytes = sizeIn * sizeof(T);
+            const uLong bound = deflateBound(&zs, sizeInBytes);
+            dataOut.resize(bound);
+
             zs.next_in = (Bytef*) dataIn;
-            zs.avail_in = sizeIn * sizeof(T);
+            zs.avail_in = sizeInBytes;
+            zs.next_out = reinterpret_cast<Bytef*>(dataOut.data());
+            zs.avail_out = bound;
 
-            // let zlib compress the bytes blockwise
-            int ret;
-            std::size_t prevOutBytes = 0;
-            std::size_t bytesCompressed;
-            do {
-                // set the stream out-pointer to the current position of the out-data
-                // and set the available out size to the remaining size in the vector not written at
-
-                zs.next_out = &outbuffer[0];
-                zs.avail_out = outbuffer.size();
-
-                ret = deflate(&zs, Z_FINISH);
-                bytesCompressed = zs.total_out - prevOutBytes;
-                prevOutBytes = zs.total_out;
-
-                dataOut.insert(dataOut.end(),
-                               outbuffer.begin(),
-                               outbuffer.begin() + bytesCompressed);
-
-            } while(ret == Z_OK);
-
+            // deflateBound guarantees the whole input fits, so a single Z_FINISH suffices
+            const int ret = deflate(&zs, Z_FINISH);
+            const std::size_t compressedSize = zs.total_out;
             deflateEnd(&zs);
 
     		if (ret != Z_STREAM_END) {          // an error occurred that was not EOF
@@ -89,15 +64,12 @@ namespace compression {
     		    throw std::runtime_error(err);
     		}
 
-            // gzip: append checksum to the data
-            if(!useZlibEncoding_) {
-
-            }
-
+            // shrink to the actual compressed size
+            dataOut.resize(compressedSize);
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
 
             // open the zlib stream
             z_stream zs;
@@ -110,8 +82,8 @@ namespace compression {
             }
 
             // set the stream input to the beginning of the input data
-            zs.next_in = (Bytef*) &dataIn[0];
-            zs.avail_in = dataIn.size();
+            zs.next_in = (Bytef*) dataIn;
+            zs.avail_in = nBytesIn;
 
             // let zlib decompress the bytes blockwise
             int ret;

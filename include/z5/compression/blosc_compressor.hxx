@@ -43,11 +43,11 @@ namespace compression {
             dataOut.resize(sizeCompressed);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t, T * dataOut, std::size_t sizeOut) const {
 
-            // decompress the data
+            // decompress the data (blosc reads the compressed length from its own header)
             int sizeDecompressed = blosc_decompress_ctx(
-                &dataIn[0], dataOut,
+                dataIn, dataOut,
                 sizeOut * sizeof(T),
                 nthreads_
             );

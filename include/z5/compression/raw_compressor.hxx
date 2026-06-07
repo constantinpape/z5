@@ -19,7 +19,7 @@ namespace compression {
         }
 
         // dummy implementation, this should never be called !
-        void decompress(const std::vector<char> &, T *, std::size_t) const {
+        void decompress(const char *, std::size_t, T *, std::size_t) const {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 

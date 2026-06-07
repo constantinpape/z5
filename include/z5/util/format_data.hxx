@@ -139,15 +139,22 @@ namespace util {
 
 
     template<class T, class COMPRESSOR>
-    inline void decompress(const std::vector<char> & buffer, void * dataOut,
+    inline void decompress(const char * buffer, const std::size_t nBytes, void * dataOut,
                            const std::size_t data_size, const COMPRESSOR & compressor) {
         // we don't need to decompress for raw compression
         if(compressor->type() == 0) {
             // mem-copy the binary data that was read to typed out data
-            memcpy((T*) dataOut, &buffer[0], buffer.size());
+            memcpy((T*) dataOut, buffer, nBytes);
         } else {
-            compressor->decompress(buffer, static_cast<T*>(dataOut), data_size);
+            compressor->decompress(buffer, nBytes, static_cast<T*>(dataOut), data_size);
         }
+    }
+
+    // convenience overload for a full buffer (forwards to the pointer form)
+    template<class T, class COMPRESSOR>
+    inline void decompress(const std::vector<char> & buffer, void * dataOut,
+                           const std::size_t data_size, const COMPRESSOR & compressor) {
+        decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor);
     }
 
     inline bool read_n5_header(std::vector<char> & buffer,

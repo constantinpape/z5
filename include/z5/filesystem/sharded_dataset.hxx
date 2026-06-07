@@ -49,14 +49,13 @@ namespace filesystem {
             if(!handle_.mode().canWrite()) {
                 throw std::invalid_argument("Cannot write data in file mode " + handle_.mode().printMode());
             }
-            // the inner chunk handle is only used for its shape / zarr-ness
+            // the inner chunk handle is only used to validate the chunk coordinate
             handle::Chunk innerChunk(handle_, chunkIndices, defaultChunkShape(), shape());
             checkChunk(innerChunk, isVarlen);
 
             // compress the inner chunk; empty (all-fill) chunks become empty slots
             std::vector<char> blob;
-            const bool nonEmpty = util::data_to_buffer(innerChunk, dataIn, blob,
-                                                       Mixin::compressor_, Mixin::fillValue_);
+            const bool nonEmpty = makeChunkBlob(chunkIndices, dataIn, blob);
             writeInnerBlob(chunkIndices, blob, nonEmpty);
         }
 
@@ -145,6 +144,10 @@ namespace filesystem {
                                void * dataOut, const std::size_t data_size) const {
             util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
         }
+        inline void decompress(const char * buffer, std::size_t nBytes,
+                               void * dataOut, const std::size_t data_size) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+        }
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
         }
@@ -155,6 +158,80 @@ namespace filesystem {
 
         inline bool isSharded() const {return true;}
         inline types::ShapeType shardShape() const {return shardShape_;}
+
+        //
+        // batched shard IO (used by the shard-aware sub-array paths)
+        //
+
+        // read all per-slot inner-chunk blobs of a shard; empty vector for empty / absent
+        // slots. 'shardCoord' is the shard's coordinate in the (outer) shard grid.
+        inline void readShardBlobs(const types::ShapeType & shardCoord,
+                                   std::vector<std::vector<char>> & blobs) const override {
+            blobs.assign(nSlots_, std::vector<char>());
+            handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
+            if(!fs::exists(shardChunk.path())) {
+                return;
+            }
+            std::vector<char> shardBuf;
+            readFile(shardChunk.path(), shardBuf);
+            std::vector<util::ShardEntry> entries;
+            if(util::parseShardIndex(shardBuf, nSlots_, entries)) {
+                util::extractShardBlobs(shardBuf, entries, blobs);
+            }
+        }
+
+        // read a shard once, reporting per-slot byte offset + length within shardBuf
+        // (length 0 for empty/never-written slots). Lets the read path decode each touched
+        // inner chunk straight from shardBuf with no per-slot copy. Returns false if absent.
+        inline bool readShardRaw(const types::ShapeType & shardCoord,
+                                 std::vector<char> & shardBuf,
+                                 std::vector<std::size_t> & offsets,
+                                 std::vector<std::size_t> & nbytes) const override {
+            handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
+            if(!fs::exists(shardChunk.path())) {
+                return false;
+            }
+            readFile(shardChunk.path(), shardBuf);
+            std::vector<util::ShardEntry> entries;
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+                throw std::runtime_error("z5::ShardedDataset: corrupt shard index");
+            }
+            offsets.resize(nSlots_);
+            nbytes.resize(nSlots_);
+            for(std::size_t s = 0; s < nSlots_; ++s) {
+                offsets[s] = entries[s].empty() ? 0 : entries[s].offset;
+                nbytes[s] = entries[s].empty() ? 0 : entries[s].nbytes;
+            }
+            return true;
+        }
+
+        // build & write a shard from its per-slot blobs (remove the file if all empty).
+        // NOTE: takes no lock itself; callers guarantee exclusivity for the shard file --
+        // the shard-aware writeSubarray path uses one task per shard, and writeInnerBlob
+        // (the direct per-chunk path) calls this while holding shardMutex_.
+        inline void writeShardBlobs(const types::ShapeType & shardCoord,
+                                    const std::vector<std::vector<char>> & blobs) const override {
+            handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
+            const auto & shardPath = shardChunk.path();
+            if(util::allSlotsEmpty(blobs)) {
+                if(fs::exists(shardPath)) {
+                    fs::remove(shardPath);
+                }
+                return;
+            }
+            std::vector<char> out;
+            util::buildShard(blobs, out);
+            shardChunk.create();  // create nested 'c/...' directories if needed
+            writeFile(shardPath, out);
+        }
+
+        // compress one inner chunk to its on-disk blob; false => all-fill (empty slot).
+        inline bool makeChunkBlob(const types::ShapeType & chunkId, const void * dataIn,
+                                  std::vector<char> & blob) const override {
+            handle::Chunk innerChunk(handle_, chunkId, defaultChunkShape(), shape());
+            return util::data_to_buffer(innerChunk, dataIn, blob,
+                                        Mixin::compressor_, Mixin::fillValue_);
+        }
 
         inline const FileMode & mode() const {return handle_.mode();}
         inline const fs::path & path() const {return handle_.path();}
@@ -187,40 +264,21 @@ namespace filesystem {
             return true;
         }
 
-        // replace one inner chunk's blob in its shard (read-modify-write)
+        // replace one inner chunk's blob in its shard (read-modify-write). Serialized by
+        // shardMutex_ so concurrent direct writeChunk calls to the same shard are safe;
+        // the read + rebuild themselves are shared with the batched shard-aware path.
         inline void writeInnerBlob(const types::ShapeType & chunkId,
                                    const std::vector<char> & blob,
                                    const bool nonEmpty) const {
             std::lock_guard<std::mutex> lock(shardMutex_);
 
-            handle::Chunk shardChunk(handle_, util::shardId(chunkId, chunksPerShard_), shardShape_, shape());
-            const auto & shardPath = shardChunk.path();
+            const auto shardCoord = util::shardId(chunkId, chunksPerShard_);
             const std::size_t slot = util::shardSlot(chunkId, chunksPerShard_);
 
-            std::vector<std::vector<char>> blobs(nSlots_);
-            if(fs::exists(shardPath)) {
-                std::vector<char> shardBuf;
-                readFile(shardPath, shardBuf);
-                std::vector<util::ShardEntry> entries;
-                if(util::parseShardIndex(shardBuf, nSlots_, entries)) {
-                    util::extractShardBlobs(shardBuf, entries, blobs);
-                }
-            }
-
+            std::vector<std::vector<char>> blobs;
+            readShardBlobs(shardCoord, blobs);
             blobs[slot] = nonEmpty ? blob : std::vector<char>();
-
-            // if the whole shard became empty, drop the file
-            if(util::allSlotsEmpty(blobs)) {
-                if(fs::exists(shardPath)) {
-                    fs::remove(shardPath);
-                }
-                return;
-            }
-
-            std::vector<char> out;
-            util::buildShard(blobs, out);
-            shardChunk.create();  // create nested 'c/...' directories if needed
-            writeFile(shardPath, out);
+            writeShardBlobs(shardCoord, blobs);
         }
 
         inline void writeFile(const fs::path & path, const std::vector<char> & buffer) const {

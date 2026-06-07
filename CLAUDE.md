@@ -44,6 +44,34 @@ There is no configured linter/formatter in this repo.
 - **`include/z5/multiarray/`**: in-memory IO. `array_view.hxx` defines the non-owning strided `ArrayView`/`ConstArrayView` (element strides) plus `cOrderStrides`/`subview`/`makeView`; `array_util.hxx` provides the generic strided `copyView`/`fillView`; `array_access.hxx` implements `readSubarray`/`writeSubarray` (the main user-facing IO functions) on those views; `broadcast.hxx` implements `writeScalar`. To support another multiarray type, wrap its buffer in an `ArrayView` (data pointer + shape + element strides).
 - **`include/z5/util/`**: threadpool, chunk blocking/iteration, file modes.
 
+### Reusable building blocks (prefer these over re-implementing)
+
+When adding or changing IO paths, reuse the existing helpers — most "new" chunk/codec/shard
+logic is already factored out:
+
+- **Sub-array IO** (`multiarray/array_access.hxx`): `readSubarray`/`writeSubarray` dispatch on
+  `ds.isSharded()` to `*Plain` vs `*Sharded` variants. The shared primitives are:
+  - `forEachBuffered(nThreads, nUnits, bufSize, init, body)` — the single-/multi-threaded loop
+    with one reusable buffer per thread and the `n_threads<=0` guard. Don't hand-roll a
+    `ThreadPool` + per-thread buffer vector; `body` is a template param (zero overhead).
+  - `prepareChunkWriteBuffer(...)` — complete-overlap / zarr edge-padding / partial-overlap
+    write-buffer prep; the "read existing chunk" source is a callable you supply (chunk file
+    for plain, in-memory shard blob for sharded).
+  - `groupChunksByShard(...)` — bucket inner chunks by shard so each shard is touched once.
+- **Codec layer** (`compression/`, `util/format_data.hxx`): go through `util::data_to_buffer`
+  (compress a chunk to its on-disk blob, incl. raw + all-fill→empty handling) and
+  `util::decompress` rather than calling compressors directly. `CompressorBase::decompress`
+  has a primary `(const char*, size_t, T*, size_t)` overload plus a `std::vector<char>`
+  forwarder; `Dataset::decompress` mirrors both, so you can decode straight from a larger
+  buffer (e.g. a shard) with no intermediate copy.
+- **Sharding** (`util/sharding.hxx` + `Dataset` batch API): `util/sharding.hxx` owns the shard
+  layout (`chunksPerShard`, `numShardSlots`, `shardId`/`shardSlot`, `parseShardIndex` /
+  `buildShard` / `extractShardBlobs`, `allSlotsEmpty`, `crc32c`). `Dataset` exposes the batch
+  ops the shard-aware paths use: `isSharded()`/`shardShape()`, `readShardBlobs` /
+  `readShardRaw` (read a shard once), `writeShardBlobs` (rebuild/remove), `makeChunkBlob`
+  (compress one inner chunk). Always group by shard and do **one** read-modify-write per shard
+  (parallel across shards), never a full-shard RMW per inner chunk.
+
 ### Python binding layout
 
 - `src/python/lib/*.cxx` — nanobind sources compiled into the `_z5py` extension module (`z5py.cxx` registers submodules: attributes, dataset, factory, handles, util). IO bindings receive/return numpy arrays via `nb::ndarray<nb::numpy, T, nb::c_contig>` and wrap them in `ArrayView`. Pickling of `File`/`Group`/`Dataset` lives in the pure-Python layer (re-opens by path+mode), not in C++.

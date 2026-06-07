@@ -160,6 +160,11 @@ namespace filesystem {
                                const std::size_t data_size) const {
             util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
         }
+        inline void decompress(const char * buffer, std::size_t nBytes,
+                               void * dataOut,
+                               const std::size_t data_size) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+        }
 
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
