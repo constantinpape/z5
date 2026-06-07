@@ -1,0 +1,3719 @@
+{
+  "meta": {
+    "versions": {
+      "z5py": "2.1.2",
+      "zarr": "3.1.3",
+      "tensorstore": "unknown",
+      "numpy": "1.26.4",
+      "python": "3.12.12"
+    },
+    "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.31",
+    "cpu_count": 8,
+    "libraries": [
+      "z5py",
+      "zarr",
+      "tensorstore"
+    ],
+    "dims": [
+      "2d",
+      "3d"
+    ],
+    "codecs": [
+      "raw",
+      "gzip",
+      "blosc",
+      "zstd"
+    ],
+    "dtype": "uint8",
+    "incompressible": false,
+    "thread_modes": [
+      1,
+      8
+    ],
+    "iterations": 3,
+    "warmup": 1,
+    "configs": {
+      "2d": {
+        "shape": [
+          8192,
+          8192
+        ],
+        "chunks": [
+          256,
+          256
+        ],
+        "shards": [
+          1024,
+          1024
+        ]
+      },
+      "3d": {
+        "shape": [
+          256,
+          512,
+          512
+        ],
+        "chunks": [
+          64,
+          64,
+          64
+        ],
+        "shards": [
+          128,
+          256,
+          256
+        ]
+      }
+    }
+  },
+  "records": [
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.10585852900112513,
+        0.09998607001034543,
+        0.10909561099833809
+      ],
+      "min": 0.09998607001034543,
+      "median": 0.10585852900112513,
+      "throughput_mbps": 671.1821356020527,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109561,
+      "ratio": 0.999989613998518
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.06746958999428898,
+        0.06528180200257339,
+        0.06691336999938358
+      ],
+      "min": 0.06528180200257339,
+      "median": 0.06691336999938358,
+      "throughput_mbps": 1027.987309500963,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109561,
+      "ratio": 0.999989613998518
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.8848577629978536,
+        0.7675853279943112,
+        1.0691658290015766
+      ],
+      "min": 0.7675853279943112,
+      "median": 0.8848577629978536,
+      "throughput_mbps": 87.42853928090892,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109429,
+      "ratio": 0.9999915809148071
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.33395100399502553,
+        0.29823747799673583,
+        0.29959518399846274
+      ],
+      "min": 0.29823747799673583,
+      "median": 0.29959518399846274,
+      "throughput_mbps": 225.018211831628,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109429,
+      "ratio": 0.9999915809148071
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.2120171389979078,
+        1.218799652007874,
+        1.2118498329946306
+      ],
+      "min": 1.2118498329946306,
+      "median": 1.2120171389979078,
+      "throughput_mbps": 55.3772110808199,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109098,
+      "ratio": 0.9999965131404389
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.05047704999742564,
+        0.04216244000417646,
+        0.044194203001097776
+      ],
+      "min": 0.04216244000417646,
+      "median": 0.044194203001097776,
+      "throughput_mbps": 1591.6741059898914,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109098,
+      "ratio": 0.9999965131404389
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.336004905999289,
+        4.391840925003635,
+        4.376541138000903
+      ],
+      "min": 4.336004905999289,
+      "median": 4.376541138000903,
+      "throughput_mbps": 15.477119019664459,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33860162,
+      "ratio": 1.9819416103207066
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3793868950015167,
+        0.386472928992589,
+        0.3834410309937084
+      ],
+      "min": 0.3793868950015167,
+      "median": 0.3834410309937084,
+      "throughput_mbps": 176.88767030219037,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33860162,
+      "ratio": 1.9819416103207066
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        6.359118774998933,
+        6.031881068003713,
+        6.18307403298968
+      ],
+      "min": 6.031881068003713,
+      "median": 6.18307403298968,
+      "throughput_mbps": 11.125694164624846,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33796319,
+      "ratio": 1.9856856008490156
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.8857027869962621,
+        0.9088278660055948,
+        0.973403338008211
+      ],
+      "min": 0.8857027869962621,
+      "median": 0.9088278660055948,
+      "throughput_mbps": 75.76905592404239,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33796319,
+      "ratio": 1.9856856008490156
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.526388540994958,
+        1.5108384900086094,
+        1.4910434739867924
+      ],
+      "min": 1.4910434739867924,
+      "median": 1.5108384900086094,
+      "throughput_mbps": 45.00798613239794,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 32984927,
+      "ratio": 2.034531226944962
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.27200630599691067,
+        0.27235236899286974,
+        0.31387984300090466
+      ],
+      "min": 0.27200630599691067,
+      "median": 0.27235236899286974,
+      "throughput_mbps": 246.71804484107142,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 32984927,
+      "ratio": 2.034531226944962
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.2856448759994237,
+        0.287367106997408,
+        0.301791254998534
+      ],
+      "min": 0.2856448759994237,
+      "median": 0.287367106997408,
+      "throughput_mbps": 234.93809845248336,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874827,
+      "ratio": 1.139856665735935
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.10350916399329435,
+        0.0999691739998525,
+        0.09861794400785584
+      ],
+      "min": 0.09861794400785584,
+      "median": 0.0999691739998525,
+      "throughput_mbps": 680.4934403687644,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874827,
+      "ratio": 1.139856665735935
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.2517374460003339,
+        1.2542956710094586,
+        1.1544051929959096
+      ],
+      "min": 1.1544051929959096,
+      "median": 1.2517374460003339,
+      "throughput_mbps": 58.132850066135994,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874629,
+      "ratio": 1.1398604991634003
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.4468743759935023,
+        0.45243690098868683,
+        0.4433005589962704
+      ],
+      "min": 0.4433005589962704,
+      "median": 0.4468743759935023,
+      "throughput_mbps": 151.38456886214888,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874629,
+      "ratio": 1.1398604991634003
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.832201837009052,
+        7.63161452600616,
+        7.669314326994936
+      ],
+      "min": 4.832201837009052,
+      "median": 7.63161452600616,
+      "throughput_mbps": 13.887843733269598,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874215,
+      "ratio": 1.1398685145950567
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.09629013900121208,
+        0.09040851899771951,
+        0.10849238399532624
+      ],
+      "min": 0.09040851899771951,
+      "median": 0.09629013900121208,
+      "throughput_mbps": 742.2847398008231,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874215,
+      "ratio": 1.1398685145950567
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.6170718110079179,
+        0.6125177020003321,
+        0.6071668840013444
+      ],
+      "min": 0.6071668840013444,
+      "median": 0.6125177020003321,
+      "throughput_mbps": 110.52787259697023,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593303,
+      "ratio": 2.12414839942503
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.1404043090005871,
+        0.13977246500144247,
+        0.14306704899354372
+      ],
+      "min": 0.13977246500144247,
+      "median": 0.1404043090005871,
+      "throughput_mbps": 480.12935880688246,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593303,
+      "ratio": 2.12414839942503
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.9360594489990035,
+        2.5324539099965477,
+        3.2538614270015387
+      ],
+      "min": 2.5324539099965477,
+      "median": 2.9360594489990035,
+      "throughput_mbps": 26.499540123947007,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593129,
+      "ratio": 2.1241600982289537
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.5095380629936699,
+        0.5000699889933458,
+        0.5088518080010545
+      ],
+      "min": 0.5000699889933458,
+      "median": 0.5088518080010545,
+      "throughput_mbps": 134.19894310212842,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593129,
+      "ratio": 2.1241600982289537
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        7.4777685230073985,
+        7.456985010008793,
+        8.70122738799546
+      ],
+      "min": 7.456985010008793,
+      "median": 7.4777685230073985,
+      "throughput_mbps": 8.999463443995962,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31592745,
+      "ratio": 2.124185916734997
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.16591789199446794,
+        0.13731693600129802,
+        0.1335752299928572
+      ],
+      "min": 0.1335752299928572,
+      "median": 0.13731693600129802,
+      "throughput_mbps": 502.4050043079737,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31592745,
+      "ratio": 2.124185916734997
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.04103814899281133,
+        0.044733415998052806,
+        0.042735192997497506
+      ],
+      "min": 0.04103814899281133,
+      "median": 0.042735192997497506,
+      "throughput_mbps": 1635.279993056107,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109561,
+      "ratio": 0.999989613998518
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.017524641007184982,
+        0.01985004000016488,
+        0.023209514998598024
+      ],
+      "min": 0.017524641007184982,
+      "median": 0.01985004000016488,
+      "throughput_mbps": 3829.4002126768714,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109561,
+      "ratio": 0.999989613998518
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.507816173005267,
+        0.4965485620050458,
+        0.5145362309995107
+      ],
+      "min": 0.4965485620050458,
+      "median": 0.507816173005267,
+      "throughput_mbps": 135.1506562198403,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109429,
+      "ratio": 0.9999915809148071
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.23969729999953415,
+        0.24132663500495255,
+        0.25483900199469645
+      ],
+      "min": 0.23969729999953415,
+      "median": 0.24132663500495255,
+      "throughput_mbps": 279.9733830966407,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109429,
+      "ratio": 0.9999915809148071
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.8667441430006875,
+        1.867467674004729,
+        1.760141733000637
+      ],
+      "min": 1.760141733000637,
+      "median": 1.8667441430006875,
+      "throughput_mbps": 38.1269659947184,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109098,
+      "ratio": 0.9999965131404389
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.029741010002908297,
+        0.027270917998976074,
+        0.023558758999570273
+      ],
+      "min": 0.023558758999570273,
+      "median": 0.027270917998976074,
+      "throughput_mbps": 2848.573814996966,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109098,
+      "ratio": 0.9999965131404389
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.8323280289914692,
+        0.8572617369936779,
+        0.8542119600024307
+      ],
+      "min": 0.8323280289914692,
+      "median": 0.8542119600024307,
+      "throughput_mbps": 80.62790349775403,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33860162,
+      "ratio": 1.9819416103207066
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.0888992019899888,
+        0.0805110329965828,
+        0.08598156800144352
+      ],
+      "min": 0.0805110329965828,
+      "median": 0.08598156800144352,
+      "throughput_mbps": 833.536243446887,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33860162,
+      "ratio": 1.9819416103207066
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        4.89938916900428,
+        4.902330868004356,
+        4.844640161987627
+      ],
+      "min": 4.844640161987627,
+      "median": 4.89938916900428,
+      "throughput_mbps": 13.852187521904003,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33796319,
+      "ratio": 1.9856856008490156
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.6800310050020926,
+        0.6882959219947224,
+        0.7012676989979809
+      ],
+      "min": 0.6800310050020926,
+      "median": 0.6882959219947224,
+      "throughput_mbps": 98.68500628113786,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33796319,
+      "ratio": 1.9856856008490156
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.763542310000048,
+        1.7525380250008311,
+        1.7607594319997588
+      ],
+      "min": 1.7525380250008311,
+      "median": 1.7607594319997588,
+      "throughput_mbps": 38.2923868370663,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 32984927,
+      "ratio": 2.034531226944962
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.055754551009158604,
+        0.05977563900523819,
+        0.05960672699438874
+      ],
+      "min": 0.055754551009158604,
+      "median": 0.05960672699438874,
+      "throughput_mbps": 1203.6481827102555,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 32984927,
+      "ratio": 2.034531226944962
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.08273091200680938,
+        0.09417544500320219,
+        0.09015354800794739
+      ],
+      "min": 0.08273091200680938,
+      "median": 0.09015354800794739,
+      "throughput_mbps": 811.1703639200355,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874827,
+      "ratio": 1.139856665735935
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.025291010999353603,
+        0.023662068997509778,
+        0.02836107999610249
+      ],
+      "min": 0.023662068997509778,
+      "median": 0.025291010999353603,
+      "throughput_mbps": 2836.1367726153876,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874827,
+      "ratio": 1.139856665735935
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.664397144006216,
+        0.6874622559989803,
+        0.6932695449941093
+      ],
+      "min": 0.664397144006216,
+      "median": 0.6874622559989803,
+      "throughput_mbps": 101.00715303401746,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874629,
+      "ratio": 1.1398604991634003
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.37869641699944623,
+        0.37357783199695405,
+        0.3544245469965972
+      ],
+      "min": 0.3544245469965972,
+      "median": 0.37357783199695405,
+      "throughput_mbps": 189.34598229350155,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874629,
+      "ratio": 1.1398604991634003
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.771350490002078,
+        1.7883828100020764,
+        1.9614911180105992
+      ],
+      "min": 1.771350490002078,
+      "median": 1.7883828100020764,
+      "throughput_mbps": 37.88570606369453,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874215,
+      "ratio": 1.1398685145950567
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.024516985009540804,
+        0.026710081001510844,
+        0.0271016439946834
+      ],
+      "min": 0.024516985009540804,
+      "median": 0.026710081001510844,
+      "throughput_mbps": 2737.23967175754,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58874215,
+      "ratio": 1.1398685145950567
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.14978066500043496,
+        0.15138945300714113,
+        0.16815393899742048
+      ],
+      "min": 0.14978066500043496,
+      "median": 0.15138945300714113,
+      "throughput_mbps": 448.0475767670354,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593303,
+      "ratio": 2.12414839942503
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.03804445199784823,
+        0.035570453008404,
+        0.03871043100662064
+      ],
+      "min": 0.035570453008404,
+      "median": 0.03804445199784823,
+      "throughput_mbps": 1886.6463124364657,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593303,
+      "ratio": 2.12414839942503
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.0269492140068905,
+        1.0730109959986294,
+        1.049780086003011
+      ],
+      "min": 1.0269492140068905,
+      "median": 1.049780086003011,
+      "throughput_mbps": 65.34779235884368,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593129,
+      "ratio": 2.1241600982289537
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.38855483700172044,
+        0.3603713230113499,
+        0.36554648900346365
+      ],
+      "min": 0.3603713230113499,
+      "median": 0.36554648900346365,
+      "throughput_mbps": 186.221432491415,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31593129,
+      "ratio": 2.1241600982289537
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        2.169750312998076,
+        1.8213855490030255,
+        1.915848692995496
+      ],
+      "min": 1.8213855490030255,
+      "median": 1.915848692995496,
+      "throughput_mbps": 36.844952479574395,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31592745,
+      "ratio": 2.124185916734997
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.04788634199940134,
+        0.04149748999043368,
+        0.03805363799619954
+      ],
+      "min": 0.03805363799619954,
+      "median": 0.04149748999043368,
+      "throughput_mbps": 1763.5334631265014,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31592745,
+      "ratio": 2.124185916734997
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.0990065459918696,
+        1.0093432449939428,
+        1.509189158998197
+      ],
+      "min": 1.0093432449939428,
+      "median": 1.0990065459918696,
+      "throughput_mbps": 66.48765356368212,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126908,
+      "ratio": 0.9997311957225856
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3358104689978063,
+        0.3403333169990219,
+        0.3363198139995802
+      ],
+      "min": 0.3358104689978063,
+      "median": 0.3363198139995802,
+      "throughput_mbps": 199.84148856430795,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126908,
+      "ratio": 0.9997311957225856
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.6683944280084688,
+        0.6300591769977473,
+        0.6399826979904901
+      ],
+      "min": 0.6300591769977473,
+      "median": 0.6399826979904901,
+      "throughput_mbps": 106.5120014913138,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126518,
+      "ratio": 0.9997370040853303
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.25790098700963426,
+        0.2521175180008868,
+        0.2584505309932865
+      ],
+      "min": 0.2521175180008868,
+      "median": 0.25790098700963426,
+      "throughput_mbps": 266.18088474028195,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126518,
+      "ratio": 0.9997370040853303
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.7379874860052951,
+        0.7295323949947488,
+        0.7334495760005666
+      ],
+      "min": 0.7295323949947488,
+      "median": 0.7334495760005666,
+      "throughput_mbps": 91.98887460026097,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67125909,
+      "ratio": 0.9997460742021386
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.04351224000856746,
+        0.07356509300007019,
+        0.06767649899120443
+      ],
+      "min": 0.04351224000856746,
+      "median": 0.06767649899120443,
+      "throughput_mbps": 1542.2985345453696,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67125909,
+      "ratio": 0.9997460742021386
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.589241933004814,
+        4.582019851994119,
+        4.562612360998173
+      ],
+      "min": 4.562612360998173,
+      "median": 4.582019851994119,
+      "throughput_mbps": 14.708429884084747,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33877581,
+      "ratio": 1.9809225457980604
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.5072741160111036,
+        0.5073363550036447,
+        0.5068481560010696
+      ],
+      "min": 0.5068481560010696,
+      "median": 0.5072741160111036,
+      "throughput_mbps": 132.40427770217315,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33877581,
+      "ratio": 1.9809225457980604
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        5.930147976992885,
+        6.062232543001301,
+        5.957346010996844
+      ],
+      "min": 5.930147976992885,
+      "median": 5.957346010996844,
+      "throughput_mbps": 11.316558079218487,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33813444,
+      "ratio": 1.984679939730481
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        1.3092615420027869,
+        1.5910487010114593,
+        1.6489016620034818
+      ],
+      "min": 1.3092615420027869,
+      "median": 1.5910487010114593,
+      "throughput_mbps": 51.257034478644414,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33813444,
+      "ratio": 1.984679939730481
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.5121162319992436,
+        1.5111070520069916,
+        1.4892543220048537
+      ],
+      "min": 1.4892543220048537,
+      "median": 1.5111070520069916,
+      "throughput_mbps": 45.06205757365684,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33001738,
+      "ratio": 2.0334948419989276
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3078595349943498,
+        0.2854236290004337,
+        0.2853795410046587
+      ],
+      "min": 0.2853795410046587,
+      "median": 0.2854236290004337,
+      "throughput_mbps": 235.1565349209966,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33001738,
+      "ratio": 2.0334948419989276
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.2435069899947848,
+        1.721500567990006,
+        3.1808187699934933
+      ],
+      "min": 1.2435069899947848,
+      "median": 1.721500567990006,
+      "throughput_mbps": 53.96741999840423,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58892294,
+      "ratio": 1.139518593043769
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3151971110055456,
+        0.31004638101148885,
+        0.30756289898999967
+      ],
+      "min": 0.30756289898999967,
+      "median": 0.31004638101148885,
+      "throughput_mbps": 218.1955763207383,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58892294,
+      "ratio": 1.139518593043769
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.1615743970032781,
+        1.6694790049950825,
+        1.5898530470003607
+      ],
+      "min": 1.1615743970032781,
+      "median": 1.5898530470003607,
+      "throughput_mbps": 57.774055775620376,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891778,
+      "ratio": 1.139528577316854
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.46291315798589494,
+        0.4416652560030343,
+        0.41396148000785615
+      ],
+      "min": 0.41396148000785615,
+      "median": 0.4416652560030343,
+      "throughput_mbps": 162.11378894173055,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891778,
+      "ratio": 1.139528577316854
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.644204908006941,
+        0.6551791610108921,
+        0.6576964730047621
+      ],
+      "min": 0.644204908006941,
+      "median": 0.6551791610108921,
+      "throughput_mbps": 104.17316472738972,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891026,
+      "ratio": 1.1395431283537156
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.10131732899753843,
+        0.08610764000331983,
+        0.07983280600456055
+      ],
+      "min": 0.07983280600456055,
+      "median": 0.08610764000331983,
+      "throughput_mbps": 840.6176277477497,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891026,
+      "ratio": 1.1395431283537156
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.1983052040013717,
+        1.5335280370054534,
+        1.4091664369916543
+      ],
+      "min": 1.1983052040013717,
+      "median": 1.4091664369916543,
+      "throughput_mbps": 56.003148259650864,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610734,
+      "ratio": 2.122977087466555
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.2503661389928311,
+        0.2827398200024618,
+        0.26884421199792996
+      ],
+      "min": 0.2503661389928311,
+      "median": 0.26884421199792996,
+      "throughput_mbps": 268.04289218168424,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610734,
+      "ratio": 2.122977087466555
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.132436048006639,
+        1.7131622079905355,
+        1.693375296992599
+      ],
+      "min": 1.693375296992599,
+      "median": 1.7131622079905355,
+      "throughput_mbps": 39.6302367934527,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610260,
+      "ratio": 2.123008921786787
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.490355597998132,
+        0.49355289700906724,
+        0.4901172480022069
+      ],
+      "min": 0.4901172480022069,
+      "median": 0.490355597998132,
+      "throughput_mbps": 136.92410188285766,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610260,
+      "ratio": 2.123008921786787
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.6380851079884451,
+        0.6189935319998767,
+        0.6506198839924764
+      ],
+      "min": 0.6189935319998767,
+      "median": 0.6380851079884451,
+      "throughput_mbps": 108.41609892623784,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31609556,
+      "ratio": 2.1230562049020874
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.13705034599115606,
+        0.13794779899762943,
+        0.1387529799976619
+      ],
+      "min": 0.13705034599115606,
+      "median": 0.13794779899762943,
+      "throughput_mbps": 489.6657758480272,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31609556,
+      "ratio": 2.1230562049020874
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        2.648072523996234,
+        2.876418965999619,
+        3.1908890880004037
+      ],
+      "min": 2.648072523996234,
+      "median": 2.876418965999619,
+      "throughput_mbps": 25.342532499346092,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126908,
+      "ratio": 0.9997311957225856
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.11590787601016928,
+        0.11358690400084015,
+        0.11962035398755688
+      ],
+      "min": 0.11358690400084015,
+      "median": 0.11590787601016928,
+      "throughput_mbps": 590.8151524184832,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126908,
+      "ratio": 0.9997311957225856
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.6093176849972224,
+        0.6522263419901719,
+        0.570521916000871
+      ],
+      "min": 0.570521916000871,
+      "median": 0.6093176849972224,
+      "throughput_mbps": 117.62714475616664,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126518,
+      "ratio": 0.9997370040853303
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.21360953300609253,
+        0.24862716200004797,
+        0.23339701599616092
+      ],
+      "min": 0.21360953300609253,
+      "median": 0.23339701599616092,
+      "throughput_mbps": 314.16605361936695,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67126518,
+      "ratio": 0.9997370040853303
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.4852965540048899,
+        0.4113614289963152,
+        0.4443100839998806
+      ],
+      "min": 0.4113614289963152,
+      "median": 0.4443100839998806,
+      "throughput_mbps": 163.1384453417025,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67125909,
+      "ratio": 0.9997460742021386
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.024616253009298816,
+        0.026493306999327615,
+        0.021967057007714175
+      ],
+      "min": 0.021967057007714175,
+      "median": 0.024616253009298816,
+      "throughput_mbps": 3054.9774590393863,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67125909,
+      "ratio": 0.9997460742021386
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.8950620620016707,
+        1.7020468219998293,
+        1.9323071079998044
+      ],
+      "min": 1.7020468219998293,
+      "median": 1.8950620620016707,
+      "throughput_mbps": 39.428330133215766,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33877581,
+      "ratio": 1.9809225457980604
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.10343138298776466,
+        0.10544975500670262,
+        0.11565130799135659
+      ],
+      "min": 0.10343138298776466,
+      "median": 0.10544975500670262,
+      "throughput_mbps": 648.8249703471391,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33877581,
+      "ratio": 1.9809225457980604
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        4.515183241994237,
+        4.42497533999267,
+        4.498380374992848
+      ],
+      "min": 4.42497533999267,
+      "median": 4.498380374992848,
+      "throughput_mbps": 15.165929489702231,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33813444,
+      "ratio": 1.984679939730481
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.6587235250044614,
+        0.6657579530001385,
+        0.675529385000118
+      ],
+      "min": 0.6587235250044614,
+      "median": 0.6657579530001385,
+      "throughput_mbps": 101.8771327463149,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33813444,
+      "ratio": 1.984679939730481
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.34085052298905794,
+        0.3382924930047011,
+        0.3480440340063069
+      ],
+      "min": 0.3382924930047011,
+      "median": 0.34085052298905794,
+      "throughput_mbps": 198.3752681117503,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33001738,
+      "ratio": 2.0334948419989276
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.05999422899913043,
+        0.06104012099967804,
+        0.05916499700106215
+      ],
+      "min": 0.05916499700106215,
+      "median": 0.05999422899913043,
+      "throughput_mbps": 1134.2663297827132,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 33001738,
+      "ratio": 2.0334948419989276
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.5754526880045887,
+        2.3031812440021895,
+        2.8755810419970658
+      ],
+      "min": 1.5754526880045887,
+      "median": 2.3031812440021895,
+      "throughput_mbps": 42.59655939588872,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58892294,
+      "ratio": 1.139518593043769
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.10128627700032666,
+        0.10130103300616611,
+        0.09977724500640761
+      ],
+      "min": 0.09977724500640761,
+      "median": 0.10128627700032666,
+      "throughput_mbps": 672.58686081872,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58892294,
+      "ratio": 1.139518593043769
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.7163322779961163,
+        0.6549038259981899,
+        0.6624222050013486
+      ],
+      "min": 0.6549038259981899,
+      "median": 0.6624222050013486,
+      "throughput_mbps": 102.47132683598872,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891778,
+      "ratio": 1.139528577316854
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.3421805240068352,
+        0.33534285800124053,
+        0.3313424749940168
+      ],
+      "min": 0.3313424749940168,
+      "median": 0.33534285800124053,
+      "throughput_mbps": 202.5362549767029,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891778,
+      "ratio": 1.139528577316854
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.29468631399504375,
+        0.29978995300189126,
+        0.36726892400474753
+      ],
+      "min": 0.29468631399504375,
+      "median": 0.29978995300189126,
+      "throughput_mbps": 227.7298293572218,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891026,
+      "ratio": 1.1395431283537156
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.04798267700243741,
+        0.04391535199829377,
+        0.041493438999168575
+      ],
+      "min": 0.041493438999168575,
+      "median": 0.04391535199829377,
+      "throughput_mbps": 1617.3367553685944,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 58891026,
+      "ratio": 1.1395431283537156
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.652057130006142,
+        1.6223221640102565,
+        1.5450943260075292
+      ],
+      "min": 1.5450943260075292,
+      "median": 1.6223221640102565,
+      "throughput_mbps": 43.43350620761582,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610734,
+      "ratio": 2.122977087466555
+    },
+    {
+      "library": "z5py",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.07909607600595336,
+        0.06041292700683698,
+        0.05899570300243795
+      ],
+      "min": 0.05899570300243795,
+      "median": 0.06041292700683698,
+      "throughput_mbps": 1137.5212190831387,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610734,
+      "ratio": 2.122977087466555
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.0121671740052989,
+        0.9877501320006559,
+        1.0152154309907928
+      ],
+      "min": 0.9877501320006559,
+      "median": 1.0121671740052989,
+      "throughput_mbps": 67.94113392227361,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610260,
+      "ratio": 2.123008921786787
+    },
+    {
+      "library": "zarr",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.33917155499511864,
+        0.33494045300176367,
+        0.3270233060029568
+      ],
+      "min": 0.3270233060029568,
+      "median": 0.33494045300176367,
+      "throughput_mbps": 205.21125793827437,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31610260,
+      "ratio": 2.123008921786787
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.2932467149948934,
+        0.30925837099493947,
+        0.3269058779987972
+      ],
+      "min": 0.2932467149948934,
+      "median": 0.30925837099493947,
+      "throughput_mbps": 228.84779459905843,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31609556,
+      "ratio": 2.1230562049020874
+    },
+    {
+      "library": "tensorstore",
+      "dim": "2d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.038635524004348554,
+        0.037167403992498294,
+        0.03588496100564953
+      ],
+      "min": 0.03588496100564953,
+      "median": 0.037167403992498294,
+      "throughput_mbps": 1870.1111027941413,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 31609556,
+      "ratio": 2.1230562049020874
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.09450644000025932,
+        0.09331638300500344,
+        0.0921032420010306
+      ],
+      "min": 0.0921032420010306,
+      "median": 0.09331638300500344,
+      "throughput_mbps": 728.6265124006067,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109590,
+      "ratio": 0.9999891818740064
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.07450215199787635,
+        0.07334753801114857,
+        0.07331892200454604
+      ],
+      "min": 0.07331892200454604,
+      "median": 0.07334753801114857,
+      "throughput_mbps": 915.3007459089347,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109590,
+      "ratio": 0.9999891818740064
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.6645145410002442,
+        0.5239765479927883,
+        0.4752009130024817
+      ],
+      "min": 0.4752009130024817,
+      "median": 0.5239765479927883,
+      "throughput_mbps": 141.2220855721494,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109446,
+      "ratio": 0.9999913275993964
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.17312300100456923,
+        0.14498190900485497,
+        0.1492285959975561
+      ],
+      "min": 0.14498190900485497,
+      "median": 0.1492285959975561,
+      "throughput_mbps": 462.87750285970327,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109446,
+      "ratio": 0.9999913275993964
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.140849112009164,
+        2.145954403997166,
+        2.056624725009897
+      ],
+      "min": 2.056624725009897,
+      "median": 2.140849112009164,
+      "throughput_mbps": 32.63058310245544,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109101,
+      "ratio": 0.9999964684372691
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.0612621080072131,
+        0.06806255600531586,
+        0.0773381079925457
+      ],
+      "min": 0.0612621080072131,
+      "median": 0.06806255600531586,
+      "throughput_mbps": 1095.4383742736782,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109101,
+      "ratio": 0.9999964684372691
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        3.9888685969926883,
+        4.006323776993668,
+        3.9760331610013964
+      ],
+      "min": 3.9760331610013964,
+      "median": 3.9888685969926883,
+      "throughput_mbps": 16.87834615119208,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36444273,
+      "ratio": 1.841410418586207
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.4256673299969407,
+        0.4220675380056491,
+        0.42121782500180416
+      ],
+      "min": 0.42121782500180416,
+      "median": 0.4220675380056491,
+      "throughput_mbps": 159.32104487675124,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36444273,
+      "ratio": 1.841410418586207
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.765049411013024,
+        4.726164207997499,
+        4.864593891994446
+      ],
+      "min": 4.726164207997499,
+      "median": 4.765049411013024,
+      "throughput_mbps": 14.199435535151324,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36331198,
+      "ratio": 1.8471415118213277
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.6841135100112297,
+        0.9792869359953329,
+        0.9144178749993443
+      ],
+      "min": 0.6841135100112297,
+      "median": 0.9144178749993443,
+      "throughput_mbps": 98.09609519171521,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36331198,
+      "ratio": 1.8471415118213277
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.062982039991766,
+        1.9306601919961395,
+        1.9752209770085756
+      ],
+      "min": 1.9306601919961395,
+      "median": 1.9752209770085756,
+      "throughput_mbps": 34.759541983726876,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35516408,
+      "ratio": 1.8895172056813854
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3515278480044799,
+        0.3297395950066857,
+        0.357534944996587
+      ],
+      "min": 0.3297395950066857,
+      "median": 0.3515278480044799,
+      "throughput_mbps": 203.5207934268231,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35516408,
+      "ratio": 1.8895172056813854
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.13145781100320164,
+        0.1309419000026537,
+        0.132069383005728
+      ],
+      "min": 0.1309419000026537,
+      "median": 0.13145781100320164,
+      "throughput_mbps": 512.5087080502112,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112905,
+      "ratio": 0.999939788033315
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.0739558589993976,
+        0.07439615999464877,
+        0.07183688500663266
+      ],
+      "min": 0.07183688500663266,
+      "median": 0.0739558589993976,
+      "throughput_mbps": 934.1839362021874,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112905,
+      "ratio": 0.999939788033315
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.5236534940049751,
+        0.6453998770011822,
+        0.917020759996376
+      ],
+      "min": 0.5236534940049751,
+      "median": 0.6453998770011822,
+      "throughput_mbps": 128.1550963915891,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112695,
+      "ratio": 0.9999429169101315
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.16157829599978868,
+        0.169867841002997,
+        0.17075167599250562
+      ],
+      "min": 0.16157829599978868,
+      "median": 0.169867841002997,
+      "throughput_mbps": 415.3334059178825,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112695,
+      "ratio": 0.9999429169101315
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.0854441599949496,
+        2.3359657599939965,
+        2.190683032007655
+      ],
+      "min": 2.0854441599949496,
+      "median": 2.190683032007655,
+      "throughput_mbps": 32.17965040126633,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112267,
+      "ratio": 0.9999492939196943
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.08378002099925652,
+        0.0891873009968549,
+        0.09088403100031428
+      ],
+      "min": 0.08378002099925652,
+      "median": 0.0891873009968549,
+      "throughput_mbps": 801.0127378769162,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112267,
+      "ratio": 0.9999492939196943
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.7774606620077975,
+        0.8183378979883855,
+        0.7712052040005801
+      ],
+      "min": 0.7712052040005801,
+      "median": 0.7774606620077975,
+      "throughput_mbps": 87.01816799455818,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999364,
+      "ratio": 1.8137842585618498
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.20763525400252547,
+        0.20753148599760607,
+        0.21043736499268562
+      ],
+      "min": 0.20753148599760607,
+      "median": 0.20763525400252547,
+      "throughput_mbps": 323.36714439935207,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999364,
+      "ratio": 1.8137842585618498
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.0177938480046578,
+        1.7853394550038502,
+        1.7964505540003302
+      ],
+      "min": 1.7853394550038502,
+      "median": 1.7964505540003302,
+      "throughput_mbps": 37.58885393582212,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999178,
+      "ratio": 1.8137933767069094
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.4910132340010023,
+        0.583972601001733,
+        0.702225613000337
+      ],
+      "min": 0.4910132340010023,
+      "median": 0.583972601001733,
+      "throughput_mbps": 136.67424695087345,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999178,
+      "ratio": 1.8137933767069094
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.8979458880057791,
+        2.0773502700030804,
+        2.03108768700622
+      ],
+      "min": 1.8979458880057791,
+      "median": 2.03108768700622,
+      "throughput_mbps": 35.35868141663038,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36998780,
+      "ratio": 1.8138128878844113
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.21435426900279708,
+        0.19983174100343604,
+        0.20287451399781276
+      ],
+      "min": 0.19983174100343604,
+      "median": 0.20287451399781276,
+      "throughput_mbps": 335.82684944353304,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36998780,
+      "ratio": 1.8138128878844113
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.03578142599144485,
+        0.03416417499829549,
+        0.03563512100663502
+      ],
+      "min": 0.03416417499829549,
+      "median": 0.03563512100663502,
+      "throughput_mbps": 1964.305123813122,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109590,
+      "ratio": 0.9999891818740064
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.025192629007506184,
+        0.03812295099487528,
+        0.03886810899712145
+      ],
+      "min": 0.025192629007506184,
+      "median": 0.03812295099487528,
+      "throughput_mbps": 2663.829328015143,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109590,
+      "ratio": 0.9999891818740064
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.33179427300638054,
+        0.46504793100757524,
+        0.3198918090056395
+      ],
+      "min": 0.3198918090056395,
+      "median": 0.33179427300638054,
+      "throughput_mbps": 209.78612803060832,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109446,
+      "ratio": 0.9999913275993964
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.09980348600947764,
+        0.09668052699998952,
+        0.09893321400159039
+      ],
+      "min": 0.09668052699998952,
+      "median": 0.09893321400159039,
+      "throughput_mbps": 694.1301012975164,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109446,
+      "ratio": 0.9999913275993964
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.6271519589936361,
+        0.6082608209981117,
+        0.6327199220104376
+      ],
+      "min": 0.6082608209981117,
+      "median": 0.6271519589936361,
+      "throughput_mbps": 110.32909186864812,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109101,
+      "ratio": 0.9999964684372691
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.030995820998214185,
+        0.04082595799991395,
+        0.03283699600433465
+      ],
+      "min": 0.030995820998214185,
+      "median": 0.03283699600433465,
+      "throughput_mbps": 2165.0939332714065,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67109101,
+      "ratio": 0.9999964684372691
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.7210022020008182,
+        0.722576772008324,
+        0.719677850996959
+      ],
+      "min": 0.719677850996959,
+      "median": 0.7210022020008182,
+      "throughput_mbps": 93.24847764459486,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36444273,
+      "ratio": 1.841410418586207
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.08465688499563839,
+        0.08475777199782897,
+        0.08814193599391729
+      ],
+      "min": 0.08465688499563839,
+      "median": 0.08475777199782897,
+      "throughput_mbps": 792.7159616545956,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36444273,
+      "ratio": 1.841410418586207
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        4.024258263001684,
+        4.007635717003723,
+        4.048377819999587
+      ],
+      "min": 4.007635717003723,
+      "median": 4.024258263001684,
+      "throughput_mbps": 16.745250501503516,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36331198,
+      "ratio": 1.8471415118213277
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.5420864530024119,
+        0.5765347240085248,
+        0.5204315470036818
+      ],
+      "min": 0.5204315470036818,
+      "median": 0.5420864530024119,
+      "throughput_mbps": 128.94849358454675,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36331198,
+      "ratio": 1.8471415118213277
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.5545817819947843,
+        0.5391607810015557,
+        0.5214565369969932
+      ],
+      "min": 0.5214565369969932,
+      "median": 0.5391607810015557,
+      "throughput_mbps": 128.6950287102968,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35516408,
+      "ratio": 1.8895172056813854
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.06252677700831555,
+        0.06108745800156612,
+        0.05929502300568856
+      ],
+      "min": 0.05929502300568856,
+      "median": 0.06108745800156612,
+      "throughput_mbps": 1131.7790363882953,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35516408,
+      "ratio": 1.8895172056813854
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.041922655000234954,
+        0.06201058400620241,
+        0.052223195001715794
+      ],
+      "min": 0.041922655000234954,
+      "median": 0.052223195001715794,
+      "throughput_mbps": 1600.7780041513088,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112905,
+      "ratio": 0.999939788033315
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.02340697598992847,
+        0.02907919201243203,
+        0.033653785998467356
+      ],
+      "min": 0.02340697598992847,
+      "median": 0.02907919201243203,
+      "throughput_mbps": 2867.04544956493,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112905,
+      "ratio": 0.999939788033315
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.32836454699281603,
+        0.3378908920130925,
+        0.3440396180085372
+      ],
+      "min": 0.32836454699281603,
+      "median": 0.3378908920130925,
+      "throughput_mbps": 204.3730500585016,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112695,
+      "ratio": 0.9999429169101315
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.1361494310112903,
+        0.11892986900056712,
+        0.1462028090027161
+      ],
+      "min": 0.11892986900056712,
+      "median": 0.1361494310112903,
+      "throughput_mbps": 564.2725798317325,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112695,
+      "ratio": 0.9999429169101315
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.5146343990054447,
+        0.5284160489973146,
+        0.5780995240056654
+      ],
+      "min": 0.5146343990054447,
+      "median": 0.5284160489973146,
+      "throughput_mbps": 130.40104612068498,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112267,
+      "ratio": 0.9999492939196943
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.023717994990875013,
+        0.02368550800019875,
+        0.021537842010729946
+      ],
+      "min": 0.021537842010729946,
+      "median": 0.02368550800019875,
+      "throughput_mbps": 3115.858309600702,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67112267,
+      "ratio": 0.9999492939196943
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.17416919900279026,
+        0.18916967199766077,
+        0.17773091199342161
+      ],
+      "min": 0.17416919900279026,
+      "median": 0.17773091199342161,
+      "throughput_mbps": 385.3084493942289,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999364,
+      "ratio": 1.8137842585618498
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.049444641001173295,
+        0.04908083099871874,
+        0.0478292350017
+      ],
+      "min": 0.0478292350017,
+      "median": 0.04908083099871874,
+      "throughput_mbps": 1403.0929827252044,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999364,
+      "ratio": 1.8137842585618498
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.850721066002734,
+        0.8822406780091114,
+        0.88193295399833
+      ],
+      "min": 0.850721066002734,
+      "median": 0.88193295399833,
+      "throughput_mbps": 78.88468580579892,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999178,
+      "ratio": 1.8137933767069094
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.20361000500270166,
+        0.19577397899411153,
+        0.2182128269923851
+      ],
+      "min": 0.19577397899411153,
+      "median": 0.20361000500270166,
+      "throughput_mbps": 342.78745492534784,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36999178,
+      "ratio": 1.8137933767069094
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.7185761040018406,
+        0.5280209030024707,
+        0.5194585179997375
+      ],
+      "min": 0.5194585179997375,
+      "median": 0.5280209030024707,
+      "throughput_mbps": 129.19003476622922,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36998780,
+      "ratio": 1.8138128878844113
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": false,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.051570754003478214,
+        0.049509285992826335,
+        0.047016144992085174
+      ],
+      "min": 0.047016144992085174,
+      "median": 0.049509285992826335,
+      "throughput_mbps": 1427.3578578443062,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36998780,
+      "ratio": 1.8138128878844113
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        5.284113941990654,
+        6.031065089002368,
+        5.901131017992157
+      ],
+      "min": 5.284113941990654,
+      "median": 5.901131017992157,
+      "throughput_mbps": 12.700116753106663,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114448,
+      "ratio": 0.9999167988389027
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.8953715710085817,
+        0.8939975130051607,
+        0.8982133579993388
+      ],
+      "min": 0.8939975130051607,
+      "median": 0.8953715710085817,
+      "throughput_mbps": 75.066052224703,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114448,
+      "ratio": 0.9999167988389027
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.5531000460032374,
+        0.5756332369928714,
+        0.5658093569945777
+      ],
+      "min": 0.5531000460032374,
+      "median": 0.5658093569945777,
+      "throughput_mbps": 121.3322336256092,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114036,
+      "ratio": 0.9999229371334485
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.1558916549984133,
+        0.12457347600138746,
+        0.12594721399364062
+      ],
+      "min": 0.12457347600138746,
+      "median": 0.12594721399364062,
+      "throughput_mbps": 538.7090908441261,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114036,
+      "ratio": 0.9999229371334485
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.45306474300741684,
+        0.443047762993956,
+        0.42648386499786284
+      ],
+      "min": 0.42648386499786284,
+      "median": 0.443047762993956,
+      "throughput_mbps": 157.3538168913759,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67113402,
+      "ratio": 0.9999323831028563
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.0786931869952241,
+        0.07956208000541665,
+        0.09418479600572027
+      ],
+      "min": 0.0786931869952241,
+      "median": 0.07956208000541665,
+      "throughput_mbps": 852.7912842578462,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67113402,
+      "ratio": 0.9999323831028563
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.782788505995995,
+        4.713620466995053,
+        4.86832522500481
+      ],
+      "min": 4.713620466995053,
+      "median": 4.782788505995995,
+      "throughput_mbps": 14.237222633832905,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36449203,
+      "ratio": 1.84116135543485
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.81989919100306,
+        0.8178857020102441,
+        0.8236457980092382
+      ],
+      "min": 0.8178857020102441,
+      "median": 0.81989919100306,
+      "throughput_mbps": 82.0516409995384,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36449203,
+      "ratio": 1.84116135543485
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        4.617710270002135,
+        4.687594867005828,
+        4.607890432002023
+      ],
+      "min": 4.607890432002023,
+      "median": 4.617710270002135,
+      "throughput_mbps": 14.563901852770995,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36335824,
+      "ratio": 1.8469063478510905
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.9340896089997841,
+        0.6765902329934761,
+        0.7713690769887762
+      ],
+      "min": 0.6765902329934761,
+      "median": 0.7713690769887762,
+      "throughput_mbps": 99.18686485184169,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36335824,
+      "ratio": 1.8469063478510905
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.5377602530061267,
+        1.5216648900095606,
+        1.5222440600045957
+      ],
+      "min": 1.5216648900095606,
+      "median": 1.5222440600045957,
+      "throughput_mbps": 44.10226222646062,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35520709,
+      "ratio": 1.8892884148230262
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.3399510260060197,
+        0.3543241580046015,
+        0.36254709199420176
+      ],
+      "min": 0.3399510260060197,
+      "median": 0.3543241580046015,
+      "throughput_mbps": 197.40744656205763,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35520709,
+      "ratio": 1.8892884148230262
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.1979975050053326,
+        4.160375405001105,
+        4.357065099000465
+      ],
+      "min": 2.1979975050053326,
+      "median": 4.160375405001105,
+      "throughput_mbps": 30.531819916618687,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117883,
+      "ratio": 0.999865624486398
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.8061103079962777,
+        0.8229757680092007,
+        0.9253874800051562
+      ],
+      "min": 0.8061103079962777,
+      "median": 0.8229757680092007,
+      "throughput_mbps": 83.25022436049767,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117883,
+      "ratio": 0.999865624486398
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        1.034650742993108,
+        0.8467008479929063,
+        0.989493640998262
+      ],
+      "min": 0.8467008479929063,
+      "median": 0.989493640998262,
+      "throughput_mbps": 79.25923796944424,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117345,
+      "ratio": 0.9998736392209793
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.16247447799833026,
+        0.17991341100423597,
+        0.27553456599707715
+      ],
+      "min": 0.16247447799833026,
+      "median": 0.17991341100423597,
+      "throughput_mbps": 413.0424964386694,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117345,
+      "ratio": 0.9998736392209793
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.5443705890065758,
+        0.5376028199971188,
+        0.5344357189896982
+      ],
+      "min": 0.5344357189896982,
+      "median": 0.5376028199971188,
+      "throughput_mbps": 125.56957107369837,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67116568,
+      "ratio": 0.999885214631356
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.09050635600578971,
+        0.09020525300002191,
+        0.08416000599390827
+      ],
+      "min": 0.08416000599390827,
+      "median": 0.09020525300002191,
+      "throughput_mbps": 797.3961409277647,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67116568,
+      "ratio": 0.999885214631356
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.476160082995193,
+        2.601472335998551,
+        3.326455996997538
+      ],
+      "min": 2.476160082995193,
+      "median": 2.601472335998551,
+      "throughput_mbps": 27.101989269944255,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37004306,
+      "ratio": 1.8135420240012068
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.6077958189998753,
+        0.6218029169976944,
+        0.6131662389962003
+      ],
+      "min": 0.6077958189998753,
+      "median": 0.6131662389962003,
+      "throughput_mbps": 110.41350055751825,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37004306,
+      "ratio": 1.8135420240012068
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        2.0621193919942016,
+        1.8582013179984642,
+        2.157838992003235
+      ],
+      "min": 1.8582013179984642,
+      "median": 2.0621193919942016,
+      "throughput_mbps": 36.11495877760187,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003810,
+      "ratio": 1.8135663327641127
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.5957507850107504,
+        0.6127894250093959,
+        0.6119536199985305
+      ],
+      "min": 0.5957507850107504,
+      "median": 0.6119536199985305,
+      "throughput_mbps": 112.64586751453295,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003810,
+      "ratio": 1.8135663327641127
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "write",
+      "times": [
+        0.819468963003601,
+        0.8054912049992708,
+        0.789551677997224
+      ],
+      "min": 0.789551677997224,
+      "median": 0.8054912049992708,
+      "throughput_mbps": 84.9961641145875,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003081,
+      "ratio": 1.81360206194722
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 1,
+      "op": "read",
+      "times": [
+        0.238540598002146,
+        0.23553478601388633,
+        0.23268207100045402
+      ],
+      "min": 0.23268207100045402,
+      "median": 0.23553478601388633,
+      "throughput_mbps": 288.4144176276867,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003081,
+      "ratio": 1.81360206194722
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        5.257465059999959,
+        5.791278509001131,
+        6.490501905005658
+      ],
+      "min": 5.257465059999959,
+      "median": 5.791278509001131,
+      "throughput_mbps": 12.764490725878552,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114448,
+      "ratio": 0.9999167988389027
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.31003690799116157,
+        0.29871880199061707,
+        0.29512300800706726
+      ],
+      "min": 0.29512300800706726,
+      "median": 0.29871880199061707,
+      "throughput_mbps": 227.39285714515674,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114448,
+      "ratio": 0.9999167988389027
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.6335893800132908,
+        0.6039114559971495,
+        0.6126292349945288
+      ],
+      "min": 0.6039114559971495,
+      "median": 0.6126292349945288,
+      "throughput_mbps": 111.1236810190876,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114036,
+      "ratio": 0.9999229371334485
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.11515938899538014,
+        0.11489277999498881,
+        0.11786808399483562
+      ],
+      "min": 0.11489277999498881,
+      "median": 0.11515938899538014,
+      "throughput_mbps": 584.0999234497332,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67114036,
+      "ratio": 0.9999229371334485
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.12005857100302819,
+        0.11024855299910996,
+        0.11591095100448001
+      ],
+      "min": 0.11024855299910996,
+      "median": 0.11591095100448001,
+      "throughput_mbps": 608.7051682260335,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67113402,
+      "ratio": 0.9999323831028563
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "raw",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.021615084988297895,
+        0.019807884003967047,
+        0.017745432996889576
+      ],
+      "min": 0.017745432996889576,
+      "median": 0.019807884003967047,
+      "throughput_mbps": 3781.754100436031,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67113402,
+      "ratio": 0.9999323831028563
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.169253376996494,
+        1.1536069520079764,
+        1.1589919680118328
+      ],
+      "min": 1.1536069520079764,
+      "median": 1.1589919680118328,
+      "throughput_mbps": 58.17307522565622,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36449203,
+      "ratio": 1.84116135543485
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.18861829800880514,
+        0.1992648869927507,
+        0.21784924699750263
+      ],
+      "min": 0.18861829800880514,
+      "median": 0.1992648869927507,
+      "throughput_mbps": 355.79190729876694,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36449203,
+      "ratio": 1.84116135543485
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        3.9808089730067877,
+        4.2192052110040095,
+        3.997366797993891
+      ],
+      "min": 3.9808089730067877,
+      "median": 3.997366797993891,
+      "throughput_mbps": 16.85809704887981,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36335824,
+      "ratio": 1.8469063478510905
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.4883242009964306,
+        0.5817074320075335,
+        0.5193213960010326
+      ],
+      "min": 0.4883242009964306,
+      "median": 0.5193213960010326,
+      "throughput_mbps": 137.42686490463439,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 36335824,
+      "ratio": 1.8469063478510905
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.4069442699983483,
+        0.3836619620124111,
+        0.3867758540000068
+      ],
+      "min": 0.3836619620124111,
+      "median": 0.3867758540000068,
+      "throughput_mbps": 174.9166470608548,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35520709,
+      "ratio": 1.8892884148230262
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "gzip",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.06723666600009892,
+        0.06939409099868499,
+        0.065051155994297
+      ],
+      "min": 0.065051155994297,
+      "median": 0.06723666600009892,
+      "throughput_mbps": 1031.632151254674,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 35520709,
+      "ratio": 1.8892884148230262
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        3.3595328639930813,
+        4.109082391005359,
+        5.0459372569894185
+      ],
+      "min": 3.3595328639930813,
+      "median": 4.109082391005359,
+      "throughput_mbps": 19.97565337706969,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117883,
+      "ratio": 0.999865624486398
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.25541576799878385,
+        0.2622627789969556,
+        0.2565669909963617
+      ],
+      "min": 0.25541576799878385,
+      "median": 0.2565669909963617,
+      "throughput_mbps": 262.7436220003439,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117883,
+      "ratio": 0.999865624486398
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.6252562369918451,
+        0.664435463011614,
+        0.6437766899907729
+      ],
+      "min": 0.6252562369918451,
+      "median": 0.6437766899907729,
+      "throughput_mbps": 107.33017926037141,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117345,
+      "ratio": 0.9998736392209793
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.15715043900127057,
+        0.15641315799439326,
+        0.16518174798693508
+      ],
+      "min": 0.15641315799439326,
+      "median": 0.15715043900127057,
+      "throughput_mbps": 429.0487121448284,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67117345,
+      "ratio": 0.9998736392209793
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.2852738219953608,
+        0.273766293990775,
+        0.2789996589999646
+      ],
+      "min": 0.273766293990775,
+      "median": 0.2789996589999646,
+      "throughput_mbps": 245.13194455655426,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67116568,
+      "ratio": 0.999885214631356
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "blosc",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.022895543996128254,
+        0.023985396008356474,
+        0.022427775009418838
+      ],
+      "min": 0.022427775009418838,
+      "median": 0.022895543996128254,
+      "throughput_mbps": 2992.22120659837,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 67116568,
+      "ratio": 0.999885214631356
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        1.5729895440017572,
+        1.6623727289988892,
+        1.775634309000452
+      ],
+      "min": 1.5729895440017572,
+      "median": 1.6623727289988892,
+      "throughput_mbps": 42.66326133946954,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37004306,
+      "ratio": 1.8135420240012068
+    },
+    {
+      "library": "z5py",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.1705391079885885,
+        0.16999917299835943,
+        0.16174337899428792
+      ],
+      "min": 0.16174337899428792,
+      "median": 0.16999917299835943,
+      "throughput_mbps": 414.90949686645286,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37004306,
+      "ratio": 1.8135420240012068
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.8534428280108841,
+        0.8579128209967166,
+        0.8731406029983191
+      ],
+      "min": 0.8534428280108841,
+      "median": 0.8579128209967166,
+      "throughput_mbps": 78.63311026517191,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003810,
+      "ratio": 1.8135663327641127
+    },
+    {
+      "library": "zarr",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.18711588199948892,
+        0.21687718300381675,
+        0.207839895010693
+      ],
+      "min": 0.18711588199948892,
+      "median": 0.207839895010693,
+      "throughput_mbps": 358.64867953957696,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003810,
+      "ratio": 1.8135663327641127
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "write",
+      "times": [
+        0.37468056500074454,
+        0.2959885259915609,
+        0.3175815870054066
+      ],
+      "min": 0.2959885259915609,
+      "median": 0.3175815870054066,
+      "throughput_mbps": 226.72792391254174,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003081,
+      "ratio": 1.81360206194722
+    },
+    {
+      "library": "tensorstore",
+      "dim": "3d",
+      "sharded": true,
+      "codec": "zstd",
+      "threads": 8,
+      "op": "read",
+      "times": [
+        0.04668196500279009,
+        0.047814290010137483,
+        0.044990066991886124
+      ],
+      "min": 0.044990066991886124,
+      "median": 0.04668196500279009,
+      "throughput_mbps": 1491.6373432407415,
+      "raw_nbytes": 67108864,
+      "stored_bytes": 37003081,
+      "ratio": 1.81360206194722
+    }
+  ]
+}
