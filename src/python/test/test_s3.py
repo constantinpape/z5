@@ -23,12 +23,12 @@ from uuid import uuid4
 import numpy as np
 
 from _s3_capability import (
-    BUCKET, HAVE_ZARR, HAVE_S3FS, ZARR_MAJOR,
+    BUCKET,
     has_s3_support, open_s3_file, seed_array, seed_group_hierarchy,
     read_array_external, read_attrs_external,
     cleanup_prefix, object_exists, list_keys, start_moto, stop_moto,
     z5_s3_can_read, z5_s3_can_write, z5_s3_supports_v3, z5_s3_can_read_v3,
-    open_public_s3, read_public_external, reachable_public_store_dicts,
+    s3fs_usable, open_public_s3, read_public_external, reachable_public_store_dicts,
     requires_s3, requires_moto, requires_public_s3,
 )
 from _v3_capability import requires_z5_v3, requires_z5_v3_sharding
@@ -109,8 +109,10 @@ class S3TestMixin(ABC):
             self.skipTest("z5 S3 write path not available for %s" % self.data_format)
 
     def _require_interop(self):
-        if not (HAVE_S3FS and HAVE_ZARR and ZARR_MAJOR >= 3):
-            self.skipTest("requires s3fs and zarr >= 3")
+        # functional check (not just importability): skip cleanly if the s3fs /
+        # aiobotocore / fsspec stack is broken or version-skewed
+        if not s3fs_usable():
+            self.skipTest("zarr-python + s3fs not usable (missing or version skew)")
 
     # -- small utilities ----------------------------------------------------
     def open(self, mode="a"):

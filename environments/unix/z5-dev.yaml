@@ -28,4 +28,6 @@ dependencies:
     # SDK talks to (the in-process mock_aws cannot intercept it).
     - boto3
     - moto[server]
-    - s3fs
+    # pin a modern s3fs: an unpinned s3fs resolves to the ancient 0.4.2, which is
+    # incompatible with the fsspec that zarr>=3 pulls (raises 'asynchronous' on connect)
+    - s3fs>=2024.1.0

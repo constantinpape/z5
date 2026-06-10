@@ -497,6 +497,29 @@ def _endpoint_ready():
 
 
 @functools.lru_cache(maxsize=1)
+def s3fs_usable():
+    """True iff zarr-python + s3fs can actually open a store on the test endpoint.
+
+    Guards against an s3fs / aiobotocore / fsspec version skew that imports fine
+    but raises at connect time (e.g. the ancient ``s3fs 0.4.2`` + modern
+    ``fsspec`` ``'asynchronous'`` TypeError), so the interop tests SKIP rather
+    than ERROR when the environment's s3fs stack is broken.
+    """
+    if not (_endpoint_ready() and HAVE_ZARR and HAVE_S3FS and ZARR_MAJOR >= 3):
+        return False
+    prefix = "probe-s3fs-%s" % uuid.uuid4().hex
+    try:
+        seed_array(prefix, "p", np.zeros((2, 2), dtype="int32"), chunks=(2, 2),
+                   zarr_format=2)
+        read_array_external(prefix, "p", zarr_format=2)
+        return True
+    except Exception:
+        return False
+    finally:
+        cleanup_prefix(prefix)
+
+
+@functools.lru_cache(maxsize=1)
 def z5_s3_can_read():
     """True iff z5 can READ a zarr-python-seeded v2 store over S3."""
     if not _endpoint_ready() or not (HAVE_ZARR and HAVE_S3FS):
