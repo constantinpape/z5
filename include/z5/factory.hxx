@@ -67,8 +67,10 @@ namespace z5 {
         // check if this is a s3 group
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator by reading this from s3
-            s3::handle::Dataset ds(root, key);
+            if(root.isZarr()) {
+                s3::getZarrChunkConfig(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
+            }
+            s3::handle::Dataset ds(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
             return s3::openDataset(ds);
         }
         #endif
@@ -97,8 +99,8 @@ namespace z5 {
     ) {
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator in s3
-            s3::handle::Dataset ds(root, key);
+            s3::handle::Dataset ds(root, key, metadata.zarrDelimiter,
+                                   metadata.zarrFormat, metadata.chunkKeyEncoding);
             return s3::createDataset(ds, metadata);
         }
         #endif
@@ -139,8 +141,8 @@ namespace z5 {
 
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator in s3
-            s3::handle::Dataset ds(root, key);
+            s3::handle::Dataset ds(root, key, metadata.zarrDelimiter,
+                                   metadata.zarrFormat, metadata.chunkKeyEncoding);
             return s3::createDataset(ds, metadata);
         }
         #endif
@@ -193,7 +195,7 @@ namespace z5 {
     inline void createFile(const handle::File<GROUP> & file, const bool isZarr, const int zarrFormat=2) {
         #ifdef WITH_S3
         if(file.isS3()) {
-            s3::createFile(file, isZarr);
+            s3::createFile(file, isZarr, zarrFormat);
             return;
         }
         #endif
@@ -212,7 +214,7 @@ namespace z5 {
         #ifdef WITH_S3
         if(root.isS3()) {
             s3::handle::Group newGroup(root, key);
-            s3::createGroup(newGroup, root.isZarr());
+            s3::createGroup(newGroup, root.isZarr(), zarrFormat);
             return;
         }
         #endif

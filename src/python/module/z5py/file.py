@@ -170,26 +170,78 @@ class ZarrFile(File):
                          dimension_separator=dimension_separator, zarr_format=zarr_format)
 
 
-# TODO can we implement automatic zarr/n5 inference for s3?
 class S3File(Group):
-    """ File to access zarr/n5 file in AWS S3 bucket.
+    """ File to access a zarr container in an S3 (or S3-compatible) bucket.
+
+    Only the zarr format is supported over S3 (both zarr v2 and v3). The
+    per-dataset chunk-key configuration is read from the store on open, so
+    reading works regardless of the ``zarr_format`` passed here; ``zarr_format``
+    determines the format used when *creating* new groups / datasets.
 
     Args:
+        bucket_name (str): name of the S3 bucket.
+        name_in_bucket (str): key prefix of the container within the bucket (default: '').
+        mode (str): file mode used to open / create the container (default: 'a').
+        use_zarr_format (bool): whether the container is zarr; only zarr is supported
+            over S3 (default: None, treated as zarr).
+        zarr_format (int): zarr format version, 2 or 3 (default: 2).
+        dimension_separator (str): chunk key separator; defaults to '.' for zarr v2
+            and '/' for zarr v3 (default: None).
+        endpoint_url (str): custom S3 endpoint (e.g. MinIO / moto / non-AWS storage);
+            None uses the default AWS endpoint (default: None).
+        region (str): AWS region (default: 'us-east-1').
+        anon (bool): use anonymous (unsigned) access for public buckets (default: False).
+        access_key (str): AWS access key id; None uses the ambient credential chain (default: None).
+        secret_key (str): AWS secret access key (default: None).
     """
-    # TODO refactor aws args in some config object?
-    def __init__(self, bucket_name,
-                 name_in_bucket='',
-                 mode='a',
-                 use_zarr_format=None):
+
+    def __init__(self, bucket_name, name_in_bucket='', mode='a', use_zarr_format=None,
+                 zarr_format=2, dimension_separator=None,
+                 endpoint_url=None, region='us-east-1',
+                 anon=False, access_key=None, secret_key=None):
 
         if not hasattr(_z5py, "S3File"):
             raise AttributeError("z5 was not compiled with s3 support")
-        handle = _z5py.S3File(bucket_name, name_in_bucket, _z5py.FileMode(self.file_modes[mode]))
 
-        # TODO handle zarr/n5 flag properly
-        is_zarr = use_zarr_format
+        # only zarr is supported over s3
+        is_zarr = True if use_zarr_format is None else use_zarr_format
+        if not is_zarr:
+            raise NotImplementedError("Only the zarr format is supported for S3 containers")
 
-        if not handle.exists():
-            raise NotImplementedError
-            _z5py.create_file(handle, is_zarr)
-        super().__init__(handle, _z5py.S3Group)
+        if dimension_separator is None:
+            dimension_separator = '/' if zarr_format == 3 else '.'
+
+        handle = _z5py.S3File(bucket_name, name_in_bucket,
+                              _z5py.FileMode(self.file_modes[mode]),
+                              '' if endpoint_url is None else endpoint_url,
+                              region, anon,
+                              '' if access_key is None else access_key,
+                              '' if secret_key is None else secret_key)
+        file_mode = handle.mode()
+
+        super().__init__(handle, _z5py.S3Group, parent=self, name="",
+                         dimension_separator=dimension_separator, zarr_format=zarr_format)
+
+        # if we open in 'w', remove the existing container
+        if handle.exists() and file_mode.should_truncate():
+            handle.remove()
+        if handle.exists():
+            if file_mode.must_not_exist():
+                raise OSError(errno.EEXIST, os.strerror(errno.EEXIST), bucket_name)
+        else:
+            if not file_mode.can_create():
+                raise OSError(errno.EROFS, os.strerror(errno.EROFS), bucket_name)
+            _z5py.create_file(handle, is_zarr, zarr_format)
+
+    def close(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @property
+    def name(self):
+        return '/'

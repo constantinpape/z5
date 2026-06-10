@@ -28,6 +28,18 @@ python -m unittest test.test_dataset.TestDataset.test_ds_open -v   # one test
 ```
 CI instead runs `make install` then `python -m unittest discover -s src/python/test -v` against the installed package.
 
+### Python coding standards
+
+Python code should be written according to PEP8. 
+
+The following linter commands should pass for each committed python file:
+```bashbash
+pyflakes <path/to/file.py>
+flake8 <path/to/file.py> --max-line-length=120
+```
+Doc-strings should be written following the google convention.
+
+
 ### C++ tests
 Configure with `-DBUILD_TESTS=ON` (uses the bundled googletest submodule — clone with `--recursive` or run `git submodule update --init`), build, then run the gtest binaries under `bld/src/test/`.
 
