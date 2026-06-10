@@ -28,7 +28,8 @@ from _s3_capability import (
     read_array_external, read_attrs_external,
     cleanup_prefix, object_exists, list_keys, start_moto, stop_moto,
     z5_s3_can_read, z5_s3_can_write, z5_s3_supports_v3, z5_s3_can_read_v3,
-    requires_s3, requires_moto,
+    open_public_s3, read_public_external, reachable_public_store_dicts,
+    requires_s3, requires_moto, requires_public_s3,
 )
 from _v3_capability import requires_z5_v3, requires_z5_v3_sharding
 
@@ -383,6 +384,50 @@ class TestS3ZarrV3(S3TestMixin, unittest.TestCase):
         self.check_array(ds[:], data)
         # sharded v3 writes one object per (non-empty) shard under c/
         self.assertTrue(list_keys("%s/sd/c" % self.prefix))
+
+
+# ---------------------------------------------------------------------------
+# G. read real, public zarr v2 data on actual S3 (anonymous access)
+# ---------------------------------------------------------------------------
+# These exercise the real-S3 read path (anon + custom/AWS endpoints) against
+# externally-produced stores, cross-checking z5 against zarr-python on the same
+# slice. They skip cleanly when offline / WITH_S3 is off / the data moved.
+@requires_s3
+@requires_public_s3
+class TestS3PublicReadV2(unittest.TestCase):
+    def _stores(self):
+        return reachable_public_store_dicts()
+
+    def test_open_and_keys(self):
+        for store in self._stores():
+            with self.subTest(store=store["label"]):
+                f = open_public_s3(store)
+                self.assertTrue(f.is_zarr)
+                self.assertIn(store["array_key"], set(f.keys()))
+
+    def test_metadata_matches_reference(self):
+        for store in self._stores():
+            with self.subTest(store=store["label"]):
+                ds = open_public_s3(store)[store["array_key"]]
+                ref = read_public_external(store, sl=None)
+                self.assertEqual(tuple(ds.shape), tuple(ref.shape))
+                self.assertEqual(np.dtype(ds.dtype), np.dtype(ref.dtype))
+
+    def test_read_slice_matches_zarr_python(self):
+        for store in self._stores():
+            with self.subTest(store=store["label"]):
+                sl = store["slice"]
+                z5_out = open_public_s3(store)[store["array_key"]][sl]
+                ref = read_public_external(store, sl=sl)
+                self.assertEqual(z5_out.shape, ref.shape)
+                self.assertTrue(np.array_equal(z5_out, ref))
+
+    def test_attrs_readable(self):
+        # group attributes (e.g. OME-Zarr "multiscales") must read without error
+        for store in self._stores():
+            with self.subTest(store=store["label"]):
+                attrs = open_public_s3(store).attrs
+                self.assertIsInstance(dict(attrs), dict)
 
 
 if __name__ == "__main__":

@@ -396,6 +396,98 @@ def open_s3_file(name_in_bucket="", mode="a", use_zarr_format=True,
 
 
 # ---------------------------------------------------------------------------
+# public, anonymously-readable zarr v2 stores on real S3 (read-only tests)
+# ---------------------------------------------------------------------------
+# Small, stable, anonymous zarr v2 stores. The read tests cross-check z5's
+# real-S3 read path against zarr-python on the SAME slice, so they are
+# value-agnostic (no hard-coded data) and resilient to the data being updated.
+# ``slice`` is a tuple passed straight to ``ds[...]``; it must hit only small
+# chunk(s). Set ``Z5PY_S3_PUBLIC=0`` to disable these network tests entirely.
+PUBLIC_S3_STORES = (
+    {
+        # IDR OME-Zarr (OME-NGFF v0.4 == zarr v2) on the EBI Embassy S3 endpoint;
+        # exercises a custom endpoint + path-style + anonymous access. Tiny chunks.
+        "label": "idr-ome-zarr",
+        "bucket": "idr",
+        "key": "zarr/v0.4/idr0062A/6001240.zarr",
+        "endpoint_url": "https://uk1s3.embassy.ebi.ac.uk",
+        "region": "us-east-1",
+        "array_key": "2",      # smallest pyramid level
+        "slice": (0, 0),       # a single 2D plane -> one chunk
+    },
+    {
+        # NASA MUR-SST on AWS Open Data; exercises the AWS virtual-host + anon
+        # path (us-west-2). The data arrays are huge, but the 1-D coordinate
+        # arrays are small, so we read a slice of ``lat``.
+        "label": "mur-sst",
+        "bucket": "mur-sst",
+        "key": "zarr-v1",
+        "endpoint_url": None,
+        "region": "us-west-2",
+        "array_key": "lat",
+        "slice": (slice(0, 50),),
+    },
+)
+
+
+def _public_storage_options(store):
+    so = {"anon": True,
+          "config_kwargs": {"connect_timeout": 5, "read_timeout": 10,
+                            "retries": {"max_attempts": 1}}}
+    if store["endpoint_url"]:
+        so["client_kwargs"] = {"endpoint_url": store["endpoint_url"]}
+    else:
+        so["client_kwargs"] = {"region_name": store["region"]}
+    return so
+
+
+def open_public_s3(store):
+    """Open a public store read-only with z5py (anonymous access)."""
+    import z5py
+    return z5py.S3File(store["bucket"], store["key"], mode="r", anon=True,
+                       endpoint_url=store["endpoint_url"], region=store["region"])
+
+
+def read_public_external(store, sl=None):
+    """Open the array (or read a slice of it) with zarr-python -- the reference
+    the z5 real-S3 read is compared against."""
+    import zarr
+    grp = zarr.open_group(store="s3://%s/%s" % (store["bucket"], store["key"]),
+                          mode="r", zarr_format=2,
+                          storage_options=_public_storage_options(store))
+    arr = grp[store["array_key"]]
+    return arr if sl is None else arr[sl]
+
+
+@functools.lru_cache(maxsize=1)
+def reachable_public_stores():
+    """Labels of PUBLIC_S3_STORES reachable right now (bounded network probe).
+
+    Gated on z5 S3 support + zarr/s3fs; returns () on any failure so the public
+    read tests skip cleanly offline, when WITH_S3 is not built, or when the data
+    is unavailable. Disable with ``Z5PY_S3_PUBLIC=0``.
+    """
+    if os.environ.get("Z5PY_S3_PUBLIC", "1") == "0":
+        return ()
+    if not has_s3_support() or not (HAVE_ZARR and HAVE_S3FS):
+        return ()
+    reachable = []
+    for store in PUBLIC_S3_STORES:
+        try:
+            # cheap reachability check: open the array (reads .zarray metadata)
+            _ = read_public_external(store, sl=None).shape
+            reachable.append(store["label"])
+        except Exception:
+            pass
+    return tuple(reachable)
+
+
+def reachable_public_store_dicts():
+    labels = set(reachable_public_stores())
+    return [s for s in PUBLIC_S3_STORES if s["label"] in labels]
+
+
+# ---------------------------------------------------------------------------
 # z5 S3 capability probes
 # ---------------------------------------------------------------------------
 # These touch the network / external libraries, so unlike the v3 probes they
@@ -503,3 +595,6 @@ requires_s3_v3 = unittest.skipUnless(
     z5_s3_supports_v3(), "z5 S3 zarr v3 write not implemented")
 requires_s3_read_v3 = unittest.skipUnless(
     z5_s3_can_read_v3(), "z5 S3 zarr v3 read not working")
+requires_public_s3 = unittest.skipUnless(
+    bool(reachable_public_stores()),
+    "no reachable public S3 zarr v2 store (offline / WITH_S3 off / Z5PY_S3_PUBLIC=0)")
