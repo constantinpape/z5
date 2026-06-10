@@ -55,6 +55,30 @@ namespace handle {
         virtual const std::string & bucketName() const = 0;
         virtual const std::string & nameInBucket() const = 0;
 
+        // S3 (object-store) client configuration. These have sensible defaults so
+        // the filesystem / gcs backends don't need to implement them; the s3 handles
+        // override them and propagate the config down the handle hierarchy (the same
+        // way bucketName() / nameInBucket() are propagated).
+        virtual const std::string & endpoint() const {
+            static const std::string empty;
+            return empty;
+        }
+        virtual const std::string & region() const {
+            static const std::string defaultRegion = "us-east-1";
+            return defaultRegion;
+        }
+        virtual bool anon() const {
+            return false;
+        }
+        virtual const std::string & accessKey() const {
+            static const std::string empty;
+            return empty;
+        }
+        virtual const std::string & secretKey() const {
+            static const std::string empty;
+            return empty;
+        }
+
         const FileMode & mode() const {
             return mode_;
         }

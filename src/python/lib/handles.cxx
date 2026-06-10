@@ -102,9 +102,15 @@ namespace z5 {
 
         auto f = getGroupHandle<File, File, Dataset>(m, "S3File");
         f
-            // dummy constructor
-            .def(nb::init<const std::string &, const std::string &, FileMode>(),
-                 nb::arg("bucket_name"), nb::arg("name_in_bucket"), nb::arg("mode"))
+            .def(nb::init<const std::string &, const std::string &, FileMode,
+                          const std::string &, const std::string &, bool,
+                          const std::string &, const std::string &>(),
+                 nb::arg("bucket_name"), nb::arg("name_in_bucket"), nb::arg("mode"),
+                 nb::arg("endpoint_url") = std::string(),
+                 nb::arg("region") = std::string("us-east-1"),
+                 nb::arg("anon") = false,
+                 nb::arg("access_key") = std::string(),
+                 nb::arg("secret_key") = std::string())
         ;
 
         nb::class_<Dataset>(m, "S3DatasetHandle")

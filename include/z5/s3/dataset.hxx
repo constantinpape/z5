@@ -1,20 +1,12 @@
 #pragma once
 
-#include <fstream>
-
-#include <aws/core/Aws.h>
-#include <aws/s3/S3Client.h>
-#include <aws/s3/model/Object.h>
-#include <aws/s3/model/GetObjectRequest.h>
-
 #include "z5/dataset.hxx"
 #include "z5/s3/handle.hxx"
+#include "z5/util/format_data.hxx"
 
 
 namespace z5 {
 namespace s3 {
-
-    // TODO implement for s3
 
     template<typename T>
     class Dataset : public z5::Dataset, private z5::MixinTyped<T> {
@@ -42,6 +34,25 @@ namespace s3 {
                 const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
+
+            // create chunk handle and check if this chunk is valid
+            handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
+            checkChunk(chunk, isVarlen);
+
+            // create the output buffer and format the data
+            std::vector<char> buffer;
+            auto client = chunk.makeClient();
+            // data_to_buffer returns false if there's nothing to write (all fill value)
+            if(!util::data_to_buffer(chunk, dataIn, buffer, Mixin::compressor_,
+                                     Mixin::fillValue_, isVarlen, varSize)) {
+                // if we have data for the chunk, delete it
+                detail::deleteObject(client, chunk.bucketName(), chunk.nameInBucket());
+                return;
+            }
+
+            // write the chunk to s3
+            detail::putObject(client, chunk.bucketName(), chunk.nameInBucket(),
+                              buffer.data(), buffer.size());
         }
 
 
@@ -51,16 +62,15 @@ namespace s3 {
             // get the chunk handle
             handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
 
-            // TODO implement
             // make sure that we have a valid chunk
-            // checkChunk(chunk);
+            checkChunk(chunk);
 
             // throw runtime error if trying to read non-existing chunk
             if(!chunk.exists()) {
                 throw std::runtime_error("Trying to read a chunk that does not exist");
             }
 
-            // load the data from disc
+            // load the data from s3
             std::vector<char> buffer;
             read(chunk, buffer);
 
@@ -73,14 +83,13 @@ namespace s3 {
 
         inline void readRawChunk(const types::ShapeType & chunkIndices,
                                  std::vector<char> & buffer) const {
-            // TODO implement
+            handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
+            read(chunk, buffer);
         }
 
 
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
-                // TODO all in error message
-                std::cout << "Mytype: " << typeid(T).name() << " your type: " << type.name() << std::endl;
                 throw std::runtime_error("Request has wrong type");
             }
         }
@@ -117,7 +126,8 @@ namespace s3 {
         inline types::Compressor getCompressor() const {return Mixin::compressor_->type();}
         inline void getCompressor(std::string & compressor) const {
             auto compressorType = getCompressor();
-            compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] : types::Compressors::compressorToN5()[compressorType];
+            compressor = isZarr_ ? types::Compressors::compressorToZarr()[compressorType] :
+                types::Compressors::compressorToN5()[compressorType];
         }
 
         inline void getCompressionOptions(types::CompressionOptions & opts) const {
@@ -134,18 +144,16 @@ namespace s3 {
             util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
         }
 
+        inline void decompress(const char * buffer, std::size_t nBytes,
+                               void * dataOut, const std::size_t data_size) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+        }
+
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
             handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
-            if(isZarr_ || !chunk.exists()) {
-                chunkSize = chunk.size();
-                return false;
-            }
-
-            const bool is_varlen = read_n5_header(chunk, chunkSize);
-            if(!is_varlen) {
-                chunkSize = chunk.size();
-            }
-            return is_varlen;
+            // varlen (n5) chunks are not supported over s3 yet
+            chunkSize = chunk.size();
+            return false;
         }
 
         inline const FileMode & mode() const {
@@ -162,94 +170,31 @@ namespace s3 {
         }
 
         // dummy impls
-        inline const fs::path & path() const {}
+        inline const fs::path & path() const {static const fs::path p; return p;}
         inline void chunkPath(const types::ShapeType & chunkId, fs::path & path) const {}
 
         // delete copy constructor and assignment operator
-        // because the compressor cannot be copied by default
-        // and we don't really need this to be copyable afaik
-        // if this changes at some point, we need to provide a proper
-        // implementation here
         Dataset(const Dataset & that) = delete;
         Dataset & operator=(const Dataset & that) = delete;
 
     private:
 
         inline void read(const handle::Chunk & chunk, std::vector<char> & buffer) const {
-            // get options from somewhere?
-            Aws::SDKOptions options;
-            Aws::InitAPI(options);
-
-            Aws::S3::S3Client client;
-            Aws::S3::Model::GetObjectRequest request;
-
-            const auto & bucketName = chunk.bucketName();
-            const auto & objectName = chunk.nameInBucket();
-            request.SetBucket(Aws::String(bucketName.c_str(), bucketName.size()));
-            request.SetKey(Aws::String(objectName.c_str(), objectName.size()));
-
-            auto outcome = client.GetObject(request);
-            if(outcome.IsSuccess()) {
-                auto & retrieved = outcome.GetResultWithOwnership().GetBody();
-
-                // NOTE this is really abusing stream / stringstream and copies the data
-                // But I haven't found a simple way to do this otherwise with the AWS API yet.
-
-                // std::cout << "Doing horrible things!" << std::endl;
-
-                /*
-                std::stringstream stream;
-                stream << retrieved.rdbuf();
-                const std::string content = stream.str();
-                buffer.resize(content.size());
-                std::copy(content.begin(), content.end(), buffer.begin());
-                */
-
-                std::stringstream stream;
-                stream << retrieved.rdbuf();
-                auto bos = std::istreambuf_iterator<char>(stream);
-                auto eos = std::istreambuf_iterator<char>();
-                buffer.resize(std::distance(bos, eos));
-                std::copy(bos, eos, buffer.begin());
-            } else {
-                throw std::runtime_error("Could not read chunk from S3.");
-            }
-
-            Aws::ShutdownAPI(options);
+            auto client = chunk.makeClient();
+            // getObject reads the raw bytes binary-safe (sized by Content-Length)
+            detail::getObject(client, chunk.bucketName(), chunk.nameInBucket(), buffer);
         }
 
-        inline bool read_n5_header(const handle::Chunk & chunk, std::size_t & chunkSize) const {
-
-            // TODO think about support for varlen in s3
-            chunkSize = chunk.size();
-            return false;
-
-            /*
-            // read the mode
-            uint16_t mode;
-            file.read((char *) &mode, 2);
-            util::reverseEndiannessInplace(mode);
-
-            if(mode == 0) {
-                return false;
+        inline void checkChunk(const handle::Chunk & chunk, const bool isVarlen=false) const {
+            // check dimension
+            const auto & chunkIndices = chunk.chunkIndices();
+            if(!chunking_.checkBlockCoordinate(chunkIndices)) {
+                throw std::runtime_error("Invalid chunk");
             }
-
-            // read the number of dimensions
-            uint16_t ndim;
-            file.read((char *) &ndim, 2);
-            util::reverseEndiannessInplace(ndim);
-
-            // advance the file by ndim * 4 to skip the shape
-            file.seekg((ndim + 1) * 4);
-
-            uint32_t varlength;
-            file.read((char*) &varlength, 4);
-            util::reverseEndiannessInplace(varlength);
-            chunkSize = varlength;
-
-            file.close();
-            return true;
-            */
+            // varlen chunks are only supported in n5 (and not over s3)
+            if(isVarlen && isZarr_) {
+                throw std::runtime_error("Varlength chunks are not supported in zarr");
+            }
         }
 
         handle::Dataset handle_;

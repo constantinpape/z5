@@ -5,6 +5,8 @@ set -e
 # `cmake .` would leave a CMakeCache.txt in the root, which makes the later
 # out-of-source C++ test build (cpp_tests.sh) misresolve its build directory.
 export PY_BIN="$CONDA_PREFIX/bin/python"
+# WITH_S3 is OFF by default; the dedicated s3 CI job sets Z5_WITH_S3=ON
+# (the env then also needs aws-sdk-cpp, which is in .github/environment.yaml).
 cmake -S . -B bld \
     -DWITHIN_TRAVIS=ON \
     -DWITH_BLOSC=ON \
@@ -13,7 +15,7 @@ cmake -S . -B bld \
     -DWITH_XZ=ON \
     -DWITH_LZ4=ON \
     -DWITH_ZSTD=ON \
-    -DWITH_S3=OFF \
+    -DWITH_S3="${Z5_WITH_S3:-OFF}" \
     -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
     -DPYTHON_EXECUTABLE="$PY_BIN" \
     -DCMAKE_CXX_FLAGS="-std=c++20" \

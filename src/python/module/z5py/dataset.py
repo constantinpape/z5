@@ -28,6 +28,8 @@ def _unpickle_dataset(file_obj, name, n_threads):
     ds = _navigate(file_obj, name)
     ds.n_threads = n_threads
     return ds
+
+
 # TODO lz4 compression is currently not compatible with zarr
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
