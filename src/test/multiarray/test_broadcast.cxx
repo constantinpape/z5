@@ -146,5 +146,38 @@ namespace multiarray {
     }
 
 
+    // regression test: zarr stores edge chunks padded to the full chunk shape;
+    // writeScalar used to size its buffer by the clipped shape, overflowing the
+    // heap on the dataset's boundary chunks (complete overlap: out-of-bounds read
+    // in writeChunk; partial overlap: out-of-bounds WRITE in readChunk)
+    TEST_F(BroadcastTest, TestBroadcastEdgeChunksZarr) {
+        for(const int nThreads : {1, 4}) {
+            auto array = openDataset(fZarr, "int_irregular");
+            // first write: covers the far corner -> edge chunks, complete overlap
+            types::ShapeType offset({77, 83, 88});
+            types::ShapeType subShape({23, 17, 12});
+            writeScalar(array, offset.begin(), subShape.begin(), (int32_t) 1, nThreads);
+            // second write: partially overlaps the existing edge chunks -> exercises
+            // the read-modify-write of padded edge chunks
+            types::ShapeType offset2({90, 90, 90});
+            types::ShapeType subShape2({10, 10, 10});
+            writeScalar(array, offset2.begin(), subShape2.begin(), (int32_t) 2, nThreads);
+
+            TestArray<int32_t> data(subShape);
+            readSubarray<int32_t>(array, data.view(), offset.begin());
+            for(std::size_t i = 0; i < subShape[0]; ++i) {
+                for(std::size_t j = 0; j < subShape[1]; ++j) {
+                    for(std::size_t k = 0; k < subShape[2]; ++k) {
+                        const bool inSecond = (offset[0] + i >= 90) &&
+                                              (offset[1] + j >= 90) &&
+                                              (offset[2] + k >= 90);
+                        ASSERT_EQ(data(i, j, k), inSecond ? 2 : 1);
+                    }
+                }
+            }
+        }
+    }
+
+
 }
 }

@@ -15,18 +15,22 @@ namespace gcs {
     template<class GROUP>
     inline void readAttributes(const z5::handle::Group<GROUP> & group, nlohmann::json & j
     ) {
+        detail::notImplemented();
     }
 
     template<class GROUP>
     inline void writeAttributes(const z5::handle::Group<GROUP> & group, const nlohmann::json & j) {
+        detail::notImplemented();
     }
 
     template<class GROUP>
     inline void removeAttribute(const z5::handle::Group<GROUP> & group, const std::string & key) {
+        detail::notImplemented();
     }
 
     template<class GROUP>
     inline bool isSubGroup(const z5::handle::Group<GROUP> & group, const std::string & key){
+        detail::notImplemented();
     }
 
     /*
@@ -36,14 +40,17 @@ namespace gcs {
     template<class DATASET>
     inline void readAttributes(const z5::handle::Dataset<DATASET> & ds, nlohmann::json & j
     ) {
+        detail::notImplemented();
     }
 
     template<class DATASET>
     inline void writeAttributes(const z5::handle::Dataset<DATASET> & ds, const nlohmann::json & j) {
+        detail::notImplemented();
     }
 
     template<class DATASET>
     inline void removeAttribute(const z5::handle::Dataset<DATASET> & group, const std::string & key) {
+        detail::notImplemented();
     }
 
 }

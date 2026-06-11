@@ -12,6 +12,7 @@ dependencies:
   - nanobind
   - numpy
   - blosc
+  - zstd
   - imageio
   - nlohmann_json
   - zarr >=3

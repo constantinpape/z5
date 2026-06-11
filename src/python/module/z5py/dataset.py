@@ -192,6 +192,10 @@ class Dataset:
                          shape, dtype,
                          chunks, n_threads, **kwargs):
         ghandle = group._handle
+        # normalize to tuples: the properties below are tuples, and a list-valued
+        # shape / chunks argument must not fail the consistency check
+        shape = tuple(shape)
+        chunks = None if chunks is None else tuple(chunks)
         if ghandle.has(name):
 
             if ghandle.is_sub_group(name):
@@ -213,6 +217,11 @@ class Dataset:
             return ds
 
         else:
+            # the write permission is only needed if the dataset does not exist yet;
+            # requiring an existing, consistent dataset works in read-only mode
+            # (matching h5py)
+            if not ghandle.mode().can_write():
+                raise ValueError("Cannot create dataset with read-only permissions.")
             # pop all kwargs that are not compression options
             data = kwargs.pop('data', None)
             compression = kwargs.pop('compression', None)
@@ -246,7 +255,7 @@ class Dataset:
         if have_data:
             if shape is None:
                 shape = data.shape
-            elif shape != data.shape:
+            elif tuple(shape) != tuple(data.shape):
                 raise ValueError("Shape is incompatible with data")
             if dtype is None:
                 dtype = data.dtype
@@ -304,12 +313,6 @@ class Dataset:
                     compression in cls.compressors_n5
                 if not valid_compression:
                     raise ValueError("Compression filter \"%s\" is unavailable" % compression)
-
-            # get and check compression
-            if is_zarr and compression not in cls.compressors_zarr:
-                compression = cls.zarr_default_compressor
-            elif not is_zarr and compression not in cls.compressors_n5:
-                compression = cls.n5_default_compressor
 
             # update the compression options
             if is_zarr:
@@ -408,6 +411,10 @@ class Dataset:
         copts = self._impl.compression_options
         # decode to json
         copts = json.loads(copts)
+        # 'useZlib' is an internal option: it is derived from the compression
+        # name ('zlib' vs 'gzip'), so it must not show up in the user-facing
+        # options (which can be passed back to create_dataset)
+        copts.pop('useZlib', None)
         return copts
 
     @property
@@ -609,8 +616,8 @@ class Dataset:
         Returns
             np.ndarray or None - chunk data, returns None if the chunk is empty
         """
-        if not self._impl.chunkExists(chunk_indices):
-            return None
+        # the existence check happens in C++ (returning None for a missing chunk);
+        # checking here as well would double the existence probe per chunk read
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 

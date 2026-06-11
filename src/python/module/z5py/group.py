@@ -257,8 +257,8 @@ class Group(Mapping):
         Returns:
             ``Dataset``: the required dataset.
         """
-        if not self._handle.mode().can_write():
-            raise ValueError("Cannot create dataset with read-only permissions.")
+        # NOTE write permissions are only required if the dataset does not exist;
+        # _require_dataset checks this on its creation path
         return Dataset._require_dataset(self, name, shape, dtype, chunks,
                                         n_threads, dimension_separator=self._dimension_separator,
                                         zarr_format=self._zarr_format, **kwargs)
@@ -297,4 +297,8 @@ class Group(Mapping):
             if func_ret is not None:
                 return func_ret
             if isinstance(obj, Group):
-                obj.visititems(func, _root=_root)
+                # a non-None result from a nested call stops the iteration and is
+                # propagated to the caller (h5py semantics)
+                func_ret = obj.visititems(func, _root=_root)
+                if func_ret is not None:
+                    return func_ret

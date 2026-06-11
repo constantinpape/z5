@@ -223,27 +223,29 @@ inline void ThreadPool::init(const ParallelOptions & options)
                     {
                         std::unique_lock<std::mutex> lock(this->queue_mutex);
 
-                        // will wait if : stop == false  AND queue is empty
-                        // if stop == true AND queue is empty thread function will return later
-                        //
-                        // so the idea of this wait, is : If where are not in the destructor
-                        // (which sets stop to true, we wait here for new jobs)
+                        // wait while stop == false AND the queue is empty
                         this->worker_condition.wait(lock, [this]{ return this->stop || !this->tasks.empty(); });
-                        if(!this->tasks.empty())
-                        {
-                            ++busy;
-                            task = std::move(this->tasks.front());
-                            this->tasks.pop();
-                            lock.unlock();
-                            task(ti);
-                            ++processed;
-                            --busy;
-                            finish_condition.notify_one();
-                        }
-                        else if(stop)
+                        // once stop is set (the pool is being destroyed) remaining tasks are
+                        // DISCARDED, not executed: the destructor may run while an exception
+                        // unwinds the enqueueing caller's stack, so queued tasks could touch
+                        // captures that are already destroyed. Callers that need completion
+                        // wait on the task futures (as parallel_foreach does).
+                        if(stop)
                         {
                             return;
                         }
+                        ++busy;
+                        task = std::move(this->tasks.front());
+                        this->tasks.pop();
+                        lock.unlock();
+                        task(ti);
+                        // update the state under the mutex so a waitFinished caller that just
+                        // evaluated its predicate cannot miss the notification (lost wakeup)
+                        lock.lock();
+                        ++processed;
+                        --busy;
+                        lock.unlock();
+                        finish_condition.notify_one();
                     }
                 }
             }
@@ -300,31 +302,10 @@ template<class F>
 inline std::future<void>
 ThreadPool::enqueue(F&& f)
 {
-    typedef std::packaged_task<void(int)> PackageType;
-
-    auto task = std::make_shared<PackageType>(f);
-    auto res = task->get_future();
-    if(workers.size()>0){
-        {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-
-            // don't allow enqueueing after stopping the pool
-            if(stop)
-                throw std::runtime_error("enqueue on stopped ThreadPool");
-
-            tasks.emplace(
-                [task](int tid)
-                {
-                    (*task)(tid);
-                }
-            );
-        }
-        worker_condition.notify_one();
-    }
-    else{
-        (*task)(0);
-    }
-    return res;
+    // historically a separate implementation because some compilers failed on
+    // std::result_of<F(int)> for void(int) functions; with std::invoke_result_t
+    // the returning version handles void fine
+    return enqueueReturning(std::forward<F>(f));
 }
 
 /********************************************************/
@@ -332,6 +313,29 @@ ThreadPool::enqueue(F&& f)
 /*                   parallel_foreach                   */
 /*                                                      */
 /********************************************************/
+
+// Wait for ALL futures before propagating the first exception. Rethrowing on
+// the first failed future would unwind the caller's stack while abandoned tasks
+// are still queued or running -- they reference the caller's locals (per-thread
+// buffers, the task lambda itself) and would use them after destruction.
+inline void getFutures(std::vector<std::future<void>> & futures)
+{
+    std::exception_ptr firstException;
+    for(auto & fut : futures)
+    {
+        try {
+            fut.get();
+        }
+        catch(...) {
+            if(!firstException) {
+                firstException = std::current_exception();
+            }
+        }
+    }
+    if(firstException) {
+        std::rethrow_exception(firstException);
+    }
+}
 
 // nItems must be either zero or std::distance(iter, end).
 template<class ITER, class F>
@@ -370,10 +374,7 @@ inline void parallel_foreach_impl(
         if(workload==0)
             break;
     }
-    for (auto & fut : futures)
-    {
-        fut.get();
-    }
+    getFutures(futures);
 }
 
 
@@ -425,8 +426,7 @@ inline void parallel_foreach_impl(
         if(workload==0)
             break;
     }
-    for (auto & fut : futures)
-        fut.get();
+    getFutures(futures);
 }
 
 
@@ -445,10 +445,11 @@ inline void parallel_foreach_impl(
     std::vector<std::future<void> > futures;
     for (; iter != end; ++iter)
     {
-        auto item = *iter;
+        // the item must be captured by value: it goes out of scope at the end of
+        // this iteration, long before the task runs
         futures.emplace_back(
             pool.enqueue(
-                [&f, &item](int id){
+                [&f, item = *iter](int id){
                     f(id, item);
                 }
             )
@@ -456,8 +457,7 @@ inline void parallel_foreach_impl(
         ++num_items;
     }
     // NIFTY_CHECK(num_items == nItems || nItems == 0, "parallel_foreach(): Mismatch between num items and begin/end.");
-    for (auto & fut : futures)
-        fut.get();
+    getFutures(futures);
 }
 
 // Runs foreach on a single thread.

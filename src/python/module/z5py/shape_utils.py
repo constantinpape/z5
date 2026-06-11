@@ -23,7 +23,9 @@ def slice_to_start_stop(s, size):
     else:
         stop = s.stop
 
-    if stop < 1:
+    # empty selections (including stop <= start, e.g. ds[5:3]) yield an empty
+    # result like numpy / h5py, instead of a negative shape downstream
+    if stop < 1 or stop <= start:
         return slice(None, 0)
 
     return slice(start, stop)

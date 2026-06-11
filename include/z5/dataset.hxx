@@ -32,7 +32,7 @@ namespace z5 {
                                                     dtype_(metadata.dtype),
                                                     shape_(metadata.shape),
                                                     chunkShape_(metadata.chunkShape),
-                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>())),
+                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), std::size_t(1), std::multiplies<std::size_t>())),
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     chunking_(shape_, chunkShape_)
         {}
@@ -50,9 +50,10 @@ namespace z5 {
             }
             for(int d = 0; d < shape_.size(); ++d) {
                 if(offset[d] + shape[d] > shape_[d]) {
-                    std::cout << "Out of range: " << offset << " + " << shape << std::endl;
-                    std::cout << " = " << offset[d] + shape[d] << " > " << shape_[d] << std::endl;;
-                    throw std::runtime_error("Request is out of range");
+                    throw std::runtime_error(
+                        "Request is out of range: " + std::to_string(offset[d]) + " + " +
+                        std::to_string(shape[d]) + " > " + std::to_string(shape_[d]) +
+                        " (in dimension " + std::to_string(d) + ")");
                 }
                 if(shape[d] == 0) {
                     throw std::runtime_error("Request shape has a zero entry");
@@ -73,7 +74,7 @@ namespace z5 {
         inline const types::ShapeType & shape() const {return shape_;}
         inline std::size_t shape(const unsigned d) const {return shape_[d];}
         inline std::size_t size() const {
-            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(shape_.begin(), shape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
         inline void getChunkOffset(const types::ShapeType & chunkId, types::ShapeType & chunkOffset) const {

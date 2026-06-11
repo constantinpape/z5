@@ -4,15 +4,27 @@
 
 namespace z5 {
 namespace gcs {
+
+namespace detail {
+    // The gcs backend is a scaffold: every operation that would need to talk to
+    // google cloud storage fails loudly. (The previous stubs were value-returning
+    // functions without a return statement - undefined behavior when called.)
+    [[noreturn]] inline void notImplemented() {
+        throw std::runtime_error("z5: the gcs backend is not implemented");
+    }
+}
+
 namespace handle {
 
     // TODO implement for gcs
     class GcsHandleImpl {
     public:
         inline const std::string & bucketNameImpl() const {
+            detail::notImplemented();
         }
 
         inline const std::string & nameInBucketImpl() const {
+            detail::notImplemented();
         }
 
     };
@@ -28,9 +40,9 @@ namespace handle {
         // Implement the handle API
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return true;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
-        const fs::path & path() const {}
+        inline bool exists() const {detail::notImplemented();}
+        inline bool isZarr() const {detail::notImplemented();}
+        const fs::path & path() const {detail::notImplemented();}
         inline const std::string & bucketName() const {return bucketNameImpl();}
         inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
@@ -39,16 +51,23 @@ namespace handle {
                 const std::string err = "Cannot create new file in file mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
-            // make sure that the file does not exist already
-            if(exists()) {
-                throw std::invalid_argument("Creating new file failed because it already exists.");
+            detail::notImplemented();
+        }
+
+        inline void remove() const {
+            if(!mode().canWrite()) {
+                const std::string err = "Cannot remove file in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
             }
+            detail::notImplemented();
         }
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
+            detail::notImplemented();
         }
         inline bool in(const std::string & key) const {
+            detail::notImplemented();
         }
     };
 
@@ -65,38 +84,34 @@ namespace handle {
         // Implement th handle API
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return true;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
-        const fs::path & path() const {}
+        inline bool exists() const {detail::notImplemented();}
+        inline bool isZarr() const {detail::notImplemented();}
+        const fs::path & path() const {detail::notImplemented();}
         inline const std::string & bucketName() const {return bucketNameImpl();}
         inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
         inline void create() const {
             if(mode().mode() == FileMode::modes::r) {
-                std::cout << "Hereee" << std::endl;
                 const std::string err = "Cannot create new group in file mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
-            // make sure that the file does not exist already
-            if(exists()) {
-                throw std::invalid_argument("Creating new group failed because it already exists.");
-            }
+            detail::notImplemented();
         }
-        
+
         inline void remove() const {
             if(!mode().canWrite()) {
                 const std::string err = "Cannot remove group in group mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
-            if(!exists()) {
-                throw std::invalid_argument("Cannot remove non-existing group.");
-            }
+            detail::notImplemented();
         }
 
         // Implement the group handle API
         inline void keys(std::vector<std::string> & out) const {
+            detail::notImplemented();
         }
         inline bool in(const std::string & key) const {
+            detail::notImplemented();
         }
     };
 
@@ -113,9 +128,9 @@ namespace handle {
         // Implement th handle API
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return true;}
-        inline bool exists() const {}
-        inline bool isZarr() const {}
-        const fs::path & path() const {}
+        inline bool exists() const {detail::notImplemented();}
+        inline bool isZarr() const {detail::notImplemented();}
+        const fs::path & path() const {detail::notImplemented();}
         inline const std::string & bucketName() const {return bucketNameImpl();}
         inline const std::string & nameInBucket() const {return nameInBucketImpl();}
 
@@ -125,10 +140,7 @@ namespace handle {
                 const std::string err = "Cannot create new dataset in mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
-            // make sure that the file does not exist already
-            if(exists()) {
-                throw std::invalid_argument("Creating new dataset failed because it already exists.");
-            }
+            detail::notImplemented();
         }
 
         inline void remove() const {
@@ -136,9 +148,7 @@ namespace handle {
                 const std::string err = "Cannot remove dataset in dataset mode " + mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
-            if(!exists()) {
-                throw std::invalid_argument("Cannot remove non-existing dataset.");
-            }
+            detail::notImplemented();
         }
     };
 
@@ -155,6 +165,7 @@ namespace handle {
 
         // make the top level directories for a n5 chunk
         inline void create() const {
+            detail::notImplemented();
         }
 
         inline const Dataset & datasetHandle() const {
@@ -165,10 +176,11 @@ namespace handle {
             return dsHandle_.isZarr();
         }
 
-        inline bool exists() const {}
-        const fs::path & path() const {}
-        
+        inline bool exists() const {detail::notImplemented();}
+        const fs::path & path() const {detail::notImplemented();}
+
         inline void remove() const {
+            detail::notImplemented();
         }
 
         inline bool isS3() const {return false;}

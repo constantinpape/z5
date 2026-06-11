@@ -23,7 +23,6 @@ namespace compression {
         compressor.compress(dataInt_, dataOut, SIZE);
 
         ASSERT_TRUE(dataOut.size() / sizeof(int) < SIZE);
-        std::cout << "Compression Int: " << dataOut.size() / sizeof(int) << " / " << SIZE << std::endl;
     }
 
 
@@ -38,7 +37,6 @@ namespace compression {
         compressor.compress(dataFloat_, dataOut, SIZE);
 
         ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
-        std::cout << "Compression Float: " << dataOut.size() / sizeof(float) << " / " << SIZE << std::endl;
     }
 
 

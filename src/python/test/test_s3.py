@@ -183,6 +183,57 @@ class S3TestMixin(ABC):
         del f["grp"]
         self.assertNotIn("grp", f)
 
+    def test_pickle(self):
+        # regression: S3File inherited Group.__reduce__, which references the
+        # root file itself -> RecursionError; groups / datasets under an S3File
+        # were unpicklable as well
+        self._require_write()
+        import pickle
+        f = self.open(mode="a")
+        f.create_dataset("data", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        f2 = pickle.loads(pickle.dumps(f))
+        self.assertIn("data", f2)
+        ds2 = pickle.loads(pickle.dumps(f["data"]))
+        self.assertEqual(tuple(ds2.shape), tuple(self.shape))
+
+    def test_visititems(self):
+        # regression: the S3File binding registered relative_path(File, File)
+        # twice instead of relative_path(File, Group), so visititems raised a
+        # TypeError for any subgroup
+        self._require_write()
+        f = self.open(mode="a")
+        f.create_group("g")
+        f.create_dataset("g/d", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        names = []
+        f.visititems(lambda name, obj: names.append(name))
+        self.assertEqual(set(names), {"g", "g/d"})
+
+    def test_chunk_exists_no_prefix_false_positive(self):
+        # regression: chunk existence used an S3 prefix query, so chunk "1..."
+        # reported as existing whenever only chunk "10..." did
+        self._require_write()
+        f = self.open(mode="w")
+        ds = f.create_dataset("data", shape=(110, 16), chunks=(10, 16),
+                              dtype="uint8")
+        ds[100:110, :] = np.full((10, 16), 7, dtype="uint8")
+        self.assertTrue(ds.chunk_exists((10, 0)))
+        self.assertFalse(ds.chunk_exists((1, 0)))
+
+    def test_create_dataset_sibling_prefix(self):
+        # regression: existence used an S3 prefix query, so creating "data"
+        # failed with "already exists" when only "data2" existed
+        self._require_write()
+        f = self.open(mode="w")
+        f.create_dataset("data2", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        self.assertIn("data2", f)
+        self.assertNotIn("data", f)
+        ds = f.create_dataset("data", shape=self.shape, chunks=self.chunks,
+                              dtype="uint8")
+        self.assertIsNotNone(ds)
+
     # ------------------------------------------------------ C. attributes ---
     def test_read_file_attrs(self):
         self._require_read()

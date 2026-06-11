@@ -21,11 +21,19 @@ namespace compression {
     class XzCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         XzCompressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
 
         void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
+
+            // the loop below appends to dataOut, so it must start out empty
+            // (every other compressor overwrites the output buffer)
+            dataOut.clear();
 
             // create lzma stream
             lzma_stream lzs;

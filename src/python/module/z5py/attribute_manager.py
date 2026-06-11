@@ -63,16 +63,22 @@ class AttributeManager(MutableMapping):
     def __delitem__(self, key):
         _z5py.remove_attribute(self._handle, key)
 
+    def update(self, *args, **kwargs):
+        """ Update multiple attributes with a single read-modify-write.
+
+        The MutableMapping default calls ``__setitem__`` once per key, which
+        costs one IO round trip per key (expensive over S3).
+        """
+        self._write_attributes(dict(*args, **kwargs))
+
     def _read_attributes(self):
         """Return dict from JSON attribute store."""
-        global _JSON_DECODER
         attributes = _z5py.read_attributes(self._handle)
         attributes = json.loads(attributes, cls=_JSON_DECODER)
         attributes = {} if attributes is None else attributes
         return attributes
 
     def _write_attributes(self, attributes):
-        global _JSON_ENCODER
         attributes = json.dumps(attributes, cls=_JSON_ENCODER)
         _z5py.write_attributes(self._handle, attributes)
 

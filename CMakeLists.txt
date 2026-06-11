@@ -100,7 +100,7 @@ if(BUILD_TESTS)
         set(GOOGLETEST_VERSION 1.15.0)
     endif()
     add_subdirectory(external/googletest/googletest)
-    include_directories(${gtest_SOURCE_DIR/include} ${gtest_SOURCE_DIR})
+    include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 endif()
 
 
@@ -225,14 +225,14 @@ endif()
 
 if(WITH_BZIP2)
     find_package(BZip2 REQUIRED)
-    include_directories(BZIP2_INCLUDE_DIRS)
+    include_directories(${BZIP2_INCLUDE_DIRS})
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_BZIP2")
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${BZIP2_LIBRARIES}")
 endif()
 
 if(WITH_XZ)
     find_package(LibLZMA REQUIRED)
-    include_directories(LIBLZMA_INCLUDE_DIRS)
+    include_directories(${LIBLZMA_INCLUDE_DIRS})
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_XZ")
     SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LIBLZMA_LIBRARIES}")
 endif()
@@ -241,9 +241,11 @@ endif()
 if(WITH_LZ4)
     find_package(LZ4)
     if(LZ4_FOUND)
-        include_directories(LZ4_INCLUDE_DIR)
+        include_directories(${LZ4_INCLUDE_DIR})
         set(Z5_DEFINES "${Z5_DEFINES};-DWITH_LZ4")
         SET(COMPRESSION_LIBRARIES "${COMPRESSION_LIBRARIES};${LZ4_LIBRARY}")
+    else()
+        message(WARNING "WITH_LZ4 was requested, but lz4 was not found - building WITHOUT lz4 support")
     endif()
 endif()
 
@@ -269,10 +271,11 @@ if(WITH_S3)
 endif()
 
 if(WITH_GCS)
+    message(WARNING "The gcs backend is experimental and not implemented yet; all gcs operations will throw at runtime.")
     find_package(CURL REQUIRED)
     find_package(storage_client REQUIRED)
     set(Z5_DEFINES "${Z5_DEFINES};-DWITH_GCS")
-    # SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};${AWSSDK_LINK_LIBRARIES}")
+    SET(CLOUD_LIBRARIES "${CLOUD_LIBRARIES};storage_client")
 endif()
 message(STATUS "CLOUD LIBS: ${CLOUD_LIBRARIES}")
 
@@ -321,9 +324,8 @@ target_include_directories(z5 INTERFACE
 # Set-up and install
 ###############################
 
-# find global headers
-file(GLOB_RECURSE headers include/*.hxx)
-file(GLOB_RECURSE headers ${CMAKE_INSTALL_PREFIX}/include/*.hxx)
+# the z5 headers, for all targets (the bindings and test executables do not
+# link the z5 interface target)
 include_directories(include)
 
 # add subdirectories

@@ -126,7 +126,7 @@ class DatasetTestMixin(ABC):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,
                                            shape=self.shape, chunks=(10, 10, 10))
         ds[:] = float(1)
-        self.check_ones(ds[:], self.shape),
+        self.check_ones(ds[:], self.shape)
 
     def test_ds_scalar_broadcast_from_bool(self):
         ds = self.root_file.create_dataset('ones', dtype=np.uint8,
@@ -275,6 +275,84 @@ class DatasetTestMixin(ABC):
                     out = ds.read_chunk((x, y))
                     self.assertEqual(data.shape, out.shape)
                     self.assertTrue(np.allclose(data, out))
+
+    def test_empty_slicing(self):
+        # regression: stop <= start selections (e.g. ds[5:3]) raised
+        # "negative dimensions are not allowed" instead of returning empty
+        ds = self.root_file.create_dataset('test_empty_slice', dtype='float64',
+                                           shape=(100, 100), chunks=(10, 10))
+        data = np.random.rand(100, 100)
+        ds[:] = data
+        self.assertEqual(ds[5:3].shape, (0, 100))
+        self.assertEqual(ds[8:-95].shape, (0, 100))
+        self.assertEqual(ds[3:3, 7:7].shape, (0, 0))
+        # writing an empty selection is a no-op
+        ds[5:3] = 42.
+        self.assertTrue(np.allclose(ds[:], data))
+
+    def test_require_dataset_list_shape(self):
+        # regression: list-valued shape / chunks failed the consistency check
+        # against the tuple-valued properties of the existing dataset
+        shape, chunks = (100, 100), (10, 10)
+        self.root_file.create_dataset('test_req', dtype='float32',
+                                      shape=shape, chunks=chunks)
+        ds = self.root_file.require_dataset('test_req', shape=list(shape),
+                                            dtype='float32', chunks=list(chunks))
+        self.assertEqual(ds.shape, shape)
+
+    def test_scalar_write_large_int(self):
+        # regression: scalar values were funneled through double, silently
+        # losing precision for integers > 2^53
+        val = 2 ** 63 - 1
+        ds = self.root_file.create_dataset('test_large_int', dtype='int64',
+                                           shape=(20, 20), chunks=(10, 10))
+        ds[:] = val
+        self.assertTrue(np.all(ds[:] == val))
+        val_u = 2 ** 64 - 1
+        dsu = self.root_file.create_dataset('test_large_uint', dtype='uint64',
+                                            shape=(20, 20), chunks=(10, 10))
+        dsu[:] = val_u
+        self.assertTrue(np.all(dsu[:] == val_u))
+        # floats still work for integer datasets (truncating like numpy)
+        ds[:] = 2.0
+        self.assertTrue(np.all(ds[:] == 2))
+
+    def test_write_chunk_validation(self):
+        # regression: write_chunk validated neither dtype nor element count,
+        # so mismatched numpy arrays caused out-of-bounds reads in C++
+        ds = self.root_file.create_dataset('test_wc_val', dtype='float64',
+                                           shape=(100, 100), chunks=(10, 10),
+                                           compression='raw')
+        with self.assertRaises((TypeError, RuntimeError)):
+            ds.write_chunk((0, 0), np.zeros((10, 10), dtype='uint8'))
+        with self.assertRaises((TypeError, RuntimeError)):
+            ds.write_chunk((0, 0), np.zeros((2, 2), dtype='float64'))
+
+    def test_readwrite_chunk_edge(self):
+        # regression: zarr stores edge chunks at the full chunk shape, but
+        # read_chunk allocated only the clipped shape (heap overflow on read)
+        shape, chunks = (25, 25), (10, 10)
+        ds = self.root_file.create_dataset('test_edge_chunk', dtype='float64',
+                                           shape=shape, chunks=chunks,
+                                           compression='raw')
+        data = np.random.rand(*shape)
+        ds[:] = data
+        out = ds.read_chunk((2, 2))
+        if ds.is_zarr:
+            # full (padded) chunk: leading block holds the data, rest is fill
+            self.assertEqual(out.shape, tuple(chunks))
+            self.assertTrue(np.allclose(out[:5, :5], data[20:, 20:]))
+            self.assertTrue(np.allclose(out[5:, :], 0))
+            self.assertTrue(np.allclose(out[:, 5:], 0))
+            # writing an edge chunk requires the full chunk shape
+            ds.write_chunk((2, 2), np.ones(tuple(chunks)))
+            with self.assertRaises((TypeError, RuntimeError)):
+                ds.write_chunk((2, 2), np.ones((5, 5)))
+        else:
+            # n5 stores edge chunks clipped
+            self.assertEqual(out.shape, (5, 5))
+            self.assertTrue(np.allclose(out, data[20:, 20:]))
+            ds.write_chunk((2, 2), np.ones((5, 5)))
 
     def test_read_direct(self):
         shape = (100, 100)
@@ -487,7 +565,6 @@ class TestZarrDataset(DatasetTestMixin, unittest.TestCase):
         chunks = (10, 10, 10)
         f.create_dataset('data', shape=self.shape, chunks=chunks, dtype='float64')
 
-        g = z5py.ZarrFile(self.path, mode='a')
         ds = f['data']
         data = np.random.rand(*self.shape)
         ds[:] = data

@@ -3,6 +3,7 @@
 #include "z5/filesystem/metadata.hxx"
 #include "z5/filesystem/dataset.hxx"
 #include "z5/filesystem/sharded_dataset.hxx"
+#include "z5/generic/factory.hxx"
 
 
 namespace z5 {
@@ -12,46 +13,29 @@ namespace factory_detail {
 
     // instantiate the right concrete dataset for the element type:
     // a sharded dataset if the metadata carries a shard shape, else the plain one
-    template<class T>
-    inline z5::Dataset * makeTyped(const handle::Dataset & dataset, const DatasetMetadata & metadata) {
-        if(!metadata.shardShape.empty()) {
-            return new ShardedDataset<T>(dataset, metadata);
-        }
-        return new Dataset<T>(dataset, metadata);
-    }
-
     inline std::unique_ptr<z5::Dataset> makeDataset(const handle::Dataset & dataset,
                                                     const DatasetMetadata & metadata) {
-        std::unique_ptr<z5::Dataset> ptr;
-        switch(metadata.dtype) {
-            case types::int8:
-                ptr.reset(makeTyped<int8_t>(dataset, metadata)); break;
-            case types::int16:
-                ptr.reset(makeTyped<int16_t>(dataset, metadata)); break;
-            case types::int32:
-                ptr.reset(makeTyped<int32_t>(dataset, metadata)); break;
-            case types::int64:
-                ptr.reset(makeTyped<int64_t>(dataset, metadata)); break;
-            case types::uint8:
-                ptr.reset(makeTyped<uint8_t>(dataset, metadata)); break;
-            case types::uint16:
-                ptr.reset(makeTyped<uint16_t>(dataset, metadata)); break;
-            case types::uint32:
-                ptr.reset(makeTyped<uint32_t>(dataset, metadata)); break;
-            case types::uint64:
-                ptr.reset(makeTyped<uint64_t>(dataset, metadata)); break;
-            case types::float32:
-                ptr.reset(makeTyped<float>(dataset, metadata)); break;
-            case types::float64:
-                ptr.reset(makeTyped<double>(dataset, metadata)); break;
-            case types::complex64:
-                ptr.reset(new Dataset<std::complex<float>>(dataset, metadata)); break;
-            case types::complex128:
-                ptr.reset(new Dataset<std::complex<double>>(dataset, metadata)); break;
-            case types::complex256:
-                ptr.reset(new Dataset<std::complex<long double>>(dataset, metadata)); break;
-        }
-        return ptr;
+        return generic::dispatchDtype(metadata.dtype,
+            [&](auto tag) -> std::unique_ptr<z5::Dataset> {
+                using T = decltype(tag);
+                if(!metadata.shardShape.empty()) {
+                    return std::unique_ptr<z5::Dataset>(new ShardedDataset<T>(dataset, metadata));
+                }
+                return std::unique_ptr<z5::Dataset>(new Dataset<T>(dataset, metadata));
+            },
+            [&](const types::Datatype dtype) -> std::unique_ptr<z5::Dataset> {
+                // complex datasets are only supported as plain (non-sharded) datasets
+                switch(dtype) {
+                    case types::complex64:
+                        return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<float>>(dataset, metadata));
+                    case types::complex128:
+                        return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<double>>(dataset, metadata));
+                    case types::complex256:
+                        return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<long double>>(dataset, metadata));
+                    default:
+                        return nullptr;
+                }
+            });
     }
 
 }
@@ -99,7 +83,10 @@ namespace factory_detail {
     template<class GROUP1, class GROUP2>
     inline std::string relativePath(const z5::handle::Group<GROUP1> & g1,
                                     const GROUP2 & g2) {
-        return relativeImpl(g1.path(), g2.path()).string();
+        // generic_string: hierarchy names are always '/'-separated (h5py
+        // semantics, and consistent with the s3 backend), even on windows,
+        // where fs::path::string() would yield backslashes
+        return relativeImpl(g1.path(), g2.path()).generic_string();
     }
 
 }

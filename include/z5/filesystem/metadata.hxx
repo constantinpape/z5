@@ -2,6 +2,7 @@
 
 #include "z5/metadata.hxx"
 #include "z5/filesystem/attributes.hxx"
+#include "z5/generic/metadata.hxx"
 
 namespace z5 {
 namespace filesystem {
@@ -40,87 +41,23 @@ namespace metadata_detail {
     }
 }
 
-namespace metadata_detail {
-    // write zarr v3 group metadata (zarr.json with node_type "group"),
-    // preserving any inline user attributes already on disk
-    inline void writeV3GroupMetadata(const fs::path & dir, const Metadata & metadata) {
-        const auto path = dir / "zarr.json";
-        nlohmann::json j;
-        if(fs::exists(path)) {
-            metadata_detail::readMetadata(path, j);
-        }
-        j["zarr_format"] = 3;
-        j["node_type"] = "group";
-        if(j.find("attributes") == j.end()) {
-            j["attributes"] = nlohmann::json::object();
-        }
-        metadata_detail::writeMetadata(path, j);
-    }
-}
-
     template<class GROUP>
-    inline void writeMetadata(const z5::handle::File<GROUP> & handleBase, const Metadata & metadata) {
-        const auto & handle = handleBase;
-        const bool isZarr = metadata.isZarr;
-        if(isZarr && metadata.zarrFormat == 3) {
-            metadata_detail::writeV3GroupMetadata(handle.path(), metadata);
-            return;
-        }
-        const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
-        nlohmann::json j;
-        if(isZarr) {
-            j["zarr_format"] = metadata.zarrFormat;
-        } else {
-            // n5 stores attributes and metadata in the same file,
-            // so we need to make sure that we don't overwrite attributes
-            try {
-                readAttributes(handle, j);
-            } catch(std::runtime_error) {}  // read attributes throws RE if there are no attributes, we can just ignore this
-            j["n5"] = metadata.n5Format();
-        }
-        metadata_detail::writeMetadata(path, j);
+    inline void writeMetadata(const z5::handle::File<GROUP> & handle, const Metadata & metadata) {
+        attrs_detail::JsonIO io(handle.path());
+        generic::writeFileMetadata(io, metadata);
     }
 
 
     template<class GROUP>
     inline void writeMetadata(const z5::handle::Group<GROUP> & handle, const Metadata & metadata) {
-        const bool isZarr = metadata.isZarr;
-        if(isZarr && metadata.zarrFormat == 3) {
-            metadata_detail::writeV3GroupMetadata(handle.path(), metadata);
-            return;
-        }
-        const auto path = handle.path() / (isZarr ? ".zgroup" : "attributes.json");
-        nlohmann::json j;
-        if(isZarr) {
-            j["zarr_format"] = metadata.zarrFormat;
-        } else {
-            // we don't need to write metadata for n5 groups
-            return;
-        }
-        metadata_detail::writeMetadata(path, j);
+        attrs_detail::JsonIO io(handle.path());
+        generic::writeGroupMetadata(io, metadata);
     }
 
 
     inline void writeMetadata(const handle::Dataset & handle, const DatasetMetadata & metadata) {
-        if(metadata.isZarr && metadata.zarrFormat == 3) {
-            const auto path = handle.path() / "zarr.json";
-            // preserve inline user attributes already on disk
-            nlohmann::json existing;
-            if(fs::exists(path)) {
-                metadata_detail::readMetadata(path, existing);
-            }
-            nlohmann::json j;
-            metadata.toJson(j);
-            if(existing.contains("attributes")) {
-                j["attributes"] = existing["attributes"];
-            }
-            metadata_detail::writeMetadata(path, j);
-            return;
-        }
-        const auto path = handle.path() / (metadata.isZarr ? ".zarray" : "attributes.json");
-        nlohmann::json j;
-        metadata.toJson(j);
-        metadata_detail::writeMetadata(path, j);
+        attrs_detail::JsonIO io(handle.path());
+        generic::writeDatasetMetadata(io, metadata);
     }
 
 

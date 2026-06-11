@@ -395,6 +395,8 @@ namespace types {
                         if(options.find("level") == options.end()){options["level"] = 5;}
                         if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
                         if(options.find("blocksize") == options.end()){options["blocksize"] = 0;}
+                        // n5 metadata serialization reads "nthreads" unconditionally
+                        if(options.find("nthreads") == options.end()){options["nthreads"] = 1;}
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -561,8 +563,8 @@ namespace types {
                 const std::string tmp = val;
                 opts[key] = tmp;
             } else {
-                std::cout << val.type_name() << std::endl;
-                throw std::runtime_error("Invalid type conversion for compression type");
+                throw std::runtime_error(std::string("Invalid type conversion for compression type: ") +
+                                         val.type_name());
             }
         }
     }

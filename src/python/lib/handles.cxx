@@ -22,20 +22,25 @@ namespace z5 {
     template<class GROUP, class GROUP1, class DATASET>
     auto getGroupHandle(nb::module_ & m, const std::string & name) {
         nb::class_<GROUP> g(m, name.c_str());
+        // existence / listing / format probes are filesystem stats or S3 round trips
+        // and touch no python objects -> release the GIL
         g
-            .def("exists", &GROUP::exists)
-            .def("has", &GROUP::in)
+            .def("exists", &GROUP::exists,
+                 nb::call_guard<nb::gil_scoped_release>())
+            .def("has", &GROUP::in,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("keys", [](const GROUP & self){
                 std::vector<std::string> keys;
                 self.keys(keys);
                 return keys;
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("path", [](const GROUP & self){return self.path().string();})
             .def("mode", &GROUP::mode)
-            .def("is_zarr", &GROUP::isZarr)
+            .def("is_zarr", &GROUP::isZarr,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("is_sub_group", [](const GROUP & self, const std::string & name){
                 return isSubGroup(self, name);
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("relative_path", [](const GROUP & self, const GROUP & to){
                 return relativePath(self, to);
             })
@@ -45,7 +50,8 @@ namespace z5 {
             .def("relative_path", [](const GROUP & self, const DATASET & to){
                 return relativePath(self, to);
             })
-            .def("remove", &GROUP::remove)
+            .def("remove", &GROUP::remove,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("get_dataset_handle", [](const GROUP & self, const std::string & name){
                 return DATASET(self, name);
             })
@@ -75,7 +81,7 @@ namespace z5 {
                 nlohmann::json j;
                 filesystem::readMetadata(self, j);
                 return j.dump();
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
         ;
 
         nb::class_<Dataset>(m, "DatasetHandle")
@@ -100,7 +106,10 @@ namespace z5 {
                  nb::arg("file"), nb::arg("key"))
         ;
 
-        auto f = getGroupHandle<File, File, Dataset>(m, "S3File");
+        // GROUP1 must be the s3 Group type: it registers the relative_path(File, Group)
+        // overload that visititems needs (instantiating with File registered the
+        // File overload twice and S3 visititems failed with a TypeError)
+        auto f = getGroupHandle<File, Group, Dataset>(m, "S3File");
         f
             .def(nb::init<const std::string &, const std::string &, FileMode,
                           const std::string &, const std::string &, bool,

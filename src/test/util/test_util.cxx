@@ -50,7 +50,7 @@ namespace test_util_detail {
                 for(size_t y = minCoords[1]; y <= maxCoords[1]; ++y) {
                     for(size_t z = minCoords[2]; z <= maxCoords[2]; ++z) {
                         for(size_t t = minCoords[3]; t <= maxCoords[3]; ++t) {
-                            for(size_t c = minCoords[4]; c <= maxCoords[4]; ++t) {
+                            for(size_t c = minCoords[4]; c <= maxCoords[4]; ++c) {
                                 grid.emplace_back(z5::types::ShapeType({x, y, z, t, c}));
                             }
                         }
@@ -89,16 +89,18 @@ namespace util {
         std::default_random_engine generator;
         std::uniform_int_distribution<std::size_t> distr1(0, 100);
 
-        for(size_t dim = 1; dim < nDimTest; ++dim) {
-            // std::cout << "Dim: " << dim << std::endl;
+        for(size_t dim = 1; dim <= nDimTest; ++dim) {
+            // bound the per-dimension extent so the grid size stays manageable
+            // for the high-dimensional cases (8^5 = 32768 points at most)
+            const std::size_t maxExtent = (dim <= 3) ? 102 : 8;
             for(size_t i = 0; i < nReps; ++i) {
 
-                // std::cout << "Rep: " << std::endl;
                 std::vector<size_t> minCoords(dim);
                 std::vector<size_t> maxCoords(dim);
                 for(int d = 0; d < dim; ++d) {
                     minCoords[d] = distr1(generator);
-                    std::uniform_int_distribution<std::size_t> distr2(minCoords[d] + 1, 102);
+                    std::uniform_int_distribution<std::size_t> distr2(minCoords[d] + 1,
+                                                                      minCoords[d] + maxExtent);
                     maxCoords[d] = distr2(generator);
                 }
 

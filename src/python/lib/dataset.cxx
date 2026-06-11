@@ -1,4 +1,5 @@
 #include <complex>
+#include <memory>
 #include <numeric>
 
 #include <nanobind/nanobind.h>
@@ -77,45 +78,73 @@ namespace z5 {
     }
 
 
+    // Extract the scalar as CAST_T (falling back to double, so float values can
+    // still be written - truncating - to integer datasets), then write without the
+    // GIL. Funneling every value through double would silently lose precision for
+    // integers > 2^53.
+    template<class T, class CAST_T>
+    inline void writePyScalarCasted(const Dataset & ds,
+                                    const std::vector<std::size_t> & roiBegin,
+                                    const std::vector<std::size_t> & roiShape,
+                                    const nb::object & val,
+                                    const int numberOfThreads) {
+        T v;
+        try {
+            v = static_cast<T>(nb::cast<CAST_T>(val));
+        } catch(...) {
+            v = static_cast<T>(nb::cast<double>(val));
+        }
+        nb::gil_scoped_release lift_gil;
+        writePyScalar<T>(ds, roiBegin, roiShape, v, numberOfThreads);
+    }
+
+
     template<class T>
-    inline nb::ndarray<nb::numpy, T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+    inline nb::object readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
         types::ShapeType shape;
+        bool exists;
 
-        // make sure the chunk exists and get the shape of the chunk
+        // check if the chunk exists and get its shape; the python layer previously
+        // did its own pre-check, doubling the existence probe (an S3 round trip)
         {
             nb::gil_scoped_release lift_gil;
-            // returning None does not work properly, so we raise
-            // if the chunk does not exist and assume that this is checked
-            // in python beforehand
-            if(!ds.chunkExists(chunkId)) {
-                throw std::runtime_error("Cannot read chunk because it does not exist.");
-            }
-
-            // get the shape of the output data
-            // varlen: return data as 1D array otherwise return ND array
-            std::size_t chunkSize;
-            const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
-            if(isVarlen) {
-                shape = types::ShapeType({chunkSize});
-            } else {
-                ds.getChunkShape(chunkId, shape);
+            exists = ds.chunkExists(chunkId);
+            if(exists) {
+                // get the shape of the output data
+                // varlen: return data as 1D array otherwise return ND array
+                std::size_t chunkSize;
+                const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
+                if(isVarlen) {
+                    shape = types::ShapeType({chunkSize});
+                } else if(ds.isZarr()) {
+                    // zarr chunks are always stored at the full chunk shape (edge chunks
+                    // are padded); readChunk decompresses the full chunk, so the output
+                    // must be allocated accordingly
+                    shape = ds.defaultChunkShape();
+                } else {
+                    ds.getChunkShape(chunkId, shape);
+                }
             }
         }
+        if(!exists) {
+            return nb::none();
+        }
 
-        // allocate the data and read the chunk
+        // allocate the data and read the chunk; hold the buffer in a unique_ptr so
+        // it is released if readChunk throws (corrupt chunk, decompression failure)
         const std::size_t size = std::accumulate(shape.begin(), shape.end(),
                                                  static_cast<std::size_t>(1),
                                                  std::multiplies<std::size_t>());
-        T * data = new T[size];
+        std::unique_ptr<T[]> data(new T[size]);
         {
             nb::gil_scoped_release lift_gil;
-            ds.readChunk(chunkId, data);
+            ds.readChunk(chunkId, data.get());
         }
 
         // hand ownership of the buffer to numpy via a capsule
-        nb::capsule owner(data, [](void * p) noexcept { delete[] static_cast<T*>(p); });
-        return nb::ndarray<nb::numpy, T>(data, shape.size(), shape.data(), owner);
+        nb::capsule owner(data.get(), [](void * p) noexcept { delete[] static_cast<T*>(p); });
+        return nb::cast(nb::ndarray<nb::numpy, T>(data.release(), shape.size(), shape.data(), owner));
     }
 
 
@@ -124,6 +153,21 @@ namespace z5 {
                              const types::ShapeType & chunkId,
                              const nb::ndarray<nb::numpy, const T, nb::c_contig> in,
                              const bool isVarlen) {
+        // the chunk writer reinterprets the buffer as the DATASET's dtype and reads
+        // the full chunk's worth of it, so both the dtype and the element count must
+        // be validated here to prevent out-of-bounds reads of the numpy buffer
+        ds.checkRequestType(typeid(T));
+        if(!isVarlen) {
+            // zarr chunks are stored at the full chunk shape, n5 chunks at the
+            // boundary-clipped shape
+            const std::size_t expected = ds.isZarr() ? ds.defaultChunkSize()
+                                                     : ds.getChunkSize(chunkId);
+            if(in.size() != expected) {
+                throw std::runtime_error(
+                    "Chunk data has the wrong number of elements: " +
+                    std::to_string(in.size()) + " instead of " + std::to_string(expected));
+            }
+        }
         ds.writeChunk(chunkId, in.data(), isVarlen,
                       isVarlen ? in.size() : 0);
     }
@@ -171,14 +215,14 @@ namespace z5 {
         dsClass
             .def("chunkExists", [](const Dataset & ds, const types::ShapeType & chunkIndices){
                 return ds.chunkExists(chunkIndices);
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("getChunkShape", [](const Dataset & ds,
                                      const types::ShapeType & chunkIndices,
                                      const bool fromHeader){
                 types::ShapeType chunkShape;
                 ds.getChunkShape(chunkIndices, chunkShape, fromHeader);
                 return chunkShape;
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
 
             //
             // shapes and stuff
@@ -235,63 +279,55 @@ namespace z5 {
         // export writing scalars
         // The overloads cannot be properly resolved,
         // that's why we give the datatype as additional argument
-        // and then cast to the correct type
+        // and then cast to the correct type. The value is taken as a python
+        // object and extracted per dtype (integers via [u]int64, so values
+        // beyond 2^53 don't lose precision in a double round trip).
         module.def("write_scalar", [](const Dataset & ds,
                                       const std::vector<std::size_t> & roiBegin,
                                       const std::vector<std::size_t> & roiShape,
-                                      const double val,
+                                      const nb::object & val,
                                       const std::string & dtype,
                                       const int numberOfThreads) {
                     auto internalDtype = types::Datatypes::n5ToDtype().at(dtype);
                     switch(internalDtype) {
-                        case types::Datatype::int8 : writePyScalar<int8_t>(ds, roiBegin, roiShape,
-                                                                           static_cast<int8_t>(val),
-                                                                           numberOfThreads);
-                                                     break;
-                        case types::Datatype::int16 : writePyScalar<int16_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int16_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::int32 : writePyScalar<int32_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int32_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::int64 : writePyScalar<int64_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int64_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint8 : writePyScalar<uint8_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<uint8_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint16 : writePyScalar<uint16_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint16_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint32 : writePyScalar<uint32_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint32_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint64 : writePyScalar<uint64_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint64_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::float32 : writePyScalar<float>(ds, roiBegin, roiShape,
-                                                                             static_cast<float>(val),
-                                                                             numberOfThreads);
-                                                        break;
-                        case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape,
-                                                                              static_cast<double>(val),
-                                                                              numberOfThreads);
-                                                        break;
-                        case types::Datatype::complex64 : writePyScalar<std::complex<float>>(ds, roiBegin, roiShape,
-                                                                              static_cast<std::complex<float>>(val),
-                                                                              numberOfThreads);
-                                                        break;
-                        case types::Datatype::complex128 : writePyScalar<std::complex<double>>(ds, roiBegin, roiShape,
-                                                                              static_cast<std::complex<double>>(val),
-                                                                              numberOfThreads);
-                                                        break;
+                        case types::Datatype::int8 :
+                            writePyScalarCasted<int8_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int16 :
+                            writePyScalarCasted<int16_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int32 :
+                            writePyScalarCasted<int32_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int64 :
+                            writePyScalarCasted<int64_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint8 :
+                            writePyScalarCasted<uint8_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint16 :
+                            writePyScalarCasted<uint16_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint32 :
+                            writePyScalarCasted<uint32_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint64 :
+                            writePyScalarCasted<uint64_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::float32 :
+                            writePyScalarCasted<float, double>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::float64 :
+                            writePyScalarCasted<double, double>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::complex64 :
+                            writePyScalarCasted<std::complex<float>, std::complex<double>>(
+                                ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::complex128 :
+                            writePyScalarCasted<std::complex<double>, std::complex<double>>(
+                                ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
                         default: throw(std::runtime_error("Invalid datatype"));
 
                     }
@@ -300,8 +336,7 @@ namespace z5 {
                   nb::arg("roi_shape"),
                   nb::arg("val"),
                   nb::arg("dtype"),
-                  nb::arg("n_threads")=1,
-                  nb::call_guard<nb::gil_scoped_release>());
+                  nb::arg("n_threads")=1);
     }
 
 }

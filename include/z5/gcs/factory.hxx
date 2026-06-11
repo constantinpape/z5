@@ -39,6 +39,7 @@ namespace gcs {
                 ptr.reset(new Dataset<float>(dataset, metadata)); break;
             case types::float64:
                 ptr.reset(new Dataset<double>(dataset, metadata)); break;
+            default: throw std::runtime_error("Datatype is not supported by the gcs backend");
         }
         return ptr;
     }
@@ -73,29 +74,33 @@ namespace gcs {
                 ptr.reset(new Dataset<float>(dataset, metadata)); break;
             case types::float64:
                 ptr.reset(new Dataset<double>(dataset, metadata)); break;
+            default: throw std::runtime_error("Datatype is not supported by the gcs backend");
         }
         return ptr;
     }
 
 
     template<class GROUP>
-    inline void createFile(const z5::handle::File<GROUP> & file, const bool isZarr) {
+    inline void createFile(const z5::handle::File<GROUP> & file, const bool isZarr,
+                           const int zarrFormat=2) {
         file.create();
-        Metadata fmeta(isZarr);
+        Metadata fmeta(isZarr, zarrFormat);
         writeMetadata(file, fmeta);
     }
 
 
     template<class GROUP>
-    inline void createGroup(const z5::handle::Group<GROUP> & group, const bool isZarr) {
+    inline void createGroup(const z5::handle::Group<GROUP> & group, const bool isZarr,
+                            const int zarrFormat=2) {
         group.create();
-        Metadata fmeta(isZarr);
+        Metadata fmeta(isZarr, zarrFormat);
         writeMetadata(group, fmeta);
     }
 
     template<class GROUP1, class GROUP2>
     inline std::string relativePath(const z5::handle::Group<GROUP1> & g1,
                                     const GROUP2 & g2) {
+        detail::notImplemented();
     }
 
 }

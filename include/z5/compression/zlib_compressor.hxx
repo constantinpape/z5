@@ -31,6 +31,10 @@ namespace compression {
     class ZlibCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         ZlibCompressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
@@ -214,7 +218,10 @@ namespace compression {
         }
 
         inline void getOptions(types::CompressionOptions & opts) const {
+            // report the full option set used by init: metadata serialization reads
+            // "useZlib" back from these options and would throw if it were missing
             opts["level"] = level_;
+            opts["useZlib"] = useZlibEncoding_;
         }
 
     private:
