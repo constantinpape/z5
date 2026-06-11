@@ -245,6 +245,33 @@ class TestZarrV3Sharding(unittest.TestCase):
         for dtype in DTYPES:
             self._roundtrip('sd_%s' % dtype, (32, 32), (8, 8), (16, 16), dtype)
 
+    def test_sharding_read_only_write_raises(self):
+        # regression: the sharded write path bypassed writeChunk and with it the
+        # file-mode check, so writes on a read-only dataset silently succeeded
+        ds, data = self._roundtrip('ro', (32, 32), (8, 8), (16, 16), 'uint8')
+        f = z5py.File(self.path, mode='r')
+        ds_ro = f['ro']
+        with self.assertRaises((RuntimeError, ValueError)):
+            ds_ro[:16, :16] = np.ones((16, 16), dtype='uint8')
+        with self.assertRaises((RuntimeError, ValueError)):
+            ds_ro._impl.remove_chunk((0, 0))
+        # the data must be unchanged
+        self.assertTrue(np.allclose(ds_ro[:], data))
+
+    def test_sharding_corrupt_shard_raises(self):
+        # regression: a corrupt shard index was treated as an empty shard by the
+        # write read-modify-write path, silently discarding all other inner chunks
+        ds, _ = self._roundtrip('corrupt', (32, 32), (8, 8), (16, 16), 'uint8')
+        shard_file = os.path.join(self.path, 'corrupt', 'c', '0', '0')
+        self.assertTrue(os.path.exists(shard_file))
+        # truncate the shard so index + checksum are damaged
+        with open(shard_file, 'r+b') as fh:
+            fh.truncate(max(os.path.getsize(shard_file) - 5, 1))
+        with self.assertRaises(RuntimeError):
+            ds[:8, :8]
+        with self.assertRaises(RuntimeError):
+            ds[:8, :8] = np.ones((8, 8), dtype='uint8')
+
 
 if __name__ == '__main__':
     unittest.main()

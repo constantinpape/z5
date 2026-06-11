@@ -116,7 +116,9 @@ namespace meta_detail {
         }
 
         nlohmann::json j;
-        attrs_detail::readJson(client, bucket, key, j);
+        if(!attrs_detail::readJson(client, bucket, key, j)) {
+            throw std::runtime_error("z5::s3::readMetadata: no dataset metadata found at " + base);
+        }
         metadata.fromJson(j, isZarr);
     }
 

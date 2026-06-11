@@ -65,14 +65,12 @@ namespace s3 {
             // make sure that we have a valid chunk
             checkChunk(chunk);
 
-            // throw runtime error if trying to read non-existing chunk
-            if(!chunk.exists()) {
+            // load the data from s3; the GET outcome itself tells us whether the
+            // chunk exists (no separate exists() round trip, no TOCTOU window)
+            std::vector<char> buffer;
+            if(!read(chunk, buffer)) {
                 throw std::runtime_error("Trying to read a chunk that does not exist");
             }
-
-            // load the data from s3
-            std::vector<char> buffer;
-            read(chunk, buffer);
 
             // format the data
             const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_);
@@ -84,7 +82,9 @@ namespace s3 {
         inline void readRawChunk(const types::ShapeType & chunkIndices,
                                  std::vector<char> & buffer) const {
             handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
-            read(chunk, buffer);
+            if(!read(chunk, buffer)) {
+                buffer.clear();
+            }
         }
 
 
@@ -179,10 +179,12 @@ namespace s3 {
 
     private:
 
-        inline void read(const handle::Chunk & chunk, std::vector<char> & buffer) const {
+        // read the chunk object; returns false if it does not exist, throws on
+        // any other S3 error (getObject distinguishes the two)
+        inline bool read(const handle::Chunk & chunk, std::vector<char> & buffer) const {
             auto client = chunk.makeClient();
             // getObject reads the raw bytes binary-safe (sized by Content-Length)
-            detail::getObject(client, chunk.bucketName(), chunk.nameInBucket(), buffer);
+            return detail::getObject(client, chunk.bucketName(), chunk.nameInBucket(), buffer);
         }
 
         inline void checkChunk(const handle::Chunk & chunk, const bool isVarlen=false) const {

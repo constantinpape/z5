@@ -94,6 +94,12 @@ namespace filesystem {
         inline void readRawChunk(const types::ShapeType & chunkIndices,
                                  std::vector<char> & buffer) const {
             handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
+            // a missing chunk yields an empty buffer (same contract as the s3 and
+            // sharded implementations)
+            if(!chunk.exists()) {
+                buffer.clear();
+                return;
+            }
             read(chunk.path(), buffer);
         }
 
@@ -215,13 +221,22 @@ namespace filesystem {
 
         inline void write(const fs::path & path, const std::vector<char> & buffer) const {
             std::ofstream file(path, std::ios::binary);
-            file.write(&buffer[0], buffer.size());
+            if(!file.is_open()) {
+                throw std::runtime_error("z5: cannot open chunk file for writing: " + path.string());
+            }
+            file.write(buffer.data(), buffer.size());
+            if(!file.good()) {
+                throw std::runtime_error("z5: failed to write chunk file: " + path.string());
+            }
             file.close();
         }
 
         inline void read(const fs::path & path, std::vector<char> & buffer) const {
             // open input stream and read the filesize
             std::ifstream file(path, std::ios::binary);
+            if(!file.is_open()) {
+                throw std::runtime_error("z5: cannot open chunk file for reading: " + path.string());
+            }
 
             file.seekg(0, std::ios::end);
             const std::size_t file_size = file.tellg();
@@ -231,7 +246,10 @@ namespace filesystem {
             buffer.resize(file_size);
 
             // read the file
-            file.read(&buffer[0], file_size);
+            file.read(buffer.data(), file_size);
+            if(file.gcount() != static_cast<std::streamsize>(file_size)) {
+                throw std::runtime_error("z5: failed to read chunk file: " + path.string());
+            }
             file.close();
         }
 

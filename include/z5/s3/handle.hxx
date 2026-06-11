@@ -8,8 +8,11 @@
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/utils/memory/AWSMemory.h>
 #include <aws/core/utils/memory/stl/AWSStringStream.h>
+#include <aws/core/client/AWSError.h>
+#include <aws/core/http/HttpResponse.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/S3ClientConfiguration.h>
+#include <aws/s3/S3Errors.h>
 #include <aws/s3/S3EndpointProvider.h>
 #include <aws/s3/model/Object.h>
 #include <aws/s3/model/ObjectIdentifier.h>
@@ -125,7 +128,22 @@ namespace detail {
     // low-level object IO helpers (used by handle / dataset / metadata / attributes)
     //
 
-    // read an object's bytes; returns false if the object does not exist
+    // true if the error means "no such object"; anything else (network, auth,
+    // timeout, ...) must NOT be treated as absence
+    inline bool isNotFound(const Aws::Client::AWSError<Aws::S3::S3Errors> & error) {
+        return error.GetErrorType() == Aws::S3::S3Errors::NO_SUCH_KEY ||
+               error.GetErrorType() == Aws::S3::S3Errors::RESOURCE_NOT_FOUND ||
+               error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND;
+    }
+
+    inline std::runtime_error makeS3Error(const std::string & what, const std::string & key,
+                                          const Aws::Client::AWSError<Aws::S3::S3Errors> & error) {
+        return std::runtime_error("z5: " + what + ": " + key + " (" +
+                                  std::string(error.GetMessage().c_str()) + ")");
+    }
+
+    // read an object's bytes; returns false if the object does not exist,
+    // throws on any other error
     inline bool getObject(Aws::S3::S3Client & client,
                           const std::string & bucket, const std::string & key,
                           std::vector<char> & out) {
@@ -134,7 +152,10 @@ namespace detail {
         request.SetKey(Aws::String(key.c_str(), key.size()));
         auto outcome = client.GetObject(request);
         if(!outcome.IsSuccess()) {
-            return false;
+            if(isNotFound(outcome.GetError())) {
+                return false;
+            }
+            throw makeS3Error("could not read object from S3", key, outcome.GetError());
         }
         auto result = outcome.GetResultWithOwnership();
         const long long length = result.GetContentLength();
@@ -143,16 +164,18 @@ namespace detail {
             out.resize(static_cast<std::size_t>(length));
             if(length > 0) {
                 body.read(out.data(), length);
+                if(body.gcount() != static_cast<std::streamsize>(length)) {
+                    throw std::runtime_error("z5: truncated response body from S3: " + key);
+                }
             }
         } else {
-            // fall back to reading the whole stream (binary-safe)
-            body.seekg(0, std::ios::end);
-            const std::streamoff n = body.tellg();
-            body.seekg(0, std::ios::beg);
-            out.resize(n > 0 ? static_cast<std::size_t>(n) : 0);
-            if(n > 0) {
-                body.read(out.data(), n);
-            }
+            // unknown content length: read the stream to EOF (binary-safe)
+            out.clear();
+            char chunk[65536];
+            do {
+                body.read(chunk, sizeof(chunk));
+                out.insert(out.end(), chunk, chunk + body.gcount());
+            } while(body.gcount() > 0);
         }
         return true;
     }
@@ -205,7 +228,11 @@ namespace detail {
         Aws::S3::Model::DeleteObjectRequest request;
         request.SetBucket(Aws::String(bucket.c_str(), bucket.size()));
         request.SetKey(Aws::String(key.c_str(), key.size()));
-        client.DeleteObject(request);
+        auto outcome = client.DeleteObject(request);
+        // deleting a non-existing object is fine (DeleteObject is idempotent)
+        if(!outcome.IsSuccess() && !isNotFound(outcome.GetError())) {
+            throw makeS3Error("could not delete object from S3", key, outcome.GetError());
+        }
     }
 
     // collect all object keys under a prefix (paginated)
@@ -219,7 +246,7 @@ namespace detail {
         do {
             auto outcome = client.ListObjectsV2(request);
             if(!outcome.IsSuccess()) {
-                break;
+                throw makeS3Error("could not list objects in S3", prefix, outcome.GetError());
             }
             result = outcome.GetResult();
             for(const auto & object : result.GetContents()) {
@@ -247,7 +274,10 @@ namespace detail {
             Aws::S3::Model::DeleteObjectsRequest request;
             request.SetBucket(Aws::String(bucket.c_str(), bucket.size()));
             request.SetDelete(del);
-            client.DeleteObjects(request);
+            auto outcome = client.DeleteObjects(request);
+            if(!outcome.IsSuccess()) {
+                throw makeS3Error("could not delete objects from S3", prefix, outcome.GetError());
+            }
         }
     }
 
@@ -281,15 +311,28 @@ namespace handle {
             return detail::makeConfiguredClient(endpoint_, region_, anon_, accessKey_, secretKey_);
         }
 
+        // list with maxKeys=1 to check whether any object exists under a prefix.
+        // The prefix must include the trailing "/" delimiter where appropriate,
+        // otherwise sibling names that merely share a prefix match too
+        // (e.g. "data" would match "data2/...").
+        inline bool anyObjectWithPrefix(Aws::S3::S3Client & client,
+                                        const std::string & prefix) const {
+            Aws::S3::Model::ListObjectsV2Request request;
+            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
+            request.WithPrefix(Aws::String(prefix.c_str(), prefix.size()));
+            request.WithMaxKeys(1);
+            const auto outcome = client.ListObjectsV2(request);
+            if(!outcome.IsSuccess()) {
+                throw detail::makeS3Error("could not list objects in S3", prefix, outcome.GetError());
+            }
+            return outcome.GetResult().GetKeyCount() > 0;
+        }
+
         // check if this handle exists (any object under the prefix)
         inline bool existsImpl() const {
             auto client = makeClient();
-            Aws::S3::Model::ListObjectsV2Request request;
-            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
-            request.WithPrefix(Aws::String(nameInBucket_.c_str(), nameInBucket_.size()));
-            request.WithMaxKeys(1);
-            const auto object_list = client.ListObjectsV2(request);
-            return object_list.IsSuccess() && object_list.GetResult().GetKeyCount() > 0;
+            const std::string prefix = nameInBucket_.empty() ? "" : nameInBucket_ + "/";
+            return anyObjectWithPrefix(client, prefix);
         }
 
         inline void keysImpl(std::vector<std::string> & out) const {
@@ -323,13 +366,13 @@ namespace handle {
 
         inline bool inImpl(const std::string & name) const {
             auto client = makeClient();
-            Aws::S3::Model::ListObjectsV2Request request;
-            request.WithBucket(Aws::String(bucketName_.c_str(), bucketName_.size()));
-            const std::string prefix = nameInBucket_ == "" ? name : (nameInBucket_ + "/" + name);
-            request.WithPrefix(Aws::String(prefix.c_str(), prefix.size()));
-            request.WithMaxKeys(1);
-            const auto object_list = client.ListObjectsV2(request);
-            return object_list.IsSuccess() && object_list.GetResult().GetKeyCount() > 0;
+            const std::string key = detail::joinKey(nameInBucket_, name);
+            // exact object (metadata file or zarr v2 "."-delimited chunk)
+            if(detail::objectExists(client, bucketName_, key)) {
+                return true;
+            }
+            // sub-group / sub-dataset: anything under "name/"
+            return anyObjectWithPrefix(client, key + "/");
         }
 
         // remove every object under this handle's prefix
@@ -541,7 +584,8 @@ namespace handle {
 
         inline void remove() const {
             if(!mode().canWrite()) {
-                return;
+                const std::string err = "Cannot remove chunk in file mode " + mode().printMode();
+                throw std::invalid_argument(err.c_str());
             }
             auto client = makeClient();
             detail::deleteObject(client, bucketName(), nameInBucket());
@@ -550,7 +594,12 @@ namespace handle {
         inline const Dataset & datasetHandle() const {return dsHandle_;}
 
         inline bool isZarr() const {return dsHandle_.isZarr();}
-        inline bool exists() const {return existsImpl();}
+        // chunks are single objects: check the exact key, NOT the prefix
+        // (prefix matching would make chunk "1.1" exist whenever "1.10" does)
+        inline bool exists() const {
+            auto client = makeClient();
+            return detail::objectExists(client, bucketName(), nameInBucket());
+        }
 
         // dummy impl
         const fs::path & path() const {static const fs::path p; return p;}

@@ -163,9 +163,13 @@ namespace s3 {
                 return;
             }
             std::vector<util::ShardEntry> entries;
-            if(util::parseShardIndex(shardBuf, nSlots_, entries)) {
-                util::extractShardBlobs(shardBuf, entries, blobs);
+            // a present but corrupt shard must fail loudly: this function feeds the
+            // write read-modify-write path, and treating corruption as "empty shard"
+            // would silently discard all other inner chunks on the next write
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+                throw std::runtime_error("z5::s3::ShardedDataset: corrupt shard index");
             }
+            util::extractShardBlobs(shardBuf, entries, blobs);
         }
 
         inline bool readShardRaw(const types::ShapeType & shardCoord,
@@ -190,6 +194,11 @@ namespace s3 {
 
         inline void writeShardBlobs(const types::ShapeType & shardCoord,
                                     const std::vector<std::vector<char>> & blobs) const override {
+            // single choke point for all sharded writes (writeChunk, removeChunk and
+            // the shard-aware writeSubarray path) -> enforce the file mode here
+            if(!handle_.mode().canWrite()) {
+                throw std::invalid_argument("Cannot write data in file mode " + handle_.mode().printMode());
+            }
             handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
             auto client = detail::makeClient(handle_);
             if(util::allSlotsEmpty(blobs)) {

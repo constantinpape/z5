@@ -80,6 +80,13 @@ namespace util {
         }
         return v;
     }
+    inline uint32_t readLE32(const char * p) {
+        uint32_t v = 0;
+        for(int i = 0; i < 4; ++i) {
+            v |= static_cast<uint32_t>(static_cast<unsigned char>(p[i])) << (8 * i);
+        }
+        return v;
+    }
     inline void writeLE64(std::vector<char> & out, uint64_t v) {
         for(int i = 0; i < 8; ++i) {
             out.push_back(static_cast<char>((v >> (8 * i)) & 0xFFu));
@@ -91,7 +98,9 @@ namespace util {
         }
     }
 
-    // parse the index located at the end of the shard buffer
+    // parse the index located at the end of the shard buffer; returns false if
+    // the shard is too small, the index checksum does not match, or an entry
+    // points outside of the data region (i.e. the shard is corrupt)
     inline bool parseShardIndex(const std::vector<char> & shard, std::size_t nSlots,
                                 std::vector<ShardEntry> & entries) {
         const std::size_t footer = 16 * nSlots + 4;  // index + crc32c
@@ -99,11 +108,23 @@ namespace util {
             return false;
         }
         const std::size_t indexStart = shard.size() - footer;
+        // validate the crc32c that buildShard stores behind the index
+        const uint32_t storedCrc = readLE32(shard.data() + shard.size() - 4);
+        if(crc32c(shard.data() + indexStart, 16 * nSlots) != storedCrc) {
+            return false;
+        }
         entries.resize(nSlots);
         for(std::size_t s = 0; s < nSlots; ++s) {
             const char * p = shard.data() + indexStart + 16 * s;
             entries[s].offset = readLE64(p);
             entries[s].nbytes = readLE64(p + 8);
+            // bound non-empty entries by the data region so corrupt offsets can
+            // never cause out-of-bounds reads downstream
+            if(!entries[s].empty() &&
+               (entries[s].offset > indexStart ||
+                entries[s].nbytes > indexStart - entries[s].offset)) {
+                return false;
+            }
         }
         return true;
     }

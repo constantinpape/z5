@@ -175,9 +175,13 @@ namespace filesystem {
             std::vector<char> shardBuf;
             readFile(shardChunk.path(), shardBuf);
             std::vector<util::ShardEntry> entries;
-            if(util::parseShardIndex(shardBuf, nSlots_, entries)) {
-                util::extractShardBlobs(shardBuf, entries, blobs);
+            // a present but corrupt shard must fail loudly: this function feeds the
+            // write read-modify-write path, and treating corruption as "empty shard"
+            // would silently discard all other inner chunks on the next write
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+                throw std::runtime_error("z5::ShardedDataset: corrupt shard index");
             }
+            util::extractShardBlobs(shardBuf, entries, blobs);
         }
 
         // read a shard once, reporting per-slot byte offset + length within shardBuf
@@ -211,6 +215,11 @@ namespace filesystem {
         // (the direct per-chunk path) calls this while holding shardMutex_.
         inline void writeShardBlobs(const types::ShapeType & shardCoord,
                                     const std::vector<std::vector<char>> & blobs) const override {
+            // single choke point for all sharded writes (writeChunk, removeChunk and
+            // the shard-aware writeSubarray path) -> enforce the file mode here
+            if(!handle_.mode().canWrite()) {
+                throw std::invalid_argument("Cannot write data in file mode " + handle_.mode().printMode());
+            }
             handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
             const auto & shardPath = shardChunk.path();
             if(util::allSlotsEmpty(blobs)) {
@@ -283,17 +292,29 @@ namespace filesystem {
 
         inline void writeFile(const fs::path & path, const std::vector<char> & buffer) const {
             std::ofstream file(path, std::ios::binary);
-            file.write(&buffer[0], buffer.size());
+            if(!file.is_open()) {
+                throw std::runtime_error("z5: cannot open shard file for writing: " + path.string());
+            }
+            file.write(buffer.data(), buffer.size());
+            if(!file.good()) {
+                throw std::runtime_error("z5: failed to write shard file: " + path.string());
+            }
             file.close();
         }
 
         inline void readFile(const fs::path & path, std::vector<char> & buffer) const {
             std::ifstream file(path, std::ios::binary);
+            if(!file.is_open()) {
+                throw std::runtime_error("z5: cannot open shard file for reading: " + path.string());
+            }
             file.seekg(0, std::ios::end);
             const std::size_t file_size = file.tellg();
             file.seekg(0, std::ios::beg);
             buffer.resize(file_size);
-            file.read(&buffer[0], file_size);
+            file.read(buffer.data(), file_size);
+            if(file.gcount() != static_cast<std::streamsize>(file_size)) {
+                throw std::runtime_error("z5: failed to read shard file: " + path.string());
+            }
             file.close();
         }
 

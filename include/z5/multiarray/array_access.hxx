@@ -266,6 +266,12 @@ namespace multiarray {
                                      const types::ShapeType & shape,
                                      const std::vector<types::ShapeType> & chunkRequests,
                                      const int numberOfThreads) {
+        // this path bypasses writeChunk, so enforce the file mode here (fail fast,
+        // before any shard is read); writeShardBlobs checks again as the choke point
+        if(!ds.mode().canWrite()) {
+            throw std::invalid_argument("Cannot write data in file mode " + ds.mode().printMode());
+        }
+
         T fillValue;
         ds.getFillValue(&fillValue);
 

@@ -33,7 +33,7 @@ namespace factory_detail {
             case types::uint64: return makeDataset<uint64_t>(handle, metadata);
             case types::float32: return makeDataset<float>(handle, metadata);
             case types::float64: return makeDataset<double>(handle, metadata);
-            default: return std::unique_ptr<z5::Dataset>();
+            default: throw std::runtime_error("Datatype is not supported by the s3 backend");
         }
     }
 

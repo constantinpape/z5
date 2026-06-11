@@ -183,6 +183,30 @@ class S3TestMixin(ABC):
         del f["grp"]
         self.assertNotIn("grp", f)
 
+    def test_chunk_exists_no_prefix_false_positive(self):
+        # regression: chunk existence used an S3 prefix query, so chunk "1..."
+        # reported as existing whenever only chunk "10..." did
+        self._require_write()
+        f = self.open(mode="w")
+        ds = f.create_dataset("data", shape=(110, 16), chunks=(10, 16),
+                              dtype="uint8")
+        ds[100:110, :] = np.full((10, 16), 7, dtype="uint8")
+        self.assertTrue(ds.chunk_exists((10, 0)))
+        self.assertFalse(ds.chunk_exists((1, 0)))
+
+    def test_create_dataset_sibling_prefix(self):
+        # regression: existence used an S3 prefix query, so creating "data"
+        # failed with "already exists" when only "data2" existed
+        self._require_write()
+        f = self.open(mode="w")
+        f.create_dataset("data2", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        self.assertIn("data2", f)
+        self.assertNotIn("data", f)
+        ds = f.create_dataset("data", shape=self.shape, chunks=self.chunks,
+                              dtype="uint8")
+        self.assertIsNotNone(ds)
+
     # ------------------------------------------------------ C. attributes ---
     def test_read_file_attrs(self):
         self._require_read()
