@@ -185,13 +185,28 @@ class TestGroupZarr(GroupTestMixin, unittest.TestCase):
 
     def test_metadata_creation(self):
         """Issue #231
+
+        Creating a dataset in an implicitly created subgroup must produce valid
+        group metadata, so that the hierarchy can be visited afterwards.
         """
         f = self.root_file
         data = (np.random.rand(1, 10, 20, 1, 1) * 255).astype(np.uint8)
+
+        def collect(visited):
+            def visitor(name, obj):
+                visited.append(name)
+            return visitor
+
         f.create_dataset("data", data=data)
-        f.visititems(print)  # Try 1: works
+        visited = []
+        f.visititems(collect(visited))
+        self.assertEqual(set(visited), {'data', 'test', 'test/test'})
+
         f.create_dataset("volume/data", data=data)
-        f.visititems(print)  # Try 2: breaks
+        visited = []
+        f.visititems(collect(visited))
+        self.assertEqual(set(visited),
+                         {'data', 'test', 'test/test', 'volume', 'volume/data'})
 
 
 @requires_z5_v3

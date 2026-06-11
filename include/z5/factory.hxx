@@ -201,7 +201,7 @@ namespace z5 {
         #endif
         #ifdef WITH_GCS
         if(file.isGcs()) {
-            gcs::createFile(file, isZarr);
+            gcs::createFile(file, isZarr, zarrFormat);
             return;
         }
         #endif
@@ -221,7 +221,7 @@ namespace z5 {
         #ifdef WITH_GCS
         if(root.isGcs()) {
             gcs::handle::Group newGroup(root, key);
-            gcs::createGroup(newGroup, root.isZarr());
+            gcs::createGroup(newGroup, root.isZarr(), zarrFormat);
             return;
         }
         #endif

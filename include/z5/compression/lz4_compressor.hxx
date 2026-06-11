@@ -16,6 +16,10 @@ namespace compression {
     class Lz4Compressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         Lz4Compressor(const DatasetMetadata & metadata) {
             init(metadata);
         }

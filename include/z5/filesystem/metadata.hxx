@@ -73,9 +73,8 @@ namespace metadata_detail {
         } else {
             // n5 stores attributes and metadata in the same file,
             // so we need to make sure that we don't overwrite attributes
-            try {
-                readAttributes(handle, j);
-            } catch(std::runtime_error) {}  // read attributes throws RE if there are no attributes, we can just ignore this
+            // (readAttributes leaves j untouched if there are none)
+            readAttributes(handle, j);
             j["n5"] = metadata.n5Format();
         }
         metadata_detail::writeMetadata(path, j);

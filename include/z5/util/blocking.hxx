@@ -127,11 +127,12 @@ namespace util {
             util::makeRegularGrid(minBlockIds, maxBlockIds, blockList);
         }
 
-        // TODO
         // return all blocks strictly in roi
         inline void getBlocksInRoi(const types::ShapeType & roiBegin,
                                    const types::ShapeType & roiShape,
                                    std::vector<types::ShapeType> & blockList) const {
+            // fail loudly instead of silently returning an empty block list
+            throw std::logic_error("Blocking::getBlocksInRoi is not implemented");
         }
 
         //

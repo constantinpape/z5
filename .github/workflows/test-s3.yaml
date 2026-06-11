@@ -1,7 +1,15 @@
 ---
 name: test-s3
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# cancel superseded runs of the same branch / PR
+concurrency:
+  group: test-s3-${{ github.ref }}
+  cancel-in-progress: true
 
 # Build with the S3 backend enabled (WITH_S3=ON, against conda-forge
 # aws-sdk-cpp) and run the S3 test suite against a local moto server. Kept as a

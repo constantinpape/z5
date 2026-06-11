@@ -3,7 +3,6 @@ from shutil import rmtree
 from abc import ABC
 
 import numpy as np
-import z5py
 
 from _v3_capability import (available_v3_compressors, format_ext,
                             open_root_file, requires_z5_v3)
@@ -53,19 +52,18 @@ class CompressionTestMixin(ABC):
                 np.multiply(in_array, max_val, casting='unsafe')
                 in_array += min_val
 
-                try:
-                    ds = f.create_dataset(ds_name,
-                                          data=in_array,
-                                          chunks=self.chunks,
-                                          compression=compression)
-                    out_array = ds[:]
-                    self.check_array(out_array, in_array,
-                                     'failed for compression %s, dtype %s, format %s' % (compression,
-                                                                                         dtype,
-                                                                                         self.data_format))
-                except RuntimeError:
-                    print("Compression", compression, "not found!")
-                    continue
+                # the compression lists above only contain compiled-in codecs, so
+                # any error here is a real failure (the previous try/except around
+                # this block swallowed genuine codec round-trip failures)
+                ds = f.create_dataset(ds_name,
+                                      data=in_array,
+                                      chunks=self.chunks,
+                                      compression=compression)
+                out_array = ds[:]
+                self.check_array(out_array, in_array,
+                                 'failed for compression %s, dtype %s, format %s' % (compression,
+                                                                                     dtype,
+                                                                                     self.data_format))
 
     def dtype_min_max(self, dt):
         dtype = np.dtype(dt)

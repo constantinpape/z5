@@ -120,21 +120,21 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     chunks = ds_in.chunks if chunks is None else chunks
     dtype = ds_in.dtype if dtype is None else dtype
 
-    # zarr objects may not have compression attribute. if so set it to the settings sent to this function
-    if not hasattr(ds_in, "compression"):
-        ds_in.compression = new_compression
-    compression = new_compression.pop("compression", ds_in.compression)
+    # some input objects (e.g. plain zarr/h5py arrays) may not have a compression
+    # attribute; fall back to the compression passed to this function then
+    in_compression = getattr(ds_in, "compression", None)
+    compression = new_compression.pop("compression", in_compression)
     compression_opts = new_compression
 
+    # when copying within the same library and keeping the codec, reuse the
+    # input dataset's compression options ('raw' passes through unchanged --
+    # substituting None here would re-compress with the default codec)
     same_lib = in_is_z5 == out_is_z5
-    if same_lib and compression == ds_in.compression:
-        compression_opts = compression_opts if compression_opts else ds_in.compression_opts
+    if same_lib and compression == in_compression and not compression_opts:
+        compression_opts = ds_in.compression_opts
 
-    if out_is_z5:
-        compression = None if compression == 'raw' else compression
-        compression_opts = {} if compression_opts is None else compression_opts
-    else:
-        compression_opts = {'compression_opts': None} if compression_opts is None else compression_opts
+    if not out_is_z5 and not compression_opts:
+        compression_opts = {'compression_opts': None}
 
     # if we don't have block-shape explicitly given, use chunk size
     # otherwise check that it's a multiple of chunks
@@ -321,15 +321,8 @@ def fetch_test_data_stent():
 
 
 def fetch_test_data():
-    try:
-        from urllib.request import urlopen
-    except ImportError:
-        from urllib2 import urlopen
-
-    try:
-        from io import BytesIO as Buffer
-    except ImportError:
-        from StringIO import StringIO as Buffer
+    from urllib.request import urlopen
+    from io import BytesIO as Buffer
 
     import zipfile
     from imageio import volread

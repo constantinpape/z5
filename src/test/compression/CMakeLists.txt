@@ -5,29 +5,35 @@ target_link_libraries(test_raw ${TEST_LIBS})
 # add blosc test
 if(WITH_BLOSC)
     add_executable(test_blosc test_blosc.cxx )
-    target_link_libraries(test_blosc ${TEST_LIBS} ${BLOSC_LIBRARIES})
+    target_link_libraries(test_blosc ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()
 
 # add gzip tests
 if(WITH_ZLIB)
     add_executable(test_zlib test_zlib.cxx)
-    target_link_libraries(test_zlib ${TEST_LIBS} ${ZLIB_LIBRARIES})
+    target_link_libraries(test_zlib ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()
 
 # add bzip tests
 if(WITH_BZIP2)
     add_executable(test_bzip2 test_bzip2.cxx)
-    target_link_libraries(test_bzip2 ${TEST_LIBS} ${BZIP2_LIBRARIES})
+    target_link_libraries(test_bzip2 ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()
 
 # add xz tests
 if(WITH_XZ)
     add_executable(test_xz test_xz.cxx)
-    target_link_libraries(test_xz ${TEST_LIBS} ${LIBLZMA_LIBRARIES})
+    target_link_libraries(test_xz ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()
 
 # add lz4 tests
 if(WITH_LZ4)
     add_executable(test_lz4 test_lz4.cxx)
-    target_link_libraries(test_lz4 ${TEST_LIBS} ${LZ4_LIBRARY})
+    target_link_libraries(test_lz4 ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
+endif()
+
+# add zstd tests
+if(WITH_ZSTD)
+    add_executable(test_zstd test_zstd.cxx)
+    target_link_libraries(test_zstd ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()

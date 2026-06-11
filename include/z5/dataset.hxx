@@ -50,9 +50,10 @@ namespace z5 {
             }
             for(int d = 0; d < shape_.size(); ++d) {
                 if(offset[d] + shape[d] > shape_[d]) {
-                    std::cout << "Out of range: " << offset << " + " << shape << std::endl;
-                    std::cout << " = " << offset[d] + shape[d] << " > " << shape_[d] << std::endl;;
-                    throw std::runtime_error("Request is out of range");
+                    throw std::runtime_error(
+                        "Request is out of range: " + std::to_string(offset[d]) + " + " +
+                        std::to_string(shape[d]) + " > " + std::to_string(shape_[d]) +
+                        " (in dimension " + std::to_string(d) + ")");
                 }
                 if(shape[d] == 0) {
                     throw std::runtime_error("Request shape has a zero entry");

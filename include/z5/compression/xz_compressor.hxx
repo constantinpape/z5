@@ -21,6 +21,10 @@ namespace compression {
     class XzCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         XzCompressor(const DatasetMetadata & metadata) {
             init(metadata);
         }

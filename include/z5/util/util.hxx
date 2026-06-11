@@ -23,7 +23,9 @@ namespace util {
         curr = in.find(delimiter);
         while(curr != std::string::npos) {
             out.push_back(in.substr(prev, curr - prev));
-            prev = curr + 1;
+            // advance by the delimiter length; advancing by 1 leaves part of a
+            // multi-character delimiter in the next token
+            prev = curr + delimiter.size();
             curr = in.find(delimiter, prev);
         }
         out.push_back(in.substr(prev, curr - prev));

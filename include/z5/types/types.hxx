@@ -563,8 +563,8 @@ namespace types {
                 const std::string tmp = val;
                 opts[key] = tmp;
             } else {
-                std::cout << val.type_name() << std::endl;
-                throw std::runtime_error("Invalid type conversion for compression type");
+                throw std::runtime_error(std::string("Invalid type conversion for compression type: ") +
+                                         val.type_name());
             }
         }
     }

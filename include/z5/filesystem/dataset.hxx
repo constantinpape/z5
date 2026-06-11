@@ -28,8 +28,6 @@ namespace filesystem {
             // seed the handle's isZarr cache from the metadata, so chunk handles
             // never need to stat the metadata files
             handle_.setIsZarr(metadata.isZarr);
-            // disable sync of c++ and c streams for potentially faster I/O
-            std::ios_base::sync_with_stdio(false);
         }
 
         //
@@ -108,9 +106,8 @@ namespace filesystem {
 
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
-                // TODO all in error message
-                std::cout << "Mytype: " << typeid(T).name() << " your type: " << type.name() << std::endl;
-                throw std::runtime_error("Request has wrong type");
+                throw std::runtime_error(std::string("Request has wrong type: expected ") +
+                                         typeid(T).name() + ", got " + type.name());
             }
         }
 

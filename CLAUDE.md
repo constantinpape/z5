@@ -50,7 +50,7 @@ There is no configured linter/formatter in this repo.
 ### Layers
 
 - **Abstract base classes** in `include/z5/`: `Dataset` (`dataset.hxx`), and the handle/metadata/attribute interfaces (`handle.hxx`, `metadata.hxx`, `attributes.hxx`). `Dataset` declares pure-virtual chunk-level IO (`writeChunk`/`readChunk`/`readRawChunk`), compression, and path operations.
-- **Backend implementations** of those bases live in `include/z5/filesystem/` (complete), `include/z5/s3/`, and `include/z5/gcs/` (both incomplete). Each provides its own `handle`, `dataset`, `metadata`, `attributes`, and `factory`.
+- **Backend implementations** of those bases live in `include/z5/filesystem/` and `include/z5/s3/` (both complete; s3 clients are cached process-wide per configuration — `makeClient()` returns a `shared_ptr` to the shared client) and `include/z5/gcs/` (an unimplemented scaffold whose operations all throw). Each provides its own `handle`, `dataset`, `metadata`, `attributes`, and `factory`.
 - **`factory.hxx`** is the entry point (`createFile`, `createDataset`, `openDataset`, etc.). It dispatches to a backend **at runtime** by inspecting the passed handle (`root.isS3()` / `root.isGcs()` / `root.isZarr()`), guarded by `WITH_S3` / `WITH_GCS` compile flags. To use a backend, call the factory with that backend's handle type (e.g. `z5::filesystem::handle::File`).
 - **`include/z5/compression/`**: one compressor per codec, all deriving from `CompressorBase` (`compress`/`decompress`/`type`). Each is gated behind its `WITH_*` define.
 - **`include/z5/multiarray/`**: in-memory IO. `array_view.hxx` defines the non-owning strided `ArrayView`/`ConstArrayView` (element strides) plus `cOrderStrides`/`subview`/`makeView`; `array_util.hxx` provides the generic strided `copyView`/`fillView`; `array_access.hxx` implements `readSubarray`/`writeSubarray` (the main user-facing IO functions) on those views; `broadcast.hxx` implements `writeScalar`. To support another multiarray type, wrap its buffer in an `ArrayView` (data pointer + shape + element strides).
@@ -66,9 +66,13 @@ logic is already factored out:
   - `forEachBuffered(nThreads, nUnits, bufSize, init, body)` — the single-/multi-threaded loop
     with one reusable buffer per thread and the `n_threads<=0` guard. Don't hand-roll a
     `ThreadPool` + per-thread buffer vector; `body` is a template param (zero overhead).
+  - `writePlainGeneric` / `writeShardedGeneric` — the chunk-by-chunk and one-RMW-per-shard
+    write drivers; the request data is written into each chunk buffer by a `fillRequest`
+    callable (`writeSubarray` copies from the input view, `writeScalar` fills a value).
   - `prepareChunkWriteBuffer(...)` — complete-overlap / zarr edge-padding / partial-overlap
-    write-buffer prep; the "read existing chunk" source is a callable you supply (chunk file
-    for plain, in-memory shard blob for sharded).
+    write-buffer prep; takes the `fillRequest` callable plus a "read existing chunk" callable
+    (chunk file for plain, in-memory shard blob for sharded). NOTE zarr stores chunks at the
+    FULL chunk shape (edge chunks are padded) — never size a chunk buffer by the clipped shape.
   - `groupChunksByShard(...)` — bucket inner chunks by shard so each shard is touched once.
 - **Codec layer** (`compression/`, `util/format_data.hxx`): go through `util::data_to_buffer`
   (compress a chunk to its on-disk blob, incl. raw + all-fill→empty handling) and

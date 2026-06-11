@@ -302,31 +302,10 @@ template<class F>
 inline std::future<void>
 ThreadPool::enqueue(F&& f)
 {
-    typedef std::packaged_task<void(int)> PackageType;
-
-    auto task = std::make_shared<PackageType>(f);
-    auto res = task->get_future();
-    if(workers.size()>0){
-        {
-            std::unique_lock<std::mutex> lock(queue_mutex);
-
-            // don't allow enqueueing after stopping the pool
-            if(stop)
-                throw std::runtime_error("enqueue on stopped ThreadPool");
-
-            tasks.emplace(
-                [task](int tid)
-                {
-                    (*task)(tid);
-                }
-            );
-        }
-        worker_condition.notify_one();
-    }
-    else{
-        (*task)(0);
-    }
-    return res;
+    // historically a separate implementation because some compilers failed on
+    // std::result_of<F(int)> for void(int) functions; with std::invoke_result_t
+    // the returning version handles void fine
+    return enqueueReturning(std::forward<F>(f));
 }
 
 /********************************************************/

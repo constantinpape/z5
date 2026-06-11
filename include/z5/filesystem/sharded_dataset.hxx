@@ -39,7 +39,6 @@ namespace filesystem {
                                                            nSlots_(util::numShardSlots(chunksPerShard_)) {
             // sharding implies zarr v3; seed the cache so chunk handles never probe
             handle_.setIsZarr(true);
-            std::ios_base::sync_with_stdio(false);
         }
 
         //

@@ -34,38 +34,43 @@ namespace gcs {
                 const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
                 throw std::invalid_argument(err.c_str());
             }
+            detail::notImplemented();
         }
 
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+            detail::notImplemented();
         }
 
         inline void readRawChunk(const types::ShapeType & chunkIndices,
                                  std::vector<char> & buffer) const {
-            // TODO implement
+            detail::notImplemented();
         }
 
         inline void checkRequestType(const std::type_info & type) const {
             if(type != typeid(T)) {
-                // TODO all in error message
-                std::cout << "Mytype: " << typeid(T).name() << " your type: " << type.name() << std::endl;
-                throw std::runtime_error("Request has wrong type");
+                throw std::runtime_error(std::string("Request has wrong type: expected ") +
+                                         typeid(T).name() + ", got " + type.name());
             }
         }
 
 
         inline bool chunkExists(const types::ShapeType & chunkId) const {
+            detail::notImplemented();
         }
         inline std::size_t getChunkSize(const types::ShapeType & chunkId) const {
+            detail::notImplemented();
         }
         inline void getChunkShape(const types::ShapeType & chunkId,
                                   types::ShapeType & chunkShape,
                                   const bool fromHeader=false) const {
+            detail::notImplemented();
         }
         inline std::size_t getChunkShape(const types::ShapeType & chunkId,
                                          const unsigned dim,
                                          const bool fromHeader=false) const {
+            detail::notImplemented();
         }
 
 
@@ -88,8 +93,14 @@ namespace gcs {
                                const std::size_t data_size) const {
             util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
         }
+        inline void decompress(const char * buffer, std::size_t nBytes,
+                               void * dataOut,
+                               const std::size_t data_size) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+        }
 
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
+            detail::notImplemented();
         }
 
         inline const FileMode & mode() const {

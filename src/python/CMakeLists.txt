@@ -12,18 +12,18 @@ add_custom_target(python-module)
 #   /blddir/python/
 #   /blddir/python/test
 ###########################################################################
-file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
+# NOTE: cmake -E copy_if_different creates destination directories itself,
+# so no explicit MAKE_DIRECTORY is needed here
+file(GLOB_RECURSE  Z5_PYTHON_FILES
     "${CMAKE_SOURCE_DIR}/src/python/module/z5py/*.py"
 )
-FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
+FOREACH(PYTHON_FILENAME   ${Z5_PYTHON_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/module/" ""
         RELATIVE_FILENAME
         ${PYTHON_FILENAME})
     string(REPLACE "/" "_"
         RELATIVE_FILENAME_TARGET_NAME
         ${RELATIVE_FILENAME})
-    get_filename_component(FILE_DIR  ${CMAKE_BINARY_DIR}/${RELATIVE_FILENAME} DIRECTORY)
-    file(MAKE_DIRECTORY ${FILE_DIR})
 
     add_custom_target(copy_${RELATIVE_FILENAME_TARGET_NAME} ALL
         COMMAND cmake -E copy_if_different
@@ -32,18 +32,16 @@ FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
     add_dependencies(python-module copy_${RELATIVE_FILENAME_TARGET_NAME})
 ENDFOREACH()
 
-file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
+file(GLOB_RECURSE  Z5_PYTHON_TEST_FILES
     "${CMAKE_SOURCE_DIR}/src/python/test/*.py"
 )
-FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
+FOREACH(PYTHON_FILENAME   ${Z5_PYTHON_TEST_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/test/" ""
         RELATIVE_FILENAME
         ${PYTHON_FILENAME})
     string(REPLACE "/" "_"
         RELATIVE_FILENAME_TARGET_NAME
         ${RELATIVE_FILENAME})
-    get_filename_component(FILE_DIR  ${CMAKE_BINARY_DIR}/${RELATIVE_FILENAME} DIRECTORY)
-    file(MAKE_DIRECTORY ${FILE_DIR})
 
     add_custom_target(copy_${RELATIVE_FILENAME_TARGET_NAME} ALL
         COMMAND cmake -E copy_if_different
@@ -63,10 +61,9 @@ macro(addPythonModule)
     set(multiValueArgs SOURCES LIBRARIES)
     cmake_parse_arguments(ADD_PY_MOD "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
-    # get name of the module
+    # get name of the module (the last component of the nested name)
     string(REPLACE "/" ";" MOD_NESTING_LIST "${ADD_PY_MOD_NESTED_NAME}")
-    list(LENGTH MOD_NESTING_LIST nesting_len)
-    LIST(GET MOD_NESTING_LIST ${LENGTH}-1 MODULE_NAME)
+    list(GET MOD_NESTING_LIST -1 MODULE_NAME)
 
 
     #Create the binding library
@@ -88,14 +85,8 @@ macro(addPythonModule)
         ${ADD_PY_MOD_LIBRARIES}
     )
 
-    IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set_target_properties(_${MODULE_NAME} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-    ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-        target_link_libraries(_${MODULE_NAME}
-            PUBLIC
-            ${PYTHON_LIBRARIES}
-        )
-    ENDIF()
+    # NOTE: nanobind_add_module handles the platform link flags itself
+    # (-undefined dynamic_lookup on macOS, the python library on Windows)
 
     # create module dir
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/${ADD_PY_MOD_NESTED_NAME})

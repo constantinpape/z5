@@ -75,7 +75,7 @@ namespace z5 {
         ASSERT_EQ(metadata.compressor, types::Compressors::zarrToCompressor()[compressor["id"]]);
         // check compression options
         ASSERT_EQ(std::get<int>(metadata.compressionOptions["level"]), compressor["clevel"]);
-        ASSERT_EQ(std::get<std::string>(metadata.compressionOptions["codec"]), compressor["cname"]);
+        ASSERT_EQ(std::get<std::string>(metadata.compressionOptions["codec"]), compressor["cname"].get<std::string>());
         ASSERT_EQ(std::get<int>(metadata.compressionOptions["shuffle"]), compressor["shuffle"]);
         // check dtype, fillvalue and order
         ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);

@@ -1,6 +1,5 @@
 # helper functions to convert to and from different formats
 # - hdf5, tiff
-from __future__ import print_function
 import os
 from math import ceil
 from concurrent import futures
@@ -197,7 +196,6 @@ if imageio:
 
         # get shape and dtype from metadata
         shape, dtype_ = _read_tif_metadata(in_path, file_names)
-        print(shape, dtype_)
 
         # create the z5 file
         f_z5 = File(out_path, use_zarr_format=use_zarr_format)
