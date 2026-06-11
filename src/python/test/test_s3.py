@@ -183,6 +183,33 @@ class S3TestMixin(ABC):
         del f["grp"]
         self.assertNotIn("grp", f)
 
+    def test_pickle(self):
+        # regression: S3File inherited Group.__reduce__, which references the
+        # root file itself -> RecursionError; groups / datasets under an S3File
+        # were unpicklable as well
+        self._require_write()
+        import pickle
+        f = self.open(mode="a")
+        f.create_dataset("data", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        f2 = pickle.loads(pickle.dumps(f))
+        self.assertIn("data", f2)
+        ds2 = pickle.loads(pickle.dumps(f["data"]))
+        self.assertEqual(tuple(ds2.shape), tuple(self.shape))
+
+    def test_visititems(self):
+        # regression: the S3File binding registered relative_path(File, File)
+        # twice instead of relative_path(File, Group), so visititems raised a
+        # TypeError for any subgroup
+        self._require_write()
+        f = self.open(mode="a")
+        f.create_group("g")
+        f.create_dataset("g/d", shape=self.shape, chunks=self.chunks,
+                         dtype="uint8")
+        names = []
+        f.visititems(lambda name, obj: names.append(name))
+        self.assertEqual(set(names), {"g", "g/d"})
+
     def test_chunk_exists_no_prefix_false_positive(self):
         # regression: chunk existence used an S3 prefix query, so chunk "1..."
         # reported as existing whenever only chunk "10..." did

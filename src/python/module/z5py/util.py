@@ -17,8 +17,11 @@ from .shape_utils import normalize_slices
 
 
 def product1d(inrange):
-    for ii in inrange:
-        yield ii
+    # 1d fallback for itertools.product: takes a list holding a single range and
+    # yields one 1-tuple per entry (the previous version yielded the range object
+    # itself once, so the blocking generator emitted a single wrong block)
+    for ii in inrange[0]:
+        yield (ii,)
 
 
 def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
@@ -138,7 +141,7 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     if block_shape is None:
         block_shape = chunks
     else:
-        assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
+        assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)), \
             "block_shape must be a multiple of chunks"
 
     shape = ds_in.shape
@@ -159,7 +162,9 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
 
     def write_single_block(bb):
         data_in = ds_in[bb].astype(dtype, copy=False)
-        if np.sum(data_in) == 0:
+        # skip blocks that contain no data; np.any, NOT the sum, which can be
+        # zero for non-zero signed / float data (silent data loss)
+        if not np.any(data_in):
             return
         if fit_to_roi and roi is not None:
             bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
@@ -179,14 +184,16 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         if verbose and tqdm is not None:
-            if roi is None:
+            if roi is not None:
                 roi_shape = [r.stop - r.start for r in roi]
-                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(roi_shape, block_shape)]))
+                n_blocks = int(np.prod([np.ceil(float(sh) / bs) for sh, bs in zip(roi_shape, block_shape)]))
             else:
-                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(shape, block_shape)]))
+                n_blocks = int(np.prod([np.ceil(float(sh) / bs) for sh, bs in zip(shape, block_shape)]))
             list(tqdm(tp.map(write_single, blocks), total=n_blocks))
         else:
-            tp.map(write_single, blocks)
+            # consume the lazy map result so worker exceptions propagate instead
+            # of being silently discarded
+            list(tp.map(write_single, blocks))
 
     # copy attributes
     in_attrs = ds_in.attrs
@@ -288,11 +295,9 @@ class Timer:
 
     @property
     def elapsed(self):
-        try:
-            return (self.stop_time - self.start_time).total_seconds()
-        except TypeError as e:
-            if "'NoneType'" in str(e):
-                raise RuntimeError("{} either not started, or not stopped".format(self))
+        if self.start_time is None or self.stop_time is None:
+            raise RuntimeError("{} either not started, or not stopped".format(self))
+        return (self.stop_time - self.start_time).total_seconds()
 
     def start(self):
         self.start_time = datetime.utcnow()
@@ -373,7 +378,7 @@ def remove_dataset(dataset, n_threads):
 def remove_chunk(dataset, chunk_id):
     """ Remove a chunk
     """
-    dataset._impl.remove_chunk(dataset._impl, chunk_id)
+    dataset._impl.remove_chunk(chunk_id)
 
 
 def remove_chunks(dataset, bounding_box):

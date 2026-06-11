@@ -207,6 +207,43 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(np.allclose(uniques, exp_uniques))
         self.assertTrue(np.allclose(counts, exp_counts))
 
+    def test_product1d(self):
+        # regression: the MemoryError fallback for 1d blocking yielded the
+        # range object itself once instead of one start point per entry
+        from z5py.util import product1d
+        self.assertEqual(list(product1d([range(3)])), [(0,), (1,), (2,)])
+
+    def test_remove_chunk(self):
+        # regression: remove_chunk passed the impl as an extra positional
+        # argument, so every call raised a TypeError
+        from z5py.util import remove_chunk
+        path = './tmp_dir/data.n5'
+        f = z5py.File(path)
+        ds = f.create_dataset('data', dtype='float64',
+                              shape=(20, 20), chunks=(10, 10))
+        ds[:] = np.random.rand(20, 20)
+        self.assertTrue(ds.chunk_exists((0, 0)))
+        remove_chunk(ds, (0, 0))
+        self.assertFalse(ds.chunk_exists((0, 0)))
+
+    def test_copy_dataset_zero_sum_blocks(self):
+        # regression: blocks whose SUM was zero were skipped, silently dropping
+        # non-zero signed data like [-5, 5]
+        from z5py.util import copy_dataset
+        in_path = os.path.join(self.tmp_dir, 'in_zs.n5')
+        out_path = os.path.join(self.tmp_dir, 'out_zs.n5')
+        f = z5py.File(in_path)
+        data = np.zeros((20, 20), dtype='int8')
+        # the (5, 5) copy block at (0, 0) sums to zero but holds data
+        data[:2, :5] = -5
+        data[2:4, :5] = 5
+        f.create_dataset('data', data=data, chunks=(10, 10))
+        # different output chunks force the block-wise (non chunk-by-chunk) copy
+        copy_dataset(in_path, out_path, 'data', 'data',
+                     n_threads=2, chunks=(5, 5))
+        f_out = z5py.File(out_path)
+        self.assertTrue(np.array_equal(f_out['data'][:], data))
+
     def test_unique_zarr_edge_chunks(self):
         # regression: the read buffer was sized by the clipped chunk size, but
         # zarr stores edge chunks padded to the full chunk shape -> heap overflow

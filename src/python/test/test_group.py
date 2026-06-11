@@ -130,6 +130,31 @@ class GroupTestMixin(ABC):
         expected_names = {'d1', 'd2'}
         self.assertEqual(names, expected_names)
 
+    def test_visititems_early_return(self):
+        # regression: a non-None return from inside a nested group neither
+        # stopped the iteration nor was propagated (h5py semantics)
+        f = self.root_file
+        f.create_group('g1')
+        f.create_dataset('g1/d1', shape=(10, 10), dtype='uint8')
+
+        def find_d1(name, obj):
+            if name.endswith('d1'):
+                return name
+
+        self.assertEqual(f.visititems(find_d1), 'g1/d1')
+
+    def test_require_dataset_read_only(self):
+        # regression: require_dataset refused to return an EXISTING, consistent
+        # dataset on a read-only file; write permissions are only needed when
+        # the dataset has to be created
+        f = z5py.File(self.path, mode='r')
+        ds = f.require_dataset('test/test', shape=self.shape, dtype='float32',
+                               chunks=(10, 10, 10))
+        self.assertEqual(ds.shape, self.shape)
+        with self.assertRaises(ValueError):
+            f.require_dataset('new_ds', shape=self.shape, dtype='float32',
+                              chunks=(10, 10, 10))
+
     def test_parent(self):
         f = self.root_file
         g = f.create_group('g')

@@ -6,6 +6,21 @@ from . import _z5py
 from .group import Group
 
 
+def _unpickle_s3_file(bucket_name, name_in_bucket, mode_str, zarr_format, dimension_separator,
+                      endpoint_url, region, anon, access_key, secret_key):
+    # reconstruct the handle directly (without running S3File.__init__, which
+    # would truncate / (re-)create the container for mode 'w' / 'x')
+    handle = _z5py.S3File(bucket_name, name_in_bucket,
+                          _z5py.FileMode(Group.file_modes[mode_str]),
+                          endpoint_url, region, anon, access_key, secret_key)
+    obj = S3File.__new__(S3File)
+    obj._init_args = (bucket_name, name_in_bucket, mode_str, zarr_format, dimension_separator,
+                      endpoint_url, region, anon, access_key, secret_key)
+    Group.__init__(obj, handle, _z5py.S3Group, parent=obj, name="",
+                   dimension_separator=dimension_separator, zarr_format=zarr_format)
+    return obj
+
+
 def _unpickle_file(path, mode_str, dimension_separator):
     # reconstruct the File handle directly (without running File.__init__, which
     # would truncate / (re-)create the file) and set up the Group state.
@@ -211,6 +226,12 @@ class S3File(Group):
         if dimension_separator is None:
             dimension_separator = '/' if zarr_format == 3 else '.'
 
+        # stored for __reduce__ (the handle does not expose the s3 configuration)
+        self._init_args = (bucket_name, name_in_bucket, mode, zarr_format, dimension_separator,
+                           '' if endpoint_url is None else endpoint_url, region, anon,
+                           '' if access_key is None else access_key,
+                           '' if secret_key is None else secret_key)
+
         handle = _z5py.S3File(bucket_name, name_in_bucket,
                               _z5py.FileMode(self.file_modes[mode]),
                               '' if endpoint_url is None else endpoint_url,
@@ -232,6 +253,12 @@ class S3File(Group):
             if not file_mode.can_create():
                 raise OSError(errno.EROFS, os.strerror(errno.EROFS), bucket_name)
             _z5py.create_file(handle, is_zarr, zarr_format)
+
+    def __reduce__(self):
+        # without this override the Group.__reduce__ inherited here references the
+        # root file itself, which cannot be pickled (RecursionError) - and with it,
+        # groups / datasets under an S3File become picklable as well
+        return (_unpickle_s3_file, self._init_args)
 
     def close(self):
         pass

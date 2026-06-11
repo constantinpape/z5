@@ -106,7 +106,10 @@ namespace z5 {
                  nb::arg("file"), nb::arg("key"))
         ;
 
-        auto f = getGroupHandle<File, File, Dataset>(m, "S3File");
+        // GROUP1 must be the s3 Group type: it registers the relative_path(File, Group)
+        // overload that visititems needs (instantiating with File registered the
+        // File overload twice and S3 visititems failed with a TypeError)
+        auto f = getGroupHandle<File, Group, Dataset>(m, "S3File");
         f
             .def(nb::init<const std::string &, const std::string &, FileMode,
                           const std::string &, const std::string &, bool,

@@ -78,6 +78,27 @@ namespace z5 {
     }
 
 
+    // Extract the scalar as CAST_T (falling back to double, so float values can
+    // still be written - truncating - to integer datasets), then write without the
+    // GIL. Funneling every value through double would silently lose precision for
+    // integers > 2^53.
+    template<class T, class CAST_T>
+    inline void writePyScalarCasted(const Dataset & ds,
+                                    const std::vector<std::size_t> & roiBegin,
+                                    const std::vector<std::size_t> & roiShape,
+                                    const nb::object & val,
+                                    const int numberOfThreads) {
+        T v;
+        try {
+            v = static_cast<T>(nb::cast<CAST_T>(val));
+        } catch(...) {
+            v = static_cast<T>(nb::cast<double>(val));
+        }
+        nb::gil_scoped_release lift_gil;
+        writePyScalar<T>(ds, roiBegin, roiShape, v, numberOfThreads);
+    }
+
+
     template<class T>
     inline nb::object readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
@@ -258,63 +279,55 @@ namespace z5 {
         // export writing scalars
         // The overloads cannot be properly resolved,
         // that's why we give the datatype as additional argument
-        // and then cast to the correct type
+        // and then cast to the correct type. The value is taken as a python
+        // object and extracted per dtype (integers via [u]int64, so values
+        // beyond 2^53 don't lose precision in a double round trip).
         module.def("write_scalar", [](const Dataset & ds,
                                       const std::vector<std::size_t> & roiBegin,
                                       const std::vector<std::size_t> & roiShape,
-                                      const double val,
+                                      const nb::object & val,
                                       const std::string & dtype,
                                       const int numberOfThreads) {
                     auto internalDtype = types::Datatypes::n5ToDtype().at(dtype);
                     switch(internalDtype) {
-                        case types::Datatype::int8 : writePyScalar<int8_t>(ds, roiBegin, roiShape,
-                                                                           static_cast<int8_t>(val),
-                                                                           numberOfThreads);
-                                                     break;
-                        case types::Datatype::int16 : writePyScalar<int16_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int16_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::int32 : writePyScalar<int32_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int32_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::int64 : writePyScalar<int64_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<int64_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint8 : writePyScalar<uint8_t>(ds, roiBegin, roiShape,
-                                                                             static_cast<uint8_t>(val),
-                                                                             numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint16 : writePyScalar<uint16_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint16_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint32 : writePyScalar<uint32_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint32_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::uint64 : writePyScalar<uint64_t>(ds, roiBegin, roiShape,
-                                                                               static_cast<uint64_t>(val),
-                                                                               numberOfThreads);
-                                                     break;
-                        case types::Datatype::float32 : writePyScalar<float>(ds, roiBegin, roiShape,
-                                                                             static_cast<float>(val),
-                                                                             numberOfThreads);
-                                                        break;
-                        case types::Datatype::float64 : writePyScalar<double>(ds, roiBegin, roiShape,
-                                                                              static_cast<double>(val),
-                                                                              numberOfThreads);
-                                                        break;
-                        case types::Datatype::complex64 : writePyScalar<std::complex<float>>(ds, roiBegin, roiShape,
-                                                                              static_cast<std::complex<float>>(val),
-                                                                              numberOfThreads);
-                                                        break;
-                        case types::Datatype::complex128 : writePyScalar<std::complex<double>>(ds, roiBegin, roiShape,
-                                                                              static_cast<std::complex<double>>(val),
-                                                                              numberOfThreads);
-                                                        break;
+                        case types::Datatype::int8 :
+                            writePyScalarCasted<int8_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int16 :
+                            writePyScalarCasted<int16_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int32 :
+                            writePyScalarCasted<int32_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::int64 :
+                            writePyScalarCasted<int64_t, int64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint8 :
+                            writePyScalarCasted<uint8_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint16 :
+                            writePyScalarCasted<uint16_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint32 :
+                            writePyScalarCasted<uint32_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::uint64 :
+                            writePyScalarCasted<uint64_t, uint64_t>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::float32 :
+                            writePyScalarCasted<float, double>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::float64 :
+                            writePyScalarCasted<double, double>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::complex64 :
+                            writePyScalarCasted<std::complex<float>, std::complex<double>>(
+                                ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::complex128 :
+                            writePyScalarCasted<std::complex<double>, std::complex<double>>(
+                                ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
                         default: throw(std::runtime_error("Invalid datatype"));
 
                     }
@@ -323,8 +336,7 @@ namespace z5 {
                   nb::arg("roi_shape"),
                   nb::arg("val"),
                   nb::arg("dtype"),
-                  nb::arg("n_threads")=1,
-                  nb::call_guard<nb::gil_scoped_release>());
+                  nb::arg("n_threads")=1);
     }
 
 }

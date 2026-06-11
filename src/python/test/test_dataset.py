@@ -276,6 +276,47 @@ class DatasetTestMixin(ABC):
                     self.assertEqual(data.shape, out.shape)
                     self.assertTrue(np.allclose(data, out))
 
+    def test_empty_slicing(self):
+        # regression: stop <= start selections (e.g. ds[5:3]) raised
+        # "negative dimensions are not allowed" instead of returning empty
+        ds = self.root_file.create_dataset('test_empty_slice', dtype='float64',
+                                           shape=(100, 100), chunks=(10, 10))
+        data = np.random.rand(100, 100)
+        ds[:] = data
+        self.assertEqual(ds[5:3].shape, (0, 100))
+        self.assertEqual(ds[8:-95].shape, (0, 100))
+        self.assertEqual(ds[3:3, 7:7].shape, (0, 0))
+        # writing an empty selection is a no-op
+        ds[5:3] = 42.
+        self.assertTrue(np.allclose(ds[:], data))
+
+    def test_require_dataset_list_shape(self):
+        # regression: list-valued shape / chunks failed the consistency check
+        # against the tuple-valued properties of the existing dataset
+        shape, chunks = (100, 100), (10, 10)
+        self.root_file.create_dataset('test_req', dtype='float32',
+                                      shape=shape, chunks=chunks)
+        ds = self.root_file.require_dataset('test_req', shape=list(shape),
+                                            dtype='float32', chunks=list(chunks))
+        self.assertEqual(ds.shape, shape)
+
+    def test_scalar_write_large_int(self):
+        # regression: scalar values were funneled through double, silently
+        # losing precision for integers > 2^53
+        val = 2 ** 63 - 1
+        ds = self.root_file.create_dataset('test_large_int', dtype='int64',
+                                           shape=(20, 20), chunks=(10, 10))
+        ds[:] = val
+        self.assertTrue(np.all(ds[:] == val))
+        val_u = 2 ** 64 - 1
+        dsu = self.root_file.create_dataset('test_large_uint', dtype='uint64',
+                                            shape=(20, 20), chunks=(10, 10))
+        dsu[:] = val_u
+        self.assertTrue(np.all(dsu[:] == val_u))
+        # floats still work for integer datasets (truncating like numpy)
+        ds[:] = 2.0
+        self.assertTrue(np.all(ds[:] == 2))
+
     def test_write_chunk_validation(self):
         # regression: write_chunk validated neither dtype nor element count,
         # so mismatched numpy arrays caused out-of-bounds reads in C++
