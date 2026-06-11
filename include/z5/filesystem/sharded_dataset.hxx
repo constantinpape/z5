@@ -37,6 +37,8 @@ namespace filesystem {
                                                            shardShape_(metadata.shardShape),
                                                            chunksPerShard_(util::chunksPerShard(metadata.shardShape, metadata.chunkShape)),
                                                            nSlots_(util::numShardSlots(chunksPerShard_)) {
+            // sharding implies zarr v3; seed the cache so chunk handles never probe
+            handle_.setIsZarr(true);
             std::ios_base::sync_with_stdio(false);
         }
 
@@ -56,7 +58,7 @@ namespace filesystem {
             // compress the inner chunk; empty (all-fill) chunks become empty slots
             std::vector<char> blob;
             const bool nonEmpty = makeChunkBlob(chunkIndices, dataIn, blob);
-            writeInnerBlob(chunkIndices, blob, nonEmpty);
+            writeInnerBlob(chunkIndices, std::move(blob), nonEmpty);
         }
 
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
@@ -274,7 +276,7 @@ namespace filesystem {
         // shardMutex_ so concurrent direct writeChunk calls to the same shard are safe;
         // the read + rebuild themselves are shared with the batched shard-aware path.
         inline void writeInnerBlob(const types::ShapeType & chunkId,
-                                   const std::vector<char> & blob,
+                                   std::vector<char> && blob,
                                    const bool nonEmpty) const {
             std::lock_guard<std::mutex> lock(shardMutex_);
 
@@ -283,7 +285,7 @@ namespace filesystem {
 
             std::vector<std::vector<char>> blobs;
             readShardBlobs(shardCoord, blobs);
-            blobs[slot] = nonEmpty ? blob : std::vector<char>();
+            blobs[slot] = nonEmpty ? std::move(blob) : std::vector<char>();
             writeShardBlobs(shardCoord, blobs);
         }
 

@@ -21,6 +21,9 @@ namespace s3 {
                 const DatasetMetadata & metadata) : z5::Dataset(metadata),
                                                     Mixin(metadata),
                                                     handle_(handle){
+            // seed the handle's isZarr cache from the metadata, so chunk handles
+            // never need the 1-2 LIST round trips of the network probe
+            handle_.setIsZarr(metadata.isZarr);
         }
 
         //
@@ -46,12 +49,12 @@ namespace s3 {
             if(!util::data_to_buffer(chunk, dataIn, buffer, Mixin::compressor_,
                                      Mixin::fillValue_, isVarlen, varSize)) {
                 // if we have data for the chunk, delete it
-                detail::deleteObject(client, chunk.bucketName(), chunk.nameInBucket());
+                detail::deleteObject(*client, chunk.bucketName(), chunk.nameInBucket());
                 return;
             }
 
             // write the chunk to s3
-            detail::putObject(client, chunk.bucketName(), chunk.nameInBucket(),
+            detail::putObject(*client, chunk.bucketName(), chunk.nameInBucket(),
                               buffer.data(), buffer.size());
         }
 
@@ -184,7 +187,7 @@ namespace s3 {
         inline bool read(const handle::Chunk & chunk, std::vector<char> & buffer) const {
             auto client = chunk.makeClient();
             // getObject reads the raw bytes binary-safe (sized by Content-Length)
-            return detail::getObject(client, chunk.bucketName(), chunk.nameInBucket(), buffer);
+            return detail::getObject(*client, chunk.bucketName(), chunk.nameInBucket(), buffer);
         }
 
         inline void checkChunk(const handle::Chunk & chunk, const bool isVarlen=false) const {

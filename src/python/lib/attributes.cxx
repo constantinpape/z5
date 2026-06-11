@@ -11,20 +11,22 @@ namespace z5 {
 
     template<class OBJECT>
     void exportAttributesT(nb::module_ & m) {
+        // attribute IO does file / network round trips (one per call for the S3
+        // backend) and only handles C++ types -> release the GIL
         m.def("write_attributes", [](const OBJECT & g, const std::string & attrs){
             const nlohmann::json j = nlohmann::json::parse(attrs);
             writeAttributes(g, j);
-        });
+        }, nb::call_guard<nb::gil_scoped_release>());
 
         m.def("read_attributes", [](const OBJECT & g){
             nlohmann::json j;
             readAttributes(g, j);
             return j.dump();
-        });
+        }, nb::call_guard<nb::gil_scoped_release>());
 
         m.def("remove_attribute", [](const OBJECT & g, const std::string & key) {
             removeAttribute(g, key);
-        });
+        }, nb::call_guard<nb::gil_scoped_release>());
     }
 
 

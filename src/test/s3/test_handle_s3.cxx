@@ -40,7 +40,7 @@ namespace {
         Aws::S3::Model::CreateBucketRequest request;
         request.SetBucket(TEST_BUCKET);
         // already-exists outcomes are fine, anything else surfaces in the tests
-        client.CreateBucket(request);
+        client->CreateBucket(request);
     }
 
 }
@@ -70,7 +70,7 @@ namespace {
 
         // the file only materializes once an object is written under its prefix
         auto client = f.makeClient();
-        s3::detail::putObjectString(client, f.bucketName(),
+        s3::detail::putObjectString(*client, f.bucketName(),
                                     s3::detail::joinKey(f.nameInBucket(), ".zgroup"),
                                     "{\"zarr_format\": 2}");
         EXPECT_TRUE(f.exists());
@@ -88,7 +88,7 @@ namespace {
         s3::handle::Group g(f, "group");
         EXPECT_FALSE(g.exists());
         g.create();
-        s3::detail::putObjectString(client, g.bucketName(),
+        s3::detail::putObjectString(*client, g.bucketName(),
                                     s3::detail::joinKey(g.nameInBucket(), ".zgroup"),
                                     "{\"zarr_format\": 2}");
         EXPECT_TRUE(g.exists());
@@ -129,7 +129,7 @@ namespace {
         auto client = f.makeClient();
 
         // only "data2" exists
-        s3::detail::putObjectString(client, f.bucketName(),
+        s3::detail::putObjectString(*client, f.bucketName(),
                                     s3::detail::joinKey(f.nameInBucket(), "data2/zarr.json"),
                                     "{}");
 

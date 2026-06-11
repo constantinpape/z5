@@ -613,8 +613,8 @@ class Dataset:
         Returns
             np.ndarray or None - chunk data, returns None if the chunk is empty
         """
-        if not self._impl.chunkExists(chunk_indices):
-            return None
+        # the existence check happens in C++ (returning None for a missing chunk);
+        # checking here as well would double the existence probe per chunk read
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 

@@ -112,13 +112,13 @@ namespace attrs_detail {
         const auto & bucket = group.bucketName();
         const std::string & base = group.nameInBucket();
         if(group.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::readV3Attributes(client, bucket, detail::joinKey(base, "zarr.json"), j);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::readV3Attributes(*client, bucket, detail::joinKey(base, "zarr.json"), j);
                 return;
             }
-            attrs_detail::readAttributes(client, bucket, detail::joinKey(base, ".zattrs"), j);
+            attrs_detail::readAttributes(*client, bucket, detail::joinKey(base, ".zattrs"), j);
         } else {
-            attrs_detail::readAttributes(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::readAttributes(*client, bucket, detail::joinKey(base, "attributes.json"), j);
         }
     }
 
@@ -128,13 +128,13 @@ namespace attrs_detail {
         const auto & bucket = group.bucketName();
         const std::string & base = group.nameInBucket();
         if(group.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::writeV3Attributes(client, bucket, detail::joinKey(base, "zarr.json"), j);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::writeV3Attributes(*client, bucket, detail::joinKey(base, "zarr.json"), j);
                 return;
             }
-            attrs_detail::writeAttributes(client, bucket, detail::joinKey(base, ".zattrs"), j);
+            attrs_detail::writeAttributes(*client, bucket, detail::joinKey(base, ".zattrs"), j);
         } else {
-            attrs_detail::writeAttributes(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::writeAttributes(*client, bucket, detail::joinKey(base, "attributes.json"), j);
         }
     }
 
@@ -144,13 +144,13 @@ namespace attrs_detail {
         const auto & bucket = group.bucketName();
         const std::string & base = group.nameInBucket();
         if(group.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::removeV3Attribute(client, bucket, detail::joinKey(base, "zarr.json"), key);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::removeV3Attribute(*client, bucket, detail::joinKey(base, "zarr.json"), key);
                 return;
             }
-            attrs_detail::removeAttribute(client, bucket, detail::joinKey(base, ".zattrs"), key);
+            attrs_detail::removeAttribute(*client, bucket, detail::joinKey(base, ".zattrs"), key);
         } else {
-            attrs_detail::removeAttribute(client, bucket, detail::joinKey(base, "attributes.json"), key);
+            attrs_detail::removeAttribute(*client, bucket, detail::joinKey(base, "attributes.json"), key);
         }
     }
 
@@ -161,13 +161,13 @@ namespace attrs_detail {
         const auto & bucket = ds.bucketName();
         const std::string & base = ds.nameInBucket();
         if(ds.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::readV3Attributes(client, bucket, detail::joinKey(base, "zarr.json"), j);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::readV3Attributes(*client, bucket, detail::joinKey(base, "zarr.json"), j);
                 return;
             }
-            attrs_detail::readAttributes(client, bucket, detail::joinKey(base, ".zattrs"), j);
+            attrs_detail::readAttributes(*client, bucket, detail::joinKey(base, ".zattrs"), j);
         } else {
-            attrs_detail::readAttributes(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::readAttributes(*client, bucket, detail::joinKey(base, "attributes.json"), j);
         }
     }
 
@@ -177,13 +177,13 @@ namespace attrs_detail {
         const auto & bucket = ds.bucketName();
         const std::string & base = ds.nameInBucket();
         if(ds.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::writeV3Attributes(client, bucket, detail::joinKey(base, "zarr.json"), j);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::writeV3Attributes(*client, bucket, detail::joinKey(base, "zarr.json"), j);
                 return;
             }
-            attrs_detail::writeAttributes(client, bucket, detail::joinKey(base, ".zattrs"), j);
+            attrs_detail::writeAttributes(*client, bucket, detail::joinKey(base, ".zattrs"), j);
         } else {
-            attrs_detail::writeAttributes(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::writeAttributes(*client, bucket, detail::joinKey(base, "attributes.json"), j);
         }
     }
 
@@ -193,13 +193,13 @@ namespace attrs_detail {
         const auto & bucket = ds.bucketName();
         const std::string & base = ds.nameInBucket();
         if(ds.isZarr()) {
-            if(attrs_detail::isV3(client, bucket, base)) {
-                attrs_detail::removeV3Attribute(client, bucket, detail::joinKey(base, "zarr.json"), key);
+            if(attrs_detail::isV3(*client, bucket, base)) {
+                attrs_detail::removeV3Attribute(*client, bucket, detail::joinKey(base, "zarr.json"), key);
                 return;
             }
-            attrs_detail::removeAttribute(client, bucket, detail::joinKey(base, ".zattrs"), key);
+            attrs_detail::removeAttribute(*client, bucket, detail::joinKey(base, ".zattrs"), key);
         } else {
-            attrs_detail::removeAttribute(client, bucket, detail::joinKey(base, "attributes.json"), key);
+            attrs_detail::removeAttribute(*client, bucket, detail::joinKey(base, "attributes.json"), key);
         }
     }
 
@@ -212,16 +212,16 @@ namespace attrs_detail {
         if(group.isZarr()) {
             // zarr v3: the child is a group iff its zarr.json declares node_type "group"
             const std::string v3Key = detail::joinKey(childBase, "zarr.json");
-            if(detail::objectExists(client, bucket, v3Key)) {
+            if(detail::objectExists(*client, bucket, v3Key)) {
                 nlohmann::json j;
-                attrs_detail::readJson(client, bucket, v3Key, j);
+                attrs_detail::readJson(*client, bucket, v3Key, j);
                 return j.value("node_type", std::string("group")) == "group";
             }
             // zarr v2: a group has a .zgroup object
-            return detail::objectExists(client, bucket, detail::joinKey(childBase, ".zgroup"));
+            return detail::objectExists(*client, bucket, detail::joinKey(childBase, ".zgroup"));
         } else {
             nlohmann::json j;
-            attrs_detail::readAttributes(client, bucket,
+            attrs_detail::readAttributes(*client, bucket,
                                          detail::joinKey(childBase, "attributes.json"), j);
             return !z5::handle::hasAllN5DatasetAttributes(j);
         }

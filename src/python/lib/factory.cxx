@@ -15,7 +15,8 @@ namespace z5 {
         m.def("open_dataset", [](const GROUP & root, const std::string & key){
             return openDataset(root, key);
         },
-        nb::arg("root"), nb::arg("key"));
+        nb::arg("root"), nb::arg("key"),
+        nb::call_guard<nb::gil_scoped_release>());
 
         m.def("create_dataset", [](const GROUP & root, const std::string & key,
                                    const std::string & dtype,
@@ -40,7 +41,8 @@ namespace z5 {
             nb::arg("dimension_separator")=".",
             nb::arg("zarr_format")=2,
             nb::arg("shards")=std::vector<std::size_t>(),
-            nb::arg("chunk_key_encoding")=std::string("default"));
+            nb::arg("chunk_key_encoding")=std::string("default"),
+            nb::call_guard<nb::gil_scoped_release>());
     }
 
 
@@ -49,17 +51,20 @@ namespace z5 {
         // file factories
         m.def("create_file", [](const FILE_ & file, const bool is_zarr, const int zarr_format){
             createFile(file, is_zarr, zarr_format);
-        }, nb::arg("file"), nb::arg("is_zarr"), nb::arg("zarr_format")=2);
+        }, nb::arg("file"), nb::arg("is_zarr"), nb::arg("zarr_format")=2,
+           nb::call_guard<nb::gil_scoped_release>());
 
         // group factories
         m.def("create_group", [](const FILE_ & file, const std::string & key, const int zarr_format){
             createGroup(file, key, zarr_format);
             return std::unique_ptr<GROUP>(new GROUP(file, key));
-        }, nb::arg("file"), nb::arg("key"), nb::arg("zarr_format")=2);
+        }, nb::arg("file"), nb::arg("key"), nb::arg("zarr_format")=2,
+           nb::call_guard<nb::gil_scoped_release>());
         m.def("create_group", [](const GROUP & group, const std::string & key, const int zarr_format){
             createGroup(group, key, zarr_format);
             return std::unique_ptr<GROUP>(new GROUP(group, key));
-        }, nb::arg("group"), nb::arg("key"), nb::arg("zarr_format")=2);
+        }, nb::arg("group"), nb::arg("key"), nb::arg("zarr_format")=2,
+           nb::call_guard<nb::gil_scoped_release>());
 
         // dataset factories
         exportDsFactories<GROUP>(m);

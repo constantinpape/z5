@@ -52,7 +52,7 @@ namespace factory_detail {
 
         std::string content;
         // zarr v3
-        if(detail::getObjectString(client, bucket, detail::joinKey(base, "zarr.json"), content)) {
+        if(detail::getObjectString(*client, bucket, detail::joinKey(base, "zarr.json"), content)) {
             const nlohmann::json j = nlohmann::json::parse(content);
             zarrFormat = 3;
             if(j.contains("chunk_key_encoding")) {
@@ -70,7 +70,7 @@ namespace factory_detail {
             return;
         }
         // zarr v2
-        if(detail::getObjectString(client, bucket, detail::joinKey(base, ".zarray"), content)) {
+        if(detail::getObjectString(*client, bucket, detail::joinKey(base, ".zarray"), content)) {
             const nlohmann::json j = nlohmann::json::parse(content);
             zarrFormat = 2;
             const auto it = j.find("dimension_separator");

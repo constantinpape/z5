@@ -25,6 +25,9 @@ namespace filesystem {
                 const DatasetMetadata & metadata) : BaseType(metadata),
                                                     Mixin(metadata),
                                                     handle_(handle){
+            // seed the handle's isZarr cache from the metadata, so chunk handles
+            // never need to stat the metadata files
+            handle_.setIsZarr(metadata.isZarr);
             // disable sync of c++ and c streams for potentially faster I/O
             std::ios_base::sync_with_stdio(false);
         }

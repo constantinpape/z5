@@ -162,8 +162,14 @@ namespace util {
         decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor);
     }
 
-    inline bool read_n5_header(std::vector<char> & buffer,
-                               std::size_t & data_size) {
+    // Parse the n5 chunk header at the start of `buffer`. Returns true for varlen
+    // chunks, sets `data_size` to the number of elements in the payload and
+    // `header_length` to the header's byte length -- the payload starts at
+    // buffer.data() + header_length (the header is NOT removed from the buffer,
+    // which would memmove the whole compressed payload).
+    inline bool read_n5_header(const std::vector<char> & buffer,
+                               std::size_t & data_size,
+                               std::size_t & header_length) {
         // every read below is validated against the buffer size first: a truncated
         // or corrupt chunk file must produce a clean error, not out-of-bounds reads
         if(buffer.size() < 4) {
@@ -210,28 +216,29 @@ namespace util {
                                         std::size_t(1), std::multiplies<std::size_t>());
         }
 
-        // cut header from the buffer
-        buffer.erase(buffer.begin(), buffer.begin() + headerlen);
-
+        header_length = headerlen;
         return is_varlen;
     }
 
 
     template<class T, class CHUNK, class COMPRESSOR>
     inline bool buffer_to_data(const z5::handle::Chunk<CHUNK> & chunk,
-                               std::vector<char> & buffer,
+                               const std::vector<char> & buffer,
                                void * dataOut,
                                const COMPRESSOR & compressor) {
 
         const bool is_zarr = chunk.isZarr();
         std::size_t chunk_size = chunk.defaultSize();
+        std::size_t header_length = 0;
         bool is_varlen = false;
 
         if(!is_zarr) {
-            is_varlen = read_n5_header(buffer, chunk_size);
+            is_varlen = read_n5_header(buffer, chunk_size, header_length);
         }
 
-        decompress<T>(buffer, dataOut, chunk_size, compressor);
+        // decode straight past the header (no copy / memmove of the payload)
+        decompress<T>(buffer.data() + header_length, buffer.size() - header_length,
+                      dataOut, chunk_size, compressor);
 
         // reverse the endianness for N5 data (unless datatype is byte)
         if(!is_zarr && sizeof(T) > 1) {

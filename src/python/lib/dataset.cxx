@@ -79,34 +79,35 @@ namespace z5 {
 
 
     template<class T>
-    inline nb::ndarray<nb::numpy, T> readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+    inline nb::object readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
         types::ShapeType shape;
+        bool exists;
 
-        // make sure the chunk exists and get the shape of the chunk
+        // check if the chunk exists and get its shape; the python layer previously
+        // did its own pre-check, doubling the existence probe (an S3 round trip)
         {
             nb::gil_scoped_release lift_gil;
-            // returning None does not work properly, so we raise
-            // if the chunk does not exist and assume that this is checked
-            // in python beforehand
-            if(!ds.chunkExists(chunkId)) {
-                throw std::runtime_error("Cannot read chunk because it does not exist.");
+            exists = ds.chunkExists(chunkId);
+            if(exists) {
+                // get the shape of the output data
+                // varlen: return data as 1D array otherwise return ND array
+                std::size_t chunkSize;
+                const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
+                if(isVarlen) {
+                    shape = types::ShapeType({chunkSize});
+                } else if(ds.isZarr()) {
+                    // zarr chunks are always stored at the full chunk shape (edge chunks
+                    // are padded); readChunk decompresses the full chunk, so the output
+                    // must be allocated accordingly
+                    shape = ds.defaultChunkShape();
+                } else {
+                    ds.getChunkShape(chunkId, shape);
+                }
             }
-
-            // get the shape of the output data
-            // varlen: return data as 1D array otherwise return ND array
-            std::size_t chunkSize;
-            const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
-            if(isVarlen) {
-                shape = types::ShapeType({chunkSize});
-            } else if(ds.isZarr()) {
-                // zarr chunks are always stored at the full chunk shape (edge chunks
-                // are padded); readChunk decompresses the full chunk, so the output
-                // must be allocated accordingly
-                shape = ds.defaultChunkShape();
-            } else {
-                ds.getChunkShape(chunkId, shape);
-            }
+        }
+        if(!exists) {
+            return nb::none();
         }
 
         // allocate the data and read the chunk; hold the buffer in a unique_ptr so
@@ -122,7 +123,7 @@ namespace z5 {
 
         // hand ownership of the buffer to numpy via a capsule
         nb::capsule owner(data.get(), [](void * p) noexcept { delete[] static_cast<T*>(p); });
-        return nb::ndarray<nb::numpy, T>(data.release(), shape.size(), shape.data(), owner);
+        return nb::cast(nb::ndarray<nb::numpy, T>(data.release(), shape.size(), shape.data(), owner));
     }
 
 
@@ -193,14 +194,14 @@ namespace z5 {
         dsClass
             .def("chunkExists", [](const Dataset & ds, const types::ShapeType & chunkIndices){
                 return ds.chunkExists(chunkIndices);
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("getChunkShape", [](const Dataset & ds,
                                      const types::ShapeType & chunkIndices,
                                      const bool fromHeader){
                 types::ShapeType chunkShape;
                 ds.getChunkShape(chunkIndices, chunkShape, fromHeader);
                 return chunkShape;
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
 
             //
             // shapes and stuff

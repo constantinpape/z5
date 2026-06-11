@@ -34,19 +34,19 @@ namespace meta_detail {
         const std::string & base = handle.nameInBucket();
         const bool isZarr = metadata.isZarr;
         if(isZarr && metadata.zarrFormat == 3) {
-            meta_detail::writeV3GroupMetadata(client, bucket, base, metadata);
+            meta_detail::writeV3GroupMetadata(*client, bucket, base, metadata);
             return;
         }
         if(isZarr) {
             nlohmann::json j;
             j["zarr_format"] = metadata.zarrFormat;
-            attrs_detail::writeJson(client, bucket, detail::joinKey(base, ".zgroup"), j);
+            attrs_detail::writeJson(*client, bucket, detail::joinKey(base, ".zgroup"), j);
         } else {
             // n5 stores attributes and metadata in the same file: preserve attributes
             nlohmann::json j = nlohmann::json::object();
-            attrs_detail::readJson(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::readJson(*client, bucket, detail::joinKey(base, "attributes.json"), j);
             j["n5"] = metadata.n5Format();
-            attrs_detail::writeJson(client, bucket, detail::joinKey(base, "attributes.json"), j);
+            attrs_detail::writeJson(*client, bucket, detail::joinKey(base, "attributes.json"), j);
         }
     }
 
@@ -56,14 +56,14 @@ namespace meta_detail {
         const bool isZarr = metadata.isZarr;
         if(isZarr && metadata.zarrFormat == 3) {
             auto client = detail::makeClient(handle);
-            meta_detail::writeV3GroupMetadata(client, handle.bucketName(), handle.nameInBucket(), metadata);
+            meta_detail::writeV3GroupMetadata(*client, handle.bucketName(), handle.nameInBucket(), metadata);
             return;
         }
         if(isZarr) {
             auto client = detail::makeClient(handle);
             nlohmann::json j;
             j["zarr_format"] = metadata.zarrFormat;
-            attrs_detail::writeJson(client, handle.bucketName(),
+            attrs_detail::writeJson(*client, handle.bucketName(),
                                     detail::joinKey(handle.nameInBucket(), ".zgroup"), j);
         }
         // we don't need to write metadata for n5 groups
@@ -79,20 +79,20 @@ namespace meta_detail {
             const std::string key = detail::joinKey(base, "zarr.json");
             // preserve inline user attributes already on store
             nlohmann::json existing;
-            const bool hasExisting = attrs_detail::readJson(client, bucket, key, existing);
+            const bool hasExisting = attrs_detail::readJson(*client, bucket, key, existing);
             nlohmann::json j;
             metadata.toJson(j);
             if(hasExisting && existing.contains("attributes")) {
                 j["attributes"] = existing["attributes"];
             }
-            attrs_detail::writeJson(client, bucket, key, j);
+            attrs_detail::writeJson(*client, bucket, key, j);
             return;
         }
 
         const std::string key = detail::joinKey(base, metadata.isZarr ? ".zarray" : "attributes.json");
         nlohmann::json j;
         metadata.toJson(j);
-        attrs_detail::writeJson(client, bucket, key, j);
+        attrs_detail::writeJson(*client, bucket, key, j);
     }
 
 
@@ -102,8 +102,8 @@ namespace meta_detail {
         const std::string & base = handle.nameInBucket();
 
         // detect the metadata format by object existence (zarr v3 takes precedence)
-        const bool hasV3 = detail::objectExists(client, bucket, detail::joinKey(base, "zarr.json"));
-        const bool hasV2 = !hasV3 && detail::objectExists(client, bucket, detail::joinKey(base, ".zarray"));
+        const bool hasV3 = detail::objectExists(*client, bucket, detail::joinKey(base, "zarr.json"));
+        const bool hasV2 = !hasV3 && detail::objectExists(*client, bucket, detail::joinKey(base, ".zarray"));
         const bool isZarr = hasV3 || hasV2;
 
         std::string key;
@@ -116,7 +116,7 @@ namespace meta_detail {
         }
 
         nlohmann::json j;
-        if(!attrs_detail::readJson(client, bucket, key, j)) {
+        if(!attrs_detail::readJson(*client, bucket, key, j)) {
             throw std::runtime_error("z5::s3::readMetadata: no dataset metadata found at " + base);
         }
         metadata.fromJson(j, isZarr);

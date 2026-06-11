@@ -89,8 +89,9 @@ namespace multiarray {
 
             // get the shape of the chunk (as it is stored)
             std::size_t chunkStoreSize = maxChunkSize;
+            std::size_t headerLength = 0;
             if(!isZarr) {
-                if(util::read_n5_header(dataBuffer, chunkStoreSize)) {
+                if(util::read_n5_header(dataBuffer, chunkStoreSize, headerLength)) {
                     throw std::runtime_error("Can't read from varlen chunks to multiarray");
                 }
             }
@@ -107,8 +108,9 @@ namespace multiarray {
                 buffer.resize(chunkSize);
             }
 
-            // decompress the data
-            ds.decompress(dataBuffer, &buffer[0], chunkSize);
+            // decompress the data, decoding straight past the n5 header (no memmove)
+            ds.decompress(dataBuffer.data() + headerLength, dataBuffer.size() - headerLength,
+                          &buffer[0], chunkSize);
 
             // reverse the endianness for N5 data (unless datatype is byte)
             if(!isZarr && sizeof(T) > 1) {
@@ -346,7 +348,13 @@ namespace multiarray {
                         return true;
                     });
                 const bool nonEmpty = ds.makeChunkBlob(chunkId, &buffer[0], blob);
-                blobs[slot] = nonEmpty ? blob : std::vector<char>();
+                // swap instead of copy; every compressor overwrites its output, so
+                // reusing `blob` (now holding the slot's old bytes) is safe
+                if(nonEmpty) {
+                    blobs[slot].swap(blob);
+                } else {
+                    blobs[slot].clear();
+                }
             }
             ds.writeShardBlobs(shardCoord, blobs);
         };

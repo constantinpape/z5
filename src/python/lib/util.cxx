@@ -36,7 +36,12 @@ namespace z5 {
         module.def(fname.c_str(), [](const Dataset & ds,
                                      const int n_threads){
             std::set<T> unique_set;
-            util::unique(ds, n_threads, unique_set);
+            {
+                // the scan reads the whole dataset; don't block other python threads
+                // (the GIL is re-acquired before the numpy arrays are built below)
+                nb::gil_scoped_release lift_gil;
+                util::unique(ds, n_threads, unique_set);
+            }
 
             const std::size_t n = unique_set.size();
             T * data = new T[n];
@@ -53,7 +58,12 @@ namespace z5 {
         module.def(fname.c_str(), [](const Dataset & ds,
                                      const int n_threads){
             std::map<T, std::size_t> unique_map;
-            util::uniqueWithCounts(ds, n_threads, unique_map);
+            {
+                // the scan reads the whole dataset; don't block other python threads
+                // (the GIL is re-acquired before the numpy arrays are built below)
+                nb::gil_scoped_release lift_gil;
+                util::uniqueWithCounts(ds, n_threads, unique_map);
+            }
 
             const std::size_t n = unique_map.size();
             T * uniques = new T[n];

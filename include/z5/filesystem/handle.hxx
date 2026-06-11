@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <string>
 
 #include "z5/handle.hxx"
@@ -200,10 +201,30 @@ namespace handle {
         Dataset(const fs::path & path, const FileMode & mode)
             : BaseType(mode), HandleImpl(path) {}
 
+        // copy keeps the cached isZarr flag (atomics are not copyable by default)
+        Dataset(const Dataset & other)
+            : BaseType(other), HandleImpl(other),
+              isZarrCache_(other.isZarrCache_.load(std::memory_order_relaxed)) {}
+
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return false;}
         inline bool exists() const {return pathExists();}
-        inline bool isZarr() const {return isZarrDataset();}
+
+        // isZarrDataset() stats metadata files and is queried for every chunk handle
+        // (the chunk-key format depends on it), so the result is cached; the owning
+        // filesystem::Dataset seeds the cache from its metadata via setIsZarr
+        inline bool isZarr() const {
+            signed char cached = isZarrCache_.load(std::memory_order_relaxed);
+            if(cached < 0) {
+                cached = isZarrDataset() ? 1 : 0;
+                isZarrCache_.store(cached, std::memory_order_relaxed);
+            }
+            return cached == 1;
+        }
+        inline void setIsZarr(const bool isZarr) const {
+            isZarrCache_.store(isZarr ? 1 : 0, std::memory_order_relaxed);
+        }
+
         inline const fs::path & path() const {return getPath();}
 
         inline void create() const {
@@ -233,6 +254,10 @@ namespace handle {
         // dummy implementation
         const std::string & bucketName() const {return dummy();}
         const std::string & nameInBucket() const {return dummy();}
+
+    private:
+        // -1: unknown (probe on first use), 0: n5, 1: zarr
+        mutable std::atomic<signed char> isZarrCache_{-1};
     };
 
 

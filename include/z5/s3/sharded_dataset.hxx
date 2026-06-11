@@ -32,6 +32,8 @@ namespace s3 {
                                                            shardShape_(metadata.shardShape),
                                                            chunksPerShard_(util::chunksPerShard(metadata.shardShape, metadata.chunkShape)),
                                                            nSlots_(util::numShardSlots(chunksPerShard_)) {
+            // sharding implies zarr v3; seed the cache so chunk handles never probe
+            handle_.setIsZarr(true);
         }
 
         //
@@ -48,7 +50,7 @@ namespace s3 {
 
             std::vector<char> blob;
             const bool nonEmpty = makeChunkBlob(chunkIndices, dataIn, blob);
-            writeInnerBlob(chunkIndices, blob, nonEmpty);
+            writeInnerBlob(chunkIndices, std::move(blob), nonEmpty);
         }
 
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
@@ -199,12 +201,12 @@ namespace s3 {
             handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
             auto client = detail::makeClient(handle_);
             if(util::allSlotsEmpty(blobs)) {
-                detail::deleteObject(client, shardChunk.bucketName(), shardChunk.nameInBucket());
+                detail::deleteObject(*client, shardChunk.bucketName(), shardChunk.nameInBucket());
                 return;
             }
             std::vector<char> out;
             util::buildShard(blobs, out);
-            detail::putObject(client, shardChunk.bucketName(), shardChunk.nameInBucket(),
+            detail::putObject(*client, shardChunk.bucketName(), shardChunk.nameInBucket(),
                               out.data(), out.size());
         }
 
@@ -233,7 +235,7 @@ namespace s3 {
                                     std::vector<char> & shardBuf) const {
             handle::Chunk shardChunk(handle_, shardCoord, shardShape_, shape());
             auto client = detail::makeClient(handle_);
-            return detail::getObject(client, shardChunk.bucketName(),
+            return detail::getObject(*client, shardChunk.bucketName(),
                                      shardChunk.nameInBucket(), shardBuf);
         }
 
@@ -252,14 +254,14 @@ namespace s3 {
         // replace one inner chunk's blob in its shard (read-modify-write), serialized
         // so concurrent direct writeChunk calls to the same shard are safe.
         inline void writeInnerBlob(const types::ShapeType & chunkId,
-                                   const std::vector<char> & blob,
+                                   std::vector<char> && blob,
                                    const bool nonEmpty) const {
             std::lock_guard<std::mutex> lock(shardMutex_);
             const auto shardCoord = util::shardId(chunkId, chunksPerShard_);
             const std::size_t slot = util::shardSlot(chunkId, chunksPerShard_);
             std::vector<std::vector<char>> blobs;
             readShardBlobs(shardCoord, blobs);
-            blobs[slot] = nonEmpty ? blob : std::vector<char>();
+            blobs[slot] = nonEmpty ? std::move(blob) : std::vector<char>();
             writeShardBlobs(shardCoord, blobs);
         }
 
