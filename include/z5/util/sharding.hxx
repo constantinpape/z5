@@ -133,7 +133,12 @@ namespace util {
     inline void extractShardBlobs(const std::vector<char> & shard,
                                   const std::vector<ShardEntry> & entries,
                                   std::vector<std::vector<char>> & blobs) {
-        blobs.assign(entries.size(), std::vector<char>());
+        // clear slot-by-slot (not assign) so a caller-reused `blobs` keeps the slot
+        // vectors' capacity across shards
+        blobs.resize(entries.size());
+        for(auto & blob : blobs) {
+            blob.clear();
+        }
         for(std::size_t s = 0; s < entries.size(); ++s) {
             if(!entries[s].empty()) {
                 const auto off = entries[s].offset;

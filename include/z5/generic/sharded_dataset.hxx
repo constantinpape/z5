@@ -170,7 +170,12 @@ namespace generic {
         // slots. 'shardCoord' is the shard's coordinate in the (outer) shard grid.
         inline void readShardBlobs(const types::ShapeType & shardCoord,
                                    std::vector<std::vector<char>> & blobs) const override {
-            blobs.assign(nSlots_, std::vector<char>());
+            // clear slot-by-slot (not assign) so a caller-reused `blobs` keeps the slot
+            // vectors' capacity across shards
+            blobs.resize(nSlots_);
+            for(auto & blob : blobs) {
+                blob.clear();
+            }
             ChunkHandleType shardChunk(handle_, shardCoord, shardShape_, shape());
             std::vector<char> shardBuf;
             if(!STORE::read(shardChunk, shardBuf, "shard")) {

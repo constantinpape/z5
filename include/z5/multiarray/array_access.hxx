@@ -43,6 +43,36 @@ namespace multiarray {
     }
 
 
+    // Like forEachBuffered, but with an arbitrary per-thread state object constructed by
+    // `makeState()`. The shard paths use this to reuse ALL their large scratch buffers
+    // across shards: repeatedly allocating and freeing buffers of hundreds of KB to MBs
+    // makes throughput dependent on the allocator's mmap/trim heuristics (page faults on
+    // every cycle in the unlucky mode), which reuse avoids deterministically.
+    template<typename MAKE_STATE, typename BODY>
+    inline void forEachWithState(const int numberOfThreads, const std::size_t nUnits,
+                                 MAKE_STATE && makeState, BODY && body) {
+        if(numberOfThreads == 1) {
+            auto state = makeState();
+            for(std::size_t i = 0; i < nUnits; ++i) {
+                body(state, i);
+            }
+        } else {
+            util::ThreadPool tp(numberOfThreads);
+            // see forEachBuffered for the max(1, ...): a pool with 0 workers still runs
+            // tasks (synchronously) with thread id 0
+            const int nThreads = std::max(1, static_cast<int>(tp.nThreads()));
+            std::vector<decltype(makeState())> states;
+            states.reserve(nThreads);
+            for(int t = 0; t < nThreads; ++t) {
+                states.emplace_back(makeState());
+            }
+            util::parallel_foreach(tp, nUnits, [&](const int tId, const std::size_t i){
+                body(states[tId], i);
+            });
+        }
+    }
+
+
     template<typename T>
     inline void readSubarrayPlain(const Dataset & ds,
                                   const ArrayView<T> & out,
@@ -325,20 +355,26 @@ namespace multiarray {
             groups.push_back(&kv);
         }
 
+        // per-thread scratch, reused across the thread's shards (see forEachWithState)
+        struct Scratch {
+            std::vector<T> buffer;                 // chunk write buffer
+            std::vector<std::vector<char>> blobs;  // per-slot compressed blobs
+            std::vector<char> blob;                // compressed blob of the current chunk
+        };
+
         // process a single shard: read it once, update the touched slots, write it once
-        auto processShard = [&](std::vector<T> & buffer,
+        auto processShard = [&](Scratch & scratch,
                                 const types::ShapeType & shardCoord,
                                 const std::vector<types::ShapeType> & innerChunks) {
-            std::vector<std::vector<char>> blobs;
+            auto & blobs = scratch.blobs;
             ds.readShardBlobs(shardCoord, blobs);  // preserves untouched slots; cheap if absent
 
             types::ShapeType chunkShape;
-            std::vector<char> blob;
             for(const auto & chunkId : innerChunks) {
                 const std::size_t slot = util::shardSlot(chunkId, cps);
                 prepareChunkWriteBuffer<T>(
                     ds, chunking, offset, shape, chunkId, isZarr, maxChunkSize,
-                    fillValue, buffer, chunkShape, fillRequest,
+                    fillValue, scratch.buffer, chunkShape, fillRequest,
                     [&](std::vector<T> & buf) -> bool {
                         // partial overlap: serve the existing chunk from the in-memory shard
                         if(blobs[slot].empty()) {
@@ -347,11 +383,11 @@ namespace multiarray {
                         ds.decompress(blobs[slot], &buf[0], buf.size());
                         return true;
                     });
-                const bool nonEmpty = ds.makeChunkBlob(chunkId, &buffer[0], blob);
+                const bool nonEmpty = ds.makeChunkBlob(chunkId, &scratch.buffer[0], scratch.blob);
                 // swap instead of copy; every compressor overwrites its output, so
                 // reusing `blob` (now holding the slot's old bytes) is safe
                 if(nonEmpty) {
-                    blobs[slot].swap(blob);
+                    blobs[slot].swap(scratch.blob);
                 } else {
                     blobs[slot].clear();
                 }
@@ -360,9 +396,10 @@ namespace multiarray {
         };
 
         // one task per shard (so each shard file has a single writer -> no lock needed)
-        forEachBuffered<T>(numberOfThreads, groups.size(), maxChunkSize, fillValue,
-                           [&](std::vector<T> & buffer, const std::size_t i){
-            processShard(buffer, groups[i]->first, groups[i]->second);
+        forEachWithState(numberOfThreads, groups.size(),
+                         [&]{ return Scratch{std::vector<T>(maxChunkSize, fillValue), {}, {}}; },
+                         [&](Scratch & scratch, const std::size_t i){
+            processShard(scratch, groups[i]->first, groups[i]->second);
         });
     }
 
@@ -408,13 +445,21 @@ namespace multiarray {
         // constant across chunks, so compute them once.
         const auto chunkStrides = cOrderStrides(maxChunkShape);
 
+        // per-thread scratch, reused across the thread's shards (see forEachWithState)
+        struct Scratch {
+            std::vector<T> buffer;               // chunk decode buffer
+            std::vector<char> shardBuf;          // raw shard bytes
+            std::vector<std::size_t> offsets;    // per-slot offsets within shardBuf
+            std::vector<std::size_t> nbytes;     // per-slot byte counts
+        };
+
         // process a single shard: read it once, decode the requested inner chunks in place
-        auto processShard = [&](std::vector<T> & buffer,
+        auto processShard = [&](Scratch & scratch,
                                 const types::ShapeType & shardCoord,
                                 const std::vector<types::ShapeType> & innerChunks) {
-            std::vector<char> shardBuf;
-            std::vector<std::size_t> offsets, nbytes;
-            const bool exists = ds.readShardRaw(shardCoord, shardBuf, offsets, nbytes);
+            auto & buffer = scratch.buffer;
+            const bool exists = ds.readShardRaw(shardCoord, scratch.shardBuf,
+                                                scratch.offsets, scratch.nbytes);
 
             types::ShapeType offsetInRequest, requestShape, offsetInChunk;
             for(const auto & chunkId : innerChunks) {
@@ -424,7 +469,7 @@ namespace multiarray {
                 const auto outView = subview(out, offsetInRequest, requestShape);
 
                 // empty / never-written slot -> fill value
-                if(!exists || nbytes[slot] == 0) {
+                if(!exists || scratch.nbytes[slot] == 0) {
                     fillView(outView, fillValue);
                     continue;
                 }
@@ -433,16 +478,17 @@ namespace multiarray {
                 if(buffer.size() != maxChunkSize) {
                     buffer.resize(maxChunkSize);
                 }
-                ds.decompress(shardBuf.data() + offsets[slot], nbytes[slot],
-                              &buffer[0], maxChunkSize);
+                ds.decompress(scratch.shardBuf.data() + scratch.offsets[slot],
+                              scratch.nbytes[slot], &buffer[0], maxChunkSize);
                 const ConstArrayView<T> chunkView(buffer.data(), maxChunkShape, chunkStrides);
                 copyView(subview(chunkView, offsetInChunk, requestShape), outView);
             }
         };
 
-        forEachBuffered<T>(numberOfThreads, groups.size(), maxChunkSize, T(),
-                           [&](std::vector<T> & buffer, const std::size_t i){
-            processShard(buffer, groups[i]->first, groups[i]->second);
+        forEachWithState(numberOfThreads, groups.size(),
+                         [&]{ return Scratch{std::vector<T>(maxChunkSize, T()), {}, {}, {}}; },
+                         [&](Scratch & scratch, const std::size_t i){
+            processShard(scratch, groups[i]->first, groups[i]->second);
         });
     }
 
