@@ -1,4 +1,5 @@
 #include <complex>
+#include <memory>
 #include <numeric>
 
 #include <nanobind/nanobind.h>
@@ -98,24 +99,30 @@ namespace z5 {
             const bool isVarlen = ds.checkVarlenChunk(chunkId, chunkSize);
             if(isVarlen) {
                 shape = types::ShapeType({chunkSize});
+            } else if(ds.isZarr()) {
+                // zarr chunks are always stored at the full chunk shape (edge chunks
+                // are padded); readChunk decompresses the full chunk, so the output
+                // must be allocated accordingly
+                shape = ds.defaultChunkShape();
             } else {
                 ds.getChunkShape(chunkId, shape);
             }
         }
 
-        // allocate the data and read the chunk
+        // allocate the data and read the chunk; hold the buffer in a unique_ptr so
+        // it is released if readChunk throws (corrupt chunk, decompression failure)
         const std::size_t size = std::accumulate(shape.begin(), shape.end(),
                                                  static_cast<std::size_t>(1),
                                                  std::multiplies<std::size_t>());
-        T * data = new T[size];
+        std::unique_ptr<T[]> data(new T[size]);
         {
             nb::gil_scoped_release lift_gil;
-            ds.readChunk(chunkId, data);
+            ds.readChunk(chunkId, data.get());
         }
 
         // hand ownership of the buffer to numpy via a capsule
-        nb::capsule owner(data, [](void * p) noexcept { delete[] static_cast<T*>(p); });
-        return nb::ndarray<nb::numpy, T>(data, shape.size(), shape.data(), owner);
+        nb::capsule owner(data.get(), [](void * p) noexcept { delete[] static_cast<T*>(p); });
+        return nb::ndarray<nb::numpy, T>(data.release(), shape.size(), shape.data(), owner);
     }
 
 
@@ -124,6 +131,21 @@ namespace z5 {
                              const types::ShapeType & chunkId,
                              const nb::ndarray<nb::numpy, const T, nb::c_contig> in,
                              const bool isVarlen) {
+        // the chunk writer reinterprets the buffer as the DATASET's dtype and reads
+        // the full chunk's worth of it, so both the dtype and the element count must
+        // be validated here to prevent out-of-bounds reads of the numpy buffer
+        ds.checkRequestType(typeid(T));
+        if(!isVarlen) {
+            // zarr chunks are stored at the full chunk shape, n5 chunks at the
+            // boundary-clipped shape
+            const std::size_t expected = ds.isZarr() ? ds.defaultChunkSize()
+                                                     : ds.getChunkSize(chunkId);
+            if(in.size() != expected) {
+                throw std::runtime_error(
+                    "Chunk data has the wrong number of elements: " +
+                    std::to_string(in.size()) + " instead of " + std::to_string(expected));
+            }
+        }
         ds.writeChunk(chunkId, in.data(), isVarlen,
                       isVarlen ? in.size() : 0);
     }

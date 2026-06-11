@@ -395,6 +395,8 @@ namespace types {
                         if(options.find("level") == options.end()){options["level"] = 5;}
                         if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
                         if(options.find("blocksize") == options.end()){options["blocksize"] = 0;}
+                        // n5 metadata serialization reads "nthreads" unconditionally
+                        if(options.find("nthreads") == options.end()){options["nthreads"] = 1;}
                         break;
             #endif
             #ifdef WITH_ZLIB

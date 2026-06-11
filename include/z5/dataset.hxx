@@ -32,7 +32,7 @@ namespace z5 {
                                                     dtype_(metadata.dtype),
                                                     shape_(metadata.shape),
                                                     chunkShape_(metadata.chunkShape),
-                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>())),
+                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), std::size_t(1), std::multiplies<std::size_t>())),
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     chunking_(shape_, chunkShape_)
         {}
@@ -73,7 +73,7 @@ namespace z5 {
         inline const types::ShapeType & shape() const {return shape_;}
         inline std::size_t shape(const unsigned d) const {return shape_[d];}
         inline std::size_t size() const {
-            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(shape_.begin(), shape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
         inline void getChunkOffset(const types::ShapeType & chunkId, types::ShapeType & chunkOffset) const {

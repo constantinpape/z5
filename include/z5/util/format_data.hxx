@@ -143,6 +143,11 @@ namespace util {
                            const std::size_t data_size, const COMPRESSOR & compressor) {
         // we don't need to decompress for raw compression
         if(compressor->type() == 0) {
+            // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
+            // slot length) must not overflow the caller's buffer
+            if(nBytes > data_size * sizeof(T)) {
+                throw std::runtime_error("z5: raw chunk is larger than the expected chunk size");
+            }
             // mem-copy the binary data that was read to typed out data
             memcpy((T*) dataOut, buffer, nBytes);
         } else {
@@ -159,6 +164,12 @@ namespace util {
 
     inline bool read_n5_header(std::vector<char> & buffer,
                                std::size_t & data_size) {
+        // every read below is validated against the buffer size first: a truncated
+        // or corrupt chunk file must produce a clean error, not out-of-bounds reads
+        if(buffer.size() < 4) {
+            throw std::runtime_error("z5: invalid n5 chunk: truncated header");
+        }
+
         // read the mode
         uint16_t mode;
         memcpy(&mode, &buffer[0], 2);
@@ -168,6 +179,12 @@ namespace util {
         uint16_t ndim;
         memcpy(&ndim, &buffer[2], 2);
         util::reverseEndiannessInplace(ndim);
+
+        const bool is_varlen = mode == 1;
+        const std::size_t fullHeaderLen = (ndim + 1) * 4 + (is_varlen ? 4 : 0);
+        if(buffer.size() < fullHeaderLen) {
+            throw std::runtime_error("z5: invalid n5 chunk: truncated header");
+        }
 
         // read temporary shape with uint32 entries
         std::vector<uint32_t> shape(ndim);
@@ -181,7 +198,6 @@ namespace util {
 
         std::size_t headerlen = (ndim + 1) * 4;
 
-        const bool is_varlen = mode == 1;
         // read the varlength if the chunk is in varlength mode
         if(is_varlen) {
             uint32_t varlength;
@@ -191,7 +207,7 @@ namespace util {
             headerlen += 4;
         } else {
             data_size = std::accumulate(shape.begin(), shape.end(),
-                                        1, std::multiplies<uint32_t>());
+                                        std::size_t(1), std::multiplies<std::size_t>());
         }
 
         // cut header from the buffer

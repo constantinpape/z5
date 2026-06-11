@@ -137,14 +137,17 @@ namespace handle {
     template<class CHUNK>
     class Chunk : public Handle {
     public:
+        // the shapes are stored BY VALUE: chunk handles are frequently constructed
+        // from temporaries (e.g. the shard coordinate returned by util::shardId), so
+        // reference members would dangle as soon as the constructing statement ends
         Chunk(const types::ShapeType & chunkIndices,
               const types::ShapeType & defaultShape,
               const types::ShapeType & datasetShape,
-              const FileMode mode) : chunkIndices_(chunkIndices),
+              const FileMode mode) : Handle(mode),
+                                     chunkIndices_(chunkIndices),
                                      defaultShape_(defaultShape),
                                      datasetShape_(datasetShape),
-                                     boundedShape_(computeBoundedShape()),
-                                     Handle(mode){}
+                                     boundedShape_(computeBoundedShape()){}
         virtual ~Chunk() {}
 
         // expose relevant part of the derived's class API
@@ -171,7 +174,7 @@ namespace handle {
         }
 
         inline std::size_t size() const {
-            return std::accumulate(boundedShape_.begin(), boundedShape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(boundedShape_.begin(), boundedShape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
         inline const types::ShapeType & defaultShape() const {
@@ -179,7 +182,7 @@ namespace handle {
         }
 
         inline std::size_t defaultSize() const {
-            return std::accumulate(defaultShape_.begin(), defaultShape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(defaultShape_.begin(), defaultShape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
     protected:
@@ -227,9 +230,9 @@ namespace handle {
         }
 
     private:
-        const types::ShapeType & chunkIndices_;
-        const types::ShapeType & defaultShape_;
-        const types::ShapeType & datasetShape_;
+        types::ShapeType chunkIndices_;
+        types::ShapeType defaultShape_;
+        types::ShapeType datasetShape_;
         types::ShapeType boundedShape_;
     };
 

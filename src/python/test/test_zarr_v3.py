@@ -245,6 +245,19 @@ class TestZarrV3Sharding(unittest.TestCase):
         for dtype in DTYPES:
             self._roundtrip('sd_%s' % dtype, (32, 32), (8, 8), (16, 16), dtype)
 
+    def test_sharding_scalar_write(self):
+        # regression: writeScalar was not shard-aware and sized its buffer by
+        # the clipped chunk shape (heap overflow on zarr edge chunks)
+        ds = self.root.create_dataset('scalar', shape=(50, 50), chunks=(8, 8),
+                                      shards=(16, 16), dtype='int32')
+        ds[:] = 3
+        self.assertTrue(np.allclose(ds[:], 3))
+        # partial scalar write into existing shards/edge chunks
+        ds[10:30, 10:30] = 5
+        expected = np.full((50, 50), 3, dtype='int32')
+        expected[10:30, 10:30] = 5
+        self.assertTrue(np.allclose(ds[:], expected))
+
     def test_sharding_read_only_write_raises(self):
         # regression: the sharded write path bypassed writeChunk and with it the
         # file-mode check, so writes on a read-only dataset silently succeeded

@@ -408,6 +408,10 @@ class Dataset:
         copts = self._impl.compression_options
         # decode to json
         copts = json.loads(copts)
+        # 'useZlib' is an internal option: it is derived from the compression
+        # name ('zlib' vs 'gzip'), so it must not show up in the user-facing
+        # options (which can be passed back to create_dataset)
+        copts.pop('useZlib', None)
         return copts
 
     @property

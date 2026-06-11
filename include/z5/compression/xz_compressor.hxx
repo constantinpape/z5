@@ -27,6 +27,10 @@ namespace compression {
 
         void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
 
+            // the loop below appends to dataOut, so it must start out empty
+            // (every other compressor overwrites the output buffer)
+            dataOut.clear();
+
             // create lzma stream
             lzma_stream lzs;
             memset(&lzs, 0, sizeof(lzs));

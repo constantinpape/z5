@@ -207,6 +207,25 @@ class TestUtil(unittest.TestCase):
         self.assertTrue(np.allclose(uniques, exp_uniques))
         self.assertTrue(np.allclose(counts, exp_counts))
 
+    def test_unique_zarr_edge_chunks(self):
+        # regression: the read buffer was sized by the clipped chunk size, but
+        # zarr stores edge chunks padded to the full chunk shape -> heap overflow
+        from z5py.util import unique
+        path = './tmp_dir/data.zr'
+        f = z5py.File(path)
+        shape = (25, 25)
+        chunks = (10, 10)
+
+        ds = f.create_dataset('data', dtype='int32',
+                              shape=shape, chunks=chunks)
+        data = np.random.randint(1, 100, size=shape).astype('int32')
+        ds[:] = data
+
+        # the padded regions of the edge chunks contribute fill values (0)
+        exp_uniques = np.unique(np.concatenate([data.ravel(), [0]]))
+        uniques = unique(ds, n_threads=4)
+        self.assertTrue(np.allclose(uniques, exp_uniques))
+
     def test_remove_dataset(self):
         from z5py.util import remove_dataset
         path = './tmp_dir/data.n5'

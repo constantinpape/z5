@@ -214,7 +214,10 @@ namespace compression {
         }
 
         inline void getOptions(types::CompressionOptions & opts) const {
+            // report the full option set used by init: metadata serialization reads
+            // "useZlib" back from these options and would throw if it were missing
             opts["level"] = level_;
+            opts["useZlib"] = useZlibEncoding_;
         }
 
     private:

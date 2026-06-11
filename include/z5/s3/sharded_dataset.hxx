@@ -90,13 +90,10 @@ namespace s3 {
         }
 
         inline std::size_t getChunkSize(const types::ShapeType & chunkId) const {
-            std::vector<util::ShardEntry> entries;
-            std::vector<char> shardBuf;
-            if(!readShard(chunkId, shardBuf, entries)) {
-                return 0;
-            }
-            const auto & e = entries[util::shardSlot(chunkId, chunksPerShard_)];
-            return e.empty() ? 0 : e.nbytes;
+            // element count of the (bounded) chunk, like the plain datasets --
+            // NOT the compressed byte count of the shard slot
+            handle::Chunk chunk(handle_, chunkId, defaultChunkShape(), shape());
+            return chunk.size();
         }
 
         inline void getChunkShape(const types::ShapeType & chunkId,
