@@ -3,6 +3,7 @@
 #include "z5/s3/dataset.hxx"
 #include "z5/s3/sharded_dataset.hxx"
 #include "z5/s3/metadata.hxx"
+#include "z5/generic/factory.hxx"
 
 
 namespace z5 {
@@ -11,30 +12,19 @@ namespace s3 {
 namespace factory_detail {
 
     // construct the typed (sharded or plain) dataset for a given dtype
-    template<typename T>
-    inline std::unique_ptr<z5::Dataset> makeDataset(const handle::Dataset & handle,
-                                                    const DatasetMetadata & metadata) {
-        if(!metadata.shardShape.empty()) {
-            return std::unique_ptr<z5::Dataset>(new ShardedDataset<T>(handle, metadata));
-        }
-        return std::unique_ptr<z5::Dataset>(new Dataset<T>(handle, metadata));
-    }
-
     inline std::unique_ptr<z5::Dataset> makeDatasetTyped(const handle::Dataset & handle,
                                                          const DatasetMetadata & metadata) {
-        switch(metadata.dtype) {
-            case types::int8: return makeDataset<int8_t>(handle, metadata);
-            case types::int16: return makeDataset<int16_t>(handle, metadata);
-            case types::int32: return makeDataset<int32_t>(handle, metadata);
-            case types::int64: return makeDataset<int64_t>(handle, metadata);
-            case types::uint8: return makeDataset<uint8_t>(handle, metadata);
-            case types::uint16: return makeDataset<uint16_t>(handle, metadata);
-            case types::uint32: return makeDataset<uint32_t>(handle, metadata);
-            case types::uint64: return makeDataset<uint64_t>(handle, metadata);
-            case types::float32: return makeDataset<float>(handle, metadata);
-            case types::float64: return makeDataset<double>(handle, metadata);
-            default: throw std::runtime_error("Datatype is not supported by the s3 backend");
-        }
+        return generic::dispatchDtype(metadata.dtype,
+            [&](auto tag) -> std::unique_ptr<z5::Dataset> {
+                using T = decltype(tag);
+                if(!metadata.shardShape.empty()) {
+                    return std::unique_ptr<z5::Dataset>(new ShardedDataset<T>(handle, metadata));
+                }
+                return std::unique_ptr<z5::Dataset>(new Dataset<T>(handle, metadata));
+            },
+            [](const types::Datatype) -> std::unique_ptr<z5::Dataset> {
+                throw std::runtime_error("Datatype is not supported by the s3 backend");
+            });
     }
 
 }  // namespace factory_detail
