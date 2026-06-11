@@ -99,7 +99,10 @@ namespace factory_detail {
     template<class GROUP1, class GROUP2>
     inline std::string relativePath(const z5::handle::Group<GROUP1> & g1,
                                     const GROUP2 & g2) {
-        return relativeImpl(g1.path(), g2.path()).string();
+        // generic_string: hierarchy names are always '/'-separated (h5py
+        // semantics, and consistent with the s3 backend), even on windows,
+        // where fs::path::string() would yield backslashes
+        return relativeImpl(g1.path(), g2.path()).generic_string();
     }
 
 }

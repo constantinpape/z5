@@ -1,6 +1,5 @@
 import unittest
 import os
-import sys
 from shutil import rmtree
 from abc import ABC
 
@@ -101,8 +100,8 @@ class GroupTestMixin(ABC):
         compression_opts = ds.compression_opts
         self.assertEqual(compression_opts['level'], 4)
 
-    # cf. https://github.com/constantinpape/z5/issues/100
-    @unittest.skipIf(sys.platform.startswith('win'), 'path encoding not compatible with windows')
+    # cf. https://github.com/constantinpape/z5/issues/100 - hierarchy names are
+    # '/'-separated on all platforms now (relative_path uses generic_string)
     def test_visititems(self):
         """ Issue #121
 
