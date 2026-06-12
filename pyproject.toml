@@ -108,8 +108,13 @@ manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 # vcpkg is not present inside the manylinux container, so clone + bootstrap it,
 # then point CMake at its toolchain so the manifest deps are auto-installed.
+# manylinux_2_28 is AlmaLinux 8 (yum, runs as root) and lacks some tools several
+# vcpkg ports/asset steps need, so install them first. The clone is pinned to a
+# vcpkg release tag for reproducible port versions and guarded so re-runs / any
+# pre-existing checkout don't fail.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg",
+    "yum install -y zip unzip perl-IPC-Cmd autoconf automake libtool pkgconfig",
+    "test -d /opt/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg",
     "/opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
 ]
 
@@ -118,8 +123,10 @@ VCPKG_ROOT = "/opt/vcpkg"
 CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
 [tool.cibuildwheel.macos]
+# Clone pinned to a vcpkg release tag for reproducible port versions, guarded so
+# re-runs / any pre-existing checkout don't fail.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg $HOME/vcpkg",
+    "test -d $HOME/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg $HOME/vcpkg",
     "$HOME/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
 ]
 
@@ -130,8 +137,12 @@ CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmak
 MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.windows]
+# The windows-latest runner image pre-installs vcpkg at C:/vcpkg, so an
+# unconditional clone aborts with "destination path already exists". Guard the
+# clone (reuse the pre-installed checkout when present, otherwise clone a pinned
+# release tag) and always (re-)bootstrap.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg C:/vcpkg",
+    "test -d C:/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg C:/vcpkg",
     "C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics",
 ]
 
