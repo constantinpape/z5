@@ -34,7 +34,9 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, **self.zarr_kwargs)
-        fz.create_dataset("test", data=data, chunks=chunks, shape=shape)
+        # create_array (not the removed-in-3.2 create_dataset) is the stable API
+        ar = fz.create_array("test", shape=shape, chunks=chunks, dtype=data.dtype)
+        ar[:] = data
 
         f = z5py.File(self.path)
         out = f["test"][:]
@@ -77,11 +79,11 @@ class ZarrTestMixin(ABC):
                 data = np.random.randint(0, 127, size=self.shape).astype(dtype)
                 # write the data with zarr
                 key = 'test_%s_%s' % (dtype, compression)
-                ar = f_zarr.create_dataset(key,
-                                           shape=self.shape,
-                                           chunks=self.chunks,
-                                           dtype=dtype,
-                                           compressor=zarr_compressors[compression])
+                ar = f_zarr.create_array(key,
+                                         shape=self.shape,
+                                         chunks=self.chunks,
+                                         dtype=dtype,
+                                         compressors=zarr_compressors[compression])
                 ar[:] = data
                 # read with z5py
                 out = f_z5[key][:]

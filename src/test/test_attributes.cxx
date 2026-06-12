@@ -58,7 +58,7 @@ namespace z5 {
 
 
     TEST_F(AttributesTest, TestAttributesDsN5) {
-        filesystem::handle::Dataset h(fZarr, "data");
+        filesystem::handle::Dataset h(fN5, "data");
         writeAttributes(h, j);
         nlohmann::json jOut;
         readAttributes(h, jOut);

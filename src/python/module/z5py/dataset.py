@@ -1,3 +1,12 @@
+"""The :class:`Dataset` class: chunked, optionally compressed nd array storage.
+
+A dataset wraps a single zarr / n5 array. Data is read and written with numpy-style
+indexing (``ds[:]``, ``ds[z0:z1, y0:y1]``) or via the explicit
+:meth:`Dataset.read_subarray` / :meth:`Dataset.write_subarray` and chunk-level
+methods. Datasets are not created directly; use
+:meth:`z5py.Group.create_dataset` / :meth:`z5py.Group.require_dataset` or the
+``[]`` operator of a :class:`z5py.File` / :class:`z5py.Group`.
+"""
 import numbers
 import json
 
@@ -8,10 +17,34 @@ from .attribute_manager import AttributeManager
 from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
+
+
+def _navigate(file_obj, name):
+    """ Navigate from a (root) file to the object with the given (absolute) name.
+
+    Used for unpickling: re-opens the object by traversing the container one
+    path component at a time, which reconstructs the proper parent chain.
+    """
+    obj = file_obj
+    rel = name.strip('/')
+    if rel:
+        for part in rel.split('/'):
+            obj = obj[part]
+    return obj
+
+
+def _unpickle_dataset(file_obj, name, n_threads):
+    ds = _navigate(file_obj, name)
+    ds.n_threads = n_threads
+    return ds
+
+
 # TODO lz4 compression is currently not compatible with zarr
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
 COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4', 'zstd')
+# zarr v3 core codecs ('raw' == the v3 'bytes' codec)
+COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd')
 
 
 class Dataset:
@@ -43,6 +76,11 @@ class Dataset:
     # Default compression for n5 format
     n5_default_compressor = 'gzip' if AVAILABLE_COMPRESSORS['gzip'] else 'raw'
 
+    # Compression codecs supported by the zarr v3 format
+    compressors_zarr_v3 = tuple(comp for comp in COMPRESSORS_ZARR_V3 if AVAILABLE_COMPRESSORS[comp])
+    # Default compression for zarr v3 format
+    zarr_v3_default_compressor = 'blosc' if AVAILABLE_COMPRESSORS['blosc'] else 'raw'
+
     def __init__(self, dset_impl, handle, parent, name, n_threads=1):
         self._impl = dset_impl
         self._handle = handle
@@ -50,6 +88,12 @@ class Dataset:
         self.n_threads = n_threads
         self._parent = parent
         self._name = name
+
+    def __reduce__(self):
+        # pickle by re-opening from the (picklable) root file; this avoids
+        # pickling the underlying C++ objects, which are not constructible
+        # outside of the factory functions.
+        return (_unpickle_dataset, (self.file, self._name, self.n_threads))
 
     def __array__(self, dtype=None):
         """ Create a numpy array containing the whole dataset.
@@ -95,6 +139,33 @@ class Dataset:
         return default_opts
 
     @staticmethod
+    def _to_zarr_v3_compression_options(compression, compression_options):
+        # the options below populate the runtime CompressionOptions; the C++
+        # toJsonV3 turns them into the on-disk v3 codec configuration. NOTE: gzip
+        # must set useZlib=False so the zlib compressor emits a gzip wrapper.
+        if compression == 'blosc':
+            default_opts = {'codec': 'lz4', 'level': 5, 'shuffle': 1, 'blocksize': 0}
+        elif compression == 'gzip':
+            default_opts = {'level': 5, 'useZlib': False}
+        elif compression == 'zstd':
+            default_opts = {'level': 3}
+        elif compression == 'raw':
+            default_opts = {}
+        else:
+            raise RuntimeError("Compression %s is not supported in zarr v3 format" % compression)
+
+        # check for invalid options
+        extra_args = set(compression_options) - set(default_opts)
+        if extra_args:
+            raise RuntimeError("Invalid options for %s compression: %s" % (compression, ' '.join(list(extra_args))))
+
+        if not default_opts:
+            return {}
+
+        default_opts.update(compression_options)
+        return default_opts
+
+    @staticmethod
     def _to_n5_compression_options(compression, compression_options):
         if compression == 'gzip':
             default_opts = {'level': 5}
@@ -130,6 +201,10 @@ class Dataset:
                          shape, dtype,
                          chunks, n_threads, **kwargs):
         ghandle = group._handle
+        # normalize to tuples: the properties below are tuples, and a list-valued
+        # shape / chunks argument must not fail the consistency check
+        shape = tuple(shape)
+        chunks = None if chunks is None else tuple(chunks)
         if ghandle.has(name):
 
             if ghandle.is_sub_group(name):
@@ -151,15 +226,25 @@ class Dataset:
             return ds
 
         else:
+            # the write permission is only needed if the dataset does not exist yet;
+            # requiring an existing, consistent dataset works in read-only mode
+            # (matching h5py)
+            if not ghandle.mode().can_write():
+                raise ValueError("Cannot create dataset with read-only permissions.")
             # pop all kwargs that are not compression options
             data = kwargs.pop('data', None)
             compression = kwargs.pop('compression', None)
             fillvalue = kwargs.pop('fillvalue', 0)
             dimension_separator = kwargs.pop('dimension_separator', '.')
+            zarr_format = kwargs.pop('zarr_format', 2)
+            shards = kwargs.pop('shards', None)
+            chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
-                                       compression_options=kwargs, dimension_separator=dimension_separator)
+                                       compression_options=kwargs, dimension_separator=dimension_separator,
+                                       zarr_format=zarr_format, shards=shards,
+                                       chunk_key_encoding=chunk_key_encoding)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -168,7 +253,10 @@ class Dataset:
                         compression=None,
                         fillvalue=0, n_threads=1,
                         compression_options={},
-                        dimension_separator="."):
+                        dimension_separator=".",
+                        zarr_format=2,
+                        shards=None,
+                        chunk_key_encoding="default"):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -176,7 +264,7 @@ class Dataset:
         if have_data:
             if shape is None:
                 shape = data.shape
-            elif shape != data.shape:
+            elif tuple(shape) != tuple(data.shape):
                 raise ValueError("Shape is incompatible with data")
             if dtype is None:
                 dtype = data.dtype
@@ -205,37 +293,48 @@ class Dataset:
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
         is_zarr = ghandle.is_zarr()
 
-        # check compression / get default compression
-        # if no compression is given
-        if compression is None:
-            compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
-        else:
-            valid_compression = compression in cls.compressors_zarr if is_zarr else\
-                compression in cls.compressors_n5
-            if not valid_compression:
-                raise ValueError("Compression filter \"%s\" is unavailable" % compression)
-
-        # get and check compression
-        if is_zarr and compression not in cls.compressors_zarr:
-            compression = cls.zarr_default_compressor
-        elif not is_zarr and compression not in cls.compressors_n5:
-            compression = cls.n5_default_compressor
-
         if parsed_dtype not in cls._dtype_dict:
-            raise ValueError("Invalid data type {} for N5 dataset".format(repr(dtype)))
+            raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
 
-        # update the compression options
-        if is_zarr:
-            copts = cls._to_zarr_compression_options(compression, compression_options)
+        if shards is not None and not (is_zarr and zarr_format == 3):
+            raise ValueError("Sharding is only supported for zarr v3 datasets")
+
+        if is_zarr and zarr_format == 3:
+            # zarr v3
+            if compression is None:
+                compression = cls.zarr_v3_default_compressor
+            if compression not in cls.compressors_zarr_v3:
+                raise ValueError("Compression filter \"%s\" is unavailable for zarr v3" % compression)
+            copts = json.dumps(cls._to_zarr_v3_compression_options(compression, compression_options))
+            # the chunk key separator is determined by the chunk key encoding
+            separator = '.' if chunk_key_encoding == 'v2' else '/'
+            shards_arg = list(shards) if shards is not None else []
+            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+                                        shape, chunks, compression, copts, fillvalue,
+                                        separator, 3, shards_arg, chunk_key_encoding)
         else:
-            copts = cls._to_n5_compression_options(compression, compression_options)
+            # zarr v2 / n5
+            # check compression / get default compression if no compression is given
+            if compression is None:
+                compression = cls.zarr_default_compressor if is_zarr else cls.n5_default_compressor
+            else:
+                valid_compression = compression in cls.compressors_zarr if is_zarr else\
+                    compression in cls.compressors_n5
+                if not valid_compression:
+                    raise ValueError("Compression filter \"%s\" is unavailable" % compression)
 
-        # convert the copts to json parseable string
-        copts = json.dumps(copts)
-        # get the dataset and write data if necessary
-        impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
-                                    shape, chunks, compression, copts, fillvalue,
-                                    dimension_separator)
+            # update the compression options
+            if is_zarr:
+                copts = cls._to_zarr_compression_options(compression, compression_options)
+            else:
+                copts = cls._to_n5_compression_options(compression, compression_options)
+
+            # convert the copts to json parseable string
+            copts = json.dumps(copts)
+            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+                                        shape, chunks, compression, copts, fillvalue,
+                                        dimension_separator)
+
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
         if have_data:
@@ -286,6 +385,13 @@ class Dataset:
         return tuple(self._impl.chunks)
 
     @property
+    def shards(self):
+        """ Shard shape of this dataset (zarr v3 sharding), or None if not sharded.
+        """
+        shards = tuple(self._impl.shards)
+        return shards if shards else None
+
+    @property
     def dtype(self):
         """ Datatype of this dataset.
         """
@@ -305,6 +411,8 @@ class Dataset:
 
     @property
     def compression(self):
+        """ Name of the compression library (codec) used by this dataset.
+        """
         return self._impl.compressor
 
     @property
@@ -314,18 +422,28 @@ class Dataset:
         copts = self._impl.compression_options
         # decode to json
         copts = json.loads(copts)
+        # 'useZlib' is an internal option: it is derived from the compression
+        # name ('zlib' vs 'gzip'), so it must not show up in the user-facing
+        # options (which can be passed back to create_dataset)
+        copts.pop('useZlib', None)
         return copts
 
     @property
     def parent(self):
+        """ The :class:`z5py.Group` (or :class:`z5py.File`) that contains this dataset.
+        """
         return self._parent
 
     @property
     def name(self):
+        """ The absolute path of this dataset within its container (e.g. ``/group/data``).
+        """
         return self._name
 
     @property
     def file(self):
+        """ The root :class:`z5py.File` of the container this dataset belongs to.
+        """
         # we find the file by going up the parents till we find
         # the root (which is it's own parent)
         parent = self.parent
@@ -334,6 +452,8 @@ class Dataset:
         return parent
 
     def __len__(self):
+        """ The length of the first (outermost) dimension of the dataset.
+        """
         return self._impl.len
 
     def index_to_roi(self, index):
@@ -361,6 +481,24 @@ class Dataset:
 
     # most checks are done in c++
     def __getitem__(self, index):
+        """ Read a region of the dataset into a numpy array.
+
+        Supports numpy-style indexing with integers, slices and a single
+        ellipsis (advanced / boolean indexing is not supported). Steps other
+        than 1 are not supported. Out-of-bounds positions raise; regions that
+        were never written are filled with the dataset's fill-value.
+
+        Integer indices squeeze out the corresponding dimension, mirroring numpy
+        (e.g. ``ds[0]`` drops the leading axis); if every dimension is indexed
+        by an integer a scalar is returned.
+
+        Args:
+            index (int, slice, ellipsis or tuple): the region to read.
+
+        Returns:
+            np.ndarray: the requested data (a scalar if fully integer-indexed),
+            with this dataset's dtype.
+        """
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
         if 0 not in shape:
@@ -378,6 +516,20 @@ class Dataset:
 
     # most checks are done in c++
     def __setitem__(self, index, item):
+        """ Write data into a region of the dataset.
+
+        Supports numpy-style indexing with integers, slices and a single
+        ellipsis (steps other than 1 are not supported). A scalar ``item`` is
+        broadcast to fill the selected region. An array ``item`` must match the
+        selected region's shape after rectification; leading and trailing
+        singleton dimensions may be added or removed, but other broadcasting is
+        not supported. The data is converted to the dataset's dtype (a
+        ``TypeError`` / ``OSError`` is raised if there is no conversion path).
+
+        Args:
+            index (int, slice, ellipsis or tuple): the region to write to.
+            item (scalar or np.ndarray): the value(s) to write.
+        """
         roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
             return
@@ -410,14 +562,17 @@ class Dataset:
                              n_threads=self.n_threads)
 
     def read_direct(self, dest, source_sel=None, dest_sel=None):
-        """ Wrapper to improve similarity to h5py. Reads from the dataset to ``dest``, using ``read_subarray``.
+        """ Read from the dataset into ``dest`` (h5py-compatible wrapper around ``read_subarray``).
+
+        The regions selected by ``source_sel`` and ``dest_sel`` must have the
+        same size, but need not have the same offset.
 
         Args:
-            dest (array) destination object into which the read data is written to.
-            dest_sel (slice array) selection of data to write to ``dest``. Defaults to the whole range of ``dest``.
-            source_sel (slice array) selection in dataset to read from. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
-        offset
+            dest (np.ndarray): destination array the read data is written into.
+            source_sel (tuple[slice]): selection in the dataset to read from.
+                Defaults to the whole dataset (default: None).
+            dest_sel (tuple[slice]): selection in ``dest`` to write to.
+                Defaults to the whole of ``dest`` (default: None).
         """
         if source_sel is None:
             source_sel = tuple(slice(0, sh) for sh in self.shape)
@@ -428,15 +583,17 @@ class Dataset:
         dest[dest_sel] = self.read_subarray(start, stop)
 
     def write_direct(self, source, source_sel=None, dest_sel=None):
-        """ Wrapper to improve similarity to h5py. Writes to the dataset from ``source``, using ``write_subarray``.
+        """ Write to the dataset from ``source`` (h5py-compatible wrapper around ``write_subarray``).
+
+        The regions selected by ``source_sel`` and ``dest_sel`` must have the
+        same size, but need not have the same offset.
 
         Args:
-            source (array) source object from which the written data is obtained.
-            source_sel (slice array) selection of data to write from ``source``. Defaults to the whole range of
-            ``source``.
-            dest_sel (slice array) selection in dataset to write to. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
-        offset
+            source (np.ndarray): source array the written data is taken from.
+            source_sel (tuple[slice]): selection in ``source`` to read from.
+                Defaults to the whole of ``source`` (default: None).
+            dest_sel (tuple[slice]): selection in the dataset to write to.
+                Defaults to the whole dataset (default: None).
         """
         if dest_sel is None:
             dest_sel = tuple(slice(0, sh) for sh in self.shape)
@@ -508,15 +665,16 @@ class Dataset:
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):
-        """ Read single chunk
+        """ Read a single chunk.
 
         Args:
-            chunk_indices (tuple): indices of the chunk to write to
-        Returns
-            np.ndarray or None - chunk data, returns None if the chunk is empty
+            chunk_indices (tuple): chunk grid indices of the chunk to read.
+
+        Returns:
+            np.ndarray or None: the chunk data, or None if the chunk is empty.
         """
-        if not self._impl.chunkExists(chunk_indices):
-            return None
+        # the existence check happens in C++ (returning None for a missing chunk);
+        # checking here as well would double the existence probe per chunk read
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 
@@ -527,10 +685,11 @@ class Dataset:
         from self.chunks for border chunks.
 
         Args:
-            chunk_indices (tuple): indices of the chunk to write to
+            chunk_indices (tuple): chunk grid indices of the chunk.
             from_header (bool): whether to read the chunk shape from the
                 chunk header (only applicable for n5 format). (default: False)
+
         Returns:
-            tuple - shape of the chunk
+            tuple: shape of the chunk.
         """
         return self._impl.getChunkShape(chunk_indices, from_header)

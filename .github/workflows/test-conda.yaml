@@ -1,0 +1,63 @@
+---
+name: test-conda
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# cancel superseded runs of the same branch / PR
+concurrency:
+  group: test-conda-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+            submodules: 'recursive'
+
+      # this will set the system compiler;
+      # I don't know how to set the conda compilers for windows
+      # This must be done *before* setting up miniconda, see:
+      # https://github.com/ilammy/msvc-dev-cmd/issues/34
+      - name: Set windows env
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+      
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: .github/environment.yaml
+          create-args: >-
+            python=${{ matrix.python-version }}
+
+      - name: Build unix
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        shell: bash -l {0}
+        run: .github/workflows/build_unix.sh
+      
+      - name: Build win
+        if: matrix.os == 'windows-latest'
+        shell: bash -l {0}
+        run: .github/workflows/build_win.bat
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: python -m unittest discover -s src/python/test -v
+
+      - name: Run C++ tests
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash -l {0}
+        run: .github/workflows/cpp_tests.sh

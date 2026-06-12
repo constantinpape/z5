@@ -42,11 +42,11 @@ namespace util {
         }
 
         inline std::size_t blockCoordinatesToBlockId(const types::ShapeType & blockCoordinate) const {
-            std::vector<std::size_t> offsets(shape_.size());
+            std::size_t blockId = 0;
             for(unsigned d = 0; d < shape_.size() ; ++d) {
-                offsets[d] = blockStrides_[d] * blockCoordinate[d];
+                blockId += blockStrides_[d] * blockCoordinate[d];
             }
-            return std::accumulate(offsets.begin(), offsets.end(), 0);
+            return blockId;
         }
 
         //
@@ -127,11 +127,12 @@ namespace util {
             util::makeRegularGrid(minBlockIds, maxBlockIds, blockList);
         }
 
-        // TODO
         // return all blocks strictly in roi
         inline void getBlocksInRoi(const types::ShapeType & roiBegin,
                                    const types::ShapeType & roiShape,
                                    std::vector<types::ShapeType> & blockList) const {
+            // fail loudly instead of silently returning an empty block list
+            throw std::logic_error("Blocking::getBlocksInRoi is not implemented");
         }
 
         //
@@ -218,6 +219,11 @@ namespace util {
     private:
         void init() {
             const unsigned ndim = shape_.size();
+            if(ndim == 0) {
+                // guard the stride computation below (blockStrides_[ndim - 1] would
+                // be an out-of-bounds write for a zero-dimensional shape)
+                throw std::invalid_argument("z5: zero-dimensional shapes are not supported");
+            }
             blocksPerDimension_.resize(ndim);
 
             for(int d = 0; d < ndim; ++d) {
@@ -225,7 +231,7 @@ namespace util {
             }
             numberOfBlocks_ = std::accumulate(blocksPerDimension_.begin(),
                                               blocksPerDimension_.end(),
-                                              1, std::multiplies<std::size_t>());
+                                              std::size_t(1), std::multiplies<std::size_t>());
 
             // get the block strides
             blockStrides_.resize(ndim);

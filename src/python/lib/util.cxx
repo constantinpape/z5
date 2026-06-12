@@ -1,20 +1,21 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <iostream>
+#include <set>
+#include <map>
+#include <algorithm>
+
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/pair.h>
+#include <nanobind/stl/string.h>
 
 #include "z5/dataset.hxx"
 #include "z5/util/functions.hxx"
 
-// for xtensor numpy bindings
-#include "xtensor-python/pyarray.hpp"
-#include "xtensor-python/pytensor.hpp"
-
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace z5 {
 
     template<class T>
-    void exportUtilsT(py::module & module, const std::string & dtype) {
+    void exportUtilsT(nb::module_ & module, const std::string & dtype) {
 
 
         // export remove trivial chunks functionality
@@ -24,10 +25,10 @@ namespace z5 {
                                      const bool remove_specific_value,
                                      const T value){
             util::removeTrivialChunks(ds, n_threads, remove_specific_value, value);
-        }, py::arg("ds"), py::arg("n_threads"),
-           py::arg("remove_trivial_chunks")=false,
-           py::arg("value")=0,
-           py::call_guard<py::gil_scoped_release>());
+        }, nb::arg("ds"), nb::arg("n_threads"),
+           nb::arg("remove_trivial_chunks")=false,
+           nb::arg("value")=0,
+           nb::call_guard<nb::gil_scoped_release>());
 
 
         // export unique functionality
@@ -35,14 +36,21 @@ namespace z5 {
         module.def(fname.c_str(), [](const Dataset & ds,
                                      const int n_threads){
             std::set<T> unique_set;
-            util::unique(ds, n_threads, unique_set);
+            {
+                // the scan reads the whole dataset; don't block other python threads
+                // (the GIL is re-acquired before the numpy arrays are built below)
+                nb::gil_scoped_release lift_gil;
+                util::unique(ds, n_threads, unique_set);
+            }
 
-            typedef typename xt::pytensor<T, 1, xt::layout_type::row_major>::shape_type ShapeType;
-            const ShapeType shape = {static_cast<int64_t>(unique_set.size())};
-            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>(shape);
-            std::copy(unique_set.begin(), unique_set.end(), uniques.begin());
-            return uniques;
-        }, py::arg("ds"), py::arg("n_threads"));
+            const std::size_t n = unique_set.size();
+            T * data = new T[n];
+            std::copy(unique_set.begin(), unique_set.end(), data);
+
+            nb::capsule owner(data, [](void * p) noexcept { delete[] static_cast<T*>(p); });
+            const std::size_t shape[1] = {n};
+            return nb::ndarray<nb::numpy, T>(data, 1, shape, owner);
+        }, nb::arg("ds"), nb::arg("n_threads"));
 
 
         // export unique with counts functionality
@@ -50,29 +58,40 @@ namespace z5 {
         module.def(fname.c_str(), [](const Dataset & ds,
                                      const int n_threads){
             std::map<T, std::size_t> unique_map;
-            util::uniqueWithCounts(ds, n_threads, unique_map);
-            typedef typename xt::pytensor<T, 1, xt::layout_type::row_major>::shape_type ShapeType;
-            const ShapeType shape = {static_cast<int64_t>(unique_map.size())};
+            {
+                // the scan reads the whole dataset; don't block other python threads
+                // (the GIL is re-acquired before the numpy arrays are built below)
+                nb::gil_scoped_release lift_gil;
+                util::uniqueWithCounts(ds, n_threads, unique_map);
+            }
 
-            xt::pytensor<T, 1, xt::layout_type::row_major> uniques = xt::zeros<T>(shape);
-            xt::pytensor<std::size_t, 1, xt::layout_type::row_major> counts = xt::zeros<std::size_t>(shape);
+            const std::size_t n = unique_map.size();
+            T * uniques = new T[n];
+            std::size_t * counts = new std::size_t[n];
             std::size_t index = 0;
             for(auto it = unique_map.begin(); it != unique_map.end(); ++it, ++index) {
                 uniques[index] = it->first;
                 counts[index] = it->second;
             }
-            return std::make_pair(uniques, counts);
-        }, py::arg("ds"), py::arg("n_threads"));
+
+            nb::capsule uniques_owner(uniques, [](void * p) noexcept { delete[] static_cast<T*>(p); });
+            nb::capsule counts_owner(counts, [](void * p) noexcept { delete[] static_cast<std::size_t*>(p); });
+            const std::size_t shape[1] = {n};
+            return std::make_pair(
+                nb::ndarray<nb::numpy, T>(uniques, 1, shape, uniques_owner),
+                nb::ndarray<nb::numpy, std::size_t>(counts, 1, shape, counts_owner)
+            );
+        }, nb::arg("ds"), nb::arg("n_threads"));
     }
 
 
     // expose file mode to python
-    void exportFileMode(py::module & module) {
-        py::class_<FileMode> pyFileMode(module, "FileMode");
+    void exportFileMode(nb::module_ & module) {
+        nb::class_<FileMode> pyFileMode(module, "FileMode");
 
         // expose class
         pyFileMode
-            .def(py::init<FileMode::modes>(), py::arg("mode"))
+            .def(nb::init<FileMode::modes>(), nb::arg("mode"))
             .def("can_write", &FileMode::canWrite)
             .def("can_create", &FileMode::canCreate)
             .def("must_not_exist", &FileMode::mustNotExist)
@@ -81,7 +100,7 @@ namespace z5 {
         ;
 
         // expose enum
-        py::enum_<FileMode::modes>(pyFileMode, "modes")
+        nb::enum_<FileMode::modes>(pyFileMode, "modes")
             .value("r", FileMode::modes::r)
             .value("r_p", FileMode::modes::r_p)
             .value("w", FileMode::modes::w)
@@ -92,7 +111,7 @@ namespace z5 {
     }
 
 
-    void exportUtils(py::module & module) {
+    void exportUtils(nb::module_ & module) {
         exportUtilsT<uint8_t>(module, "uint8");
         exportUtilsT<uint16_t>(module, "uint16");
         exportUtilsT<uint32_t>(module, "uint32");
@@ -108,8 +127,8 @@ namespace z5 {
 
         // export remove dataset and remove chunk
         module.def("remove_dataset", &util::removeDataset,
-                   py::arg("ds"), py::arg("n_threads"),
-                   py::call_guard<py::gil_scoped_release>());
+                   nb::arg("ds"), nb::arg("n_threads"),
+                   nb::call_guard<nb::gil_scoped_release>());
 
         exportFileMode(module);
     }

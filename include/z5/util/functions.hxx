@@ -7,6 +7,24 @@
 namespace z5 {
 namespace util {
 
+    // Size a read buffer and report how many of its elements readChunk will fill.
+    // readChunk always writes the full (default) chunk size for zarr (chunks are
+    // stored padded), the clipped chunk size for plain n5, and the actual element
+    // count for varlen n5 chunks -- sizing the buffer by getChunkSize alone would
+    // overflow on zarr edge chunks.
+    template<class T>
+    inline std::size_t prepareChunkReadBuffer(const Dataset & ds,
+                                              const types::ShapeType & chunk,
+                                              std::vector<T> & data) {
+        std::size_t dataSize;
+        const bool isVarlen = ds.checkVarlenChunk(chunk, dataSize);
+        if(!isVarlen && ds.isZarr()) {
+            dataSize = ds.defaultChunkSize();
+        }
+        data.resize(std::max(ds.defaultChunkSize(), dataSize));
+        return dataSize;
+    }
+
 
     // remove chunks which contain only a single value
     // -> this is often some background value, that might`
@@ -29,11 +47,11 @@ namespace util {
             if(!ds.chunkExists(chunk)) {
                 return;
             }
-            const size_t chunkSize = ds.getChunkSize(chunk);
-            std::vector<T> data(chunkSize);
+            std::vector<T> data;
+            const std::size_t dataSize = prepareChunkReadBuffer(ds, chunk, data);
             ds.readChunk(chunk, &data[0]);
             // check vector for number of uniques and if we only have a single unique, remove it
-            const auto uniques = std::set<T>(data.begin(), data.end());
+            const auto uniques = std::set<T>(data.begin(), data.begin() + dataSize);
             const bool remove = (uniques.size() == 1) ? (removeSpecificValue ? (*uniques.begin() == value ? true : false) : true) : false;
             if(remove) {
                 ds.removeChunk(chunk);
@@ -85,11 +103,11 @@ namespace util {
             if(!ds.chunkExists(chunk)) {
                 return;
             }
-            const size_t chunkSize = ds.getChunkSize(chunk);
-            std::vector<T> data(chunkSize);
+            std::vector<T> data;
+            const std::size_t dataSize = prepareChunkReadBuffer(ds, chunk, data);
             ds.readChunk(chunk, &data[0]);
             auto & threadSet = (tid == 0) ? uniques : threadData[tid - 1];
-            threadSet.insert(data.begin(), data.end());
+            threadSet.insert(data.begin(), data.begin() + dataSize);
         });
 
         // merge the per thread data
@@ -117,9 +135,10 @@ namespace util {
             if(!ds.chunkExists(chunk)) {
                 return;
             }
-            const size_t chunkSize = ds.getChunkSize(chunk);
-            std::vector<T> data(chunkSize);
+            std::vector<T> data;
+            const std::size_t dataSize = prepareChunkReadBuffer(ds, chunk, data);
             ds.readChunk(chunk, &data[0]);
+            data.resize(dataSize);
             auto & threadMap = (tid == 0) ? uniques : threadData[tid - 1];
             for(const T val : data) {
                 auto mIt = threadMap.find(val);

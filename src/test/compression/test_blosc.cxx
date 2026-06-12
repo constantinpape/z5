@@ -21,13 +21,14 @@ namespace compression {
         metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
+        metadata.compressionOptions["blocksize"] = 0;
+        metadata.compressionOptions["nthreads"] = 1;
         BloscCompressor<int> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataInt_, dataOut, SIZE);
 
         ASSERT_TRUE(dataOut.size() / sizeof(int) < SIZE);
-        std::cout << "Compression Int: " << dataOut.size() / sizeof(int) << " / " << SIZE << std::endl;
 
     }
 
@@ -41,13 +42,14 @@ namespace compression {
         metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
+        metadata.compressionOptions["blocksize"] = 0;
+        metadata.compressionOptions["nthreads"] = 1;
         BloscCompressor<float> compressor(metadata);
 
         std::vector<char> dataOut;
         compressor.compress(dataFloat_, dataOut, SIZE);
 
         ASSERT_TRUE(dataOut.size() / sizeof(float) < SIZE);
-        std::cout << "Compression Float: " << dataOut.size() / sizeof(float) << " / " << SIZE << std::endl;
 
     }
 
@@ -61,6 +63,8 @@ namespace compression {
         metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
+        metadata.compressionOptions["blocksize"] = 0;
+        metadata.compressionOptions["nthreads"] = 1;
         BloscCompressor<int> compressor(metadata);
 
         std::vector<char> dataOut;
@@ -84,6 +88,8 @@ namespace compression {
         metadata.compressionOptions["codec"] = codec;
         metadata.compressionOptions["level"] = 5;
         metadata.compressionOptions["shuffle"] = 1;
+        metadata.compressionOptions["blocksize"] = 0;
+        metadata.compressionOptions["nthreads"] = 1;
         BloscCompressor<float> compressor(metadata);
 
         std::vector<char> dataOut;

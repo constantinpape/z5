@@ -15,6 +15,10 @@ namespace compression {
     class Bzip2Compressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         Bzip2Compressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
@@ -60,7 +64,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
 
             // create the bzip2 stream
             bz_stream bzs;
@@ -78,10 +82,10 @@ namespace compression {
             }
 
             // set the stream input to the beginning of the input data
-            bzs.next_in = (char *) &dataIn[0];
+            bzs.next_in = (char *) dataIn;
             bzs.next_out = reinterpret_cast<char *>(dataOut);
 
-            bzs.avail_in = dataIn.size();
+            bzs.avail_in = nBytesIn;
             bzs.avail_out = sizeOut * sizeof(T);
 
             int ret = BZ2_bzDecompress(&bzs);

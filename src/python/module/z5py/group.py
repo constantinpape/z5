@@ -1,8 +1,19 @@
+"""The :class:`Group` class: a node in a zarr / n5 container hierarchy.
+
+A group corresponds to a directory on the filesystem (or a key prefix in cloud
+storage) and behaves like a read-only :class:`collections.abc.Mapping` of its
+children, plus methods to create sub-groups and datasets. :class:`z5py.File` is
+the root group of a container.
+"""
 from collections.abc import Mapping
 
 from . import _z5py
-from .dataset import Dataset
+from .dataset import Dataset, _navigate
 from .attribute_manager import AttributeManager
+
+
+def _unpickle_group(file_obj, name):
+    return _navigate(file_obj, name)
 
 
 class Group(Mapping):
@@ -24,13 +35,18 @@ class Group(Mapping):
                   'r+': _z5py.FileMode.r_p, 'w': _z5py.FileMode.w,
                   'w-': _z5py.FileMode.w_m, 'x': _z5py.FileMode.w_m}
 
-    def __init__(self, handle, handle_factory, parent, name, dimension_separator):
+    def __init__(self, handle, handle_factory, parent, name, dimension_separator, zarr_format=2):
         self._handle = handle
         self._handle_factory = handle_factory
         self._attrs = AttributeManager(self._handle)
         self._parent = parent
         self._name = name
         self._dimension_separator = dimension_separator
+        self._zarr_format = zarr_format
+
+    def __reduce__(self):
+        # pickle by re-opening from the (picklable) root file; see Dataset.__reduce__
+        return (_unpickle_group, (self.file, self._name))
 
     #
     # Magic Methods, Attributes, Keys, Contains
@@ -74,7 +90,8 @@ class Group(Mapping):
 
         if self.is_sub_group(name.lstrip('/')):
             handle = self._handle_factory(self._handle, name.lstrip('/'))
-            return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
+            return Group(handle, self._handle_factory, self, self._name + '/' + name,
+                         self._dimension_separator, self._zarr_format)
         else:
             return Dataset._open_dataset(self, name.lstrip('/'))
 
@@ -89,18 +106,26 @@ class Group(Mapping):
 
     @property
     def is_zarr(self):
+        """ True if this group is part of a zarr container, False for n5.
+        """
         return self._handle.is_zarr()
 
     @property
     def parent(self):
+        """ The parent :class:`Group`. The root group (``File``) is its own parent.
+        """
         return self._parent
 
     @property
     def name(self):
+        """ The absolute path of this group within its container (e.g. ``/group/subgroup``).
+        """
         return self._name
 
     @property
     def file(self):
+        """ The root :class:`z5py.File` of the container this group belongs to.
+        """
         # we find the file by going up the parents till we find
         # the root (which is it's own parent)
         parent = self.parent
@@ -113,6 +138,14 @@ class Group(Mapping):
     #
 
     def is_sub_group(self, name):
+        """ Check whether ``name`` is a sub-group (rather than a dataset) of this group.
+
+        Args:
+            name (str): name of the child to check.
+
+        Returns:
+            bool: True if ``name`` refers to a sub-group.
+        """
         return self._handle.is_sub_group(name)
 
     def create_group(self, name):
@@ -131,8 +164,9 @@ class Group(Mapping):
             raise ValueError("Cannot create group with read-only permissions.")
         if name in self:
             raise KeyError("An object with name %s already exists" % name)
-        handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
+        handle = _z5py.create_group(self._handle, name, self._zarr_format)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name,
+                     self._dimension_separator, self._zarr_format)
 
     def require_group(self, name):
         """ Require group.
@@ -153,8 +187,9 @@ class Group(Mapping):
         else:
             if not self._handle.mode().can_write():
                 raise ValueError("Cannot create group with read-only permissions.")
-            handle = _z5py.create_group(self._handle, name)
-        return Group(handle, self._handle_factory, self, self._name + '/' + name, self._dimension_separator)
+            handle = _z5py.create_group(self._handle, name, self._zarr_format)
+        return Group(handle, self._handle_factory, self, self._name + '/' + name,
+                     self._dimension_separator, self._zarr_format)
 
     #
     # Dataset functionality
@@ -164,7 +199,8 @@ class Group(Mapping):
                        shape=None, dtype=None,
                        data=None, chunks=None,
                        compression=None, fillvalue=0,
-                       n_threads=1, **compression_options):
+                       n_threads=1, shards=None,
+                       chunk_key_encoding='default', **compression_options):
         """ Create a new dataset.
 
         Create a new dataset in the group. Syntax and behaviour similar to the
@@ -209,13 +245,18 @@ class Group(Mapping):
             return group.create_dataset(parts[-1], shape, dtype,
                                         data, chunks, compression,
                                         fillvalue, n_threads,
+                                        shards=shards,
+                                        chunk_key_encoding=chunk_key_encoding,
                                         **compression_options)
 
         return Dataset._create_dataset(self, name, shape, dtype,
                                        data, chunks, compression,
                                        fillvalue, n_threads,
                                        compression_options,
-                                       self._dimension_separator)
+                                       self._dimension_separator,
+                                       zarr_format=self._zarr_format,
+                                       shards=shards,
+                                       chunk_key_encoding=chunk_key_encoding)
 
     def require_dataset(self, name, shape,
                         dtype=None, chunks=None,
@@ -239,36 +280,39 @@ class Group(Mapping):
         Returns:
             ``Dataset``: the required dataset.
         """
-        if not self._handle.mode().can_write():
-            raise ValueError("Cannot create dataset with read-only permissions.")
+        # NOTE write permissions are only required if the dataset does not exist;
+        # _require_dataset checks this on its creation path
         return Dataset._require_dataset(self, name, shape, dtype, chunks,
-                                        n_threads, dimension_separator=self._dimension_separator, **kwargs)
+                                        n_threads, dimension_separator=self._dimension_separator,
+                                        zarr_format=self._zarr_format, **kwargs)
 
     def visititems(self, func, _root=None):
         """ Recursively visit names and objects in this group.
 
-        You supply a callable (function, method or callable object); it
-        will be called exactly once for each link in this group and every
-        group below it. Your callable must conform to the signature:
+        You supply a callable (function, method or callable object); it will be
+        called exactly once for each member of this group and every group below
+        it, with the signature ``func(name, obj)`` where ``name`` is the
+        member's path relative to this group and ``obj`` is the
+        :class:`Group` / :class:`Dataset`. Returning ``None`` continues the
+        iteration; returning anything else stops it and that value becomes the
+        return value of :meth:`visititems`. No particular iteration order within
+        a group is guaranteed.
 
-            func(<member name>, <object>) => <None or return value>
+        Args:
+            func (callable): callable invoked as ``func(name, obj)`` for each member.
 
-        Returning None continues iteration, returning anything else stops
-        and immediately returns that value from the visit method.  No
-        particular order of iteration within groups is guaranteed.
-
-        calls the function @param func with the found items, appended to @param path
+        Returns:
+            The first non-None value returned by ``func``, or None if it never
+            returned one.
 
         Example:
-
-        # Get a list of all datasets in the file
-        >>> mylist = []
-        >>> def func(name, obj):
-        ...     if isinstance(obj, Dataset):
-        ...         mylist.append(name)
-        ...
-        >>> f = File('foo.n5')
-        >>> f.visititems(func)
+            >>> # collect the paths of all datasets in the file
+            >>> mylist = []
+            >>> def func(name, obj):
+            ...     if isinstance(obj, Dataset):
+            ...         mylist.append(name)
+            >>> f = File('foo.n5')
+            >>> f.visititems(func)
         """
         _root = self._handle if _root is None else _root
         for name, obj in self.items():
@@ -278,4 +322,8 @@ class Group(Mapping):
             if func_ret is not None:
                 return func_ret
             if isinstance(obj, Group):
-                obj.visititems(func, _root=_root)
+                # a non-None result from a nested call stops the iteration and is
+                # propagated to the caller (h5py semantics)
+                func_ret = obj.visititems(func, _root=_root)
+                if func_ret is not None:
+                    return func_ret

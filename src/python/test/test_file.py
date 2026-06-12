@@ -1,10 +1,13 @@
 import unittest
 import os
+import json
 from shutil import rmtree
 from abc import ABC
 import pathlib
 
 import z5py
+
+from _v3_capability import requires_z5_v3
 
 
 class FileTestMixin(ABC):
@@ -94,6 +97,40 @@ class TestPathlibPath(FileTestMixin, unittest.TestCase):
         path = pathlib.Path(self.path)
         f = z5py.N5File(path)
         self.assertFalse(f.is_zarr)
+
+
+@requires_z5_v3
+class TestZarrV3File(unittest.TestCase):
+    path = 'file_v3.zr'
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _read_root_meta(self):
+        with open(os.path.join(self.path, 'zarr.json')) as f:
+            return json.load(f)
+
+    def test_create_v3(self):
+        self.assertFalse(os.path.exists(self.path))
+        f = z5py.File(self.path, use_zarr_format=True, zarr_format=3)
+        self.assertTrue(f.is_zarr)
+        meta = self._read_root_meta()
+        self.assertEqual(meta['zarr_format'], 3)
+        self.assertEqual(meta['node_type'], 'group')
+
+    def test_zarrfile_v3(self):
+        f = z5py.ZarrFile(self.path, zarr_format=3)
+        self.assertTrue(f.is_zarr)
+        self.assertEqual(self._read_root_meta()['zarr_format'], 3)
+
+    def test_reopen_v3(self):
+        z5py.File(self.path, use_zarr_format=True, zarr_format=3)
+        # re-opening must accept the v3 metadata (version check)
+        f = z5py.File(self.path)
+        self.assertTrue(f.is_zarr)
 
 
 if __name__ == '__main__':

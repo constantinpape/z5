@@ -32,8 +32,10 @@ def stress_test(input_path, input_key, compression, n_threads, format_='n5'):
 
 
 if __name__ == '__main__':
-    path = '/home/pape/Work/data/cremi/example/sampleA.n5'
-    key = 'volumes/raw/s0'
+    import sys
+    if len(sys.argv) < 3:
+        sys.exit("Usage: %s <path-to-n5-container> <dataset-key>" % sys.argv[0])
+    path, key = sys.argv[1], sys.argv[2]
 
     stress_test(path, key, 'gzip', 4, 'n5')
     stress_test(path, key, 'gzip', 4, 'zarr')

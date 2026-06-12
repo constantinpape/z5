@@ -1,21 +1,15 @@
-# add xtensor test
-add_executable(test_xtensor test_xtensor.cxx)
-target_link_libraries(test_xtensor ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
+# add array IO test
+add_executable(test_array test_array.cxx)
+target_link_libraries(test_array ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 # add broadcast test
 add_executable(test_broadcast test_broadcast.cxx)
 target_link_libraries(test_broadcast ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
 # add nd tests
-add_executable(test_xtnd test_xtnd.cxx)
-target_link_libraries(test_xtnd ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
+add_executable(test_array_nd test_array_nd.cxx)
+target_link_libraries(test_array_nd ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 
-# add xtensor util
-add_executable(test_xtutil test_xtutil.cxx)
-target_link_libraries(test_xtutil ${TEST_LIBS})
-
-# add marray test
-if(WITH_MARRAY)
-    add_executable(test_marray test_marray.cxx)
-    target_link_libraries(test_marray ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
-endif()
+# add array util test (copyView / fillView / subview)
+add_executable(test_array_util test_array_util.cxx)
+target_link_libraries(test_array_util ${TEST_LIBS})

@@ -1,3 +1,11 @@
+#!/bin/bash
+# run every gtest binary in the current build's src/test directory;
+# set -e so a single failing test suite fails the whole run
+set -e
+
+echo "Running Handle Test"
+./test_handle
+
 echo "Running Metadata Test"
 ./test_metadata
 
@@ -10,36 +18,30 @@ echo "Running Factories Test"
 echo "Running Attributes Test"
 ./test_attributes
 
+echo "Running Util Test"
+./util/test_util
+
 echo "Running Compression Tests"
 ./compression/test_raw
-if [ -f ./compression/test_blosc ]; then
-    ./compression/test_blosc
-fi
-if [ -f ./compression/test_bzip2 ]; then
-    ./compression/test_bzip2
-fi
-if [ -f ./compression/test_lz4 ]; then
-    ./compression/test_lz4
-fi
-if [ -f ./compression/test_xz ]; then
-    ./compression/test_xz
-fi
-if [ -f ./compression/test_zlib ]; then
-    ./compression/test_zlib
-fi
+for codec in blosc bzip2 lz4 xz zlib zstd; do
+    if [ -f "./compression/test_${codec}" ]; then
+        "./compression/test_${codec}"
+    fi
+done
 
-if [ -f ./multiarray/test_marray ]; then
-    echo "Running Marray Tests"
-    ./multiarray/test_marray
-fi
-
-echo "Running Xtensor Tests"
+echo "Running Multiarray Tests"
+./multiarray/test_array_util
 ./multiarray/test_broadcast
-./multiarray/test_xtensor
-./multiarray/test_xtnd
+./multiarray/test_array
+./multiarray/test_array_nd
 
-# don't run n5 tests in test runner, we can't run them in travis
-# echo "Running N5 Tests"
-# cd test_n5
-# ./run_test.bash
-# cd ..
+# the s3 tests skip themselves unless Z5PY_S3_ENDPOINT points to a reachable
+# endpoint (e.g. a local moto server)
+if [ -f ./s3/test_handle_s3 ]; then
+    echo "Running S3 Handle Test"
+    ./s3/test_handle_s3
+fi
+if [ -f ./s3/test_factories_s3 ]; then
+    echo "Running S3 Factories Test"
+    ./s3/test_factories_s3
+fi

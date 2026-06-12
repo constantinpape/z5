@@ -21,11 +21,19 @@ namespace compression {
     class XzCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         XzCompressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
 
         void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
+
+            // the loop below appends to dataOut, so it must start out empty
+            // (every other compressor overwrites the output buffer)
+            dataOut.clear();
 
             // create lzma stream
             lzma_stream lzs;
@@ -80,7 +88,7 @@ namespace compression {
         }
 
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
 
             // create lzma stream
             lzma_stream lzs;
@@ -90,8 +98,8 @@ namespace compression {
                 throw(std::runtime_error("Initializing xz stream failed"));
             }
 
-            lzs.next_in = (uint8_t *) &dataIn[0];
-            lzs.avail_in = dataIn.size();
+            lzs.next_in = (uint8_t *) dataIn;
+            lzs.avail_in = nBytesIn;
 
             // let xz decompress the bytes blockwise
             lzma_ret ret = LZMA_OK;

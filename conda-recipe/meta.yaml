@@ -22,21 +22,20 @@ requirements:
   build:
     - python {{PY_VER}}
     - cmake
-    - xtensor
-    - xtensor-python
+    - nanobind
     - numpy >=1.15
     - nlohmann_json
     - blosc
     - bzip2
     - xz
-    - zlib
+    - libdeflate
   run:
     - python {{PY_VER}}
     - numpy >=1.15
     - blosc
     - bzip2
     - xz
-    - zlib
+    - libdeflate
 
 
 test:

@@ -55,6 +55,30 @@ namespace handle {
         virtual const std::string & bucketName() const = 0;
         virtual const std::string & nameInBucket() const = 0;
 
+        // S3 (object-store) client configuration. These have sensible defaults so
+        // the filesystem / gcs backends don't need to implement them; the s3 handles
+        // override them and propagate the config down the handle hierarchy (the same
+        // way bucketName() / nameInBucket() are propagated).
+        virtual const std::string & endpoint() const {
+            static const std::string empty;
+            return empty;
+        }
+        virtual const std::string & region() const {
+            static const std::string defaultRegion = "us-east-1";
+            return defaultRegion;
+        }
+        virtual bool anon() const {
+            return false;
+        }
+        virtual const std::string & accessKey() const {
+            static const std::string empty;
+            return empty;
+        }
+        virtual const std::string & secretKey() const {
+            static const std::string empty;
+            return empty;
+        }
+
         const FileMode & mode() const {
             return mode_;
         }
@@ -93,27 +117,37 @@ namespace handle {
     template<class DATASET>
     class Dataset : public Handle {
     public:
-        Dataset(const FileMode mode, const std::string zarrDelimiter=".") : Handle(mode), zarrDelimiter_(zarrDelimiter){}
+        Dataset(const FileMode mode, const std::string zarrDelimiter=".",
+                const int zarrFormat=2, const std::string chunkKeyEncoding="default")
+            : Handle(mode), zarrDelimiter_(zarrDelimiter),
+              zarrFormat_(zarrFormat), chunkKeyEncoding_(chunkKeyEncoding){}
         virtual ~Dataset() {}
 
         const std::string & zarrDelimiter() const {return zarrDelimiter_;}
+        int zarrFormat() const {return zarrFormat_;}
+        const std::string & chunkKeyEncoding() const {return chunkKeyEncoding_;}
 
     private:
         std::string zarrDelimiter_;
+        int zarrFormat_;
+        std::string chunkKeyEncoding_;
     };
 
 
     template<class CHUNK>
     class Chunk : public Handle {
     public:
+        // the shapes are stored BY VALUE: chunk handles are frequently constructed
+        // from temporaries (e.g. the shard coordinate returned by util::shardId), so
+        // reference members would dangle as soon as the constructing statement ends
         Chunk(const types::ShapeType & chunkIndices,
               const types::ShapeType & defaultShape,
               const types::ShapeType & datasetShape,
-              const FileMode mode) : chunkIndices_(chunkIndices),
+              const FileMode mode) : Handle(mode),
+                                     chunkIndices_(chunkIndices),
                                      defaultShape_(defaultShape),
                                      datasetShape_(datasetShape),
-                                     boundedShape_(computeBoundedShape()),
-                                     Handle(mode){}
+                                     boundedShape_(computeBoundedShape()){}
         virtual ~Chunk() {}
 
         // expose relevant part of the derived's class API
@@ -140,7 +174,7 @@ namespace handle {
         }
 
         inline std::size_t size() const {
-            return std::accumulate(boundedShape_.begin(), boundedShape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(boundedShape_.begin(), boundedShape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
         inline const types::ShapeType & defaultShape() const {
@@ -148,18 +182,29 @@ namespace handle {
         }
 
         inline std::size_t defaultSize() const {
-            return std::accumulate(defaultShape_.begin(), defaultShape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(defaultShape_.begin(), defaultShape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
     protected:
-        inline std::string getChunkKey(const bool isZarr, const std::string & zarrDelimiter=".") const {
+        inline std::string getChunkKey(const bool isZarr, const std::string & zarrDelimiter=".",
+                                       const int zarrFormat=2,
+                                       const std::string & chunkKeyEncoding="default") const {
             const auto & indices = chunkIndices();
 			std::string name;
 
-            // if we have the zarr-format, chunk indices
-            // are separated by a '.' by default, but the delimiter may be changed in the metadata
             if(isZarr) {
-                util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                if(zarrFormat == 3 && chunkKeyEncoding == "default") {
+                    // zarr v3 default encoding: chunk keys are nested under 'c' and
+                    // joined by the separator (default '/'), e.g. "c/0/1/2"
+                    name = "c";
+                    for(const auto idx : indices) {
+                        name += zarrDelimiter + std::to_string(idx);
+                    }
+                } else {
+                    // zarr v2 (or zarr v3 "v2" chunk key encoding): flat key joined
+                    // by the delimiter, e.g. "0.1.2"
+                    util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                }
             }
 
             // in n5 each chunk index has its own directory, i.e. the delimiter is '/'
@@ -185,9 +230,9 @@ namespace handle {
         }
 
     private:
-        const types::ShapeType & chunkIndices_;
-        const types::ShapeType & defaultShape_;
-        const types::ShapeType & datasetShape_;
+        types::ShapeType chunkIndices_;
+        types::ShapeType defaultShape_;
+        types::ShapeType datasetShape_;
         types::ShapeType boundedShape_;
     };
 

@@ -1,3 +1,17 @@
+"""Utility functions for z5py datasets and groups.
+
+Helpers that build on top of the core :class:`z5py.Dataset` / :class:`z5py.Group`
+API:
+
+- :func:`blocking`: iterate over an nd shape in block-shaped pieces.
+- :func:`copy_dataset`, :func:`copy_group`, :func:`copy_dataset_impl`: parallel,
+  chunk-wise copying between containers (also re-used by the converters in
+  :mod:`z5py.converter`).
+- :func:`remove_dataset`, :func:`remove_chunk`, :func:`remove_chunks`,
+  :func:`remove_trivial_chunks`: multi-threaded chunk and dataset maintenance.
+- :func:`unique`: the unique values (and optionally their counts) of a dataset.
+- :class:`Timer`: a small context-manager timer used in examples and benchmarks.
+"""
 import os
 from itertools import product
 from concurrent import futures
@@ -15,10 +29,27 @@ from .file import File, S3File
 from .dataset import Dataset
 from .shape_utils import normalize_slices
 
+__all__ = ['blocking', 'copy_dataset', 'copy_dataset_impl', 'copy_group',
+           'remove_trivial_chunks', 'remove_dataset', 'remove_chunk', 'remove_chunks',
+           'unique', 'Timer']
+
 
 def product1d(inrange):
-    for ii in inrange:
-        yield ii
+    """1d fallback for :func:`itertools.product`.
+
+    Takes a list holding a single range and yields one 1-tuple per entry. Used by
+    :func:`blocking` for very large 1d, open-ended datasets, where
+    :func:`itertools.product` raises a ``MemoryError`` because it casts its input
+    iterators to tuples.
+
+    Args:
+        inrange (list): a list holding a single ``range`` object.
+
+    Yields:
+        tuple: a 1-tuple ``(i,)`` for each element ``i`` of the range.
+    """
+    for ii in inrange[0]:
+        yield (ii,)
 
 
 def blocking(shape, block_shape, roi=None, center_blocks_at_roi=False):
@@ -117,28 +148,28 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
     chunks = ds_in.chunks if chunks is None else chunks
     dtype = ds_in.dtype if dtype is None else dtype
 
-    # zarr objects may not have compression attribute. if so set it to the settings sent to this function
-    if not hasattr(ds_in, "compression"):
-        ds_in.compression = new_compression
-    compression = new_compression.pop("compression", ds_in.compression)
+    # some input objects (e.g. plain zarr/h5py arrays) may not have a compression
+    # attribute; fall back to the compression passed to this function then
+    in_compression = getattr(ds_in, "compression", None)
+    compression = new_compression.pop("compression", in_compression)
     compression_opts = new_compression
 
+    # when copying within the same library and keeping the codec, reuse the
+    # input dataset's compression options ('raw' passes through unchanged --
+    # substituting None here would re-compress with the default codec)
     same_lib = in_is_z5 == out_is_z5
-    if same_lib and compression == ds_in.compression:
-        compression_opts = compression_opts if compression_opts else ds_in.compression_opts
+    if same_lib and compression == in_compression and not compression_opts:
+        compression_opts = ds_in.compression_opts
 
-    if out_is_z5:
-        compression = None if compression == 'raw' else compression
-        compression_opts = {} if compression_opts is None else compression_opts
-    else:
-        compression_opts = {'compression_opts': None} if compression_opts is None else compression_opts
+    if not out_is_z5 and not compression_opts:
+        compression_opts = {'compression_opts': None}
 
     # if we don't have block-shape explicitly given, use chunk size
     # otherwise check that it's a multiple of chunks
     if block_shape is None:
         block_shape = chunks
     else:
-        assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)),\
+        assert all(bs % ch == 0 for bs, ch in zip(block_shape, chunks)), \
             "block_shape must be a multiple of chunks"
 
     shape = ds_in.shape
@@ -159,7 +190,9 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
 
     def write_single_block(bb):
         data_in = ds_in[bb].astype(dtype, copy=False)
-        if np.sum(data_in) == 0:
+        # skip blocks that contain no data; np.any, NOT the sum, which can be
+        # zero for non-zero signed / float data (silent data loss)
+        if not np.any(data_in):
             return
         if fit_to_roi and roi is not None:
             bb = tuple(slice(b.start - rr.start, b.stop - rr.start)
@@ -179,14 +212,16 @@ def copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
 
     with futures.ThreadPoolExecutor(max_workers=n_threads) as tp:
         if verbose and tqdm is not None:
-            if roi is None:
+            if roi is not None:
                 roi_shape = [r.stop - r.start for r in roi]
-                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(roi_shape, block_shape)]))
+                n_blocks = int(np.prod([np.ceil(float(sh) / bs) for sh, bs in zip(roi_shape, block_shape)]))
             else:
-                n_blocks = int(np.prod([float(sh) / bs for sh, bs in zip(shape, block_shape)]))
+                n_blocks = int(np.prod([np.ceil(float(sh) / bs) for sh, bs in zip(shape, block_shape)]))
             list(tqdm(tp.map(write_single, blocks), total=n_blocks))
         else:
-            tp.map(write_single, blocks)
+            # consume the lazy map result so worker exceptions propagate instead
+            # of being silently discarded
+            list(tp.map(write_single, blocks))
 
     # copy attributes
     in_attrs = ds_in.attrs
@@ -282,22 +317,43 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
 
 
 class Timer:
+    """Minimal wall-clock timer that doubles as a context manager.
+
+    Use it either explicitly via :meth:`start` / :meth:`stop`, or as a context
+    manager that starts on entry and stops on exit. The elapsed time (in seconds)
+    is then available via :attr:`elapsed`.
+
+    Example:
+        >>> with Timer() as t:
+        ...     do_some_work()
+        >>> print(t.elapsed)  # seconds
+    """
+
     def __init__(self):
         self.start_time = None
         self.stop_time = None
 
     @property
     def elapsed(self):
-        try:
-            return (self.stop_time - self.start_time).total_seconds()
-        except TypeError as e:
-            if "'NoneType'" in str(e):
-                raise RuntimeError("{} either not started, or not stopped".format(self))
+        """float: Elapsed time in seconds between :meth:`start` and :meth:`stop`.
+
+        Raises:
+            RuntimeError: if the timer has not been both started and stopped.
+        """
+        if self.start_time is None or self.stop_time is None:
+            raise RuntimeError("{} either not started, or not stopped".format(self))
+        return (self.stop_time - self.start_time).total_seconds()
 
     def start(self):
+        """Start (or restart) the timer."""
         self.start_time = datetime.utcnow()
 
     def stop(self):
+        """Stop the timer.
+
+        Returns:
+            float: the elapsed time in seconds (see :attr:`elapsed`).
+        """
         self.stop_time = datetime.utcnow()
         return self.elapsed
 
@@ -316,15 +372,8 @@ def fetch_test_data_stent():
 
 
 def fetch_test_data():
-    try:
-        from urllib.request import urlopen
-    except ImportError:
-        from urllib2 import urlopen
-
-    try:
-        from io import BytesIO as Buffer
-    except ImportError:
-        from StringIO import StringIO as Buffer
+    from urllib.request import urlopen
+    from io import BytesIO as Buffer
 
     import zipfile
     from imageio import volread
@@ -347,14 +396,16 @@ def remove_trivial_chunks(dataset, n_threads,
                           remove_specific_value=None):
     """ Remove chunks that only contain a single value.
 
-    The input dataset will be copied to the output dataset chunk by chunk.
-    Allows to change datatype, file format and compression as well.
+    Chunks that consist entirely of a single value are deleted from disc.
+    This is useful to reclaim space taken up by chunks holding only the
+    fill-value (or another background value).
 
     Args:
-        dataset (z5py.Dataset)
-        n_threads (int): number of threads
-        remove_specific_value (int or float): only remove chunks that contain (only) this specific value (default: None)
-
+        dataset (z5py.Dataset): the dataset to operate on.
+        n_threads (int): number of threads.
+        remove_specific_value (int or float): only remove chunks that contain
+            (only) this specific value. If None, chunks consisting of a single
+            value are removed regardless of the value (default: None).
     """
 
     dtype = dataset.dtype
@@ -373,7 +424,7 @@ def remove_dataset(dataset, n_threads):
 def remove_chunk(dataset, chunk_id):
     """ Remove a chunk
     """
-    dataset._impl.remove_chunk(dataset._impl, chunk_id)
+    dataset._impl.remove_chunk(chunk_id)
 
 
 def remove_chunks(dataset, bounding_box):
@@ -391,10 +442,13 @@ def unique(dataset, n_threads, return_counts=False):
     """ Find unique values in dataset.
 
     Args:
-        dataset (z5py.Dataset)
-        n_threads (int): number of threads
-        return_counts (bool): return counts of unique values (default: False)
+        dataset (z5py.Dataset): the dataset to operate on.
+        n_threads (int): number of threads.
+        return_counts (bool): also return the count of each unique value (default: False).
 
+    Returns:
+        np.ndarray: the sorted unique values. If ``return_counts`` is True, a
+        tuple ``(values, counts)`` of two arrays is returned instead.
     """
     dtype = dataset.dtype
     if return_counts:

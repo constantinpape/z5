@@ -1,11 +1,12 @@
 import unittest
 import os
-import sys
 from shutil import rmtree
 from abc import ABC
 
 import numpy as np
 import z5py
+
+from _v3_capability import format_ext, open_root_file, requires_z5_v3
 
 
 class GroupTestMixin(ABC):
@@ -13,8 +14,8 @@ class GroupTestMixin(ABC):
     def setUp(self):
         self.shape = (100, 100, 100)
 
-        self.path = 'array.%s' % self.data_format
-        self.root_file = z5py.File(self.path)
+        self.path = 'array.' + format_ext(self.data_format)
+        self.root_file = open_root_file(self.path, self.data_format)
         g = self.root_file.create_group('test')
         g.create_dataset('test',
                          dtype='float32',
@@ -99,8 +100,8 @@ class GroupTestMixin(ABC):
         compression_opts = ds.compression_opts
         self.assertEqual(compression_opts['level'], 4)
 
-    # cf. https://github.com/constantinpape/z5/issues/100
-    @unittest.skipIf(sys.platform.startswith('win'), 'path encoding not compatible with windows')
+    # cf. https://github.com/constantinpape/z5/issues/100 - hierarchy names are
+    # '/'-separated on all platforms now (relative_path uses generic_string)
     def test_visititems(self):
         """ Issue #121
 
@@ -127,6 +128,31 @@ class GroupTestMixin(ABC):
         names = set(names)
         expected_names = {'d1', 'd2'}
         self.assertEqual(names, expected_names)
+
+    def test_visititems_early_return(self):
+        # regression: a non-None return from inside a nested group neither
+        # stopped the iteration nor was propagated (h5py semantics)
+        f = self.root_file
+        f.create_group('g1')
+        f.create_dataset('g1/d1', shape=(10, 10), dtype='uint8')
+
+        def find_d1(name, obj):
+            if name.endswith('d1'):
+                return name
+
+        self.assertEqual(f.visititems(find_d1), 'g1/d1')
+
+    def test_require_dataset_read_only(self):
+        # regression: require_dataset refused to return an EXISTING, consistent
+        # dataset on a read-only file; write permissions are only needed when
+        # the dataset has to be created
+        f = z5py.File(self.path, mode='r')
+        ds = f.require_dataset('test/test', shape=self.shape, dtype='float32',
+                               chunks=(10, 10, 10))
+        self.assertEqual(ds.shape, self.shape)
+        with self.assertRaises(ValueError):
+            f.require_dataset('new_ds', shape=self.shape, dtype='float32',
+                              chunks=(10, 10, 10))
 
     def test_parent(self):
         f = self.root_file
@@ -158,13 +184,46 @@ class TestGroupZarr(GroupTestMixin, unittest.TestCase):
 
     def test_metadata_creation(self):
         """Issue #231
+
+        Creating a dataset in an implicitly created subgroup must produce valid
+        group metadata, so that the hierarchy can be visited afterwards.
         """
         f = self.root_file
         data = (np.random.rand(1, 10, 20, 1, 1) * 255).astype(np.uint8)
+
+        def collect(visited):
+            def visitor(name, obj):
+                visited.append(name)
+            return visitor
+
         f.create_dataset("data", data=data)
-        f.visititems(print)  # Try 1: works
+        visited = []
+        f.visititems(collect(visited))
+        self.assertEqual(set(visited), {'data', 'test', 'test/test'})
+
         f.create_dataset("volume/data", data=data)
-        f.visititems(print)  # Try 2: breaks
+        visited = []
+        f.visititems(collect(visited))
+        self.assertEqual(set(visited),
+                         {'data', 'test', 'test/test', 'volume', 'volume/data'})
+
+
+@requires_z5_v3
+class TestGroupZarrV3(GroupTestMixin, unittest.TestCase):
+    data_format = 'zarr_v3'
+
+    def test_group_metadata_v3(self):
+        import json
+        self.root_file.create_group('sub')
+        # root, the group created in setUp, and a freshly created group all
+        # carry a v3 group ``zarr.json``
+        for rel in ('', 'test', 'sub'):
+            meta_path = os.path.join(self.path, rel, 'zarr.json')
+            self.assertTrue(os.path.exists(meta_path))
+            with open(meta_path) as fobj:
+                meta = json.load(fobj)
+            self.assertEqual(meta['zarr_format'], 3)
+            self.assertEqual(meta['node_type'], 'group')
 
 
 class TestGroupN5(GroupTestMixin, unittest.TestCase):

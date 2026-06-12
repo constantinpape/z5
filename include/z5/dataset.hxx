@@ -32,7 +32,7 @@ namespace z5 {
                                                     dtype_(metadata.dtype),
                                                     shape_(metadata.shape),
                                                     chunkShape_(metadata.chunkShape),
-                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), 1, std::multiplies<std::size_t>())),
+                                                    chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), std::size_t(1), std::multiplies<std::size_t>())),
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     chunking_(shape_, chunkShape_)
         {}
@@ -50,9 +50,10 @@ namespace z5 {
             }
             for(int d = 0; d < shape_.size(); ++d) {
                 if(offset[d] + shape[d] > shape_[d]) {
-                    std::cout << "Out of range: " << offset << " + " << shape << std::endl;
-                    std::cout << " = " << offset[d] + shape[d] << " > " << shape_[d] << std::endl;;
-                    throw std::runtime_error("Request is out of range");
+                    throw std::runtime_error(
+                        "Request is out of range: " + std::to_string(offset[d]) + " + " +
+                        std::to_string(shape[d]) + " > " + std::to_string(shape_[d]) +
+                        " (in dimension " + std::to_string(d) + ")");
                 }
                 if(shape[d] == 0) {
                     throw std::runtime_error("Request shape has a zero entry");
@@ -73,7 +74,7 @@ namespace z5 {
         inline const types::ShapeType & shape() const {return shape_;}
         inline std::size_t shape(const unsigned d) const {return shape_[d];}
         inline std::size_t size() const {
-            return std::accumulate(shape_.begin(), shape_.end(), 1, std::multiplies<std::size_t>());
+            return std::accumulate(shape_.begin(), shape_.end(), std::size_t(1), std::multiplies<std::size_t>());
         }
 
         inline void getChunkOffset(const types::ShapeType & chunkId, types::ShapeType & chunkOffset) const {
@@ -89,6 +90,31 @@ namespace z5 {
 
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
+
+        // sharding (zarr v3) - default: not sharded; overridden by ShardedDataset
+        virtual bool isSharded() const {return false;}
+        virtual types::ShapeType shardShape() const {return types::ShapeType();}
+
+        // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
+        // do a single read-modify-write per shard and parallelize across shards. Default
+        // bodies are no-ops; only ShardedDataset overrides them (and the sub-array code
+        // only calls them when isSharded() is true).
+        // read all per-slot inner-chunk blobs of a shard (empty vector for empty slots)
+        virtual void readShardBlobs(const types::ShapeType &,
+                                    std::vector<std::vector<char>> &) const {}
+        // read a shard once into a raw buffer, reporting per-slot byte offset + length
+        // (length 0 for empty slots) so the read path can decode in-place without copying
+        // each blob out. Returns false if the shard file is absent.
+        virtual bool readShardRaw(const types::ShapeType &, std::vector<char> &,
+                                  std::vector<std::size_t> &,
+                                  std::vector<std::size_t> &) const {return false;}
+        // build and write a shard from its per-slot blobs (removes the file if all empty)
+        virtual void writeShardBlobs(const types::ShapeType &,
+                                     const std::vector<std::vector<char>> &) const {}
+        // compress one inner chunk to its on-disk blob; returns false if it is all-fill
+        // (-> empty slot), in which case 'blob' is left empty
+        virtual bool makeChunkBlob(const types::ShapeType &, const void *,
+                                   std::vector<char> &) const {return false;}
 
         //
         // API - MUST implement
@@ -119,6 +145,9 @@ namespace z5 {
         virtual void getFillValue(void *) const = 0;
         virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
         virtual void decompress(const std::vector<char> &, void *, const std::size_t) const = 0;
+        // decompress straight from a raw byte range (used by the sharded read path to decode
+        // an inner chunk in-place from the shard buffer, without copying the blob out first)
+        virtual void decompress(const char *, std::size_t, void *, const std::size_t) const = 0;
 
         // file paths, permissions and removal
         virtual const FileMode & mode() const = 0;

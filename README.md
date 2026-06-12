@@ -1,8 +1,9 @@
 # z5
 
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
-[![Build Status](https://github.com/constantinpape/z5/workflows/build/badge.svg)](https://github.com/constantinpape/z5/actions)
-[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
+[![test-conda](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml/badge.svg)](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml)
+[![test-pypi](https://github.com/constantinpape/z5/actions/workflows/test-pypi.yaml/badge.svg)](https://github.com/constantinpape/z5/actions/workflows/test-pypi.yaml)
+[![docs](https://github.com/constantinpape/z5/actions/workflows/docs.yaml/badge.svg)](https://constantinpape.github.io/z5/)
 [![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
 
 
@@ -27,6 +28,18 @@ Conda packages for the relevant systems and python versions are hosted on conda-
 ```
 $ conda install -c conda-forge z5py
 ```
+
+### Pip
+
+Wheels are published on PyPI:
+
+```
+$ pip install z5py
+```
+
+The PyPI wheels are built with all compression codecs but **without the S3 backend**
+(`z5py.S3File` will raise "z5 was not compiled with s3 support"). For S3 support, install
+via conda or build from source with `-DWITH_S3=ON`.
 
 ### From Source
 
@@ -54,10 +67,9 @@ To specify where to install the package, set:
 If you want to include z5 in another C++ project, note that the library itself is header-only. However, you need to link against the compression codecs that you use.
 
 If you don't want to use conda for dependency management, the following dependencies are necessary:
-- [xtensor](https://github.com/xtensor-stack/xtensor)
 - [nlohmann_json](https://github.com/nlohmann/json)
-- [pybind11](https://github.com/pybind/pybind11) (only for python bindings)
-- [xtensor_python](https://github.com/xtensor-stack/xtensor-python) (only for python bindings)
+- [nanobind](https://github.com/wjakob/nanobind) (only for python bindings)
+- [numpy](https://numpy.org/) (only for python bindings)
 
 ## Examples / Usage
 
@@ -138,24 +150,21 @@ convert_from_h5(h5_file, n5_file,
 The API implements factory functions like `createFile` or `createDataset` in [the factory header](https://github.com/constantinpape/z5/blob/main/include/z5/factory.hxx). 
 These functions need to be called with the corresponding handle, like `z5::filesystem::handle::File` or `z5::s3::handle::File` in order to specify which backend to use.
 
-The library is intended to be used with a multiarray, that holds data in memory.
-By default [xtensor](https://github.com/QuantStack/xtensor) is used, see [implementation](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/xtensor_access.hxx).
-There also exists an interface for [marray](https://github.com/bjoern-andres/marray), see [implementation](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/marray_access.hxx).
-To interface with other multiarray implementation, reimplement `readSubarray` and `writeSubarray`.
-Pull requests for additional multiarray support are welcome.
+The library is intended to be used with an in-memory multiarray that holds the data.
+Data is passed in and out via a lightweight, non-owning strided view, `z5::multiarray::ArrayView` / `ConstArrayView` (a data pointer plus shape and element strides, compatible with numpy arrays), see [implementation](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/array_view.hxx) and the IO functions `readSubarray` / `writeSubarray` in [array_access.hxx](https://github.com/constantinpape/z5/blob/main/include/z5/multiarray/array_access.hxx).
+To interface with another multiarray implementation, wrap its buffer in an `ArrayView` (data pointer + shape + element strides).
 
 Some examples:
 
 ```c++
 #include "json.hpp"
-#include "xtensor/xarray.hpp"
 
 // factory functions to create files, groups and datasets
 #include "z5/factory.hxx"
 // handles for z5 filesystem objects
 #include "z5/filesystem/handle.hxx"
-// io for xtensor multi-arrays
-#include "z5/multiarray/xtensor_access.hxx"
+// strided-view io for multi-arrays
+#include "z5/multiarray/array_access.hxx"
 // attribute functionality
 #include "z5/attributes.hxx"
 
@@ -177,16 +186,21 @@ int main() {
   std::vector<size_t> chunks = { 100, 100, 100 };
   auto ds = z5::createDataset(f, dsName, "float32", shape, chunks);
 
-  // write array to roi
+  // write array to roi; the data lives in a C-contiguous buffer that we
+  // wrap in a (non-owning) strided view
   z5::types::ShapeType offset1 = { 50, 100, 150 };
-  xt::xarray<float>::shape_type shape1 = { 150, 200, 100 };
-  xt::xarray<float> array1(shape1, 42.0);
+  z5::types::ShapeType shape1 = { 150, 200, 100 };
+  std::vector<float> buffer1(150 * 200 * 100, 42.0);
+  z5::multiarray::ConstArrayView<float> array1(buffer1.data(), shape1,
+                                               z5::multiarray::cOrderStrides(shape1));
   z5::multiarray::writeSubarray<float>(ds, array1, offset1.begin());
 
   // read array from roi (values that were not written before are filled with a fill-value)
   z5::types::ShapeType offset2 = { 100, 100, 100 };
-  xt::xarray<float>::shape_type shape2 = { 300, 200, 75 };
-  xt::xarray<float> array2(shape2);
+  z5::types::ShapeType shape2 = { 300, 200, 75 };
+  std::vector<float> buffer2(300 * 200 * 75);
+  z5::multiarray::ArrayView<float> array2(buffer2.data(), shape2,
+                                          z5::multiarray::cOrderStrides(shape2));
   z5::multiarray::readSubarray<float>(ds, array2, offset2.begin());
 
   // get handle for the dataset

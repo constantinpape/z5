@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <string>
 
 #include "z5/handle.hxx"
@@ -34,14 +35,16 @@ namespace handle {
             if(!pathExists()) {
                throw std::runtime_error("Cannot infer zarr format because the dataset has not been created yet.");
             }
-            return fs::exists(path_ / ".zarray");
+            // .zarray -> zarr v2, zarr.json -> zarr v3
+            return fs::exists(path_ / ".zarray") || fs::exists(path_ / "zarr.json");
         }
 
         inline bool isZarrGroup() const {
             if(!pathExists()) {
                throw std::runtime_error("Cannot infer zarr format because the group has not been created yet.");
             }
-            return fs::exists(path_ / ".zgroup");
+            // .zgroup -> zarr v2, zarr.json -> zarr v3
+            return fs::exists(path_ / ".zgroup") || fs::exists(path_ / "zarr.json");
         }
 
         inline void listSubDirs(std::vector<std::string> & out) const {
@@ -188,17 +191,40 @@ namespace handle {
         typedef z5::handle::Dataset<Dataset> BaseType;
 
         template<class GROUP>
-        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key, const std::string & zarrDelimiter=".")
-            : BaseType(group.mode(), zarrDelimiter), HandleImpl(group.path() / key) {
+        Dataset(const z5::handle::Group<GROUP> & group, const std::string & key,
+                const std::string & zarrDelimiter=".", const int zarrFormat=2,
+                const std::string & chunkKeyEncoding="default")
+            : BaseType(group.mode(), zarrDelimiter, zarrFormat, chunkKeyEncoding),
+              HandleImpl(group.path() / key) {
         }
 
         Dataset(const fs::path & path, const FileMode & mode)
             : BaseType(mode), HandleImpl(path) {}
 
+        // copy keeps the cached isZarr flag (atomics are not copyable by default)
+        Dataset(const Dataset & other)
+            : BaseType(other), HandleImpl(other),
+              isZarrCache_(other.isZarrCache_.load(std::memory_order_relaxed)) {}
+
         inline bool isS3() const {return false;}
         inline bool isGcs() const {return false;}
         inline bool exists() const {return pathExists();}
-        inline bool isZarr() const {return isZarrDataset();}
+
+        // isZarrDataset() stats metadata files and is queried for every chunk handle
+        // (the chunk-key format depends on it), so the result is cached; the owning
+        // filesystem::Dataset seeds the cache from its metadata via setIsZarr
+        inline bool isZarr() const {
+            signed char cached = isZarrCache_.load(std::memory_order_relaxed);
+            if(cached < 0) {
+                cached = isZarrDataset() ? 1 : 0;
+                isZarrCache_.store(cached, std::memory_order_relaxed);
+            }
+            return cached == 1;
+        }
+        inline void setIsZarr(const bool isZarr) const {
+            isZarrCache_.store(isZarr ? 1 : 0, std::memory_order_relaxed);
+        }
+
         inline const fs::path & path() const {return getPath();}
 
         inline void create() const {
@@ -228,6 +254,10 @@ namespace handle {
         // dummy implementation
         const std::string & bucketName() const {return dummy();}
         const std::string & nameInBucket() const {return dummy();}
+
+    private:
+        // -1: unknown (probe on first use), 0: n5, 1: zarr
+        mutable std::atomic<signed char> isZarrCache_{-1};
     };
 
 
@@ -240,7 +270,7 @@ namespace handle {
               const types::ShapeType & chunkShape,
               const types::ShapeType & shape) : BaseType(chunkIndices, chunkShape, shape, ds.mode()),
                                                          dsHandle_(ds),
-                                                         path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter())){}
+                                                         path_(ds.path() / getChunkKey(ds.isZarr(), ds.zarrDelimiter(), ds.zarrFormat(), ds.chunkKeyEncoding())){}
 
         // make the top level directories for a nested chunk
         inline void create() const {
@@ -258,7 +288,7 @@ namespace handle {
                 // throws an exception
                 try {
                     fs::create_directories(root);
-                } catch (fs::filesystem_error) {}
+                } catch (const fs::filesystem_error &) {}
             }
         }
 

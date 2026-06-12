@@ -395,6 +395,8 @@ namespace types {
                         if(options.find("level") == options.end()){options["level"] = 5;}
                         if(options.find("shuffle") == options.end()){options["shuffle"] = 1;}
                         if(options.find("blocksize") == options.end()){options["blocksize"] = 0;}
+                        // n5 metadata serialization reads "nthreads" unconditionally
+                        if(options.find("nthreads") == options.end()){options["nthreads"] = 1;}
                         break;
             #endif
             #ifdef WITH_ZLIB
@@ -423,6 +425,129 @@ namespace types {
         }
     }
 
+    //
+    // zarr v3 codec (de)serialization
+    //
+    // size of a datatype in bytes (used for the blosc ``typesize`` field)
+    inline std::size_t datatypeSize(Datatype dt) {
+        switch(dt) {
+            case int8: case uint8: return 1;
+            case int16: case uint16: return 2;
+            case int32: case uint32: case float32: return 4;
+            case int64: case uint64: case float64: return 8;
+            case complex64: return 8;
+            case complex128: return 16;
+            case complex256: return 32;
+            default: return 1;
+        }
+    }
+
+    inline std::string bloscShuffleToString(int s) {
+        return s == 0 ? "noshuffle" : (s == 2 ? "bitshuffle" : "shuffle");
+    }
+    inline int bloscShuffleFromJson(const nlohmann::json & s) {
+        if(s.is_number_integer() || s.is_number_unsigned()) {
+            return s.get<int>();
+        }
+        const std::string v = s.get<std::string>();
+        if(v == "noshuffle") return 0;
+        if(v == "bitshuffle") return 2;
+        return 1;  // "shuffle"
+    }
+
+    // build the zarr v3 codec list (array-to-bytes ``bytes`` + optional bytes-to-bytes compressor)
+    inline void writeV3CodecsToJson(Compressor compressor,
+                                    const CompressionOptions & options,
+                                    std::size_t typesize,
+                                    nlohmann::json & jCodecs) {
+        jCodecs = nlohmann::json::array();
+
+        nlohmann::json bytesCodec;
+        bytesCodec["name"] = "bytes";
+        bytesCodec["configuration"]["endian"] = "little";
+        jCodecs.push_back(bytesCodec);
+
+        switch(compressor) {
+            case raw: break;
+            #ifdef WITH_ZLIB
+            case zlib: {
+                nlohmann::json c;
+                c["name"] = "gzip";
+                c["configuration"]["level"] = std::get<int>(options.at("level"));
+                jCodecs.push_back(c);
+                break;
+            }
+            #endif
+            #ifdef WITH_ZSTD
+            case zstd: {
+                nlohmann::json c;
+                c["name"] = "zstd";
+                c["configuration"]["level"] = std::get<int>(options.at("level"));
+                c["configuration"]["checksum"] = false;
+                jCodecs.push_back(c);
+                break;
+            }
+            #endif
+            #ifdef WITH_BLOSC
+            case blosc: {
+                nlohmann::json c;
+                c["name"] = "blosc";
+                c["configuration"]["cname"] = std::get<std::string>(options.at("codec"));
+                c["configuration"]["clevel"] = std::get<int>(options.at("level"));
+                c["configuration"]["shuffle"] = bloscShuffleToString(std::get<int>(options.at("shuffle")));
+                c["configuration"]["typesize"] = static_cast<int>(typesize);
+                c["configuration"]["blocksize"] = std::get<int>(options.at("blocksize"));
+                jCodecs.push_back(c);
+                break;
+            }
+            #endif
+            default:
+                throw std::runtime_error("z5: unsupported compressor for zarr v3");
+        }
+    }
+
+    // parse a zarr v3 codec list into a Compressor + CompressionOptions (ignores the ``bytes`` codec)
+    inline void readV3CodecsFromJson(const nlohmann::json & jCodecs,
+                                     Compressor & compressor,
+                                     CompressionOptions & options) {
+        compressor = raw;
+        for(const auto & c : jCodecs) {
+            const std::string name = c.at("name").get<std::string>();
+            if(name == "bytes") {
+                continue;
+            }
+            const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
+            if(name == "gzip") {
+                #ifdef WITH_ZLIB
+                compressor = zlib;
+                options["level"] = cfg.value("level", 5);
+                options["useZlib"] = false;
+                #else
+                throw std::runtime_error("z5: zarr v3 gzip codec requires WITH_ZLIB");
+                #endif
+            } else if(name == "zstd") {
+                #ifdef WITH_ZSTD
+                compressor = zstd;
+                options["level"] = cfg.value("level", 3);
+                #else
+                throw std::runtime_error("z5: zarr v3 zstd codec requires WITH_ZSTD");
+                #endif
+            } else if(name == "blosc") {
+                #ifdef WITH_BLOSC
+                compressor = blosc;
+                options["codec"] = cfg.value("cname", std::string("lz4"));
+                options["level"] = cfg.value("clevel", 5);
+                options["shuffle"] = cfg.contains("shuffle") ? bloscShuffleFromJson(cfg.at("shuffle")) : 1;
+                options["blocksize"] = cfg.value("blocksize", 0);
+                #else
+                throw std::runtime_error("z5: zarr v3 blosc codec requires WITH_BLOSC");
+                #endif
+            } else {
+                throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
+            }
+        }
+    }
+
     // generic translation from compression type to json
     // for pybindings
     inline void jsonToCompressionType(const nlohmann::json & j, CompressionOptions & opts) {
@@ -438,8 +563,8 @@ namespace types {
                 const std::string tmp = val;
                 opts[key] = tmp;
             } else {
-                std::cout << val.type_name() << std::endl;
-                throw std::runtime_error("Invalid type conversion for compression type");
+                throw std::runtime_error(std::string("Invalid type conversion for compression type: ") +
+                                         val.type_name());
             }
         }
     }

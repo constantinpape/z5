@@ -195,17 +195,21 @@ namespace attrs_detail {
         #ifdef WITH_S3
         if(ds.isS3()) {
             s3::readAttributes(ds, j);
-            return;
         }
+        else
         #endif
         #ifdef WITH_GCS
         if(ds.isGcs()) {
             gcs::readAttributes(ds, j);
-            return;
         }
+        else
         #endif
+        {
+            filesystem::readAttributes(ds, j);
+        }
 
-        filesystem::readAttributes(ds, j);
+        // n5 stores the dataset metadata in the same file as the attributes;
+        // hide it for every backend so it does not leak into user attributes
         if(!ds.isZarr()) {
             attrs_detail::hideN5DatasetAttributes(j);
         }

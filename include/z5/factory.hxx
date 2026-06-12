@@ -13,19 +13,45 @@
 
 namespace z5 {
     namespace factory_detail {
-        inline void getZarrDelimiter(const fs::path & root, const std::string & key, std::string & zarrDelimiter) {
-            const fs::path path = root / key / ".zarray";
-            if(!fs::exists(path)) {
+        // read the chunk-key configuration (delimiter, format, encoding) of an
+        // existing zarr dataset, from .zarray (v2) or zarr.json (v3)
+        inline void getZarrChunkConfig(const fs::path & root, const std::string & key,
+                                       std::string & zarrDelimiter, int & zarrFormat,
+                                       std::string & chunkKeyEncoding) {
+            // zarr v3
+            const fs::path v3 = root / key / "zarr.json";
+            if(fs::exists(v3)) {
+                nlohmann::json j;
+                std::ifstream file(v3);
+                file >> j;
+                file.close();
+                zarrFormat = 3;
+                if(j.contains("chunk_key_encoding")) {
+                    const auto & cke = j["chunk_key_encoding"];
+                    chunkKeyEncoding = cke.value("name", std::string("default"));
+                    if(cke.contains("configuration") && cke["configuration"].contains("separator")) {
+                        zarrDelimiter = cke["configuration"]["separator"].get<std::string>();
+                    } else {
+                        zarrDelimiter = (chunkKeyEncoding == "v2") ? "." : "/";
+                    }
+                } else {
+                    chunkKeyEncoding = "default";
+                    zarrDelimiter = "/";
+                }
                 return;
             }
-            nlohmann::json j;
-            std::ifstream file(path);
-            file >> j;
-            file.close();
-
-            const auto it = j.find("dimension_separator");
-            if(it != j.end()) {
-                zarrDelimiter = *it;
+            // zarr v2
+            const fs::path v2 = root / key / ".zarray";
+            if(fs::exists(v2)) {
+                nlohmann::json j;
+                std::ifstream file(v2);
+                file >> j;
+                file.close();
+                zarrFormat = 2;
+                const auto it = j.find("dimension_separator");
+                if(it != j.end()) {
+                    zarrDelimiter = *it;
+                }
             }
         }
     }
@@ -35,12 +61,16 @@ namespace z5 {
     inline std::unique_ptr<Dataset> openDataset(const handle::Group<GROUP> & root,
                                                 const std::string & key) {
         std::string zarrDelimiter = ".";
+        int zarrFormat = 2;
+        std::string chunkKeyEncoding = "default";
 
         // check if this is a s3 group
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator by reading this from s3
-            s3::handle::Dataset ds(root, key);
+            if(root.isZarr()) {
+                s3::getZarrChunkConfig(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
+            }
+            s3::handle::Dataset ds(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
             return s3::openDataset(ds);
         }
         #endif
@@ -53,9 +83,9 @@ namespace z5 {
         #endif
 
         if(root.isZarr()) {
-            factory_detail::getZarrDelimiter(root.path(), key, zarrDelimiter);
+            factory_detail::getZarrChunkConfig(root.path(), key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
         }
-        filesystem::handle::Dataset ds(root, key, zarrDelimiter);
+        filesystem::handle::Dataset ds(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
         return filesystem::openDataset(ds);
     }
 
@@ -69,8 +99,8 @@ namespace z5 {
     ) {
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator in s3
-            s3::handle::Dataset ds(root, key);
+            s3::handle::Dataset ds(root, key, metadata.zarrDelimiter,
+                                   metadata.zarrFormat, metadata.chunkKeyEncoding);
             return s3::createDataset(ds, metadata);
         }
         #endif
@@ -82,12 +112,12 @@ namespace z5 {
         }
         #endif
 
-        filesystem::handle::Dataset ds(root, key, metadata.zarrDelimiter);
+        filesystem::handle::Dataset ds(root, key, metadata.zarrDelimiter,
+                                       metadata.zarrFormat, metadata.chunkKeyEncoding);
         return filesystem::createDataset(ds, metadata);
     }
 
 
-    // TODO support passing zarr delimiter (need to also adapt this upstream)
     template<class GROUP>
     inline std::unique_ptr<Dataset> createDataset(
         const handle::Group<GROUP> & root,
@@ -98,17 +128,21 @@ namespace z5 {
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
         const double fillValue=0,
-        const std::string & zarrDelimiter="."
+        const std::string & zarrDelimiter=".",
+        const int zarrFormat=2,
+        const std::string & chunkKeyEncoding="default",
+        const types::ShapeType & shardShape=types::ShapeType()
     ) {
         DatasetMetadata metadata;
         createDatasetMetadata(dtype, shape, chunkShape, root.isZarr(),
                               compressor, compressionOptions, fillValue,
-                              zarrDelimiter, metadata);
+                              zarrDelimiter, metadata,
+                              zarrFormat, chunkKeyEncoding, shardShape);
 
         #ifdef WITH_S3
         if(root.isS3()) {
-            // TODO support zarr dataset with dimension separator in s3
-            s3::handle::Dataset ds(root, key);
+            s3::handle::Dataset ds(root, key, metadata.zarrDelimiter,
+                                   metadata.zarrFormat, metadata.chunkKeyEncoding);
             return s3::createDataset(ds, metadata);
         }
         #endif
@@ -120,7 +154,7 @@ namespace z5 {
         }
         #endif
 
-        filesystem::handle::Dataset ds(root, key, zarrDelimiter);
+        filesystem::handle::Dataset ds(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
         return filesystem::createDataset(ds, metadata);
     }
 
@@ -137,7 +171,10 @@ namespace z5 {
         const std::string & compressor,
         const nlohmann::json & compressionOptions,
         const double fillValue=0,
-        const std::string & zarrDelimiter="."
+        const std::string & zarrDelimiter=".",
+        const int zarrFormat=2,
+        const std::string & chunkKeyEncoding="default",
+        const types::ShapeType & shardShape=types::ShapeType()
     ) {
         types::Compressor internalCompressor;
         try {
@@ -149,46 +186,47 @@ namespace z5 {
         types::CompressionOptions cOpts;
         types::jsonToCompressionType(compressionOptions, cOpts);
 
-        return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue, zarrDelimiter);
+        return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue,
+                             zarrDelimiter, zarrFormat, chunkKeyEncoding, shardShape);
     }
 
 
     template<class GROUP>
-    inline void createFile(const handle::File<GROUP> & file, const bool isZarr) {
+    inline void createFile(const handle::File<GROUP> & file, const bool isZarr, const int zarrFormat=2) {
         #ifdef WITH_S3
         if(file.isS3()) {
-            s3::createFile(file, isZarr);
+            s3::createFile(file, isZarr, zarrFormat);
             return;
         }
         #endif
         #ifdef WITH_GCS
         if(file.isGcs()) {
-            gcs::createFile(file, isZarr);
+            gcs::createFile(file, isZarr, zarrFormat);
             return;
         }
         #endif
-        filesystem::createFile(file, isZarr);
+        filesystem::createFile(file, isZarr, zarrFormat);
     }
 
 
     template<class GROUP>
-    inline void createGroup(const handle::Group<GROUP> & root, const std::string & key) {
+    inline void createGroup(const handle::Group<GROUP> & root, const std::string & key, const int zarrFormat=2) {
         #ifdef WITH_S3
         if(root.isS3()) {
             s3::handle::Group newGroup(root, key);
-            s3::createGroup(newGroup, root.isZarr());
+            s3::createGroup(newGroup, root.isZarr(), zarrFormat);
             return;
         }
         #endif
         #ifdef WITH_GCS
         if(root.isGcs()) {
             gcs::handle::Group newGroup(root, key);
-            gcs::createGroup(newGroup, root.isZarr());
+            gcs::createGroup(newGroup, root.isZarr(), zarrFormat);
             return;
         }
         #endif
         filesystem::handle::Group newGroup(root, key);
-        filesystem::createGroup(newGroup, root.isZarr());
+        filesystem::createGroup(newGroup, root.isZarr(), zarrFormat);
     }
 
 

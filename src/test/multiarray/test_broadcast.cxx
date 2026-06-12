@@ -1,10 +1,12 @@
 #include "gtest/gtest.h"
 
 #include <random>
-#include "xtensor/xarray.hpp"
 
 #include "z5/factory.hxx"
 #include "z5/multiarray/broadcast.hxx"
+#include "z5/multiarray/array_access.hxx"
+
+#include "array_helper.hxx"
 
 namespace z5 {
 namespace multiarray {
@@ -42,48 +44,35 @@ namespace multiarray {
 
         template<typename T>
         void testBroadcast(std::unique_ptr<Dataset> & array) {
-            typedef typename xt::xarray<T>::shape_type ArrayShape;
             types::ShapeType shape(array->shape());
-            ArrayShape arrayShape(shape.begin(), shape.end());
             const T val = 42;
 
             // write scalar and load for completely overlapping array consisting of 8 chunks
             {
-                ArrayShape offset({0, 0, 0});
-                ArrayShape subShape({20, 20, 20});
+                types::ShapeType offset({0, 0, 0});
+                types::ShapeType subShape({20, 20, 20});
                 writeScalar(array, offset.begin(), subShape.begin(), val);
-                xt::xarray<T> data(subShape);
-                readSubarray<T>(array, data, offset.begin());
+                TestArray<T> data(subShape);
+                readSubarray<T>(array, data.view(), offset.begin());
 
-                for(int i = 0; i < subShape[0]; ++i) {
-                    for(int j = 0; j < subShape[1]; ++j) {
-                        for(int k = 0; k < subShape[2]; ++k) {
-                            //std::cout << i << " " << j << " " << k << std::endl;
-                            ASSERT_EQ(data(i, j, k), val);
-                        }
-                    }
+                for(const auto elem : data.data) {
+                    ASSERT_EQ(elem, val);
                 }
             }
 
             // load the complete array
             {
-                ArrayShape offset({0, 0, 0});
-                writeScalar(array, offset.begin(), arrayShape.begin(), val);
-                xt::xarray<T> data(arrayShape);
-                readSubarray<T>(array, data, offset.begin());
+                types::ShapeType offset({0, 0, 0});
+                writeScalar(array, offset.begin(), shape.begin(), val);
+                TestArray<T> data(shape);
+                readSubarray<T>(array, data.view(), offset.begin());
 
-                for(int i = 0; i < shape[0]; ++i) {
-                    for(int j = 0; j < shape[1]; ++j) {
-                        for(int k = 0; k < shape[2]; ++k) {
-                            //std::cout << i << " " << j << " " << k << std::endl;
-                            ASSERT_EQ(data(i, j, k), val);
-                        }
-                    }
+                for(const auto elem : data.data) {
+                    ASSERT_EQ(elem, val);
                 }
             }
 
-            // load 25 random valid chunks and make sure that they
-            // contain the correct data
+            // write and load 25 random valid sub-arrays
             std::default_random_engine gen;
             std::uniform_int_distribution<std::size_t> xx(0, shape[0] - 2);
             std::uniform_int_distribution<std::size_t> yy(0, shape[1] - 2);
@@ -93,36 +82,25 @@ namespace multiarray {
             std::size_t sx, sy, sz;
             for(int t = 0; t < N; ++t) {
 
-                // draw the offset coordinates
                 x = xx(gen);
                 y = yy(gen);
                 z = zz(gen);
-                ArrayShape offset({x, y, z});
+                types::ShapeType offset({x, y, z});
 
-                // draw the shape coordinates
                 std::uniform_int_distribution<std::size_t> shape_xx(1, shape[0] - x);
                 std::uniform_int_distribution<std::size_t> shape_yy(1, shape[1] - y);
                 std::uniform_int_distribution<std::size_t> shape_zz(1, shape[2] - z);
                 sx = shape_xx(gen);
                 sy = shape_yy(gen);
                 sz = shape_zz(gen);
-                ArrayShape subShape({sx, sy, sz});
-
-                //std::cout << "Offset:" << std::endl;
-                //std::cout << x << " " << y << " " << z << std::endl;
-                //std::cout << "Shape:" << std::endl;
-                //std::cout << sx << " " << sy << " " << sz << std::endl;
+                types::ShapeType subShape({sx, sy, sz});
 
                 writeScalar(array, offset.begin(), subShape.begin(), val);
-                xt::xarray<T> data(subShape);
-                readSubarray<T>(array, data, offset.begin());
+                TestArray<T> data(subShape);
+                readSubarray<T>(array, data.view(), offset.begin());
 
-                for(int i = 0; i < subShape[0]; ++i) {
-                    for(int j = 0; j < subShape[1]; ++j) {
-                        for(int k = 0; k < subShape[2]; ++k) {
-                            ASSERT_EQ(data(i, j, k), val);
-                        }
-                    }
+                for(const auto elem : data.data) {
+                    ASSERT_EQ(elem, val);
                 }
             }
         }
@@ -137,42 +115,67 @@ namespace multiarray {
 
 
     TEST_F(BroadcastTest, TestBroadcastIntRegular) {
-        // load the regular array and run the test
         auto array = openDataset(fZarr, "int_regular");
         testBroadcast<int32_t>(array);
-        // load the regular array and run the test
         auto arrayN5 = openDataset(fN5, "int_regular");
         testBroadcast<int32_t>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastFloatRegular) {
-        // load the regular array and run the test
         auto array = openDataset(fZarr, "float_regular");
         testBroadcast<float>(array);
-        // load the regular array and run the test
         auto arrayN5 = openDataset(fN5, "float_regular");
         testBroadcast<float>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastIntIrregular) {
-        //// load the regular array and run the test
         auto array = openDataset(fZarr, "int_irregular");
         testBroadcast<int32_t>(array);
-        // load the regular array and run the test
         auto arrayN5 = openDataset(fN5, "int_irregular");
         testBroadcast<int32_t>(arrayN5);
     }
 
 
     TEST_F(BroadcastTest, TestBroadcastFloatIrregular) {
-        //// load the regular array and run the test
         auto array = openDataset(fZarr, "float_irregular");
         testBroadcast<float>(array);
-        // load the regular array and run the test
         auto arrayN5 = openDataset(fN5, "float_irregular");
         testBroadcast<float>(arrayN5);
+    }
+
+
+    // regression test: zarr stores edge chunks padded to the full chunk shape;
+    // writeScalar used to size its buffer by the clipped shape, overflowing the
+    // heap on the dataset's boundary chunks (complete overlap: out-of-bounds read
+    // in writeChunk; partial overlap: out-of-bounds WRITE in readChunk)
+    TEST_F(BroadcastTest, TestBroadcastEdgeChunksZarr) {
+        for(const int nThreads : {1, 4}) {
+            auto array = openDataset(fZarr, "int_irregular");
+            // first write: covers the far corner -> edge chunks, complete overlap
+            types::ShapeType offset({77, 83, 88});
+            types::ShapeType subShape({23, 17, 12});
+            writeScalar(array, offset.begin(), subShape.begin(), (int32_t) 1, nThreads);
+            // second write: partially overlaps the existing edge chunks -> exercises
+            // the read-modify-write of padded edge chunks
+            types::ShapeType offset2({90, 90, 90});
+            types::ShapeType subShape2({10, 10, 10});
+            writeScalar(array, offset2.begin(), subShape2.begin(), (int32_t) 2, nThreads);
+
+            TestArray<int32_t> data(subShape);
+            readSubarray<int32_t>(array, data.view(), offset.begin());
+            for(std::size_t i = 0; i < subShape[0]; ++i) {
+                for(std::size_t j = 0; j < subShape[1]; ++j) {
+                    for(std::size_t k = 0; k < subShape[2]; ++k) {
+                        const bool inSecond = (offset[0] + i >= 90) &&
+                                              (offset[1] + j >= 90) &&
+                                              (offset[2] + k >= 90);
+                        ASSERT_EQ(data(i, j, k), inSecond ? 2 : 1);
+                    }
+                }
+            }
+        }
     }
 
 

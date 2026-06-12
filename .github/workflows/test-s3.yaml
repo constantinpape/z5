@@ -1,0 +1,44 @@
+---
+name: test-s3
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# cancel superseded runs of the same branch / PR
+concurrency:
+  group: test-s3-${{ github.ref }}
+  cancel-in-progress: true
+
+# Build with the S3 backend enabled (WITH_S3=ON, against conda-forge
+# aws-sdk-cpp) and run the S3 test suite against a local moto server. Kept as a
+# separate job so the heavy aws-sdk-cpp dependency does not slow the main build,
+# and so an S3 failure does not block the rest of the matrix.
+jobs:
+  test-s3:
+    name: s3 (ubuntu)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: .github/environment.yaml
+          create-args: >-
+            python=3.12
+
+      - name: Build (WITH_S3=ON)
+        shell: bash -l {0}
+        env:
+          Z5_WITH_S3: 'ON'
+        run: .github/workflows/build_unix.sh
+
+      - name: Run S3 tests
+        shell: bash -l {0}
+        run: python -m unittest discover -s src/python/test -p 'test_s3.py' -v

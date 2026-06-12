@@ -1,5 +1,6 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 #include "z5/handle.hxx"
 #include "z5/attributes.hxx"
@@ -13,28 +14,33 @@
 #include "z5/s3/metadata.hxx"
 #endif
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace z5 {
 
 
     template<class GROUP, class GROUP1, class DATASET>
-    auto getGroupHandle(py::module & m, const std::string & name) {
-        py::class_<GROUP> g(m, name.c_str());
+    auto getGroupHandle(nb::module_ & m, const std::string & name) {
+        nb::class_<GROUP> g(m, name.c_str());
+        // existence / listing / format probes are filesystem stats or S3 round trips
+        // and touch no python objects -> release the GIL
         g
-            .def("exists", &GROUP::exists)
-            .def("has", &GROUP::in)
+            .def("exists", &GROUP::exists,
+                 nb::call_guard<nb::gil_scoped_release>())
+            .def("has", &GROUP::in,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("keys", [](const GROUP & self){
                 std::vector<std::string> keys;
                 self.keys(keys);
                 return keys;
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("path", [](const GROUP & self){return self.path().string();})
             .def("mode", &GROUP::mode)
-            .def("is_zarr", &GROUP::isZarr)
+            .def("is_zarr", &GROUP::isZarr,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("is_sub_group", [](const GROUP & self, const std::string & name){
                 return isSubGroup(self, name);
-            })
+            }, nb::call_guard<nb::gil_scoped_release>())
             .def("relative_path", [](const GROUP & self, const GROUP & to){
                 return relativePath(self, to);
             })
@@ -44,7 +50,8 @@ namespace z5 {
             .def("relative_path", [](const GROUP & self, const DATASET & to){
                 return relativePath(self, to);
             })
-            .def("remove", &GROUP::remove)
+            .def("remove", &GROUP::remove,
+                 nb::call_guard<nb::gil_scoped_release>())
             .def("get_dataset_handle", [](const GROUP & self, const std::string & name){
                 return DATASET(self, name);
             })
@@ -53,120 +60,78 @@ namespace z5 {
     }
 
 
-    void exportFilesystem(py::module & m) {
+    void exportFilesystem(nb::module_ & m) {
         typedef filesystem::handle::File File;
         typedef filesystem::handle::Group Group;
         typedef filesystem::handle::Dataset Dataset;
 
         auto g = getGroupHandle<Group, File, Dataset>(m, "Group");
         g
-            .def(py::init<Group, const std::string &>(),
-                 py::arg("group"), py::arg("key"))
-            .def(py::init<File, const std::string &>(),
-                 py::arg("file"), py::arg("key"))
-            .def(py::pickle(
-                // __getstate__ -> we simply pickle the path,
-                // the rest will be read from the attributes
-                [](const Group & self) {
-                    return py::make_tuple(self.path().string(), self.mode().mode());
-                },
-
-                // __setstate__
-                [](py::tuple tup) {
-                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
-                        throw std::runtime_error("Invalid state for unpickling handle.");
-                    }
-                    fs::path path(tup[0].cast<std::string>());
-                    FileMode mode(tup[1].cast<FileMode::modes>());
-                    return filesystem::handle::Group(path, mode);
-                }
-            ))
+            .def(nb::init<Group, const std::string &>(),
+                 nb::arg("group"), nb::arg("key"))
+            .def(nb::init<File, const std::string &>(),
+                 nb::arg("file"), nb::arg("key"))
         ;
 
         auto f = getGroupHandle<File, Group, Dataset>(m, "File");
         f
-            .def(py::init<const std::string &, FileMode>(),
-                 py::arg("path"), py::arg("mode"))
+            .def(nb::init<const std::string &, FileMode>(),
+                 nb::arg("path"), nb::arg("mode"))
             .def("read_metadata", [](const File & self){
                 nlohmann::json j;
                 filesystem::readMetadata(self, j);
                 return j.dump();
-            })
-            .def(py::pickle(
-                // __getstate__ -> we simply pickle the path,
-                // the rest will be read from the attributes
-                [](const File & self) {
-                    return py::make_tuple(self.path().string(), self.mode().mode());
-                },
-
-                // __setstate__
-                [](py::tuple tup) {
-                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
-                        throw std::runtime_error("Invalid state for unpickling handle.");
-                    }
-                    fs::path path(tup[0].cast<std::string>());
-                    FileMode mode(tup[1].cast<FileMode::modes>());
-                    return filesystem::handle::File(path, mode);
-                }
-            ))
+            }, nb::call_guard<nb::gil_scoped_release>())
         ;
 
-        py::class_<Dataset>(m, "DatasetHandle")
-            .def(py::init<Group, const std::string &>())
-            .def(py::init<File, const std::string &>())
-            .def(py::pickle(
-                // __getstate__ -> we simply pickle the path,
-                // the rest will be read from the attributes
-                [](const Dataset & ds) {
-                    return py::make_tuple(ds.path().string(), ds.mode().mode());
-                },
-
-                // __setstate__
-                [](py::tuple tup) {
-                    if(tup.size() != 2) { // the serialization size is 2, because we pickle path and mode
-                        throw std::runtime_error("Invalid state for unpickling handle.");
-                    }
-                    fs::path path(tup[0].cast<std::string>());
-                    FileMode mode(tup[1].cast<FileMode::modes>());
-                    return filesystem::handle::Dataset(path, mode);
-                }
-            ))
+        nb::class_<Dataset>(m, "DatasetHandle")
+            .def(nb::init<Group, const std::string &>())
+            .def(nb::init<File, const std::string &>())
         ;
     }
 
 
     // need actual constructor for S3File, but need to know params for s3 first
     #ifdef WITH_S3
-    void exportS3(py::module & m) {
+    void exportS3(nb::module_ & m) {
         typedef s3::handle::File File;
         typedef s3::handle::Group Group;
         typedef s3::handle::Dataset Dataset;
 
         auto g = getGroupHandle<Group, File, Dataset>(m, "S3Group");
         g
-            .def(py::init<Group, const std::string &>(),
-                 py::arg("group"), py::arg("key"))
-            .def(py::init<File, const std::string &>(),
-                 py::arg("file"), py::arg("key"))
+            .def(nb::init<Group, const std::string &>(),
+                 nb::arg("group"), nb::arg("key"))
+            .def(nb::init<File, const std::string &>(),
+                 nb::arg("file"), nb::arg("key"))
         ;
 
-        auto f = getGroupHandle<File, File, Dataset>(m, "S3File");
+        // GROUP1 must be the s3 Group type: it registers the relative_path(File, Group)
+        // overload that visititems needs (instantiating with File registered the
+        // File overload twice and S3 visititems failed with a TypeError)
+        auto f = getGroupHandle<File, Group, Dataset>(m, "S3File");
         f
-            // dummy constructor
-            .def(py::init<const std::string &, const std::string &, FileMode>(),
-                 py::arg("bucket_name"), py::arg("name_in_bucket"), py::arg("mode"))
+            .def(nb::init<const std::string &, const std::string &, FileMode,
+                          const std::string &, const std::string &, bool,
+                          const std::string &, const std::string &>(),
+                 nb::arg("bucket_name"), nb::arg("name_in_bucket"), nb::arg("mode"),
+                 nb::arg("endpoint_url") = std::string(),
+                 nb::arg("region") = std::string("us-east-1"),
+                 nb::arg("anon") = false,
+                 nb::arg("access_key") = std::string(),
+                 nb::arg("secret_key") = std::string())
         ;
 
-        py::class_<Dataset>(m, "S3DatasetHandle")
-            .def(py::init<Group, const std::string &>())
-            .def(py::init<File, const std::string &>())
+        nb::class_<Dataset>(m, "S3DatasetHandle")
+            .def(nb::init<Group, const std::string &>())
+            .def(nb::init<File, const std::string &>())
         ;
 
     }
     #endif
 
 
-    void exportHandles(py::module & m) {
+    void exportHandles(nb::module_ & m) {
         exportFilesystem(m);
         #ifdef WITH_S3
         exportS3(m);

@@ -10,6 +10,10 @@ namespace compression {
     class RawCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         RawCompressor() {
         }
 
@@ -19,7 +23,7 @@ namespace compression {
         }
 
         // dummy implementation, this should never be called !
-        void decompress(const std::vector<char> &, T *, std::size_t) const {
+        void decompress(const char *, std::size_t, T *, std::size_t) const {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 

@@ -1,116 +1,109 @@
 #pragma once
 
 #include <fstream>
+#include <iomanip>
+
 #include "z5/filesystem/handle.hxx"
+#include "z5/generic/attributes.hxx"
 
 
 namespace z5 {
 namespace filesystem {
 
-
 namespace attrs_detail {
 
-    inline void readAttributes(const fs::path & path, nlohmann::json & j) {
-        if(!fs::exists(path)) {
-            return;
-        }
-        std::ifstream file(path);
-        file >> j;
-        file.close();
-    }
+    // per-operation JSON IO rooted at a node (group / dataset) directory;
+    // see z5/generic/attributes.hxx for the logic implemented on top of it
+    class JsonIO {
+    public:
+        explicit JsonIO(const fs::path & base) : base_(base) {}
 
-    inline void writeAttributes(const fs::path & path, const nlohmann::json & j) {
-        nlohmann::json jOut;
-        // if we already have attributes, read them
-        if(fs::exists(path)) {
+        // a cheap existence check for child nodes is available on the filesystem
+        static constexpr bool hasNodeExists = true;
+
+        inline bool exists(const std::string & name) const {
+            return fs::exists(base_ / name);
+        }
+
+        inline bool nodeExists(const std::string & name) const {
+            return fs::exists(base_ / name);
+        }
+
+        // read the JSON document 'name'; returns false (leaving j untouched) if absent
+        inline bool read(const std::string & name, nlohmann::json & j) const {
+            const auto path = base_ / name;
+            if(!fs::exists(path)) {
+                return false;
+            }
             std::ifstream file(path);
-            file >> jOut;
+            file >> j;
+            file.close();
+            return true;
+        }
+
+        // compact serialization (zarr v2 '.zattrs', n5 'attributes.json')
+        inline void write(const std::string & name, const nlohmann::json & j) const {
+            std::ofstream file(base_ / name);
+            file << j;
             file.close();
         }
-        for(auto jIt = j.begin(); jIt != j.end(); ++jIt) {
-            jOut[jIt.key()] = jIt.value();
-        }
-        std::ofstream file(path);
-        file << jOut;
-        file.close();
-    }
 
-    inline void removeAttribute(const fs::path & path, const std::string & key) {
-        nlohmann::json jOut;
-        // if we already have attributes, read them
-        if(fs::exists(path)) {
-            std::ifstream file(path);
-            file >> jOut;
+        // pretty serialization (zarr.json and metadata files)
+        inline void writePretty(const std::string & name, const nlohmann::json & j) const {
+            std::ofstream file(base_ / name);
+            file << std::setw(4) << j << std::endl;
             file.close();
         }
-        else {
-            return;
-        }
-        jOut.erase(key);
-        std::ofstream file(path);
-        file << jOut;
-        file.close();
-    }
-}
+
+    private:
+        fs::path base_;
+    };
+
+}  // namespace attrs_detail
+
 
     template<class GROUP>
-    inline void readAttributes(const z5::handle::Group<GROUP> & group, nlohmann::json & j
-    ) {
-        const auto path = group.path() / (group.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::readAttributes(path, j);
+    inline void readAttributes(const z5::handle::Group<GROUP> & group, nlohmann::json & j) {
+        attrs_detail::JsonIO io(group.path());
+        generic::readAttributes(io, group.isZarr(), j);
     }
 
     template<class GROUP>
     inline void writeAttributes(const z5::handle::Group<GROUP> & group, const nlohmann::json & j) {
-        const auto path = group.path() / (group.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::writeAttributes(path, j);
+        attrs_detail::JsonIO io(group.path());
+        generic::writeAttributes(io, group.isZarr(), j);
     }
 
     template<class GROUP>
     inline void removeAttribute(const z5::handle::Group<GROUP> & group, const std::string & key) {
-        const auto path = group.path() / (group.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::removeAttribute(path, key);
+        attrs_detail::JsonIO io(group.path());
+        generic::removeAttribute(io, group.isZarr(), key);
     }
 
 
     template<class DATASET>
-    inline void readAttributes(const z5::handle::Dataset<DATASET> & ds, nlohmann::json & j
-    ) {
-        const auto path = ds.path() / (ds.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::readAttributes(path, j);
+    inline void readAttributes(const z5::handle::Dataset<DATASET> & ds, nlohmann::json & j) {
+        attrs_detail::JsonIO io(ds.path());
+        generic::readAttributes(io, ds.isZarr(), j);
     }
 
     template<class DATASET>
     inline void writeAttributes(const z5::handle::Dataset<DATASET> & ds, const nlohmann::json & j) {
-        const auto path = ds.path() / (ds.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::writeAttributes(path, j);
+        attrs_detail::JsonIO io(ds.path());
+        generic::writeAttributes(io, ds.isZarr(), j);
     }
 
     template<class DATASET>
     inline void removeAttribute(const z5::handle::Dataset<DATASET> & ds, const std::string & key) {
-        const auto path = ds.path() / (ds.isZarr() ? ".zattrs" : "attributes.json");
-        attrs_detail::removeAttribute(path, key);
+        attrs_detail::JsonIO io(ds.path());
+        generic::removeAttribute(io, ds.isZarr(), key);
     }
 
 
     template<class GROUP>
     inline bool isSubGroup(const z5::handle::Group<GROUP> & group, const std::string & key){
-        fs::path path = group.path() / key;
-        if(!fs::exists(path)) {
-            return false;
-        }
-        if(group.isZarr()) {
-            path /= ".zgroup";
-            return fs::exists(path);
-        } else {
-            path /= "attributes.json";
-            if(!fs::exists(path)) {
-                return true;
-            }
-            nlohmann::json j;
-            attrs_detail::readAttributes(path, j);
-            return !z5::handle::hasAllN5DatasetAttributes(j);
-        }
+        attrs_detail::JsonIO io(group.path());
+        return generic::isSubGroup(io, group.isZarr(), key);
     }
 
 }

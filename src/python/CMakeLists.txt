@@ -12,18 +12,18 @@ add_custom_target(python-module)
 #   /blddir/python/
 #   /blddir/python/test
 ###########################################################################
-file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
+# NOTE: cmake -E copy_if_different creates destination directories itself,
+# so no explicit MAKE_DIRECTORY is needed here
+file(GLOB_RECURSE  Z5_PYTHON_FILES
     "${CMAKE_SOURCE_DIR}/src/python/module/z5py/*.py"
 )
-FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
+FOREACH(PYTHON_FILENAME   ${Z5_PYTHON_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/module/" ""
         RELATIVE_FILENAME
         ${PYTHON_FILENAME})
     string(REPLACE "/" "_"
         RELATIVE_FILENAME_TARGET_NAME
         ${RELATIVE_FILENAME})
-    get_filename_component(FILE_DIR  ${CMAKE_BINARY_DIR}/${RELATIVE_FILENAME} DIRECTORY)
-    file(MAKE_DIRECTORY ${FILE_DIR})
 
     add_custom_target(copy_${RELATIVE_FILENAME_TARGET_NAME} ALL
         COMMAND cmake -E copy_if_different
@@ -32,18 +32,16 @@ FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
     add_dependencies(python-module copy_${RELATIVE_FILENAME_TARGET_NAME})
 ENDFOREACH()
 
-file(GLOB_RECURSE  ${MODULE_NAME}_PYTHON_FILES
+file(GLOB_RECURSE  Z5_PYTHON_TEST_FILES
     "${CMAKE_SOURCE_DIR}/src/python/test/*.py"
 )
-FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
+FOREACH(PYTHON_FILENAME   ${Z5_PYTHON_TEST_FILES})
     string(REPLACE "${CMAKE_SOURCE_DIR}/src/python/test/" ""
         RELATIVE_FILENAME
         ${PYTHON_FILENAME})
     string(REPLACE "/" "_"
         RELATIVE_FILENAME_TARGET_NAME
         ${RELATIVE_FILENAME})
-    get_filename_component(FILE_DIR  ${CMAKE_BINARY_DIR}/${RELATIVE_FILENAME} DIRECTORY)
-    file(MAKE_DIRECTORY ${FILE_DIR})
 
     add_custom_target(copy_${RELATIVE_FILENAME_TARGET_NAME} ALL
         COMMAND cmake -E copy_if_different
@@ -51,6 +49,23 @@ FOREACH(PYTHON_FILENAME   ${${MODULE_NAME}_PYTHON_FILES})
         ${CMAKE_BINARY_DIR}/python/test/${RELATIVE_FILENAME})
     add_dependencies(python-module copy_${RELATIVE_FILENAME_TARGET_NAME})
 ENDFOREACH()
+
+
+###########################################################################
+# Single-source the version: generate z5py/_version.py from the Z5_VERSION_*
+# macros parsed in the top-level CMakeLists from include/z5/z5.hxx. This is
+# imported by z5py/__init__.py so the runtime z5py.__version__ matches the C++
+# source of truth for every build path (wheel, make install, in-place bld/python).
+###########################################################################
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/_version.py.in
+    ${CMAKE_BINARY_DIR}/python/z5py/_version.py @ONLY)
+
+# Under scikit-build-core the generated file must be installed into the wheel
+# (the legacy install(DIRECTORY ...) at the bottom copies it for `make install`).
+if(SKBUILD)
+    install(FILES ${CMAKE_BINARY_DIR}/python/z5py/_version.py DESTINATION z5py)
+endif()
 
 
 ###########################################################################
@@ -63,21 +78,21 @@ macro(addPythonModule)
     set(multiValueArgs SOURCES LIBRARIES)
     cmake_parse_arguments(ADD_PY_MOD "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
 
-    # get name of the module
+    # get name of the module (the last component of the nested name)
     string(REPLACE "/" ";" MOD_NESTING_LIST "${ADD_PY_MOD_NESTED_NAME}")
-    list(LENGTH MOD_NESTING_LIST nesting_len)
-    LIST(GET MOD_NESTING_LIST ${LENGTH}-1 MODULE_NAME)
+    list(GET MOD_NESTING_LIST -1 MODULE_NAME)
 
 
     #Create the binding library
-    pybind11_add_module(_${MODULE_NAME}
+    # NOMINSIZE keeps -O3 (nanobind defaults to -Os) since the strided-copy
+    # hot loop is compiled into the extension; STABLE_ABI builds against the
+    # CPython limited API (3.12+) and is ignored on older versions.
+    nanobind_add_module(_${MODULE_NAME}
+        STABLE_ABI
+        NB_STATIC
+        NOMINSIZE
         ${ADD_PY_MOD_SOURCES}
     )
-    
-    # TODO Dunno if this is important, it produces a very ugly warning...
-    #if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    #  target_compile_options(_${MODULE_NAME} PRIVATE "-fvisibility=default")
-    #endif()
 
     set_target_properties(_${MODULE_NAME}  PROPERTIES PREFIX "")
 
@@ -87,14 +102,8 @@ macro(addPythonModule)
         ${ADD_PY_MOD_LIBRARIES}
     )
 
-    IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set_target_properties(_${MODULE_NAME} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-    ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-        target_link_libraries(_${MODULE_NAME}
-            PUBLIC
-            ${PYTHON_LIBRARIES}
-        )
-    ENDIF()
+    # NOTE: nanobind_add_module handles the platform link flags itself
+    # (-undefined dynamic_lookup on macOS, the python library on Windows)
 
     # create module dir
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/python/${ADD_PY_MOD_NESTED_NAME})
@@ -107,6 +116,14 @@ macro(addPythonModule)
         ${CMAKE_BINARY_DIR}/python/${ADD_PY_MOD_NESTED_NAME}/
         COMMENT "Copying target ${MODULE_NAME} to temporary module directory")
 
+    # Under scikit-build-core (pip wheel builds) install the extension straight
+    # into the package directory inside the wheel (e.g. z5py/_z5py...). The
+    # pure-Python files are added separately via the wheel.packages setting.
+    if(SKBUILD)
+        install(TARGETS _${MODULE_NAME}
+                LIBRARY DESTINATION ${ADD_PY_MOD_NESTED_NAME})
+    endif()
+
     add_dependencies(python-module _${MODULE_NAME})
 endmacro()
 
@@ -117,27 +134,35 @@ add_subdirectory(lib)
 # INSTALL THE PYTHON MODULE
 ###########################
 
-# Find the python install dir
-IF(NOT DEFINED PYTHON_MODULE_INSTALL_DIR OR PYTHON_MODULE_INSTALL_DIR MATCHES "^$")
-    
-    execute_process(
-      COMMAND "${PYTHON_EXECUTABLE}" -c 
-       "from __future__ import print_function; import sysconfig; print(sysconfig.get_path('platlib'))"
-      OUTPUT_VARIABLE PYTHON_SITE
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+# Legacy (conda / `make install`) installation: copy the assembled package from
+# the build directory into the Python site-packages dir. Under scikit-build-core
+# the wheel is assembled instead (extension via install(TARGETS) above,
+# pure-Python files via wheel.packages), so this is skipped.
+if(NOT SKBUILD)
 
-    SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_SITE})
+    # Find the python install dir
+    IF(NOT DEFINED PYTHON_MODULE_INSTALL_DIR OR PYTHON_MODULE_INSTALL_DIR MATCHES "^$")
 
-ENDIF()
+        execute_process(
+          COMMAND "${Python_EXECUTABLE}" -c
+           "import sysconfig; print(sysconfig.get_path('platlib'))"
+          OUTPUT_VARIABLE PYTHON_SITE
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+        SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_SITE})
 
-SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_MODULE_INSTALL_DIR}
-    CACHE PATH "where to install the z5py package" FORCE)
-
-# this is the install path relative to CMAKE_INSTALL_PREFIX,
-# use this in INSTALL() commands to get packaging right
-FILE(RELATIVE_PATH PYTHON_MODULE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX} ${PYTHON_MODULE_INSTALL_DIR})
+    ENDIF()
 
 
-install(DIRECTORY ${CMAKE_BINARY_DIR}/python/z5py
-    DESTINATION ${PYTHON_MODULE_INSTALL_DIR})
+    SET(PYTHON_MODULE_INSTALL_DIR ${PYTHON_MODULE_INSTALL_DIR}
+        CACHE PATH "where to install the z5py package" FORCE)
+
+    # this is the install path relative to CMAKE_INSTALL_PREFIX,
+    # use this in INSTALL() commands to get packaging right
+    FILE(RELATIVE_PATH PYTHON_MODULE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX} ${PYTHON_MODULE_INSTALL_DIR})
+
+
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/python/z5py
+        DESTINATION ${PYTHON_MODULE_INSTALL_DIR})
+
+endif()

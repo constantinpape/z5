@@ -12,37 +12,31 @@
 namespace z5 {
 namespace compression {
 
-    // TODO I don't know how to set the compression level properly
-    // TODO Does n5-java use lz4 or lz4hc
     template<typename T>
     class Lz4Compressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         Lz4Compressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
 
         void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
-            const int outSize = LZ4_compressBound(sizeIn * sizeof(T));
+            const std::size_t bytesIn = sizeIn * sizeof(T);
+            // LZ4_compressBound works on int and returns 0 for inputs that exceed
+            // LZ4_MAX_INPUT_SIZE (~2GB); fail with a clear error instead
+            if(bytesIn > static_cast<std::size_t>(LZ4_MAX_INPUT_SIZE)) {
+                throw std::runtime_error("z5: chunk is too large for lz4 compression");
+            }
+            const int outSize = LZ4_compressBound(bytesIn);
             dataOut.resize(outSize);
-            // the default compression (fast mode)
-            // const int compressed = LZ4_compress_fast((const char *) dataIn,
-            //                                          &dataOut[0],
-            //                                          sizeIn * sizeof(T),
-            //                                          outSize,
-            //                                          level_);
-            // default compression (default mode without parameters)
             const int compressed = LZ4_compress_default((const char *) dataIn,
                                                         &dataOut[0],
-                                                        sizeIn * sizeof(T),
+                                                        bytesIn,
                                                         outSize);
-            // high compression mode
-            // const int compressed = LZ4_compress_HC((const char *) dataIn,
-            //                                        &dataOut[0],
-            //                                        sizeIn * sizeof(T),
-            //                                        outSize,
-            //                                        level_);
-
             if(compressed <= 0) {
                 std::string err = "Exception during lz4 compression: (" + std::to_string(compressed)  + ")";
     		    throw std::runtime_error(err);
@@ -51,9 +45,9 @@ namespace compression {
             dataOut.resize(compressed);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
-            const int compressed = LZ4_decompress_safe(&dataIn[0], (char *) dataOut,
-                                                       dataIn.size(), sizeOut * sizeof(T));
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
+            const int compressed = LZ4_decompress_safe(dataIn, (char *) dataOut,
+                                                       nBytesIn, sizeOut * sizeof(T));
             if(compressed <= 0) {
                 std::string err = "Exception during lz4 decompression: (" + std::to_string(compressed)  + ")";
     		    throw std::runtime_error(err);
@@ -70,11 +64,11 @@ namespace compression {
 
     private:
         void init(const DatasetMetadata & metadata) {
-            // appropriate for hc compression
-            // level_ = std::get<int>(metadata.compressionOptions.at("level"));
-
-            // appropriate for fast compression
-            level_ = 10 - std::get<int>(metadata.compressionOptions.at("level"));
+            // store the level exactly as given in the metadata: getOptions reports it
+            // back, so any transformation here would corrupt metadata round trips.
+            // (the level is currently not wired into LZ4_compress_default, which
+            // takes no level parameter)
+            level_ = std::get<int>(metadata.compressionOptions.at("level"));
         }
 
         // compression level

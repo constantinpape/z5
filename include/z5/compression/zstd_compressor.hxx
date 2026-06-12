@@ -15,6 +15,10 @@ namespace compression {
     class ZstdCompressor : public CompressorBase<T> {
 
     public:
+        // the override of the virtual decompress hides the base class'
+        // std::vector overload; re-expose the full overload set
+        using CompressorBase<T>::decompress;
+
         ZstdCompressor(const DatasetMetadata & metadata) {
             init(metadata);
         }
@@ -37,9 +41,9 @@ namespace compression {
             dataOut.resize(compressed);
         }
 
-        void decompress(const std::vector<char> & dataIn, T * dataOut, std::size_t sizeOut) const {
+        void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
             const size_t decompressed = ZSTD_decompress((char *) dataOut, sizeOut * sizeof(T),
-                                                       &dataIn[0], dataIn.size());
+                                                       dataIn, nBytesIn);
 
             if(ZSTD_isError(decompressed)) {
                 std::string err = "Exception during zstd decompression: " +

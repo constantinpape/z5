@@ -1,0 +1,102 @@
+---
+name: docs
+
+# Build the pdoc documentation and publish it to GitHub Pages (via the GitHub
+# Actions Pages deployment, i.e. Settings -> Pages -> Source: "GitHub Actions").
+# Runs on pushes to main that touch the package, the doc pages or the build, and
+# can be triggered manually (a manual run from a non-main branch builds the docs
+# but does not publish them).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/python/module/z5py/**'
+      - 'docs/**'
+      - 'include/z5/z5.hxx'
+      - 'src/python/CMakeLists.txt'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build_unix.sh'
+      - '.github/environment.yaml'
+      - '.github/pdoc/**'
+      - '.github/workflows/docs.yaml'
+  workflow_dispatch:
+
+# only one docs build at a time; cancel superseded runs
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+# least privilege by default; the deploy job adds the Pages permissions it needs
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: .github/environment.yaml
+          create-args: >-
+            python=3.12
+
+      # pdoc is pure-Python; install it here rather than in environment.yaml so
+      # the other (test) CI jobs don't pay for it.
+      - name: Install pdoc
+        shell: bash -l {0}
+        run: pip install pdoc
+
+      # builds the _z5py extension and assembles bld/python/z5py/ (.py + .so)
+      - name: Build z5py
+        shell: bash -l {0}
+        run: .github/workflows/build_unix.sh
+
+      - name: Build docs with pdoc
+        shell: bash -l {0}
+        run: |
+          # the .. include:: directives in z5py/__init__.py reference docs/*.md
+          # relative to the package, so copy them into the built package
+          cp -r docs bld/python/z5py/docs
+          export PYTHONPATH="$PWD/bld/python"
+          # make sure pdoc documents the freshly built package, not a stray copy
+          python -c "import z5py; assert 'bld/python' in z5py.__file__, z5py.__file__"
+          # the core classes (File/Dataset/Group/...) are documented on the z5py
+          # landing page via __all__; util/converter/attribute_manager are passed
+          # explicitly so their module-level helpers are documented too. The custom
+          # template surfaces the indexing IO dunders (Dataset.__getitem__ etc.).
+          pdoc z5py z5py.util z5py.converter z5py.attribute_manager \
+              -t .github/pdoc -o site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  # publish the artifact to GitHub Pages; only on main (a workflow_dispatch run
+  # from another branch builds + uploads the artifact above but does not deploy)
+  deploy:
+    name: deploy docs
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
