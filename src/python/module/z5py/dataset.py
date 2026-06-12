@@ -1,3 +1,12 @@
+"""The :class:`Dataset` class: chunked, optionally compressed nd array storage.
+
+A dataset wraps a single zarr / n5 array. Data is read and written with numpy-style
+indexing (``ds[:]``, ``ds[z0:z1, y0:y1]``) or via the explicit
+:meth:`Dataset.read_subarray` / :meth:`Dataset.write_subarray` and chunk-level
+methods. Datasets are not created directly; use
+:meth:`z5py.Group.create_dataset` / :meth:`z5py.Group.require_dataset` or the
+``[]`` operator of a :class:`z5py.File` / :class:`z5py.Group`.
+"""
 import numbers
 import json
 
@@ -402,6 +411,8 @@ class Dataset:
 
     @property
     def compression(self):
+        """ Name of the compression library (codec) used by this dataset.
+        """
         return self._impl.compressor
 
     @property
@@ -419,14 +430,20 @@ class Dataset:
 
     @property
     def parent(self):
+        """ The :class:`z5py.Group` (or :class:`z5py.File`) that contains this dataset.
+        """
         return self._parent
 
     @property
     def name(self):
+        """ The absolute path of this dataset within its container (e.g. ``/group/data``).
+        """
         return self._name
 
     @property
     def file(self):
+        """ The root :class:`z5py.File` of the container this dataset belongs to.
+        """
         # we find the file by going up the parents till we find
         # the root (which is it's own parent)
         parent = self.parent
@@ -435,6 +452,8 @@ class Dataset:
         return parent
 
     def __len__(self):
+        """ The length of the first (outermost) dimension of the dataset.
+        """
         return self._impl.len
 
     def index_to_roi(self, index):
@@ -462,6 +481,24 @@ class Dataset:
 
     # most checks are done in c++
     def __getitem__(self, index):
+        """ Read a region of the dataset into a numpy array.
+
+        Supports numpy-style indexing with integers, slices and a single
+        ellipsis (advanced / boolean indexing is not supported). Steps other
+        than 1 are not supported. Out-of-bounds positions raise; regions that
+        were never written are filled with the dataset's fill-value.
+
+        Integer indices squeeze out the corresponding dimension, mirroring numpy
+        (e.g. ``ds[0]`` drops the leading axis); if every dimension is indexed
+        by an integer a scalar is returned.
+
+        Args:
+            index (int, slice, ellipsis or tuple): the region to read.
+
+        Returns:
+            np.ndarray: the requested data (a scalar if fully integer-indexed),
+            with this dataset's dtype.
+        """
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
         if 0 not in shape:
@@ -479,6 +516,20 @@ class Dataset:
 
     # most checks are done in c++
     def __setitem__(self, index, item):
+        """ Write data into a region of the dataset.
+
+        Supports numpy-style indexing with integers, slices and a single
+        ellipsis (steps other than 1 are not supported). A scalar ``item`` is
+        broadcast to fill the selected region. An array ``item`` must match the
+        selected region's shape after rectification; leading and trailing
+        singleton dimensions may be added or removed, but other broadcasting is
+        not supported. The data is converted to the dataset's dtype (a
+        ``TypeError`` / ``OSError`` is raised if there is no conversion path).
+
+        Args:
+            index (int, slice, ellipsis or tuple): the region to write to.
+            item (scalar or np.ndarray): the value(s) to write.
+        """
         roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
             return
@@ -511,14 +562,17 @@ class Dataset:
                              n_threads=self.n_threads)
 
     def read_direct(self, dest, source_sel=None, dest_sel=None):
-        """ Wrapper to improve similarity to h5py. Reads from the dataset to ``dest``, using ``read_subarray``.
+        """ Read from the dataset into ``dest`` (h5py-compatible wrapper around ``read_subarray``).
+
+        The regions selected by ``source_sel`` and ``dest_sel`` must have the
+        same size, but need not have the same offset.
 
         Args:
-            dest (array) destination object into which the read data is written to.
-            dest_sel (slice array) selection of data to write to ``dest``. Defaults to the whole range of ``dest``.
-            source_sel (slice array) selection in dataset to read from. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
-        offset
+            dest (np.ndarray): destination array the read data is written into.
+            source_sel (tuple[slice]): selection in the dataset to read from.
+                Defaults to the whole dataset (default: None).
+            dest_sel (tuple[slice]): selection in ``dest`` to write to.
+                Defaults to the whole of ``dest`` (default: None).
         """
         if source_sel is None:
             source_sel = tuple(slice(0, sh) for sh in self.shape)
@@ -529,15 +583,17 @@ class Dataset:
         dest[dest_sel] = self.read_subarray(start, stop)
 
     def write_direct(self, source, source_sel=None, dest_sel=None):
-        """ Wrapper to improve similarity to h5py. Writes to the dataset from ``source``, using ``write_subarray``.
+        """ Write to the dataset from ``source`` (h5py-compatible wrapper around ``write_subarray``).
+
+        The regions selected by ``source_sel`` and ``dest_sel`` must have the
+        same size, but need not have the same offset.
 
         Args:
-            source (array) source object from which the written data is obtained.
-            source_sel (slice array) selection of data to write from ``source``. Defaults to the whole range of
-            ``source``.
-            dest_sel (slice array) selection in dataset to write to. Defaults to the whole range of the dataset.
-        Spaces, defined by ``source_sel`` and ``dest_sel`` must be in the same size but don't need to have the same
-        offset
+            source (np.ndarray): source array the written data is taken from.
+            source_sel (tuple[slice]): selection in ``source`` to read from.
+                Defaults to the whole of ``source`` (default: None).
+            dest_sel (tuple[slice]): selection in the dataset to write to.
+                Defaults to the whole dataset (default: None).
         """
         if dest_sel is None:
             dest_sel = tuple(slice(0, sh) for sh in self.shape)
@@ -609,12 +665,13 @@ class Dataset:
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):
-        """ Read single chunk
+        """ Read a single chunk.
 
         Args:
-            chunk_indices (tuple): indices of the chunk to write to
-        Returns
-            np.ndarray or None - chunk data, returns None if the chunk is empty
+            chunk_indices (tuple): chunk grid indices of the chunk to read.
+
+        Returns:
+            np.ndarray or None: the chunk data, or None if the chunk is empty.
         """
         # the existence check happens in C++ (returning None for a missing chunk);
         # checking here as well would double the existence probe per chunk read
@@ -628,10 +685,11 @@ class Dataset:
         from self.chunks for border chunks.
 
         Args:
-            chunk_indices (tuple): indices of the chunk to write to
+            chunk_indices (tuple): chunk grid indices of the chunk.
             from_header (bool): whether to read the chunk shape from the
                 chunk header (only applicable for n5 format). (default: False)
+
         Returns:
-            tuple - shape of the chunk
+            tuple: shape of the chunk.
         """
         return self._impl.getChunkShape(chunk_indices, from_header)

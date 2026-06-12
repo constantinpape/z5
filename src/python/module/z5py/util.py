@@ -1,3 +1,17 @@
+"""Utility functions for z5py datasets and groups.
+
+Helpers that build on top of the core :class:`z5py.Dataset` / :class:`z5py.Group`
+API:
+
+- :func:`blocking`: iterate over an nd shape in block-shaped pieces.
+- :func:`copy_dataset`, :func:`copy_group`, :func:`copy_dataset_impl`: parallel,
+  chunk-wise copying between containers (also re-used by the converters in
+  :mod:`z5py.converter`).
+- :func:`remove_dataset`, :func:`remove_chunk`, :func:`remove_chunks`,
+  :func:`remove_trivial_chunks`: multi-threaded chunk and dataset maintenance.
+- :func:`unique`: the unique values (and optionally their counts) of a dataset.
+- :class:`Timer`: a small context-manager timer used in examples and benchmarks.
+"""
 import os
 from itertools import product
 from concurrent import futures
@@ -15,11 +29,25 @@ from .file import File, S3File
 from .dataset import Dataset
 from .shape_utils import normalize_slices
 
+__all__ = ['blocking', 'copy_dataset', 'copy_dataset_impl', 'copy_group',
+           'remove_trivial_chunks', 'remove_dataset', 'remove_chunk', 'remove_chunks',
+           'unique', 'Timer']
+
 
 def product1d(inrange):
-    # 1d fallback for itertools.product: takes a list holding a single range and
-    # yields one 1-tuple per entry (the previous version yielded the range object
-    # itself once, so the blocking generator emitted a single wrong block)
+    """1d fallback for :func:`itertools.product`.
+
+    Takes a list holding a single range and yields one 1-tuple per entry. Used by
+    :func:`blocking` for very large 1d, open-ended datasets, where
+    :func:`itertools.product` raises a ``MemoryError`` because it casts its input
+    iterators to tuples.
+
+    Args:
+        inrange (list): a list holding a single ``range`` object.
+
+    Yields:
+        tuple: a 1-tuple ``(i,)`` for each element ``i`` of the range.
+    """
     for ii in inrange[0]:
         yield (ii,)
 
@@ -289,20 +317,43 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
 
 
 class Timer:
+    """Minimal wall-clock timer that doubles as a context manager.
+
+    Use it either explicitly via :meth:`start` / :meth:`stop`, or as a context
+    manager that starts on entry and stops on exit. The elapsed time (in seconds)
+    is then available via :attr:`elapsed`.
+
+    Example:
+        >>> with Timer() as t:
+        ...     do_some_work()
+        >>> print(t.elapsed)  # seconds
+    """
+
     def __init__(self):
         self.start_time = None
         self.stop_time = None
 
     @property
     def elapsed(self):
+        """float: Elapsed time in seconds between :meth:`start` and :meth:`stop`.
+
+        Raises:
+            RuntimeError: if the timer has not been both started and stopped.
+        """
         if self.start_time is None or self.stop_time is None:
             raise RuntimeError("{} either not started, or not stopped".format(self))
         return (self.stop_time - self.start_time).total_seconds()
 
     def start(self):
+        """Start (or restart) the timer."""
         self.start_time = datetime.utcnow()
 
     def stop(self):
+        """Stop the timer.
+
+        Returns:
+            float: the elapsed time in seconds (see :attr:`elapsed`).
+        """
         self.stop_time = datetime.utcnow()
         return self.elapsed
 
@@ -345,14 +396,16 @@ def remove_trivial_chunks(dataset, n_threads,
                           remove_specific_value=None):
     """ Remove chunks that only contain a single value.
 
-    The input dataset will be copied to the output dataset chunk by chunk.
-    Allows to change datatype, file format and compression as well.
+    Chunks that consist entirely of a single value are deleted from disc.
+    This is useful to reclaim space taken up by chunks holding only the
+    fill-value (or another background value).
 
     Args:
-        dataset (z5py.Dataset)
-        n_threads (int): number of threads
-        remove_specific_value (int or float): only remove chunks that contain (only) this specific value (default: None)
-
+        dataset (z5py.Dataset): the dataset to operate on.
+        n_threads (int): number of threads.
+        remove_specific_value (int or float): only remove chunks that contain
+            (only) this specific value. If None, chunks consisting of a single
+            value are removed regardless of the value (default: None).
     """
 
     dtype = dataset.dtype
@@ -389,10 +442,13 @@ def unique(dataset, n_threads, return_counts=False):
     """ Find unique values in dataset.
 
     Args:
-        dataset (z5py.Dataset)
-        n_threads (int): number of threads
-        return_counts (bool): return counts of unique values (default: False)
+        dataset (z5py.Dataset): the dataset to operate on.
+        n_threads (int): number of threads.
+        return_counts (bool): also return the count of each unique value (default: False).
 
+    Returns:
+        np.ndarray: the sorted unique values. If ``return_counts`` is True, a
+        tuple ``(values, counts)`` of two arrays is returned instead.
     """
     dtype = dataset.dtype
     if return_counts:

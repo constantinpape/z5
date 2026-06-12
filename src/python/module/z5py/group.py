@@ -1,3 +1,10 @@
+"""The :class:`Group` class: a node in a zarr / n5 container hierarchy.
+
+A group corresponds to a directory on the filesystem (or a key prefix in cloud
+storage) and behaves like a read-only :class:`collections.abc.Mapping` of its
+children, plus methods to create sub-groups and datasets. :class:`z5py.File` is
+the root group of a container.
+"""
 from collections.abc import Mapping
 
 from . import _z5py
@@ -99,18 +106,26 @@ class Group(Mapping):
 
     @property
     def is_zarr(self):
+        """ True if this group is part of a zarr container, False for n5.
+        """
         return self._handle.is_zarr()
 
     @property
     def parent(self):
+        """ The parent :class:`Group`. The root group (``File``) is its own parent.
+        """
         return self._parent
 
     @property
     def name(self):
+        """ The absolute path of this group within its container (e.g. ``/group/subgroup``).
+        """
         return self._name
 
     @property
     def file(self):
+        """ The root :class:`z5py.File` of the container this group belongs to.
+        """
         # we find the file by going up the parents till we find
         # the root (which is it's own parent)
         parent = self.parent
@@ -123,6 +138,14 @@ class Group(Mapping):
     #
 
     def is_sub_group(self, name):
+        """ Check whether ``name`` is a sub-group (rather than a dataset) of this group.
+
+        Args:
+            name (str): name of the child to check.
+
+        Returns:
+            bool: True if ``name`` refers to a sub-group.
+        """
         return self._handle.is_sub_group(name)
 
     def create_group(self, name):
@@ -266,28 +289,30 @@ class Group(Mapping):
     def visititems(self, func, _root=None):
         """ Recursively visit names and objects in this group.
 
-        You supply a callable (function, method or callable object); it
-        will be called exactly once for each link in this group and every
-        group below it. Your callable must conform to the signature:
+        You supply a callable (function, method or callable object); it will be
+        called exactly once for each member of this group and every group below
+        it, with the signature ``func(name, obj)`` where ``name`` is the
+        member's path relative to this group and ``obj`` is the
+        :class:`Group` / :class:`Dataset`. Returning ``None`` continues the
+        iteration; returning anything else stops it and that value becomes the
+        return value of :meth:`visititems`. No particular iteration order within
+        a group is guaranteed.
 
-            func(<member name>, <object>) => <None or return value>
+        Args:
+            func (callable): callable invoked as ``func(name, obj)`` for each member.
 
-        Returning None continues iteration, returning anything else stops
-        and immediately returns that value from the visit method.  No
-        particular order of iteration within groups is guaranteed.
-
-        calls the function @param func with the found items, appended to @param path
+        Returns:
+            The first non-None value returned by ``func``, or None if it never
+            returned one.
 
         Example:
-
-        # Get a list of all datasets in the file
-        >>> mylist = []
-        >>> def func(name, obj):
-        ...     if isinstance(obj, Dataset):
-        ...         mylist.append(name)
-        ...
-        >>> f = File('foo.n5')
-        >>> f.visititems(func)
+            >>> # collect the paths of all datasets in the file
+            >>> mylist = []
+            >>> def func(name, obj):
+            ...     if isinstance(obj, Dataset):
+            ...         mylist.append(name)
+            >>> f = File('foo.n5')
+            >>> f.visititems(func)
         """
         _root = self._handle if _root is None else _root
         for name, obj in self.items():

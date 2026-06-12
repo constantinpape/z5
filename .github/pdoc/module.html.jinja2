@@ -1,0 +1,29 @@
+{% extends "default/module.html.jinja2" %}
+
+{#
+  Override pdoc's default `is_public` macro so that the special methods that make
+  up z5py's primary read/write API (Dataset.__getitem__ / __setitem__, etc.) are
+  documented when they carry a docstring. pdoc hides dunder methods other than
+  __init__ by default. This is pdoc's default macro body with a single extra
+  clause prepended; see https://pdoc.dev (examples/custom-template) for the
+  override mechanism (`macro` overrides the parent's `defaultmacro`).
+#}
+{% macro is_public(doc) %}
+    {% if doc.name in ["__getitem__", "__setitem__", "__array__", "__len__"] and doc.docstring %}
+        {# document the indexing / array IO API explicitly #}
+        true
+    {% elif "@private" in doc.docstring %}
+    {% elif "@public" in doc.docstring %}
+        true
+    {% elif not include_undocumented and not doc.docstring and doc.kind != "module" %}
+    {% elif doc.name == "__init__" and (doc.docstring or (doc.kind == "function" and doc.signature_without_self.parameters)) %}
+        true
+    {% elif doc.name == "__doc__" %}
+    {% elif doc.kind == "variable" and doc.is_typevar and not doc.docstring %}
+    {% elif doc.kind == "module" and doc.fullname not in all_modules %}
+    {% elif (doc.qualname or doc.name) is in(module.obj.__all__ or []) %}
+        true
+    {% elif not doc.name.startswith("_") %}
+        true
+    {% endif %}
+{% endmacro %}

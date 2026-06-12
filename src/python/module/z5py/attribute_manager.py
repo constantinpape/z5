@@ -1,10 +1,16 @@
+"""Access to the custom user attributes (JSON metadata) of groups and datasets.
+
+The :class:`AttributeManager` exposes a container's attributes as a mutable
+dict. :func:`set_json_encoder` / :func:`set_json_decoder` let you customize how
+attributes are (de-)serialized, e.g. to support non-standard JSON types.
+"""
 import json
 from collections.abc import MutableMapping
 
 from . import _z5py
 
 
-__all__ = ['AttributeManager']
+__all__ = ['AttributeManager', 'set_json_encoder', 'set_json_decoder']
 
 
 # json encoders and decoder
@@ -14,7 +20,14 @@ _JSON_DECODER = None
 
 
 def set_json_encoder(encoder):
-    """ Set the encoder to be used in `json.dump` for attribute serialization.
+    """ Set the encoder used by ``json.dump`` when serializing attributes.
+
+    Args:
+        encoder (type): a :class:`json.JSONEncoder` subclass, or None to restore
+            the default encoder.
+
+    Raises:
+        RuntimeError: if ``encoder`` is not a :class:`json.JSONEncoder` subclass.
     """
     global _JSON_ENCODER
     if encoder is None:
@@ -26,11 +39,20 @@ def set_json_encoder(encoder):
 
 
 def get_json_encoder():
+    """ Return the currently configured JSON encoder (or None for the default).
+    """
     return _JSON_ENCODER
 
 
 def set_json_decoder(decoder):
-    """ Set the decoder to be used in `json.load` for attribute de-serialization.
+    """ Set the decoder used by ``json.load`` when de-serializing attributes.
+
+    Args:
+        decoder (type): a :class:`json.JSONDecoder` subclass, or None to restore
+            the default decoder.
+
+    Raises:
+        RuntimeError: if ``decoder`` is not a :class:`json.JSONDecoder` subclass.
     """
     global _JSON_DECODER
     if decoder is None:
