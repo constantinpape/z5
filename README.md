@@ -6,6 +6,8 @@
 [![docs](https://github.com/constantinpape/z5/actions/workflows/docs.yaml/badge.svg)](https://constantinpape.github.io/z5/)
 [![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
 
+**The new z5 / z5py v3 release adds support for zarr v3 format and s3. It removes the xtensor dependency and is now available via PyPI, in addition to conda-forge.**
+
 C++ library (`z5`) with python bindings (`z5py`) for [zarr](https://github.com/zarr-developers/zarr-python) and [n5](https://github.com/saalfeldlab/n5) file formats.
 
 This library supports:
