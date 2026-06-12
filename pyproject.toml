@@ -77,12 +77,16 @@ WITH_ZSTD = "ON"
 WITH_S3 = "OFF"
 WITH_GCS = "OFF"
 
-# The version is single-sourced from the Python package's __version__ string,
-# which is kept in sync with include/z5/z5.hxx (the C++ source of truth).
+# The version is single-sourced from the C++ header include/z5/z5.hxx (the same
+# Z5_VERSION_* macros CMake parses), so cutting a release is a one-line bump
+# there. The (?s) flag lets .* span the lines between the three macros; the
+# runtime z5py.__version__ is derived from the same macros via CMake (see
+# src/python/_version.py.in and src/python/CMakeLists.txt).
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
-input = "src/python/module/z5py/__init__.py"
-regex = '^__version__ = "(?P<value>.+)"$'
+input = "include/z5/z5.hxx"
+regex = '(?s)#define\s+Z5_VERSION_MAJOR\s+(?P<major>\d+).*#define\s+Z5_VERSION_MINOR\s+(?P<minor>\d+).*#define\s+Z5_VERSION_PATCH\s+(?P<patch>\d+)'
+result = "{major}.{minor}.{patch}"
 
 [tool.cibuildwheel]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"

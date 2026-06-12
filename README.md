@@ -29,6 +29,18 @@ Conda packages for the relevant systems and python versions are hosted on conda-
 $ conda install -c conda-forge z5py
 ```
 
+### Pip
+
+Wheels are published on PyPI:
+
+```
+$ pip install z5py
+```
+
+The PyPI wheels are built with all compression codecs but **without the S3 backend**
+(`z5py.S3File` will raise "z5 was not compiled with s3 support"). For S3 support, install
+via conda or build from source with `-DWITH_S3=ON`.
+
 ### From Source
 
 The easiest way to build the library from source is using a conda-environment with all necessary dependencies.

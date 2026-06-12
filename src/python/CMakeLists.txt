@@ -52,6 +52,23 @@ ENDFOREACH()
 
 
 ###########################################################################
+# Single-source the version: generate z5py/_version.py from the Z5_VERSION_*
+# macros parsed in the top-level CMakeLists from include/z5/z5.hxx. This is
+# imported by z5py/__init__.py so the runtime z5py.__version__ matches the C++
+# source of truth for every build path (wheel, make install, in-place bld/python).
+###########################################################################
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/_version.py.in
+    ${CMAKE_BINARY_DIR}/python/z5py/_version.py @ONLY)
+
+# Under scikit-build-core the generated file must be installed into the wheel
+# (the legacy install(DIRECTORY ...) at the bottom copies it for `make install`).
+if(SKBUILD)
+    install(FILES ${CMAKE_BINARY_DIR}/python/z5py/_version.py DESTINATION z5py)
+endif()
+
+
+###########################################################################
 # macro to simplify the adding of a submodule
 ###########################################################################
 macro(addPythonModule)
