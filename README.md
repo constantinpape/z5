@@ -3,7 +3,7 @@
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
 [![test-conda](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml/badge.svg)](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml)
 [![test-pypi](https://github.com/constantinpape/z5/actions/workflows/test-pypi.yaml/badge.svg)](https://github.com/constantinpape/z5/actions/workflows/test-pypi.yaml)
-[![Documentation Status](https://readthedocs.org/projects/z5/badge/?version=latest)](https://z5.readthedocs.io/en/latest/?badge=latest)
+[![docs](https://github.com/constantinpape/z5/actions/workflows/docs.yaml/badge.svg)](https://constantinpape.github.io/z5/)
 [![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
 
 

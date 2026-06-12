@@ -1,3 +1,10 @@
+"""Internal helpers for normalizing numpy-style indices and picking chunk shapes.
+
+These functions back the indexing logic of :class:`z5py.Dataset` (turning
+slices / integers / ellipsis into in-bounds ``(start, stop)`` ranges) and the
+default chunk-shape heuristic used on dataset creation. They are implementation
+details and not part of the public z5py API.
+"""
 import numbers
 
 
@@ -100,6 +107,17 @@ def rectify_shape(arr, required_shape):
 # are larger than the default chunks (e.g. shape (2, 2000, 2000)
 # should have chunks (1, 512, 512) instead of (2, 64, 64))
 def get_default_chunks(shape):
+    """Pick a default chunk shape for a dataset of the given shape.
+
+    Aims for a chunk of roughly ``64**3`` elements, distributed as evenly as
+    possible across the dimensions and clipped to the dataset shape.
+
+    Args:
+        shape (tuple): shape of the dataset.
+
+    Returns:
+        tuple: the default chunk shape.
+    """
     # the default size is 64**3
     default_size = 262144
     default_dim = int(round(default_size ** (1. / len(shape))))

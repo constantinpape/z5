@@ -1,5 +1,10 @@
-# helper functions to convert to and from different formats
-# - hdf5, tiff
+"""Convert between zarr / n5 and other formats.
+
+Helpers to convert datasets to and from HDF5 and TIFF. The HDF5 converters
+(:func:`convert_to_h5`, :func:`convert_from_h5`) require the optional ``h5py``
+dependency, the TIFF converters (:func:`convert_from_tif`) require ``imageio``;
+the corresponding functions are only defined if that dependency is importable.
+"""
 import os
 from math import ceil
 from concurrent import futures
@@ -18,6 +23,8 @@ except ImportError:
 from .file import File
 from .util import copy_dataset_impl
 
+__all__ = ['convert_to_h5', 'convert_from_h5', 'convert_to_tif', 'convert_from_tif']
+
 
 if h5py:
 
@@ -26,7 +33,7 @@ if h5py:
                       n_threads, chunks=None,
                       block_shape=None, roi=None,
                       fit_to_roi=False, **h5_kwargs):
-        """ Convert n5 ot zarr dataset to hdf5 dataset.
+        """ Convert an n5 or zarr dataset to an hdf5 dataset.
 
         The chunks of the output dataset must be specified.
         The dataset is converted to hdf5 in parallel over the chunks.
@@ -172,8 +179,8 @@ if imageio:
                 otherwise zarr will be used (default: None).
             parser (callable): function to parse the image indices for tifs in a folder.
                 If None, some default patterns are tried (default: None)
-            process (callable): function to preprocess chunks before writing to n5/zarr
-                Must take np.ndarray and int as arguments. (default: None)
+            preprocess (callable): function to preprocess each image before writing to n5/zarr.
+                Must take an ``np.ndarray`` and an ``int`` (the image index) as arguments (default: None).
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
         parser_ = default_index_parser if parser is None else parser

@@ -1,3 +1,10 @@
+"""The container entry points: :class:`File` and friends.
+
+A :class:`File` is the root of a zarr / n5 container on the filesystem and the
+usual entry point to z5py (similar to ``h5py.File``). :class:`ZarrFile` /
+:class:`N5File` force a specific format, and :class:`S3File` opens a zarr
+container stored in an S3 (or S3-compatible) bucket.
+"""
 import json
 import os
 import errno
@@ -58,10 +65,16 @@ class File(Group):
 
     @classmethod
     def infer_format(cls, path):
-        """ Infer the file format from the file extension.
+        """ Infer the file format from the path.
 
-            Returns:
-                bool: `True` for zarr, `False` for n5 and `None` if the format could not be inferred.
+        First the file extension is checked (see :attr:`zarr_exts` / :attr:`n5_exts`),
+        then, if inconclusive, the presence of zarr metadata files in the directory.
+
+        Args:
+            path (str): path to the container.
+
+        Returns:
+            bool: True for zarr, False for n5, or None if the format could not be inferred.
         """
         # first, try to infer the format from the file ending
         is_zarr = None
@@ -141,7 +154,11 @@ class File(Group):
                     raise RuntimeError("Can't open n5 file with major version bigger than 4")
 
     def close(self):
-        # This function exists just for conformity with the standard file-handling procedure.
+        """ No-op, for API conformity with file-handling code.
+
+        z5py containers do not need to be closed; this exists so ``File`` can be
+        used as a context manager and as a drop-in for code that calls ``close``.
+        """
         pass
 
     def __enter__(self):
@@ -152,11 +169,15 @@ class File(Group):
 
     @property
     def filename(self):
+        """ The filesystem path of this container.
+        """
         return self._handle.path()
 
     # we need to override this from group
     @property
     def name(self):
+        """ The name of the root group, always ``'/'``.
+        """
         return '/'
 
 

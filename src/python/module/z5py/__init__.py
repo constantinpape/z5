@@ -1,3 +1,45 @@
+"""z5py: Pythonic reading and writing of zarr and n5 containers.
+
+z5py is the Python interface to **z5**, a C++ library for the
+[zarr](https://zarr.dev/) and [n5](https://github.com/saalfeldlab/n5) chunked
+array formats. Numpy arrays are passed in and out directly, and the API closely
+mirrors [h5py](https://www.h5py.org/): a :class:`File` is a container on disc (or
+in an S3 bucket, see :class:`S3File`), :class:`Group` nodes form a hierarchy, and
+:class:`Dataset` holds a chunked, optionally compressed nd array that is read and
+written with numpy-style indexing.
+
+zarr v2, zarr v3 (including sharding) and n5 are supported, along with the blosc,
+zlib/gzip, bzip2, xz, lz4 and zstd compression codecs (whichever were compiled
+in).
+
+Quick start:
+    >>> import z5py
+    >>> import numpy as np
+    >>> with z5py.File("data.zarr") as f:                      # create / open a container
+    ...     ds = f.create_dataset("raw", shape=(100, 100),
+    ...                           chunks=(32, 32), dtype="uint8")
+    ...     ds[:50, :50] = np.ones((50, 50), dtype="uint8")    # write a region
+    ...     ds[50:, 50:] = 42                                  # broadcast a scalar
+    ...     block = ds[:10, :10]                               # read a region
+    ...     ds.attrs["description"] = "example data"           # custom attributes
+
+Beyond the core API there are a few helper modules:
+
+- `z5py.util` — block-wise iteration, parallel dataset / group copying, chunk
+  maintenance and unique-value computation.
+- `z5py.converter` — convert datasets to and from HDF5 and TIFF.
+- `z5py.attribute_manager` — the attribute (``.attrs``) interface and hooks to
+  customize JSON (de)serialization.
+
+See the pages below for installation, using z5 as a C++ library, and a
+performance comparison against zarr-python and tensorstore.
+
+.. include:: docs/installation.md
+.. include:: docs/cpp.md
+.. include:: docs/performance.md
+"""
+__docformat__ = "google"
+
 from .file import File, N5File, ZarrFile, S3File
 from .dataset import Dataset
 from .group import Group
