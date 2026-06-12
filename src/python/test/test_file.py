@@ -23,7 +23,7 @@ class FileTestMixin(ABC):
     def test_context_manager(self):
         self.assertFalse(os.path.exists(self.path))
 
-        with z5py.File(self.path) as f:
+        with z5py.File(self.path, 'a') as f:
             self.assertIsInstance(f, z5py.File)
             if self.data_format == 'n5':
                 self.assertFalse(f.is_zarr)
@@ -34,7 +34,7 @@ class FileTestMixin(ABC):
     def test_extension_detect(self):
         self.assertFalse(os.path.exists(self.path))
 
-        f = z5py.File(self.path, use_zarr_format=None)
+        f = z5py.File(self.path, 'a', use_zarr_format=None)
         if self.data_format == 'n5':
             self.assertFalse(f.is_zarr)
         else:
@@ -46,19 +46,19 @@ class FileTestMixin(ABC):
             z5py.File(self.path, use_zarr_format=is_n5)
 
     def test_filename(self):
-        f = z5py.File(self.path)
+        f = z5py.File(self.path, 'a')
         self.assertEqual(f.filename, self.path)
 
     def test_parent(self):
-        f = z5py.File(self.path)
+        f = z5py.File(self.path, 'a')
         self.assertIs(f, f.parent)
 
     def test_name(self):
-        f = z5py.File(self.path)
+        f = z5py.File(self.path, 'a')
         self.assertEqual(f.name, '/')
 
     def test_file(self):
-        f = z5py.File(self.path)
+        f = z5py.File(self.path, 'a')
         self.assertIs(f.file, f)
 
 
@@ -67,7 +67,7 @@ class TestZarrFile(FileTestMixin, unittest.TestCase):
 
     def test_direct_constructor(self):
         self.assertFalse(os.path.exists(self.path))
-        f = z5py.ZarrFile(self.path)
+        f = z5py.ZarrFile(self.path, 'a')
         self.assertTrue(f.is_zarr)
 
 
@@ -76,7 +76,7 @@ class TestZrFile(FileTestMixin, unittest.TestCase):
 
     def test_direct_constructor(self):
         self.assertFalse(os.path.exists(self.path))
-        f = z5py.ZarrFile(self.path)
+        f = z5py.ZarrFile(self.path, 'a')
         self.assertTrue(f.is_zarr)
 
 
@@ -85,7 +85,7 @@ class TestN5File(FileTestMixin, unittest.TestCase):
 
     def test_direct_constructor(self):
         self.assertFalse(os.path.exists(self.path))
-        f = z5py.N5File(self.path)
+        f = z5py.N5File(self.path, 'a')
         self.assertFalse(f.is_zarr)
 
 
@@ -95,7 +95,7 @@ class TestPathlibPath(FileTestMixin, unittest.TestCase):
     def test_direct_constructor(self):
         self.assertFalse(os.path.exists(self.path))
         path = pathlib.Path(self.path)
-        f = z5py.N5File(path)
+        f = z5py.N5File(path, 'a')
         self.assertFalse(f.is_zarr)
 
 
@@ -115,19 +115,19 @@ class TestZarrV3File(unittest.TestCase):
 
     def test_create_v3(self):
         self.assertFalse(os.path.exists(self.path))
-        f = z5py.File(self.path, use_zarr_format=True, zarr_format=3)
+        f = z5py.File(self.path, 'a', use_zarr_format=True, zarr_format=3)
         self.assertTrue(f.is_zarr)
         meta = self._read_root_meta()
         self.assertEqual(meta['zarr_format'], 3)
         self.assertEqual(meta['node_type'], 'group')
 
     def test_zarrfile_v3(self):
-        f = z5py.ZarrFile(self.path, zarr_format=3)
+        f = z5py.ZarrFile(self.path, 'a', zarr_format=3)
         self.assertTrue(f.is_zarr)
         self.assertEqual(self._read_root_meta()['zarr_format'], 3)
 
     def test_reopen_v3(self):
-        z5py.File(self.path, use_zarr_format=True, zarr_format=3)
+        z5py.File(self.path, 'a', use_zarr_format=True, zarr_format=3)
         # re-opening must accept the v3 metadata (version check)
         f = z5py.File(self.path)
         self.assertTrue(f.is_zarr)

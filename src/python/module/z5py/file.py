@@ -54,7 +54,7 @@ class File(Group):
 
     Args:
         path (str): path on filesystem that holds the container.
-        mode (str): file mode used to open / create the file (default: 'a').
+        mode (str): file mode used to open / create the file (default: 'r').
         use_zarr_format (bool): flag to determine if container is zarr or n5 (default: None).
     """
 
@@ -92,7 +92,7 @@ class File(Group):
                        or os.path.exists(zarr_json))
         return is_zarr
 
-    def __init__(self, path, mode="a", use_zarr_format=None, dimension_separator=".", zarr_format=2):
+    def __init__(self, path, mode="r", use_zarr_format=None, dimension_separator=".", zarr_format=2):
 
         if isinstance(path, os.PathLike):
             path = os.fspath(path)
@@ -186,10 +186,10 @@ class N5File(File):
 
     Args:
         path (str): path on filesystem that holds the container.
-        mode (str): file mode used to open / create the file (default: 'a').
+        mode (str): file mode used to open / create the file (default: 'r').
     """
 
-    def __init__(self, path, mode='a'):
+    def __init__(self, path, mode="r"):
         super().__init__(path=path, use_zarr_format=False, mode=mode)
 
 
@@ -198,10 +198,10 @@ class ZarrFile(File):
 
     Args:
         path (str): path on filesystem that holds the container.
-        mode (str): file mode used to open / create the file (default: 'a').
+        mode (str): file mode used to open / create the file (default: 'r').
     """
 
-    def __init__(self, path, mode="a", dimension_separator=".", zarr_format=2):
+    def __init__(self, path, mode="r", dimension_separator=".", zarr_format=2):
         super().__init__(path=path, use_zarr_format=True, mode=mode,
                          dimension_separator=dimension_separator, zarr_format=zarr_format)
 
@@ -217,7 +217,7 @@ class S3File(Group):
     Args:
         bucket_name (str): name of the S3 bucket.
         name_in_bucket (str): key prefix of the container within the bucket (default: '').
-        mode (str): file mode used to open / create the container (default: 'a').
+        mode (str): file mode used to open / create the container (default: 'r').
         use_zarr_format (bool): whether the container is zarr; only zarr is supported
             over S3 (default: None, treated as zarr).
         zarr_format (int): zarr format version, 2 or 3 (default: 2).
@@ -231,9 +231,9 @@ class S3File(Group):
         secret_key (str): AWS secret access key (default: None).
     """
 
-    def __init__(self, bucket_name, name_in_bucket='', mode='a', use_zarr_format=None,
+    def __init__(self, bucket_name, name_in_bucket="", mode="r", use_zarr_format=None,
                  zarr_format=2, dimension_separator=None,
-                 endpoint_url=None, region='us-east-1',
+                 endpoint_url=None, region="us-east-1",
                  anon=False, access_key=None, secret_key=None):
 
         if not hasattr(_z5py, "S3File"):

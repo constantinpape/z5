@@ -7,8 +7,8 @@ for the full API.
 
 ### Integrating z5
 
-z5 is **header-only**: add `include/` to your include path and `#include` the
-headers you need. You only have to *link* against the compression codecs you
+z5 is header-only: add `include/` to your include path and `#include` the
+headers you need. You have to *link* against the compression codecs you
 actually use (blosc, zlib, bzip2, xz, lz4, zstd) and against
 [nlohmann_json](https://github.com/nlohmann/json) for metadata handling. A C++20
 compiler is required.

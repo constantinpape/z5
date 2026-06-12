@@ -16,7 +16,7 @@ class TestPickle(unittest.TestCase):
 
     def setUp(self):
         self.shape = (100, 100, 100)
-        self.ff = z5py.File('array.n5')
+        self.ff = z5py.File('array.n5', 'a')
 
     def tearDown(self):
         try:

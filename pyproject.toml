@@ -7,7 +7,7 @@ name = "z5py"
 dynamic = ["version"]
 description = "Lightweight C++ and Python library for reading and writing zarr and n5 files"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = ["numpy"]
 license = { text = "MIT" }
 authors = [
@@ -20,8 +20,6 @@ classifiers = [
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -34,15 +32,12 @@ Repository = "https://github.com/constantinpape/z5"
 Issues = "https://github.com/constantinpape/z5/issues"
 
 [project.optional-dependencies]
-# Interop tests run against zarr-python and tensorstore. zarr-python 3 needs
-# Python >= 3.11; on older interpreters we fall back to the v2 library (the v3
-# interop classes skip), and tensorstore is only required where it ships wheels.
+# Interop tests run against zarr-python 3 (requires Python >= 3.11, matching this
+# package's requires-python) and tensorstore (gated on importability in the tests,
+# so a missing wheel just skips those cases).
 test = [
-    "zarr>=3; python_version >= '3.11'",
-    "zarr<3; python_version < '3.11'",
-    "tensorstore; python_version >= '3.11'",
-    "h5py",
-    "imageio",
+    "zarr>=3",
+    "tensorstore",
 ]
 
 [tool.scikit-build]
@@ -89,19 +84,18 @@ regex = '(?s)#define\s+Z5_VERSION_MAJOR\s+(?P<major>\d+).*#define\s+Z5_VERSION_M
 result = "{major}.{minor}.{patch}"
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+# zarr-python 3 (the interop test target) requires Python >= 3.11, matching this
+# package's requires-python, so the build matrix starts at cp311.
+build = "cp311-* cp312-* cp313-*"
 skip = "*-win32 *-manylinux_i686 *-musllinux_*"
 build-frontend = "build"
 # tensorstore is intentionally omitted here: it lacks wheels for some wheel
 # targets (and a source build needs bazel), which would hard-fail the test step.
 # tensorstore interop is exercised in the conda + pypi CI jobs instead; here the
 # tensorstore interop classes simply skip (gated on importability).
-test-requires = [
-    "zarr>=3; python_version >= '3.11'",
-    "zarr<3; python_version < '3.11'",
-    "h5py",
-    "imageio",
-]
+# zarr is required for the interop tests. All build targets are >= cp311, where
+# zarr-python 3 is installable, so a single unconditional requirement suffices.
+test-requires = ["zarr>=3"]
 # {project} is the checked-out repo, which still contains the test suite.
 test-command = "python -m unittest discover -s {project}/src/python/test -v"
 
@@ -112,8 +106,13 @@ manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 # vcpkg is not present inside the manylinux container, so clone + bootstrap it,
 # then point CMake at its toolchain so the manifest deps are auto-installed.
+# manylinux_2_28 is AlmaLinux 8 (yum, runs as root) and lacks some tools several
+# vcpkg ports/asset steps need, so install them first. The clone is pinned to a
+# vcpkg release tag for reproducible port versions and guarded so re-runs / any
+# pre-existing checkout don't fail.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg",
+    "yum install -y zip unzip perl-IPC-Cmd autoconf automake libtool pkgconfig",
+    "test -d /opt/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg /opt/vcpkg",
     "/opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
 ]
 
@@ -122,8 +121,10 @@ VCPKG_ROOT = "/opt/vcpkg"
 CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
 [tool.cibuildwheel.macos]
+# Clone pinned to a vcpkg release tag for reproducible port versions, guarded so
+# re-runs / any pre-existing checkout don't fail.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg $HOME/vcpkg",
+    "test -d $HOME/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg $HOME/vcpkg",
     "$HOME/vcpkg/bootstrap-vcpkg.sh -disableMetrics",
 ]
 
@@ -134,8 +135,12 @@ CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmak
 MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.windows]
+# The windows-latest runner image pre-installs vcpkg at C:/vcpkg, so an
+# unconditional clone aborts with "destination path already exists". Guard the
+# clone (reuse the pre-installed checkout when present, otherwise clone a pinned
+# release tag) and always (re-)bootstrap.
 before-all = [
-    "git clone --depth 1 https://github.com/microsoft/vcpkg C:/vcpkg",
+    "test -d C:/vcpkg || git clone --branch 2026.06.01 --depth 1 https://github.com/microsoft/vcpkg C:/vcpkg",
     "C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics",
 ]
 

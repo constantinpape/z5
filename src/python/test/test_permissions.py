@@ -17,7 +17,7 @@ class TestPermissions(unittest.TestCase):
     def setUp(self):
         self.path1 = 'array1.n5'
         self.path2 = 'array2.n5'
-        f = z5py.File(self.path1)
+        f = z5py.File(self.path1, 'a')
         f.create_dataset('data', dtype='uint8', shape=(10, 10), chunks=(10, 10))
 
     def tearDown(self):

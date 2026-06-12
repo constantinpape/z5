@@ -1,4 +1,4 @@
-# z5
+# z5 / z5py
 
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/z5py/badges/version.svg)](https://anaconda.org/conda-forge/z5py)
 [![test-conda](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml/badge.svg)](https://github.com/constantinpape/z5/actions/workflows/test-conda.yaml)
@@ -6,11 +6,14 @@
 [![docs](https://github.com/constantinpape/z5/actions/workflows/docs.yaml/badge.svg)](https://constantinpape.github.io/z5/)
 [![DOI](https://zenodo.org/badge/101700504.svg)](https://zenodo.org/badge/latestdoi/101700504)
 
+**The new z5 / z5py v3 release adds support for zarr v3 format and s3. It removes the xtensor dependency and is now available via PyPI, in addition to conda-forge.**
 
+C++ library (`z5`) with python bindings (`z5py`) for [zarr](https://github.com/zarr-developers/zarr-python) and [n5](https://github.com/saalfeldlab/n5) file formats.
 
-C++ and Python wrapper for [zarr](https://github.com/zarr-developers/zarr-python) and [n5](https://github.com/saalfeldlab/n5) file formats.
-Implements the file system specification of these formats. Implementations for cloud based storage are work in progress. Any
-help is highly appreciated. See issues [#136](https://github.com/constantinpape/z5/issues/136) and [#137](https://github.com/constantinpape/z5/issues/137) for details.
+This library supports:
+- Zarr format v2 and v3.
+- The n5 format.
+- Access to zarr files on the filesystem and S3 object storage; n5 is only supported on the file system.
 
 Support for the following compression codecs:
 - [Blosc](https://github.com/Blosc/c-blosc)
@@ -18,6 +21,7 @@ Support for the following compression codecs:
 - [Bzip2](http://www.bzip.org/)
 - [XZ](https://tukaani.org/xz/)
 - [LZ4](https://github.com/lz4/lz4)
+- [Zstandard](https://github.com/facebook/zstd)
 
 ## Installation
 
@@ -122,28 +126,6 @@ attributes['foo'] = 'bar'
 baz = attributes['foo']
 ```
 
-There are convenience functions to convert n5 and zarr files to and from hdf5 or tif.
-Additional data formats will follow.
-
-```python
-# convert existing h5 file to n5
-# this only works if h5py is available
-from z5py.converter import convert_from_h5
-
-h5_file = '/path/to/file.h5'
-n5_file = '/path/to/file.n5'
-h5_key = n5_key = 'data'
-target_chunks = (64, 64, 64)
-n_threads = 8
-
-convert_from_h5(h5_file, n5_file,
-                in_path_in_file=h5_key,
-                out_path_in_file=n5_key,
-                chunks=target_chunks,
-                n_threads=n_threads,
-                compression='gzip')
-```
-
 ### C++
 
 `Z5` aims to supports different storage implementations. The default is to use the filesystem, implementations to also supports AWS-S3 and Google Cloud Storage are work in progress.
@@ -242,15 +224,6 @@ If you use this library in your research, please cite it via the associated DOI:
   year = {2019}
 }
 ```
-
-## When to use this library?
-
-This library implements the zarr and n5 data specification in C++ and Python.
-Use it, if you need access to these formats from these languages.
-Zarr / n5 have native implementations in Python / Java.
-If you only need access in the respective native language,
-it is recommended to use these implementations, which are more thoroughly tested.
-
 
 ## Current Limitations / TODOs
 

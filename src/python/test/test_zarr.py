@@ -48,7 +48,7 @@ class ZarrTestMixin(ABC):
         shape = (123, 97)
         chunks = (17, 32)
         data = np.random.rand(*shape)
-        f = z5py.File(self.path)
+        f = z5py.File(self.path, 'a')
         f.create_dataset('test', data=data, chunks=chunks)
 
         fz = z5py.File(self.path)
