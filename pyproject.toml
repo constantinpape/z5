@@ -94,10 +94,12 @@ build-frontend = "build"
 # targets (and a source build needs bazel), which would hard-fail the test step.
 # tensorstore interop is exercised in the conda + pypi CI jobs instead; here the
 # tensorstore interop classes simply skip (gated on importability).
-test-requires = [
-    "zarr>=3; python_version >= '3.11'",
-    "zarr<3; python_version < '3.11'",
-]
+# zarr is required for the interop tests. zarr 3 (Python >= 3.11) is the default;
+# cp39/cp310 fall back to zarr 2 via the override at the end of this file.
+# NOTE: cibuildwheel splits test-requires on whitespace, so inline PEP 508
+# environment markers (which contain spaces, e.g. "zarr>=3; python_version >=
+# '3.11'") get shredded into invalid pip args -- use per-Python overrides instead.
+test-requires = ["zarr>=3"]
 # {project} is the checked-out repo, which still contains the test suite.
 test-command = "python -m unittest discover -s {project}/src/python/test -v"
 
@@ -152,3 +154,10 @@ VCPKG_ROOT = "C:/vcpkg"
 # vcpkg toolchain only honors the triplet as a CMake cache var (it ignores the
 # env var), so it must be a -D define in CMAKE_ARGS.
 CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md"
+
+# zarr 3 requires Python >= 3.11, so cp39/cp310 test against zarr 2 instead.
+# This override replaces the global test-requires for the matching builds (no
+# whitespace-sensitive PEP 508 markers needed).
+[[tool.cibuildwheel.overrides]]
+select = "cp39-* cp310-*"
+test-requires = ["zarr<3"]
