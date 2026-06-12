@@ -21,13 +21,8 @@ Quick start:
     ...     block = ds[:10, :10]                               # read a region
     ...     ds.attrs["description"] = "example data"           # custom attributes
 
-Beyond the core API there are a few helper modules:
-
-- `z5py.util` — block-wise iteration, parallel dataset / group copying, chunk
-  maintenance and unique-value computation.
-- `z5py.converter` — convert datasets to and from HDF5 and TIFF.
-- `z5py.attribute_manager` — the attribute (``.attrs``) interface and hooks to
-  customize JSON (de)serialization.
+Beyond the core API, the `z5py.attribute_manager` module provides the attribute
+(``.attrs``) interface and hooks to customize JSON (de)serialization.
 
 See the pages below for installation, using z5 as a C++ library, and a
 performance comparison against zarr-python and tensorstore.

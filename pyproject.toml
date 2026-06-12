@@ -41,8 +41,6 @@ test = [
     "zarr>=3; python_version >= '3.11'",
     "zarr<3; python_version < '3.11'",
     "tensorstore; python_version >= '3.11'",
-    "h5py",
-    "imageio",
 ]
 
 [tool.scikit-build]
@@ -99,8 +97,6 @@ build-frontend = "build"
 test-requires = [
     "zarr>=3; python_version >= '3.11'",
     "zarr<3; python_version < '3.11'",
-    "h5py",
-    "imageio",
 ]
 # {project} is the checked-out repo, which still contains the test suite.
 test-command = "python -m unittest discover -s {project}/src/python/test -v"
