@@ -7,7 +7,7 @@ name = "z5py"
 dynamic = ["version"]
 description = "Lightweight C++ and Python library for reading and writing zarr and n5 files"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = ["numpy"]
 license = { text = "MIT" }
 authors = [
@@ -20,8 +20,6 @@ classifiers = [
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -34,13 +32,12 @@ Repository = "https://github.com/constantinpape/z5"
 Issues = "https://github.com/constantinpape/z5/issues"
 
 [project.optional-dependencies]
-# Interop tests run against zarr-python and tensorstore. zarr-python 3 needs
-# Python >= 3.11; on older interpreters we fall back to the v2 library (the v3
-# interop classes skip), and tensorstore is only required where it ships wheels.
+# Interop tests run against zarr-python 3 (requires Python >= 3.11, matching this
+# package's requires-python) and tensorstore (gated on importability in the tests,
+# so a missing wheel just skips those cases).
 test = [
-    "zarr>=3; python_version >= '3.11'",
-    "zarr<3; python_version < '3.11'",
-    "tensorstore; python_version >= '3.11'",
+    "zarr>=3",
+    "tensorstore",
 ]
 
 [tool.scikit-build]
@@ -87,18 +84,17 @@ regex = '(?s)#define\s+Z5_VERSION_MAJOR\s+(?P<major>\d+).*#define\s+Z5_VERSION_M
 result = "{major}.{minor}.{patch}"
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+# zarr-python 3 (the interop test target) requires Python >= 3.11, matching this
+# package's requires-python, so the build matrix starts at cp311.
+build = "cp311-* cp312-* cp313-*"
 skip = "*-win32 *-manylinux_i686 *-musllinux_*"
 build-frontend = "build"
 # tensorstore is intentionally omitted here: it lacks wheels for some wheel
 # targets (and a source build needs bazel), which would hard-fail the test step.
 # tensorstore interop is exercised in the conda + pypi CI jobs instead; here the
 # tensorstore interop classes simply skip (gated on importability).
-# zarr is required for the interop tests. zarr 3 (Python >= 3.11) is the default;
-# cp39/cp310 fall back to zarr 2 via the override at the end of this file.
-# NOTE: cibuildwheel splits test-requires on whitespace, so inline PEP 508
-# environment markers (which contain spaces, e.g. "zarr>=3; python_version >=
-# '3.11'") get shredded into invalid pip args -- use per-Python overrides instead.
+# zarr is required for the interop tests. All build targets are >= cp311, where
+# zarr-python 3 is installable, so a single unconditional requirement suffices.
 test-requires = ["zarr>=3"]
 # {project} is the checked-out repo, which still contains the test suite.
 test-command = "python -m unittest discover -s {project}/src/python/test -v"
@@ -154,10 +150,3 @@ VCPKG_ROOT = "C:/vcpkg"
 # vcpkg toolchain only honors the triplet as a CMake cache var (it ignores the
 # env var), so it must be a -D define in CMAKE_ARGS.
 CMAKE_ARGS = "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md"
-
-# zarr 3 requires Python >= 3.11, so cp39/cp310 test against zarr 2 instead.
-# This override replaces the global test-requires for the matching builds (no
-# whitespace-sensitive PEP 508 markers needed).
-[[tool.cibuildwheel.overrides]]
-select = "cp39-* cp310-*"
-test-requires = ["zarr<3"]
