@@ -263,12 +263,12 @@ def copy_dataset(in_path, out_path,
         **new_compression: compression library and options for output dataset. If not given,
             the same compression as in the input is used.
     """
-    f_in = File(in_path)
+    f_in = File(in_path, 'r')
     # check if the file format was specified
     # if not, keep the format of the input file
     # otherwise set the file format
     is_zarr = f_in.is_zarr if use_zarr_format is None else use_zarr_format
-    f_out = File(out_path, use_zarr_format=is_zarr)
+    f_out = File(out_path, 'a', use_zarr_format=is_zarr)
 
     copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
                       n_threads, chunks=chunks, block_shape=block_shape,
@@ -289,8 +289,8 @@ def copy_group(in_path, out_path, in_path_in_file, out_path_in_file, n_threads):
         out_path_in_file (str): name of output group.
         n_threads (int): number of threads used to copy datasets.
     """
-    f_in = File(in_path)
-    f_out = File(out_path)
+    f_in = File(in_path, 'r')
+    f_out = File(out_path, 'a')
 
     def copy_attrs(gin, gout):
         in_attrs = gin.attrs

@@ -96,7 +96,7 @@ if h5py:
                 and align chunks with the roi's origin. (default: False)
             **z5_kwargs: keyword arguments for ``z5py`` dataset, e.g. datatype or compression.
         """
-        f_out = File(out_path, use_zarr_format=use_zarr_format)
+        f_out = File(out_path, 'a', use_zarr_format=use_zarr_format)
         dtype = z5_kwargs.pop('dtype', None)
         with h5py.File(in_path, 'r') as f_in:
             copy_dataset_impl(f_in, f_out, in_path_in_file, out_path_in_file,
@@ -205,7 +205,7 @@ if imageio:
         shape, dtype_ = _read_tif_metadata(in_path, file_names)
 
         # create the z5 file
-        f_z5 = File(out_path, use_zarr_format=use_zarr_format)
+        f_z5 = File(out_path, 'a', use_zarr_format=use_zarr_format)
         dtype = z5_kwargs.pop('dtype', dtype_)
 
         # create the dataset

@@ -104,7 +104,7 @@ class TestConverter(unittest.TestCase):
         from z5py.converter import convert_to_h5
         n5_file = os.path.join(self.tmp_dir, 'tmp.n5')
         h5_file = os.path.join(self.tmp_dir, 'tmp.h5')
-        f = z5py.File(n5_file, use_zarr_format=False)
+        f = z5py.File(n5_file, 'a', use_zarr_format=False)
 
         # test conversion for 4 different compression pairs
         for pair in self.compressor_pairs:

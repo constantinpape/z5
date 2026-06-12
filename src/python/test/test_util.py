@@ -26,8 +26,8 @@ class TestUtil(unittest.TestCase):
         in_path = os.path.join(self.tmp_dir, 'in.n5')
         out_path = os.path.join(self.tmp_dir, 'out.n5')
 
-        in_file = z5py.File(in_path, use_zarr_format=False)
-        out_file = z5py.File(out_path, use_zarr_format=False)
+        in_file = z5py.File(in_path, 'a', use_zarr_format=False)
+        out_file = z5py.File(out_path, 'a', use_zarr_format=False)
         # create input dataset
         ds_in = in_file.create_dataset('data', dtype='float32',
                                        shape=self.shape, chunks=self.chunks,
@@ -67,7 +67,7 @@ class TestUtil(unittest.TestCase):
         out_path = os.path.join(self.tmp_dir, 'out.n5')
 
         # create input file
-        in_file = z5py.File(in_path, use_zarr_format=False)
+        in_file = z5py.File(in_path, 'a', use_zarr_format=False)
         ds_in = in_file.create_dataset('data', dtype='float32',
                                        shape=self.shape, chunks=self.chunks,
                                        compression='gzip')
@@ -76,7 +76,7 @@ class TestUtil(unittest.TestCase):
         ds_in[:] = data
 
         # copy_dataset for different out blocks
-        out_file = z5py.File(out_path, use_zarr_format=False)
+        out_file = z5py.File(out_path, 'a', use_zarr_format=False)
         new_chunks = (20, 20, 20)
 
         # NOTE we can only choose out blocks that align with the chunks
@@ -101,7 +101,7 @@ class TestUtil(unittest.TestCase):
         out_path = os.path.join(self.tmp_dir, 'out.n5')
 
         # create input file
-        in_file = z5py.File(in_path, use_zarr_format=False)
+        in_file = z5py.File(in_path, 'a', use_zarr_format=False)
         ds_in = in_file.create_dataset('data', dtype='float32',
                                        shape=self.shape, chunks=self.chunks,
                                        compression='gzip')
@@ -157,7 +157,7 @@ class TestUtil(unittest.TestCase):
     def test_remove_trivial_chunks(self):
         from z5py.util import remove_trivial_chunks
         path = './tmp_dir/data.n5'
-        f = z5py.File(path)
+        f = z5py.File(path, 'a')
         shape = (100, 100)
         chunks = (10, 10)
 
@@ -190,7 +190,7 @@ class TestUtil(unittest.TestCase):
     def test_unique(self):
         from z5py.util import unique
         path = './tmp_dir/data.n5'
-        f = z5py.File(path)
+        f = z5py.File(path, 'a')
         shape = (100, 100)
         chunks = (10, 10)
 
@@ -218,7 +218,7 @@ class TestUtil(unittest.TestCase):
         # argument, so every call raised a TypeError
         from z5py.util import remove_chunk
         path = './tmp_dir/data.n5'
-        f = z5py.File(path)
+        f = z5py.File(path, 'a')
         ds = f.create_dataset('data', dtype='float64',
                               shape=(20, 20), chunks=(10, 10))
         ds[:] = np.random.rand(20, 20)
@@ -232,7 +232,7 @@ class TestUtil(unittest.TestCase):
         from z5py.util import copy_dataset
         in_path = os.path.join(self.tmp_dir, 'in_zs.n5')
         out_path = os.path.join(self.tmp_dir, 'out_zs.n5')
-        f = z5py.File(in_path)
+        f = z5py.File(in_path, 'a')
         data = np.zeros((20, 20), dtype='int8')
         # the (5, 5) copy block at (0, 0) sums to zero but holds data
         data[:2, :5] = -5
@@ -249,7 +249,7 @@ class TestUtil(unittest.TestCase):
         # zarr stores edge chunks padded to the full chunk shape -> heap overflow
         from z5py.util import unique
         path = './tmp_dir/data.zr'
-        f = z5py.File(path)
+        f = z5py.File(path, 'a')
         shape = (25, 25)
         chunks = (10, 10)
 
@@ -266,7 +266,7 @@ class TestUtil(unittest.TestCase):
     def test_remove_dataset(self):
         from z5py.util import remove_dataset
         path = './tmp_dir/data.n5'
-        f = z5py.File(path)
+        f = z5py.File(path, 'a')
         shape = (100, 100)
         chunks = (10, 10)
 
