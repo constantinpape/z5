@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 
@@ -86,7 +87,7 @@ result = "{major}.{minor}.{patch}"
 [tool.cibuildwheel]
 # zarr-python 3 (the interop test target) requires Python >= 3.11, matching this
 # package's requires-python, so the build matrix starts at cp311.
-build = "cp311-* cp312-* cp313-*"
+build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-win32 *-manylinux_i686 *-musllinux_*"
 build-frontend = "build"
 # tensorstore is intentionally omitted here: it lacks wheels for some wheel
