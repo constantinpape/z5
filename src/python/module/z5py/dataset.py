@@ -239,12 +239,14 @@ class Dataset:
             zarr_format = kwargs.pop('zarr_format', 2)
             shards = kwargs.pop('shards', None)
             chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
+            dimension_names = kwargs.pop('dimension_names', None)
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
                                        compression_options=kwargs, dimension_separator=dimension_separator,
                                        zarr_format=zarr_format, shards=shards,
-                                       chunk_key_encoding=chunk_key_encoding)
+                                       chunk_key_encoding=chunk_key_encoding,
+                                       dimension_names=dimension_names)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -256,7 +258,8 @@ class Dataset:
                         dimension_separator=".",
                         zarr_format=2,
                         shards=None,
-                        chunk_key_encoding="default"):
+                        chunk_key_encoding="default",
+                        dimension_names=None):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -299,6 +302,13 @@ class Dataset:
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
 
+        if dimension_names is not None:
+            if not (is_zarr and zarr_format == 3):
+                raise ValueError("Dimension names are only supported for zarr v3 datasets")
+            if len(dimension_names) != len(shape):
+                raise ValueError("Dimension names %s must have same length as shape %s" % (str(dimension_names),
+                                                                                           str(shape)))
+
         if is_zarr and zarr_format == 3:
             # zarr v3
             if compression is None:
@@ -309,9 +319,13 @@ class Dataset:
             # the chunk key separator is determined by the chunk key encoding
             separator = '.' if chunk_key_encoding == 'v2' else '/'
             shards_arg = list(shards) if shards is not None else []
+            # an unnamed dimension is passed as an empty name
+            names_arg = ['' if dim is None else dim for dim in dimension_names]\
+                if dimension_names is not None else []
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
-                                        separator, 3, shards_arg, chunk_key_encoding)
+                                        separator, 3, shards_arg, chunk_key_encoding,
+                                        names_arg)
         else:
             # zarr v2 / n5
             # check compression / get default compression if no compression is given
@@ -390,6 +404,14 @@ class Dataset:
         """
         shards = tuple(self._impl.shards)
         return shards if shards else None
+
+    @property
+    def dimension_names(self):
+        """ Names of the dimensions of this dataset (zarr v3), with ``None`` for an
+        unnamed dimension, or None if no dimension is named.
+        """
+        names = tuple(dim if dim else None for dim in self._impl.dimension_names)
+        return names if any(names) else None
 
     @property
     def dtype(self):

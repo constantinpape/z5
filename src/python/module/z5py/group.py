@@ -200,7 +200,8 @@ class Group(Mapping):
                        data=None, chunks=None,
                        compression=None, fillvalue=0,
                        n_threads=1, shards=None,
-                       chunk_key_encoding='default', **compression_options):
+                       chunk_key_encoding='default', dimension_names=None,
+                       **compression_options):
         """ Create a new dataset.
 
         Create a new dataset in the group. Syntax and behaviour similar to the
@@ -225,6 +226,8 @@ class Group(Mapping):
                 If no compression is given, the default for the current format is used (default: None).
             fillvalue (float): fillvalue for empty chunks (only zarr) (default: 0).
             n_threads (int): number of threads used for chunk I/O (default: 1).
+            dimension_names (tuple): names of the dimensions, ``None`` for an unnamed
+                dimension (only zarr v3) (default: None).
             **compression_options: options for the compression library.
 
         Returns:
@@ -247,6 +250,7 @@ class Group(Mapping):
                                         fillvalue, n_threads,
                                         shards=shards,
                                         chunk_key_encoding=chunk_key_encoding,
+                                        dimension_names=dimension_names,
                                         **compression_options)
 
         return Dataset._create_dataset(self, name, shape, dtype,
@@ -256,7 +260,8 @@ class Group(Mapping):
                                        self._dimension_separator,
                                        zarr_format=self._zarr_format,
                                        shards=shards,
-                                       chunk_key_encoding=chunk_key_encoding)
+                                       chunk_key_encoding=chunk_key_encoding,
+                                       dimension_names=dimension_names)
 
     def require_dataset(self, name, shape,
                         dtype=None, chunks=None,

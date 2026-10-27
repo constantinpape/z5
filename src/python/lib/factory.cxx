@@ -28,7 +28,8 @@ namespace z5 {
                                    const std::string & dimension_separator,
                                    const int zarr_format,
                                    const std::vector<std::size_t> & shards,
-                                   const std::string & chunk_key_encoding){
+                                   const std::string & chunk_key_encoding,
+                                   const std::vector<std::string> & dimension_names){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
@@ -37,6 +38,7 @@ namespace z5 {
                 options.zarrFormat = zarr_format;
                 options.chunkKeyEncoding = chunk_key_encoding;
                 options.shardShape = shards;
+                options.dimensionNames = dimension_names;
                 return createDataset(root, key, dtype, shape, chunk_shape, options);
             },
             nb::arg("root"), nb::arg("key"),
@@ -48,6 +50,7 @@ namespace z5 {
             nb::arg("zarr_format")=2,
             nb::arg("shards")=std::vector<std::size_t>(),
             nb::arg("chunk_key_encoding")=std::string("default"),
+            nb::arg("dimension_names")=std::vector<std::string>(),
             nb::call_guard<nb::gil_scoped_release>());
     }
 

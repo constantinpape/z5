@@ -34,6 +34,7 @@ namespace z5 {
                                                     chunkShape_(metadata.chunkShape),
                                                     chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), std::size_t(1), std::multiplies<std::size_t>())),
                                                     zarrDelimiter_(metadata.zarrDelimiter),
+                                                    dimensionNames_(metadata.dimensionNames),
                                                     chunking_(shape_, chunkShape_)
         {}
 
@@ -90,6 +91,9 @@ namespace z5 {
 
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
+
+        // names of the dimensions (zarr v3) - empty if unnamed
+        inline const std::vector<std::string> & dimensionNames() const {return dimensionNames_;}
 
         // sharding (zarr v3) - default: not sharded; overridden by ShardedDataset
         virtual bool isSharded() const {return false;}
@@ -164,6 +168,7 @@ namespace z5 {
         types::ShapeType chunkShape_;
         std::size_t chunkSize_;
         std::string zarrDelimiter_;
+        std::vector<std::string> dimensionNames_;
 
         util::Blocking chunking_;
     };
