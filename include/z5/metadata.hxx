@@ -286,7 +286,8 @@ namespace z5 {
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
-                                       types::datatypeSize(dtype), innerCodecs, bigEndian);
+                                       types::datatypeSize(dtype), innerCodecs, bigEndian,
+                                       transposeOrder);
 
             if(sharded) {
                 nlohmann::json sharding;
@@ -384,10 +385,16 @@ namespace z5 {
             }
             if(!sharded) {
                 chunkShape = outerShape;
+            } else if(codecs.size() != 1) {
+                // e.g. a transpose of the whole shard: ignoring it would silently
+                // misread the data
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: codecs before or after "
+                                         "sharding_indexed are not supported");
             }
 
-            types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype),
-                                        compressor, compressionOptions, bigEndian);
+            types::readV3CodecsFromJson(
+                *innerCodecs, types::datatypeSize(dtype), shape.size(),
+                compressor, compressionOptions, bigEndian, transposeOrder);
 
             // optional names of the dimensions; a null name is an unnamed dimension
             dimensionNames.clear();
@@ -432,6 +439,10 @@ namespace z5 {
         // zarr v3 specific: the names of the dimensions, std::nullopt for an
         // unnamed dimension; empty if the array has no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
+
+        // zarr v3 specific: composed permutation of the ``transpose`` codecs
+        // (numpy ``transpose`` semantics); empty == no transpose
+        std::vector<std::size_t> transposeOrder;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -501,6 +512,8 @@ namespace z5 {
         // zarr v3 only; the names of the dimensions, std::nullopt for an
         // unnamed dimension; empty: no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
+        // zarr v3 only; the transpose codec's permutation, empty: no transpose
+        std::vector<std::size_t> transposeOrder;
     };
 
 
@@ -516,6 +529,7 @@ namespace z5 {
         const auto & zarrFormat = options.zarrFormat;
         const auto & shardShape = options.shardShape;
         const auto & dimensionNames = options.dimensionNames;
+        const auto & transposeOrder = options.transposeOrder;
 
         // get the internal data type
         types::Datatype internalDtype;
@@ -559,12 +573,38 @@ namespace z5 {
             throw std::runtime_error("z5::createDatasetMetadata: dimension names are only supported for zarr v3");
         }
 
+        // the transpose codec is only valid for zarr v3 and must permute all axes;
+        // the identity is stored as "no transpose codec"
+        std::vector<std::size_t> order;
+        if(!transposeOrder.empty()) {
+            if(!(createAsZarr && zarrFormat == 3)) {
+                throw std::runtime_error("z5::createDatasetMetadata: transpose is only supported for zarr v3");
+            }
+            std::vector<bool> seen(shape.size(), false);
+            if(transposeOrder.size() != shape.size()) {
+                throw std::runtime_error("z5::createDatasetMetadata: transpose order must list every axis once");
+            }
+            for(const auto axis : transposeOrder) {
+                if(axis >= shape.size() || seen[axis]) {
+                    throw std::runtime_error("z5::createDatasetMetadata: transpose order must list every axis once");
+                }
+                seen[axis] = true;
+            }
+            for(std::size_t d = 0; d < transposeOrder.size(); ++d) {
+                if(transposeOrder[d] != d) {
+                    order = transposeOrder;
+                    break;
+                }
+            }
+        }
+
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
                                    options.fillValue, options.zarrDelimiter,
                                    zarrFormat, options.chunkKeyEncoding, shardShape,
                                    dimensionNames);
+        metadata.transposeOrder = order;
     }
 
 

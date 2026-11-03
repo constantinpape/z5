@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <numeric>
 #include <variant>
 #include <complex>
 
@@ -460,8 +461,16 @@ namespace types {
                                     const CompressionOptions & options,
                                     std::size_t typesize,
                                     nlohmann::json & jCodecs,
-                                    const bool bigEndian=false) {
+                                    const bool bigEndian=false,
+                                    const std::vector<std::size_t> & transposeOrder={}) {
         jCodecs = nlohmann::json::array();
+
+        if(!transposeOrder.empty()) {
+            nlohmann::json transposeCodec;
+            transposeCodec["name"] = "transpose";
+            transposeCodec["configuration"]["order"] = transposeOrder;
+            jCodecs.push_back(transposeCodec);
+        }
 
         nlohmann::json bytesCodec;
         bytesCodec["name"] = "bytes";
@@ -526,20 +535,75 @@ namespace types {
         throw std::runtime_error("z5: invalid endian for zarr v3 bytes codec: " + endian);
     }
 
-    // parse a zarr v3 codec list into a Compressor + CompressionOptions, and the
-    // byte order requested by the ``bytes`` codec (bigEndian)
+    // parse the ``order`` of a zarr v3 ``transpose`` codec: a permutation of the
+    // ndim axes (or the legacy "C" / "F" shorthands for identity / reversed)
+    inline std::vector<std::size_t> readV3TransposeOrder(const nlohmann::json & cfg,
+                                                         const std::size_t ndim) {
+        const auto it = cfg.find("order");
+        if(it == cfg.end()) {
+            throw std::runtime_error("z5: zarr v3 transpose codec requires 'order'");
+        }
+        std::vector<std::size_t> order(ndim);
+        if(it->is_string()) {
+            const std::string s = it->get<std::string>();
+            if(s != "C" && s != "F") {
+                throw std::runtime_error("z5: invalid order for zarr v3 transpose codec: " + s);
+            }
+            for(std::size_t d = 0; d < ndim; ++d) {
+                order[d] = (s == "C") ? d : ndim - 1 - d;
+            }
+            return order;
+        }
+        if(!it->is_array() || it->size() != ndim) {
+            throw std::runtime_error("z5: zarr v3 transpose order must list every axis once");
+        }
+        std::vector<bool> seen(ndim, false);
+        for(std::size_t d = 0; d < ndim; ++d) {
+            const auto & v = (*it)[d];
+            if(!(v.is_number_unsigned() || v.is_number_integer()) || v.get<long long>() < 0 ||
+               v.get<long long>() >= static_cast<long long>(ndim) || seen[v.get<std::size_t>()]) {
+                throw std::runtime_error("z5: zarr v3 transpose order is not a permutation of the axes");
+            }
+            order[d] = v.get<std::size_t>();
+            seen[order[d]] = true;
+        }
+        return order;
+    }
+
+    // parse a zarr v3 codec list into a Compressor + CompressionOptions, the byte
+    // order requested by the ``bytes`` codec (bigEndian) and the composition of
+    // all ``transpose`` codecs (transposeOrder; empty if it is the identity)
     inline void readV3CodecsFromJson(const nlohmann::json & jCodecs,
                                      const std::size_t typesize,
+                                     const std::size_t ndim,
                                      Compressor & compressor,
                                      CompressionOptions & options,
-                                     bool & bigEndian) {
+                                     bool & bigEndian,
+                                     std::vector<std::size_t> & transposeOrder) {
         compressor = raw;
         bigEndian = false;
+        transposeOrder.resize(ndim);
+        std::iota(transposeOrder.begin(), transposeOrder.end(), std::size_t(0));
+        bool seenBytes = false;
         for(const auto & c : jCodecs) {
             const std::string name = c.at("name").get<std::string>();
             const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
             if(name == "bytes") {
                 bigEndian = readV3BytesEndian(cfg, typesize);
+                seenBytes = true;
+                continue;
+            }
+            if(name == "transpose") {
+                if(seenBytes) {
+                    throw std::runtime_error("z5: zarr v3 transpose codec must come before the bytes codec");
+                }
+                // applying p1 then p2 equals a single transpose by p1[p2[i]]
+                const auto order = readV3TransposeOrder(cfg, ndim);
+                std::vector<std::size_t> composed(ndim);
+                for(std::size_t d = 0; d < ndim; ++d) {
+                    composed[d] = transposeOrder[order[d]];
+                }
+                transposeOrder = composed;
                 continue;
             }
             if(name == "gzip") {
@@ -570,6 +634,14 @@ namespace types {
             } else {
                 throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
             }
+        }
+        // store the identity as an empty order (no transpose work on IO)
+        bool identity = true;
+        for(std::size_t d = 0; d < ndim; ++d) {
+            identity = identity && transposeOrder[d] == d;
+        }
+        if(identity) {
+            transposeOrder.clear();
         }
     }
 
