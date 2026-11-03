@@ -173,13 +173,17 @@ namespace z5 {
     template<class T>
     class MixinTyped {
     public:
-        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)) {
+        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)),
+                                                       reverseBytes_(metadata.bigEndian && sizeof(T) > 1) {
             init_compressor(metadata);
         }
         ~MixinTyped(){}
 
     protected:
         T fillValue_;
+        // chunk data is stored big-endian (zarr v3 ``bytes`` codec, endian "big")
+        // and must be byte-swapped on encode / decode
+        bool reverseBytes_;
         // unique ptr to hold child classes of compressor
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 

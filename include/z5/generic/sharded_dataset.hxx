@@ -68,7 +68,7 @@ namespace generic {
         inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
             std::vector<char> buffer;
             readRawChunk(chunkIndices, buffer);
-            util::decompress<T>(buffer, dataOut, defaultChunkSize(), Mixin::compressor_);
+            util::decompress<T>(buffer, dataOut, defaultChunkSize(), Mixin::compressor_, Mixin::reverseBytes_);
             return false;  // no varlen in zarr v3
         }
 
@@ -145,11 +145,11 @@ namespace generic {
         }
         inline void decompress(const std::vector<char> & buffer,
                                void * dataOut, const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_);
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
                                void * dataOut, const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_);
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
         }
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
@@ -241,7 +241,8 @@ namespace generic {
                                   std::vector<char> & blob) const override {
             ChunkHandleType innerChunk(handle_, chunkId, defaultChunkShape(), shape());
             return util::data_to_buffer(innerChunk, dataIn, blob,
-                                        Mixin::compressor_, Mixin::fillValue_);
+                                        Mixin::compressor_, Mixin::fillValue_,
+                                        false, 0, Mixin::reverseBytes_);
         }
 
         //

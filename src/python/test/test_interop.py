@@ -418,6 +418,63 @@ class TestInteropZarrPyV3(InteropMixin, unittest.TestCase):
 
 
 @requires_z5_v3
+@requires_zarr_v3
+class TestInteropZarrPyV3BigEndian(unittest.TestCase):
+    """zarr-python arrays whose ``bytes`` codec stores elements big-endian."""
+    path = "interop_big_endian.zr"
+    shape = (45, 37)
+    chunks = (20, 16)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _data(self, dtype):
+        if np.issubdtype(np.dtype(dtype), np.floating):
+            return (np.random.rand(*self.shape) * 100).astype(dtype)
+        return np.random.randint(0, 100, size=self.shape).astype(dtype)
+
+    def _create_zarr(self, name, dtype, comp, sharded=False):
+        from zarr.codecs import BytesCodec
+        compressor = _zpy_v3_compressors(comp)
+        kwargs = {}
+        if sharded:
+            kwargs["shards"] = (40, 32)
+        return zarr.create_array(
+            store=self.path, name=name, shape=self.shape, chunks=self.chunks,
+            dtype=dtype, serializer=BytesCodec(endian="big"),
+            compressors=None if compressor is None else [compressor],
+            zarr_format=3, **kwargs)
+
+    def _roundtrip(self, sharded):
+        for comp in ("raw", "gzip"):
+            for dtype in ("int16", "uint32", "float32", "float64"):
+                name = "%s_%s" % (comp, dtype)
+                data = self._data(dtype)
+                self._create_zarr(name, dtype, comp, sharded=sharded)[:] = data
+
+                # zarr (big-endian) -> z5
+                ds = z5py.File(self.path, mode="a")[name]
+                np.testing.assert_array_equal(ds[:], data, err_msg=name)
+
+                # z5 -> zarr: partial write into the existing big-endian chunks
+                new = self._data(dtype)[5:30, 3:20]
+                ds[5:30, 3:20] = new
+                data[5:30, 3:20] = new
+                out = zarr.open_array(store=self.path, path=name, mode="r")[:]
+                np.testing.assert_array_equal(out, data, err_msg=name)
+
+    def test_big_endian_roundtrip(self):
+        self._roundtrip(sharded=False)
+
+    @requires_z5_v3_sharding
+    def test_big_endian_sharded_roundtrip(self):
+        self._roundtrip(sharded=True)
+
+
+@requires_z5_v3
 @requires_tensorstore
 class TestInteropTsV3(InteropMixin, unittest.TestCase):
     library = "tensorstore"

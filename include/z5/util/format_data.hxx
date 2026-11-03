@@ -98,7 +98,8 @@ namespace util {
                                const COMPRESSOR & compressor,
                                const T fillValue,
                                const bool isVarlen=false,
-                               const std::size_t varSize=0) {
+                               const std::size_t varSize=0,
+                               const bool reverseBytes=false) {
         const bool isZarr = chunk.isZarr();
         if(isVarlen && isZarr) {
             throw std::runtime_error("Varlen chunks are not supported in zarr.");
@@ -125,9 +126,15 @@ namespace util {
             return false;
         }
 
-        // for zarr format, we only need to compress the data.
+        // for zarr format, we only need to compress the data (after converting to
+        // big-endian if the zarr v3 ``bytes`` codec asks for it).
         // for n5, we need to also reverse the endianness and add the header
-        if(isZarr) {
+        if(isZarr && reverseBytes && sizeof(T) > 1) {
+            std::vector<T> dataTmp(static_cast<const T*>(dataIn),
+                                   static_cast<const T*>(dataIn) + dataSize);
+            util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
+            compress(&dataTmp[0], dataSize, buffer, compressor);
+        } else if(isZarr) {
             compress((const T *) dataIn, dataSize, buffer, compressor);
         } else {
             data_to_n5_format<T>(dataIn, dataSize,
@@ -138,9 +145,12 @@ namespace util {
     }
 
 
+    // `reverseBytes` converts the decoded elements from big-endian to native order
+    // (zarr v3 ``bytes`` codec with endian "big"); n5 callers swap themselves.
     template<class T, class COMPRESSOR>
     inline void decompress(const char * buffer, const std::size_t nBytes, void * dataOut,
-                           const std::size_t data_size, const COMPRESSOR & compressor) {
+                           const std::size_t data_size, const COMPRESSOR & compressor,
+                           const bool reverseBytes=false) {
         // we don't need to decompress for raw compression
         if(compressor->type() == 0) {
             // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
@@ -153,13 +163,18 @@ namespace util {
         } else {
             compressor->decompress(buffer, nBytes, static_cast<T*>(dataOut), data_size);
         }
+        if(reverseBytes && sizeof(T) > 1) {
+            util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
+                                              static_cast<T*>(dataOut) + data_size);
+        }
     }
 
     // convenience overload for a full buffer (forwards to the pointer form)
     template<class T, class COMPRESSOR>
     inline void decompress(const std::vector<char> & buffer, void * dataOut,
-                           const std::size_t data_size, const COMPRESSOR & compressor) {
-        decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor);
+                           const std::size_t data_size, const COMPRESSOR & compressor,
+                           const bool reverseBytes=false) {
+        decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor, reverseBytes);
     }
 
     // Parse the n5 chunk header at the start of `buffer`. Returns true for varlen
@@ -225,7 +240,8 @@ namespace util {
     inline bool buffer_to_data(const z5::handle::Chunk<CHUNK> & chunk,
                                const std::vector<char> & buffer,
                                void * dataOut,
-                               const COMPRESSOR & compressor) {
+                               const COMPRESSOR & compressor,
+                               const bool reverseBytes=false) {
 
         const bool is_zarr = chunk.isZarr();
         std::size_t chunk_size = chunk.defaultSize();
@@ -240,8 +256,9 @@ namespace util {
         decompress<T>(buffer.data() + header_length, buffer.size() - header_length,
                       dataOut, chunk_size, compressor);
 
-        // reverse the endianness for N5 data (unless datatype is byte)
-        if(!is_zarr && sizeof(T) > 1) {
+        // reverse the endianness for N5 data and big-endian zarr v3 data
+        // (unless datatype is byte)
+        if((!is_zarr || reverseBytes) && sizeof(T) > 1) {
             util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
                                               static_cast<T*>(dataOut) + chunk_size);
         }

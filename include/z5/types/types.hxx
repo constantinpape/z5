@@ -459,12 +459,13 @@ namespace types {
     inline void writeV3CodecsToJson(Compressor compressor,
                                     const CompressionOptions & options,
                                     std::size_t typesize,
-                                    nlohmann::json & jCodecs) {
+                                    nlohmann::json & jCodecs,
+                                    const bool bigEndian=false) {
         jCodecs = nlohmann::json::array();
 
         nlohmann::json bytesCodec;
         bytesCodec["name"] = "bytes";
-        bytesCodec["configuration"]["endian"] = "little";
+        bytesCodec["configuration"]["endian"] = bigEndian ? "big" : "little";
         jCodecs.push_back(bytesCodec);
 
         switch(compressor) {
@@ -506,17 +507,41 @@ namespace types {
         }
     }
 
-    // parse a zarr v3 codec list into a Compressor + CompressionOptions (ignores the ``bytes`` codec)
+    // parse the ``endian`` of a zarr v3 ``bytes`` codec; returns true for big-endian.
+    // The field is required for multi-byte data types and may be omitted for 1-byte ones.
+    inline bool readV3BytesEndian(const nlohmann::json & cfg, const std::size_t typesize) {
+        auto it = cfg.find("endian");
+        if(it == cfg.end() || it->is_null()) {
+            if(typesize > 1) {
+                throw std::runtime_error("z5: zarr v3 bytes codec requires 'endian' for multi-byte data types");
+            }
+            return false;
+        }
+        const std::string endian = it->get<std::string>();
+        if(endian == "little") {
+            return false;
+        } else if(endian == "big") {
+            return true;
+        }
+        throw std::runtime_error("z5: invalid endian for zarr v3 bytes codec: " + endian);
+    }
+
+    // parse a zarr v3 codec list into a Compressor + CompressionOptions, and the
+    // byte order requested by the ``bytes`` codec (bigEndian)
     inline void readV3CodecsFromJson(const nlohmann::json & jCodecs,
+                                     const std::size_t typesize,
                                      Compressor & compressor,
-                                     CompressionOptions & options) {
+                                     CompressionOptions & options,
+                                     bool & bigEndian) {
         compressor = raw;
+        bigEndian = false;
         for(const auto & c : jCodecs) {
             const std::string name = c.at("name").get<std::string>();
+            const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
             if(name == "bytes") {
+                bigEndian = readV3BytesEndian(cfg, typesize);
                 continue;
             }
-            const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
             if(name == "gzip") {
                 #ifdef WITH_ZLIB
                 compressor = zlib;

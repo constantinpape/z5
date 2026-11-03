@@ -228,7 +228,7 @@ If you use this library in your research, please cite it via the associated DOI:
 ## Current Limitations / TODOs
 
 - No thread / process synchronization -> writing to the same chunk in parallel will lead to undefined behavior.
-- Supports only little endianness and C-order for the zarr format.
+- Supports only little endianness and C-order for the zarr format, but can read big-endian.
 
 
 ## A note on axis ordering
