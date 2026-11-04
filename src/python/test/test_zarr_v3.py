@@ -641,6 +641,206 @@ class TestZarrV3Transpose(unittest.TestCase):
             self._open('a')
 
 
+@requires_z5_v3
+class TestZarrV3Validation(unittest.TestCase):
+    """Arrays whose metadata z5 can't honour must fail to open, not be misread.
+
+    Each test writes a valid dataset with z5, edits its zarr.json by hand and
+    checks that opening it is refused (or still works, for allowed edits).
+    """
+    path = 'test_v3_validation.zr'
+    shape = (16, 16)
+    chunks = (8, 8)
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _create(self, key='data', **kwargs):
+        kwargs.setdefault('compression', 'gzip')
+        ds = self.root.create_dataset(key, shape=self.shape, chunks=self.chunks,
+                                      dtype='int32', **kwargs)
+        data = np.arange(np.prod(self.shape), dtype='int32').reshape(self.shape)
+        ds[:] = data
+        return data
+
+    def _meta_path(self, key):
+        return os.path.join(self.path, key, 'zarr.json')
+
+    def _edit(self, edit, key='data'):
+        with open(self._meta_path(key)) as f:
+            meta = json.load(f)
+        edit(meta)
+        with open(self._meta_path(key), 'w') as f:
+            json.dump(meta, f)
+
+    def _open(self, key='data', mode='r'):
+        return z5py.File(self.path, mode=mode)[key]
+
+    def _assert_refused(self, edit, **kwargs):
+        self._create(**kwargs)
+        self._edit(edit)
+        with self.assertRaises(RuntimeError):
+            self._open()
+
+    def _assert_accepted(self, edit, **kwargs):
+        data = self._create(**kwargs)
+        self._edit(edit)
+        np.testing.assert_array_equal(self._open()[:], data)
+
+    def _set_codecs(self, *names):
+        """Replace the (unsharded) codec list by ``names`` with default configs."""
+        configs = {'bytes': {'endian': 'little'}, 'gzip': {'level': 5},
+                   'transpose': {'order': [1, 0]}}
+
+        def edit(meta):
+            meta['codecs'] = [{'name': n, 'configuration': configs[n]} if n in configs
+                              else {'name': n} for n in names]
+        return edit
+
+    def test_baseline_opens(self):
+        self._assert_accepted(lambda meta: None)
+
+    def test_chunk_grid_name(self):
+        def edit(meta):
+            meta['chunk_grid']['name'] = 'rectilinear'
+        self._assert_refused(edit)
+
+    def test_chunk_key_encoding_name(self):
+        def edit(meta):
+            meta['chunk_key_encoding']['name'] = 'custom'
+        self._assert_refused(edit)
+
+    def test_chunk_key_separator(self):
+        def edit(meta):
+            meta['chunk_key_encoding']['configuration']['separator'] = '-'
+        self._assert_refused(edit)
+
+    def test_unknown_field(self):
+        def edit(meta):
+            meta['custom_extension'] = {'name': 'x'}
+        self._assert_refused(edit)
+
+    def test_unknown_field_not_an_object(self):
+        def edit(meta):
+            meta['custom_extension'] = 'x'
+        self._assert_refused(edit)
+
+    def test_unknown_field_must_understand(self):
+        def edit(meta):
+            meta['custom_extension'] = {'name': 'x', 'must_understand': True}
+        self._assert_refused(edit)
+
+    def test_unknown_field_may_be_ignored(self):
+        def edit(meta):
+            meta['custom_extension'] = {'name': 'x', 'must_understand': False}
+        self._assert_accepted(edit)
+
+    def test_dimension_names_accepted(self):
+        def edit(meta):
+            meta['dimension_names'] = ['y', None]
+        self._assert_accepted(edit)
+
+    def test_storage_transformers(self):
+        def edit(meta):
+            meta['storage_transformers'] = [{'name': 'chunk-manifest-json'}]
+        self._assert_refused(edit)
+
+    def test_empty_storage_transformers(self):
+        def edit(meta):
+            meta['storage_transformers'] = []
+        self._assert_accepted(edit)
+
+    def test_codecs_compressor_before_bytes(self):
+        self._assert_refused(self._set_codecs('gzip', 'bytes'))
+
+    def test_codecs_without_bytes(self):
+        self._assert_refused(self._set_codecs('gzip'))
+
+    def test_codecs_empty(self):
+        self._assert_refused(self._set_codecs())
+
+    def test_codecs_two_bytes(self):
+        self._assert_refused(self._set_codecs('bytes', 'bytes', 'gzip'))
+
+    def test_codecs_two_compressors(self):
+        # z5 applies a single compressor: the second one must not be dropped
+        self._assert_refused(self._set_codecs('bytes', 'gzip', 'gzip'))
+
+    def test_codecs_transpose_after_compressor(self):
+        self._assert_refused(self._set_codecs('bytes', 'gzip', 'transpose'))
+
+    def test_codecs_unknown(self):
+        self._assert_refused(self._set_codecs('bytes', 'gzip', 'crc32c'))
+
+    def test_attribute_write_keeps_unknown_fields(self):
+        self._create()
+        extension = {'name': 'x', 'must_understand': False, 'configuration': {'a': 1}}
+
+        def edit(meta):
+            meta['custom_extension'] = extension
+            meta['dimension_names'] = ['y', 'x']
+        self._edit(edit)
+
+        ds = self._open(mode='a')
+        ds.attrs['answer'] = 42
+        with open(self._meta_path('data')) as f:
+            meta = json.load(f)
+        self.assertEqual(meta['custom_extension'], extension)
+        self.assertEqual(meta['dimension_names'], ['y', 'x'])
+        self.assertEqual(meta['attributes'], {'answer': 42})
+
+
+@requires_z5_v3_sharding
+class TestZarrV3ShardValidation(TestZarrV3Validation):
+    """The same checks for the shard index and the codecs inside a shard."""
+    path = 'test_v3_shard_validation.zr'
+
+    def _create(self, key='data', **kwargs):
+        kwargs.setdefault('shards', (16, 16))
+        return super()._create(key, **kwargs)
+
+    @staticmethod
+    def _sharding(meta):
+        return meta['codecs'][0]['configuration']
+
+    def _set_codecs(self, *names):
+        outer = super()._set_codecs(*names)
+
+        def edit(meta):
+            inner = {}
+            outer(inner)
+            self._sharding(meta)['codecs'] = inner['codecs']
+        return edit
+
+    def test_index_location_end(self):
+        def edit(meta):
+            self._sharding(meta)['index_location'] = 'end'
+        self._assert_accepted(edit)
+
+    def test_index_location_start(self):
+        def edit(meta):
+            self._sharding(meta)['index_location'] = 'start'
+        self._assert_refused(edit)
+
+    def test_index_without_crc32c(self):
+        def edit(meta):
+            self._sharding(meta)['index_codecs'] = [
+                {'name': 'bytes', 'configuration': {'endian': 'little'}}]
+        self._assert_refused(edit)
+
+    def test_index_big_endian(self):
+        def edit(meta):
+            self._sharding(meta)['index_codecs'][0]['configuration']['endian'] = 'big'
+        self._assert_refused(edit)
+
+
 @requires_z5_v3_sharding
 class TestZarrV3Sharding(unittest.TestCase):
     path = 'test_v3_shard.zr'

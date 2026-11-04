@@ -584,11 +584,18 @@ namespace types {
         bigEndian = false;
         transposeOrder.resize(ndim);
         std::iota(transposeOrder.begin(), transposeOrder.end(), std::size_t(0));
+        // the spec orders codecs as: array-to-array codecs (transpose), then
+        // exactly one array-to-bytes codec (bytes), then bytes-to-bytes codecs
+        // (compressors); any other order would be decoded wrongly
         bool seenBytes = false;
+        bool seenCompressor = false;
         for(const auto & c : jCodecs) {
             const std::string name = c.at("name").get<std::string>();
             const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
             if(name == "bytes") {
+                if(seenBytes) {
+                    throw std::runtime_error("z5: zarr v3 codecs must contain exactly one bytes codec");
+                }
                 bigEndian = readV3BytesEndian(cfg, typesize);
                 seenBytes = true;
                 continue;
@@ -606,6 +613,19 @@ namespace types {
                 transposeOrder = composed;
                 continue;
             }
+            if(name != "gzip" && name != "zstd" && name != "blosc") {
+                throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
+            }
+            if(!seenBytes) {
+                throw std::runtime_error("z5: zarr v3 " + name + " codec must come after the bytes codec");
+            }
+            // z5 applies a single compressor; dropping one of several would
+            // silently misread the chunks
+            if(seenCompressor) {
+                throw std::runtime_error("z5: zarr v3 codecs with more than one bytes-to-bytes codec "
+                                         "are not supported");
+            }
+            seenCompressor = true;
             if(name == "gzip") {
                 #ifdef WITH_ZLIB
                 compressor = zlib;
@@ -631,9 +651,10 @@ namespace types {
                 #else
                 throw std::runtime_error("z5: zarr v3 blosc codec requires WITH_BLOSC");
                 #endif
-            } else {
-                throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
             }
+        }
+        if(!seenBytes) {
+            throw std::runtime_error("z5: zarr v3 codecs must contain exactly one bytes codec");
         }
         // store the identity as an empty order (no transpose work on IO)
         bool identity = true;
