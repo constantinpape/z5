@@ -444,20 +444,34 @@ namespace z5 {
     };
 
 
+    // Options for creating a dataset, besides its dtype, shape and chunk shape.
+    // New creation features (e.g. zarr v3 codecs) are added as fields here, not
+    // as further trailing parameters of createDataset / createDatasetMetadata.
+    struct DatasetOptions {
+        std::string compressor = "raw";
+        types::CompressionOptions compressionOptions;
+        double fillValue = 0;
+        std::string zarrDelimiter = ".";
+        int zarrFormat = 2;
+        // zarr v3 only
+        std::string chunkKeyEncoding = "default";
+        // zarr v3 only; empty: not sharded
+        types::ShapeType shardShape;
+    };
+
+
     inline void createDatasetMetadata(
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
         const bool createAsZarr,
-        const std::string & compressor,
-        const types::CompressionOptions & compressionOptions,
-        const double fillValue,
-        const std::string & zarrDelimiter,
-        DatasetMetadata & metadata,
-        const int zarrFormat=2,
-        const std::string & chunkKeyEncoding="default",
-        const types::ShapeType & shardShape=types::ShapeType())
+        const DatasetOptions & options,
+        DatasetMetadata & metadata)
     {
+        const auto & compressor = options.compressor;
+        const auto & zarrFormat = options.zarrFormat;
+        const auto & shardShape = options.shardShape;
+
         // get the internal data type
         types::Datatype internalDtype;
         try {
@@ -476,7 +490,7 @@ namespace z5 {
 
         // add the default compression options if necessary
         // we need to make a copy of the compression options, because they are const
-        auto internalCompressionOptions = compressionOptions;
+        auto internalCompressionOptions = options.compressionOptions;
         types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
 
         // sharding is only valid for zarr v3, and the shard shape must be a
@@ -498,8 +512,35 @@ namespace z5 {
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
-                                   fillValue, zarrDelimiter,
-                                   zarrFormat, chunkKeyEncoding, shardShape);
+                                   options.fillValue, options.zarrDelimiter,
+                                   zarrFormat, options.chunkKeyEncoding, shardShape);
+    }
+
+
+    // positional form, kept for compatibility; new options are only in DatasetOptions
+    inline void createDatasetMetadata(
+        const std::string & dtype,
+        const types::ShapeType & shape,
+        const types::ShapeType & chunkShape,
+        const bool createAsZarr,
+        const std::string & compressor,
+        const types::CompressionOptions & compressionOptions,
+        const double fillValue,
+        const std::string & zarrDelimiter,
+        DatasetMetadata & metadata,
+        const int zarrFormat=2,
+        const std::string & chunkKeyEncoding="default",
+        const types::ShapeType & shardShape=types::ShapeType())
+    {
+        DatasetOptions options;
+        options.compressor = compressor;
+        options.compressionOptions = compressionOptions;
+        options.fillValue = fillValue;
+        options.zarrDelimiter = zarrDelimiter;
+        options.zarrFormat = zarrFormat;
+        options.chunkKeyEncoding = chunkKeyEncoding;
+        options.shardShape = shardShape;
+        createDatasetMetadata(dtype, shape, chunkShape, createAsZarr, options, metadata);
     }
 
 

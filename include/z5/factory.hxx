@@ -125,6 +125,22 @@ namespace z5 {
         const std::string & dtype,
         const types::ShapeType & shape,
         const types::ShapeType & chunkShape,
+        const DatasetOptions & options
+    ) {
+        DatasetMetadata metadata;
+        createDatasetMetadata(dtype, shape, chunkShape, root.isZarr(), options, metadata);
+        return createDataset(root, key, metadata);
+    }
+
+
+    // positional form, kept for compatibility; new options are only in DatasetOptions
+    template<class GROUP>
+    inline std::unique_ptr<Dataset> createDataset(
+        const handle::Group<GROUP> & root,
+        const std::string & key,
+        const std::string & dtype,
+        const types::ShapeType & shape,
+        const types::ShapeType & chunkShape,
         const std::string & compressor="raw",
         const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
         const double fillValue=0,
@@ -133,29 +149,15 @@ namespace z5 {
         const std::string & chunkKeyEncoding="default",
         const types::ShapeType & shardShape=types::ShapeType()
     ) {
-        DatasetMetadata metadata;
-        createDatasetMetadata(dtype, shape, chunkShape, root.isZarr(),
-                              compressor, compressionOptions, fillValue,
-                              zarrDelimiter, metadata,
-                              zarrFormat, chunkKeyEncoding, shardShape);
-
-        #ifdef WITH_S3
-        if(root.isS3()) {
-            s3::handle::Dataset ds(root, key, metadata.zarrDelimiter,
-                                   metadata.zarrFormat, metadata.chunkKeyEncoding);
-            return s3::createDataset(ds, metadata);
-        }
-        #endif
-        #ifdef WITH_GCS
-        if(root.isGcs()) {
-            // TODO support zarr dataset with dimension separator in gcs
-            gcs::handle::Dataset ds(root, key);
-            return gcs::createDataset(ds, metadata);
-        }
-        #endif
-
-        filesystem::handle::Dataset ds(root, key, zarrDelimiter, zarrFormat, chunkKeyEncoding);
-        return filesystem::createDataset(ds, metadata);
+        DatasetOptions options;
+        options.compressor = compressor;
+        options.compressionOptions = compressionOptions;
+        options.fillValue = fillValue;
+        options.zarrDelimiter = zarrDelimiter;
+        options.zarrFormat = zarrFormat;
+        options.chunkKeyEncoding = chunkKeyEncoding;
+        options.shardShape = shardShape;
+        return createDataset(root, key, dtype, shape, chunkShape, options);
     }
 
 
@@ -176,16 +178,8 @@ namespace z5 {
         const std::string & chunkKeyEncoding="default",
         const types::ShapeType & shardShape=types::ShapeType()
     ) {
-        types::Compressor internalCompressor;
-        try {
-            internalCompressor = types::Compressors::stringToCompressor().at(compressor);
-        } catch(const std::out_of_range & e) {
-            throw std::runtime_error("z5::createDataset: Invalid compressor for dataset");
-        }
-
         types::CompressionOptions cOpts;
         types::jsonToCompressionType(compressionOptions, cOpts);
-
         return createDataset(root, key, dtype, shape, chunkShape, compressor, cOpts, fillValue,
                              zarrDelimiter, zarrFormat, chunkKeyEncoding, shardShape);
     }
