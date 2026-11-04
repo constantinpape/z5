@@ -34,8 +34,10 @@ class ZarrTestMixin(ABC):
         chunks = (17, 32)
         data = np.random.rand(*shape)
         fz = zarr.open(self.path, **self.zarr_kwargs)
-        # create_array (not the removed-in-3.2 create_dataset) is the stable API
-        ar = fz.create_array("test", shape=shape, chunks=chunks, dtype=data.dtype)
+        # create_array (not the removed-in-3.2 create_dataset) is the stable API;
+        # no compressor: zarr's default (blosc) may not be compiled into this z5 build
+        ar = fz.create_array("test", shape=shape, chunks=chunks, dtype=data.dtype,
+                             compressors=None)
         ar[:] = data
 
         f = z5py.File(self.path)
@@ -71,6 +73,10 @@ class ZarrTestMixin(ABC):
         # that's why we need to check explicitly here to not fail the test
         if hasattr(numcodecs, 'GZip'):
             zarr_compressors.update({'gzip': numcodecs.GZip()})
+
+        # only test codecs that are compiled into this z5 build
+        available = Dataset.compressors_zarr if self.path.endswith('.zr') else Dataset.compressors_n5
+        zarr_compressors = {name: comp for name, comp in zarr_compressors.items() if name in available}
 
         f_zarr = zarr.open(self.path, mode='a', **self.zarr_kwargs)
         f_z5 = z5py.File(self.path, mode='r')
@@ -138,8 +144,9 @@ class TestZarrZarr(ZarrTestMixin, unittest.TestCase):
         zarr.open(self.path, **self.zarr_kwargs)
         for val in test_values:
             key = 'test_%i' % val
+            # no compressor: zarr's default (blosc) may not be compiled into this z5 build
             zarr.open(os.path.join(self.path, key), shape=self.shape,
-                      fill_value=val, dtype='<u1', **self.zarr_kwargs)
+                      fill_value=val, dtype='<u1', compressor=None, **self.zarr_kwargs)
             out = z5py.File(self.path)[key][:]
             self.assertEqual(self.shape, out.shape)
             self.assertTrue(np.allclose(val, out))
