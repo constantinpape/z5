@@ -12,8 +12,8 @@ namespace z5 {
 namespace generic {
 
     // zarr v3 dataset that uses the ``sharding_indexed`` codec: many inner chunks
-    // are packed into a single shard object together with an index (and a crc32c
-    // checksum of that index). The dataset's chunk grid addresses INNER chunks
+    // are packed into a single shard object together with an index (by default
+    // at the end, followed by a crc32c checksum; see util::ShardIndexLayout). The dataset's chunk grid addresses INNER chunks
     // (so readSubarray/writeSubarray are oblivious to sharding); the stored object
     // is the shard that contains the inner chunk.
     //
@@ -41,7 +41,10 @@ namespace generic {
                                                            handle_(handle),
                                                            shardShape_(metadata.shardShape),
                                                            chunksPerShard_(util::chunksPerShard(metadata.shardShape, metadata.chunkShape)),
-                                                           nSlots_(util::numShardSlots(chunksPerShard_)) {
+                                                           nSlots_(util::numShardSlots(chunksPerShard_)),
+                                                           indexLayout_{metadata.shardIndexAtStart,
+                                                                        metadata.shardIndexBigEndian,
+                                                                        metadata.shardIndexChecksum} {
             // sharding implies zarr v3; seed the cache so chunk handles never probe
             handle_.setIsZarr(true);
         }
@@ -185,7 +188,7 @@ namespace generic {
             // a present but corrupt shard must fail loudly: this function feeds the
             // write read-modify-write path, and treating corruption as "empty shard"
             // would silently discard all other inner chunks on the next write
-            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries, indexLayout_)) {
                 throw std::runtime_error(std::string(STORE::shardedName) + ": corrupt shard index");
             }
             util::extractShardBlobs(shardBuf, entries, blobs);
@@ -203,7 +206,7 @@ namespace generic {
                 return false;
             }
             std::vector<util::ShardEntry> entries;
-            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries, indexLayout_)) {
                 throw std::runtime_error(std::string(STORE::shardedName) + ": corrupt shard index");
             }
             offsets.resize(nSlots_);
@@ -232,7 +235,7 @@ namespace generic {
                 return;
             }
             std::vector<char> out;
-            util::buildShard(blobs, out);
+            util::buildShard(blobs, out, indexLayout_);
             STORE::write(shardChunk, out, "shard");
         }
 
@@ -275,7 +278,7 @@ namespace generic {
             if(!STORE::read(shardChunk, shardBuf, "shard")) {
                 return false;
             }
-            if(!util::parseShardIndex(shardBuf, nSlots_, entries)) {
+            if(!util::parseShardIndex(shardBuf, nSlots_, entries, indexLayout_)) {
                 throw std::runtime_error(std::string(STORE::shardedName) + ": corrupt shard index");
             }
             return true;
@@ -312,6 +315,7 @@ namespace generic {
         types::ShapeType shardShape_;
         types::ShapeType chunksPerShard_;
         std::size_t nSlots_;
+        util::ShardIndexLayout indexLayout_;
         mutable std::mutex shardMutex_;
     };
 

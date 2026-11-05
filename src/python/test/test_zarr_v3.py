@@ -824,21 +824,144 @@ class TestZarrV3ShardValidation(TestZarrV3Validation):
             self._sharding(meta)['index_location'] = 'end'
         self._assert_accepted(edit)
 
-    def test_index_location_start(self):
+    def test_index_location_invalid(self):
+        def edit(meta):
+            self._sharding(meta)['index_location'] = 'middle'
+        self._assert_refused(edit)
+
+    def test_index_codecs_compressed(self):
+        def edit(meta):
+            self._sharding(meta)['index_codecs'].append({'name': 'gzip', 'configuration': {'level': 5}})
+        self._assert_refused(edit)
+
+    def test_index_codecs_without_bytes(self):
+        def edit(meta):
+            self._sharding(meta)['index_codecs'] = [{'name': 'crc32c'}]
+        self._assert_refused(edit)
+
+    def test_index_layout_mismatch(self):
+        # shards written with the index at the end, metadata claiming "start":
+        # the index checksum fails, so reading must raise, not return fill values
+        self._create()
+
         def edit(meta):
             self._sharding(meta)['index_location'] = 'start'
-        self._assert_refused(edit)
+        self._edit(edit)
+        ds = self._open()
+        with self.assertRaises(RuntimeError):
+            ds[:]
 
-    def test_index_without_crc32c(self):
-        def edit(meta):
-            self._sharding(meta)['index_codecs'] = [
-                {'name': 'bytes', 'configuration': {'endian': 'little'}}]
-        self._assert_refused(edit)
 
-    def test_index_big_endian(self):
-        def edit(meta):
-            self._sharding(meta)['index_codecs'][0]['configuration']['endian'] = 'big'
-        self._assert_refused(edit)
+@requires_z5_v3_sharding
+class TestZarrV3ShardIndex(unittest.TestCase):
+    """Non-default shard index layouts (``index_location`` / ``index_codecs``).
+
+    z5 always creates arrays with the default layout, so each test creates an
+    empty sharded dataset, switches its zarr.json to another layout, and then
+    writes through z5: the shard must be built in that layout and read back.
+    """
+    path = 'test_v3_shard_index.zr'
+    shape = (32, 24)
+    chunks = (8, 8)
+    shards = (16, 16)
+    # 2 x 2 inner chunks per shard
+    n_slots = 4
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _create(self, location, endian, checksum, compression='gzip'):
+        name = 'ds_%s_%s_%s_%s' % (location, endian, 'crc' if checksum else 'nocrc', compression)
+        self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                 shards=self.shards, dtype='int32',
+                                 compression=compression)
+        meta_path = os.path.join(self.path, name, 'zarr.json')
+        with open(meta_path) as f:
+            meta = json.load(f)
+        sharding = meta['codecs'][0]['configuration']
+        sharding['index_location'] = location
+        sharding['index_codecs'] = [{'name': 'bytes', 'configuration': {'endian': endian}}]
+        if checksum:
+            sharding['index_codecs'].append({'name': 'crc32c'})
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f)
+        return name
+
+    def _check_shard_file(self, name, location, endian, checksum):
+        """Decode the index of shard (0, 0) by hand and check it frames the blobs."""
+        with open(os.path.join(self.path, name, 'c', '0', '0'), 'rb') as f:
+            raw = f.read()
+        index_size = 16 * self.n_slots
+        footer = index_size + (4 if checksum else 0)
+        index_start = 0 if location == 'start' else len(raw) - footer
+        data_begin, data_end = (footer, len(raw)) if location == 'start' else (0, index_start)
+        index = np.frombuffer(raw[index_start:index_start + index_size],
+                              dtype='<u8' if endian == 'little' else '>u8').reshape(-1, 2)
+        empty = np.iinfo('uint64').max
+        total = 0
+        for offset, nbytes in index:
+            if offset == empty:
+                self.assertEqual(nbytes, empty)
+                continue
+            self.assertGreaterEqual(offset, data_begin)
+            self.assertLessEqual(offset + nbytes, data_end)
+            total += int(nbytes)
+        # the blobs fill the data region exactly
+        self.assertEqual(total, data_end - data_begin)
+        return index
+
+    def test_layouts(self):
+        for location in ('start', 'end'):
+            for endian in ('little', 'big'):
+                for checksum in (True, False):
+                    name = self._create(location, endian, checksum)
+                    ds = z5py.File(self.path, mode='a')[name]
+                    data = _random(self.shape, 'int32')
+                    ds[:] = data
+                    # partial write: read-modify-write of existing shards
+                    new = _random((10, 13), 'int32')
+                    ds[5:15, 7:20] = new
+                    data[5:15, 7:20] = new
+                    np.testing.assert_array_equal(ds[:], data, err_msg=name)
+                    np.testing.assert_array_equal(z5py.File(self.path, mode='r')[name][:], data,
+                                                  err_msg=name)
+                    self._check_shard_file(name, location, endian, checksum)
+
+    def test_empty_slots(self):
+        # an all-fill inner chunk becomes an empty slot, in any layout
+        for location in ('start', 'end'):
+            for endian in ('little', 'big'):
+                name = self._create(location, endian, checksum=False, compression='raw')
+                ds = z5py.File(self.path, mode='a')[name]
+                data = np.zeros(self.shape, dtype='int32')
+                data[:8, 8:16] = 1
+                ds[:] = data
+                np.testing.assert_array_equal(ds[:], data)
+                index = self._check_shard_file(name, location, endian, checksum=False)
+                empty = np.iinfo('uint64').max
+                # only slot 1 (chunk (0, 1)) holds data
+                self.assertEqual([offset != empty for offset in index[:, 0]],
+                                 [False, True, False, False])
+
+    def test_corrupt_index_checksum(self):
+        name = self._create('start', 'little', checksum=True)
+        ds = z5py.File(self.path, mode='a')[name]
+        ds[:] = _random(self.shape, 'int32')
+        shard = os.path.join(self.path, name, 'c', '0', '0')
+        with open(shard, 'r+b') as f:
+            f.seek(3)
+            byte = f.read(1)
+            f.seek(3)
+            f.write(bytes([byte[0] ^ 0xFF]))
+        with self.assertRaises(RuntimeError):
+            z5py.File(self.path, mode='r')[name][:16, :16]
 
 
 @requires_z5_v3_sharding
