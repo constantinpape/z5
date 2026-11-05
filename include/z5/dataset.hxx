@@ -18,6 +18,7 @@
 #include "z5/compression/xz_compressor.hxx"
 #include "z5/compression/lz4_compressor.hxx"
 #include "z5/compression/zstd_compressor.hxx"
+#include "z5/compression/crc32c_chain.hxx"
 
 
 namespace z5 {
@@ -37,6 +38,7 @@ namespace z5 {
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     dimensionNames_(metadata.dimensionNames),
                                                     transposeOrder_(metadata.transposeOrder),
+                                                    crc32c_(metadata.crc32cBeforeCompressor + metadata.crc32cAfterCompressor > 0),
                                                     chunking_(shape_, chunkShape_)
         {}
 
@@ -104,6 +106,9 @@ namespace z5 {
 
         // zarr v3 transpose codec order (numpy ``transpose`` semantics); empty if none
         inline const std::vector<std::size_t> & transposeOrder() const {return transposeOrder_;}
+
+        // zarr v3: the chunk codecs include at least one crc32c checksum
+        inline bool hasCrc32c() const {return crc32c_;}
 
         // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
         // do a single read-modify-write per shard and parallelize across shards. Default
@@ -176,9 +181,37 @@ namespace z5 {
         std::string zarrDelimiter_;
         std::vector<std::optional<std::string>> dimensionNames_;
         std::vector<std::size_t> transposeOrder_;
+        bool crc32c_;
 
         util::Blocking chunking_;
     };
+
+
+    // build the compressor named by the metadata, for elements of type U
+    template<class U>
+    inline std::unique_ptr<compression::CompressorBase<U>> makeCompressor(const DatasetMetadata & metadata) {
+        switch(metadata.compressor) {
+            #ifdef WITH_BLOSC
+            case types::blosc: return std::make_unique<compression::BloscCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_ZLIB
+            case types::zlib: return std::make_unique<compression::ZlibCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_BZIP2
+            case types::bzip2: return std::make_unique<compression::Bzip2Compressor<U>>(metadata);
+            #endif
+            #ifdef WITH_XZ
+            case types::xz: return std::make_unique<compression::XzCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_LZ4
+            case types::lz4: return std::make_unique<compression::Lz4Compressor<U>>(metadata);
+            #endif
+            #ifdef WITH_ZSTD
+            case types::zstd: return std::make_unique<compression::ZstdCompressor<U>>(metadata);
+            #endif
+            default: return std::make_unique<compression::RawCompressor<U>>();
+        }
+    }
 
 
     // mixin to provide some typed functionality for typing
@@ -198,39 +231,32 @@ namespace z5 {
         // zarr v3 element codecs (transpose, big-endian ``bytes``) applied around
         // the compressor on encode / decode; identity for zarr v2 and n5
         util::ArrayCodecs arrayCodecs_;
-        // unique ptr to hold child classes of compressor
+        // unique ptr to hold child classes of compressor; for zarr v3 with crc32c
+        // codecs, a Crc32cChain wrapping the compressor
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 
     private:
         void init_compressor(const DatasetMetadata & metadata) {
-            switch(metadata.compressor) {
-                case types::raw:
-            	    compressor_.reset(new compression::RawCompressor<T>()); break;
-                #ifdef WITH_BLOSC
-                case types::blosc:
-            	    compressor_.reset(new compression::BloscCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_ZLIB
-                case types::zlib:
-                    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_BZIP2
-                case types::bzip2:
-                    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_XZ
-                case types::xz:
-                    compressor_.reset(new compression::XzCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_LZ4
-                case types::lz4:
-                    compressor_.reset(new compression::Lz4Compressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_ZSTD
-                case types::zstd:
-                    compressor_.reset(new compression::ZstdCompressor<T>(metadata)); break;
-                #endif
+            compressor_ = makeCompressor<T>(metadata);
+            const unsigned before = metadata.crc32cBeforeCompressor;
+            const unsigned after = metadata.crc32cAfterCompressor;
+            if(before == 0 && after == 0) {
+                return;
             }
+            // crc32c around a raw compressor: the order doesn't matter, all go after
+            if(compressor_->isRaw()) {
+                compressor_ = std::make_unique<compression::Crc32cChain<T>>(
+                    std::move(compressor_), nullptr, 0, before + after);
+                return;
+            }
+            // checksums before the compressor make its input a byte stream that is
+            // not a whole number of elements, so it needs a byte-typed compressor
+            std::unique_ptr<compression::CompressorBase<char>> byteCompressor;
+            if(before > 0) {
+                byteCompressor = makeCompressor<char>(metadata);
+            }
+            compressor_ = std::make_unique<compression::Crc32cChain<T>>(
+                std::move(compressor_), std::move(byteCompressor), before, after);
         }
     };
 

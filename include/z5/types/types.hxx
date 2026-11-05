@@ -456,14 +456,20 @@ namespace types {
         return 1;  // "shuffle"
     }
 
-    // build the zarr v3 codec list (array-to-bytes ``bytes`` + optional bytes-to-bytes compressor)
+    // build the zarr v3 codec list: optional transpose, the array-to-bytes ``bytes``
+    // codec, then the bytes-to-bytes codecs (``crc32cBefore`` crc32c, the optional
+    // compressor, ``crc32cAfter`` crc32c)
     inline void writeV3CodecsToJson(Compressor compressor,
                                     const CompressionOptions & options,
                                     std::size_t typesize,
                                     nlohmann::json & jCodecs,
                                     const bool bigEndian=false,
-                                    const std::vector<std::size_t> & transposeOrder={}) {
+                                    const std::vector<std::size_t> & transposeOrder={},
+                                    const unsigned crc32cBefore=0,
+                                    const unsigned crc32cAfter=0) {
         jCodecs = nlohmann::json::array();
+        nlohmann::json crcCodec;
+        crcCodec["name"] = "crc32c";
 
         if(!transposeOrder.empty()) {
             nlohmann::json transposeCodec;
@@ -476,6 +482,10 @@ namespace types {
         bytesCodec["name"] = "bytes";
         bytesCodec["configuration"]["endian"] = bigEndian ? "big" : "little";
         jCodecs.push_back(bytesCodec);
+
+        for(unsigned i = 0; i < crc32cBefore; ++i) {
+            jCodecs.push_back(crcCodec);
+        }
 
         switch(compressor) {
             case raw: break;
@@ -493,7 +503,8 @@ namespace types {
                 nlohmann::json c;
                 c["name"] = "zstd";
                 c["configuration"]["level"] = std::get<int>(options.at("level"));
-                c["configuration"]["checksum"] = false;
+                const auto checksum = options.find("checksum");
+                c["configuration"]["checksum"] = checksum != options.end() && std::get<bool>(checksum->second);
                 jCodecs.push_back(c);
                 break;
             }
@@ -513,6 +524,10 @@ namespace types {
             #endif
             default:
                 throw std::runtime_error("z5: unsupported compressor for zarr v3");
+        }
+
+        for(unsigned i = 0; i < crc32cAfter; ++i) {
+            jCodecs.push_back(crcCodec);
         }
     }
 
@@ -571,17 +586,23 @@ namespace types {
     }
 
     // parse a zarr v3 codec list into a Compressor + CompressionOptions, the byte
-    // order requested by the ``bytes`` codec (bigEndian) and the composition of
-    // all ``transpose`` codecs (transposeOrder; empty if it is the identity)
+    // order requested by the ``bytes`` codec (bigEndian), the composition of
+    // all ``transpose`` codecs (transposeOrder; empty if it is the identity) and
+    // the number of ``crc32c`` codecs before and after the compressor. Without a
+    // compressor, every crc32c counts as after it.
     inline void readV3CodecsFromJson(const nlohmann::json & jCodecs,
                                      const std::size_t typesize,
                                      const std::size_t ndim,
                                      Compressor & compressor,
                                      CompressionOptions & options,
                                      bool & bigEndian,
-                                     std::vector<std::size_t> & transposeOrder) {
+                                     std::vector<std::size_t> & transposeOrder,
+                                     unsigned & crc32cBefore,
+                                     unsigned & crc32cAfter) {
         compressor = raw;
         bigEndian = false;
+        crc32cBefore = 0;
+        crc32cAfter = 0;
         transposeOrder.resize(ndim);
         std::iota(transposeOrder.begin(), transposeOrder.end(), std::size_t(0));
         // the spec orders codecs as: array-to-array codecs (transpose), then
@@ -613,16 +634,24 @@ namespace types {
                 transposeOrder = composed;
                 continue;
             }
-            if(name != "gzip" && name != "zstd" && name != "blosc") {
+            if(name != "gzip" && name != "zstd" && name != "blosc" && name != "crc32c") {
                 throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
             }
             if(!seenBytes) {
                 throw std::runtime_error("z5: zarr v3 " + name + " codec must come after the bytes codec");
             }
-            // z5 applies a single compressor; dropping one of several would
-            // silently misread the chunks
+            if(name == "crc32c") {
+                // no configuration in the spec; refuse anything we would ignore
+                if(!cfg.empty()) {
+                    throw std::runtime_error("z5: zarr v3 crc32c codec has an unsupported configuration");
+                }
+                ++(seenCompressor ? crc32cAfter : crc32cBefore);
+                continue;
+            }
+            // z5 applies a single compressor (plus crc32c around it): decoding the
+            // inner of two compressors would need its decompressed size
             if(seenCompressor) {
-                throw std::runtime_error("z5: zarr v3 codecs with more than one bytes-to-bytes codec "
+                throw std::runtime_error("z5: zarr v3 codecs with more than one compressor "
                                          "are not supported");
             }
             seenCompressor = true;
@@ -638,6 +667,7 @@ namespace types {
                 #ifdef WITH_ZSTD
                 compressor = zstd;
                 options["level"] = cfg.value("level", 3);
+                options["checksum"] = cfg.value("checksum", false);
                 #else
                 throw std::runtime_error("z5: zarr v3 zstd codec requires WITH_ZSTD");
                 #endif
@@ -655,6 +685,11 @@ namespace types {
         }
         if(!seenBytes) {
             throw std::runtime_error("z5: zarr v3 codecs must contain exactly one bytes codec");
+        }
+        // without a compressor, crc32c codecs simply follow each other
+        if(!seenCompressor) {
+            crc32cAfter += crc32cBefore;
+            crc32cBefore = 0;
         }
         // store the identity as an empty order (no transpose work on IO)
         bool identity = true;

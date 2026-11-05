@@ -234,6 +234,7 @@ namespace z5 {
             .def_prop_ro("shards", [](const Dataset & ds){return ds.shardShape();})
             .def_prop_ro("dimension_names", [](const Dataset & ds){return ds.dimensionNames();})
             .def_prop_ro("transpose", [](const Dataset & ds){return ds.transposeOrder();})
+            .def_prop_ro("crc32c", [](const Dataset & ds){return ds.hasCrc32c();})
             .def_prop_ro("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_prop_ro("size", [](const Dataset & ds){return ds.size();})
             .def_prop_ro("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})

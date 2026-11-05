@@ -9,9 +9,11 @@ This file is the executable specification for the upcoming v3 implementation:
 it targets the proposed z5py API (``zarr_format=3`` on ``File``/``ZarrFile`` and
 ``shards=`` / ``chunk_key_encoding=`` on ``create_dataset``).
 """
+import gzip
 import json
 import os
 import unittest
+import zlib
 from shutil import rmtree
 
 import numpy as np
@@ -30,6 +32,16 @@ def _random(shape, dtype):
     if np.issubdtype(np.dtype(dtype), np.floating):
         return np.random.rand(*shape).astype(dtype)
     return np.random.randint(0, 100, size=shape).astype(dtype)
+
+
+def _crc32c(data):
+    """CRC32C (Castagnoli), computed independently of z5 to check its output."""
+    crc = 0xFFFFFFFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            crc = (crc >> 1) ^ (0x82F63B78 if crc & 1 else 0)
+    return crc ^ 0xFFFFFFFF
 
 
 @requires_z5_v3
@@ -777,7 +789,25 @@ class TestZarrV3Validation(unittest.TestCase):
         self._assert_refused(self._set_codecs('bytes', 'gzip', 'transpose'))
 
     def test_codecs_unknown(self):
-        self._assert_refused(self._set_codecs('bytes', 'gzip', 'crc32c'))
+        self._assert_refused(self._set_codecs('bytes', 'gzip', 'bitround'))
+
+    def test_codecs_two_compressors_around_crc32c(self):
+        # crc32c between them doesn't make two compressors supported
+        self._assert_refused(self._set_codecs('bytes', 'gzip', 'crc32c', 'gzip'))
+
+    def test_codecs_crc32c_before_bytes(self):
+        self._assert_refused(self._set_codecs('crc32c', 'bytes', 'gzip'))
+
+    def test_codecs_crc32c_configuration(self):
+        set_codecs = self._set_codecs('bytes', 'gzip', 'crc32c')
+
+        def edit(meta):
+            set_codecs(meta)
+            codecs = meta['codecs']
+            if codecs[0]['name'] == 'sharding_indexed':
+                codecs = codecs[0]['configuration']['codecs']
+            codecs[-1]['configuration'] = {'polynomial': 'other'}
+        self._assert_refused(edit)
 
     def test_attribute_write_keeps_unknown_fields(self):
         self._create()
@@ -962,6 +992,329 @@ class TestZarrV3ShardIndex(unittest.TestCase):
             f.write(bytes([byte[0] ^ 0xFF]))
         with self.assertRaises(RuntimeError):
             z5py.File(self.path, mode='r')[name][:16, :16]
+
+
+@requires_z5_v3
+class TestZarrV3Crc32c(unittest.TestCase):
+    """``crc32c`` as a chunk codec, before and / or after the compressor.
+
+    z5 doesn't create arrays with crc32c, so each test creates an empty dataset,
+    swaps its codec list in zarr.json, and writes through z5. The chunk files are
+    then decoded by hand to check where the checksums are.
+    """
+    path = 'test_v3_crc32c.zr'
+    shape = (20, 18)
+    chunks = (8, 8)
+    configs = {'bytes': {'endian': 'little'}, 'gzip': {'level': 5},
+               'zstd': {'level': 3, 'checksum': True},
+               'blosc': {'cname': 'lz4', 'clevel': 5, 'shuffle': 'shuffle',
+                         'typesize': 4, 'blocksize': 0}}
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _codec_list(self, codecs):
+        return [{'name': n, 'configuration': self.configs[n]} if n in self.configs
+                else {'name': n} for n in codecs]
+
+    def _set_codecs(self, meta, codecs):
+        meta['codecs'] = self._codec_list(codecs)
+
+    def _create(self, codecs, **kwargs):
+        name = '_'.join(codecs)
+        self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                 dtype='int32', compression='raw', **kwargs)
+        meta_path = os.path.join(self.path, name, 'zarr.json')
+        with open(meta_path) as f:
+            meta = json.load(f)
+        self._set_codecs(meta, codecs)
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f)
+        return name
+
+    def _write(self, name):
+        ds = z5py.File(self.path, mode='a')[name]
+        data = _random(self.shape, 'int32')
+        ds[:] = data
+        # partial write: read-modify-write of existing chunks
+        new = _random((7, 9), 'int32')
+        ds[5:12, 3:12] = new
+        data[5:12, 3:12] = new
+        np.testing.assert_array_equal(ds[:], data, err_msg=name)
+        np.testing.assert_array_equal(z5py.File(self.path, mode='r')[name][:], data,
+                                      err_msg=name)
+        return data
+
+    def _chunk_path(self, name):
+        return os.path.join(self.path, name, 'c', '0', '0')
+
+    def _chunk_blob(self, name):
+        with open(self._chunk_path(name), 'rb') as f:
+            return f.read()
+
+    def _decode(self, blob, codecs):
+        """Undo the bytes-to-bytes codecs by hand, last first."""
+        for codec in reversed(codecs[1:]):
+            if codec == 'crc32c':
+                self.assertEqual(int.from_bytes(blob[-4:], 'little'), _crc32c(blob[:-4]))
+                blob = blob[:-4]
+            else:
+                self.assertEqual(codec, 'gzip')
+                blob = zlib.decompress(blob, 31)
+        return np.frombuffer(blob, dtype='<i4').reshape(self.chunks)
+
+    def test_chains(self):
+        chains = [('bytes', 'crc32c'),
+                  ('bytes', 'crc32c', 'crc32c'),
+                  ('bytes', 'gzip', 'crc32c'),
+                  ('bytes', 'crc32c', 'gzip'),
+                  ('bytes', 'crc32c', 'gzip', 'crc32c'),
+                  ('bytes', 'gzip', 'crc32c', 'crc32c')]
+        for codecs in chains:
+            name = self._create(codecs)
+            data = self._write(name)
+            np.testing.assert_array_equal(self._decode(self._chunk_blob(name), codecs),
+                                          data[:8, :8], err_msg=name)
+
+    def test_chains_other_compressors(self):
+        # round trip only: the stdlib can't decode zstd / blosc
+        compressors = [c for c in ('zstd', 'blosc') if c in available_v3_compressors()]
+        if not compressors:
+            self.skipTest('needs zstd or blosc')
+        for compressor in compressors:
+            for codecs in (('bytes', compressor, 'crc32c'),
+                           ('bytes', 'crc32c', compressor),
+                           ('bytes', 'crc32c', compressor, 'crc32c')):
+                name = self._create(codecs)
+                self._write(name)
+                blob = self._chunk_blob(name)
+                if codecs[-1] == 'crc32c':
+                    self.assertEqual(int.from_bytes(blob[-4:], 'little'), _crc32c(blob[:-4]))
+
+    def test_corrupt_outer_checksum(self):
+        name = self._create(('bytes', 'gzip', 'crc32c'))
+        self._write(name)
+        blob = bytearray(self._chunk_blob(name))
+        blob[-1] ^= 0xFF
+        with open(self._chunk_path(name), 'wb') as f:
+            f.write(blob)
+        with self.assertRaisesRegex(RuntimeError, 'checksum'):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def test_corrupt_inner_checksum(self):
+        # a valid gzip stream around a wrong checksum: only crc32c can catch it
+        name = self._create(('bytes', 'crc32c', 'gzip'))
+        self._write(name)
+        inner = bytearray(zlib.decompress(self._chunk_blob(name), 31))
+        inner[-1] ^= 0xFF
+        with open(self._chunk_path(name), 'wb') as f:
+            f.write(gzip.compress(bytes(inner)))
+        with self.assertRaisesRegex(RuntimeError, 'checksum'):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def test_truncated_chunk(self):
+        name = self._create(('bytes', 'crc32c'))
+        self._write(name)
+        with open(self._chunk_path(name), 'wb') as f:
+            f.write(b'\x00\x01')
+        with self.assertRaises(RuntimeError):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def _stored_codecs(self, name):
+        """The chunk codecs (inside the sharding codec when sharded)."""
+        with open(os.path.join(self.path, name, 'zarr.json')) as f:
+            codecs = json.load(f)['codecs']
+        if codecs[0]['name'] == 'sharding_indexed':
+            codecs = codecs[0]['configuration']['codecs']
+        return codecs
+
+    def test_create_option(self):
+        # z5py's crc32c=True adds one crc32c codec after the compressor
+        shards = getattr(self, 'shards', None)
+        for compression in ('raw', 'gzip'):
+            name = 'created_' + compression
+            ds = self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                          dtype='int32', compression=compression,
+                                          shards=shards, crc32c=True)
+            self.assertTrue(ds.crc32c)
+            self.assertTrue(z5py.File(self.path, mode='r')[name].crc32c)
+            codecs = ('bytes', 'crc32c') if compression == 'raw' else ('bytes', 'gzip', 'crc32c')
+            self.assertEqual([c['name'] for c in self._stored_codecs(name)], list(codecs))
+            data = self._write(name)
+            np.testing.assert_array_equal(self._decode(self._chunk_blob(name), codecs),
+                                          data[:8, :8], err_msg=name)
+
+    def test_create_option_default(self):
+        ds = self.root.create_dataset('plain', shape=self.shape, chunks=self.chunks,
+                                      dtype='int32', compression='gzip',
+                                      shards=getattr(self, 'shards', None))
+        self.assertFalse(ds.crc32c)
+        self.assertEqual([c['name'] for c in self._stored_codecs('plain')], ['bytes', 'gzip'])
+
+    def test_create_option_v2_refused(self):
+        f = z5py.File('test_v2_crc32c.zr', mode='w', use_zarr_format=True)
+        try:
+            with self.assertRaises(ValueError):
+                f.create_dataset('data', shape=self.shape, chunks=self.chunks,
+                                 dtype='int32', crc32c=True)
+        finally:
+            rmtree('test_v2_crc32c.zr')
+
+    def test_metadata_unchanged(self):
+        # opening and writing must keep the codec list exactly as it was
+        codecs = ('bytes', 'crc32c', 'gzip', 'crc32c')
+        name = self._create(codecs)
+        self._write(name)
+        with open(os.path.join(self.path, name, 'zarr.json')) as f:
+            meta = json.load(f)
+        self.assertEqual(meta['codecs'], self._codec_list(codecs))
+
+
+@requires_z5_v3_sharding
+class TestZarrV3Crc32cSharded(TestZarrV3Crc32c):
+    """The same chains as the codecs of the inner chunks of a shard."""
+    path = 'test_v3_crc32c_sharded.zr'
+    shards = (16, 16)
+    # 2 x 2 inner chunks per shard
+    n_slots = 4
+
+    def _create(self, codecs, **kwargs):
+        return super()._create(codecs, shards=self.shards, **kwargs)
+
+    def _set_codecs(self, meta, codecs):
+        meta['codecs'][0]['configuration']['codecs'] = self._codec_list(codecs)
+
+    def _chunk_blob(self, name):
+        """The blob of inner chunk (0, 0), found through the shard index."""
+        with open(self._chunk_path(name), 'rb') as f:
+            shard = f.read()
+        # default layout: index at the end, followed by its crc32c
+        index_size = 16 * self.n_slots
+        index = np.frombuffer(shard[-index_size - 4:-4], dtype='<u8').reshape(-1, 2)
+        offset, nbytes = (int(v) for v in index[0])
+        return shard[offset:offset + nbytes]
+
+    def _corrupt_blob(self, name, corrupt):
+        """Replace inner chunk (0, 0) by ``corrupt(blob)``, rebuilding the shard by hand."""
+        with open(self._chunk_path(name), 'rb') as f:
+            shard = f.read()
+        index_size = 16 * self.n_slots
+        index = np.frombuffer(shard[-index_size - 4:-4], dtype='<u8').reshape(-1, 2)
+        blobs = [shard[int(o):int(o) + int(n)] for o, n in index]
+        blobs[0] = corrupt(blobs[0])
+        out, offsets = b'', []
+        for blob in blobs:
+            offsets.append((len(out), len(blob)))
+            out += blob
+        new_index = np.array(offsets, dtype='<u8').tobytes()
+        out += new_index + _crc32c(new_index).to_bytes(4, 'little')
+        with open(self._chunk_path(name), 'wb') as f:
+            f.write(out)
+
+    def test_corrupt_outer_checksum(self):
+        name = self._create(('bytes', 'gzip', 'crc32c'))
+        self._write(name)
+
+        def corrupt(blob):
+            blob = bytearray(blob)
+            blob[-1] ^= 0xFF
+            return bytes(blob)
+        self._corrupt_blob(name, corrupt)
+        with self.assertRaisesRegex(RuntimeError, 'checksum'):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def test_corrupt_inner_checksum(self):
+        name = self._create(('bytes', 'crc32c', 'gzip'))
+        self._write(name)
+
+        def corrupt(blob):
+            inner = bytearray(zlib.decompress(blob, 31))
+            inner[-1] ^= 0xFF
+            return gzip.compress(bytes(inner))
+        self._corrupt_blob(name, corrupt)
+        with self.assertRaisesRegex(RuntimeError, 'checksum'):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def test_truncated_chunk(self):
+        name = self._create(('bytes', 'crc32c'))
+        self._write(name)
+        self._corrupt_blob(name, lambda blob: b'\x00\x01')
+        with self.assertRaises(RuntimeError):
+            z5py.File(self.path, mode='r')[name][:8, :8]
+
+    def test_metadata_unchanged(self):
+        codecs = ('bytes', 'crc32c', 'gzip', 'crc32c')
+        name = self._create(codecs)
+        self._write(name)
+        with open(os.path.join(self.path, name, 'zarr.json')) as f:
+            meta = json.load(f)
+        self.assertEqual(meta['codecs'][0]['configuration']['codecs'], self._codec_list(codecs))
+
+
+@requires_z5_v3
+class TestZarrV3ZstdChecksum(unittest.TestCase):
+    """The zstd codec's ``checksum`` setting."""
+    path = 'test_v3_zstd_checksum.zr'
+    shape = (20, 18)
+    chunks = (8, 8)
+
+    def setUp(self):
+        if 'zstd' not in available_v3_compressors():
+            self.skipTest('zstd is not compiled in')
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _has_checksum_flag(blob):
+        # zstd frame: 4-byte magic, then the frame header descriptor, whose bit 2
+        # is the Content_Checksum_flag
+        assert blob[:4] == b'\x28\xb5\x2f\xfd'
+        return bool(blob[4] & 0x04)
+
+    def _check(self, name, expected, **compression_options):
+        ds = self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                      dtype='int32', compression='zstd', **compression_options)
+        data = _random(self.shape, 'int32')
+        ds[:] = data
+        np.testing.assert_array_equal(z5py.File(self.path, mode='r')[name][:], data)
+        with open(os.path.join(self.path, name, 'zarr.json')) as f:
+            meta = json.load(f)
+        self.assertEqual(meta['codecs'][1], {'name': 'zstd',
+                                             'configuration': {'level': 3, 'checksum': expected}})
+        self.assertEqual(ds.compression_opts['checksum'], expected)
+        with open(os.path.join(self.path, name, 'c', '0', '0'), 'rb') as f:
+            self.assertEqual(self._has_checksum_flag(f.read()), expected)
+
+    def test_default_no_checksum(self):
+        self._check('default', False)
+
+    def test_checksum(self):
+        self._check('checksum', True, checksum=True)
+
+    def test_corrupt_checksum(self):
+        self._check('checksum', True, checksum=True)
+        chunk = os.path.join(self.path, 'checksum', 'c', '0', '0')
+        with open(chunk, 'rb') as f:
+            blob = bytearray(f.read())
+        # the content checksum is the frame's last 4 bytes
+        blob[-1] ^= 0xFF
+        with open(chunk, 'wb') as f:
+            f.write(blob)
+        with self.assertRaises(RuntimeError):
+            z5py.File(self.path, mode='r')['checksum'][:8, :8]
 
 
 @requires_z5_v3_sharding
