@@ -15,7 +15,7 @@ cmake .. -DWITH_BLOSC=ON -DWITH_ZLIB=ON -DWITH_BZIP2=ON -DWITH_XZ=ON -DWITH_LZ4=
 make -j 4
 ```
 
-`make` compiles the `_z5py` nanobind extension and copies the pure-Python `z5py` package + tests into `bld/python/`. `make install` additionally installs headers and the Python package into the conda env. nanobind is located via `python -m nanobind --cmake_dir` (or `CMAKE_PREFIX_PATH`); the active conda env must provide `nanobind` and `numpy`.
+`make` compiles the `_z5py` nanobind extension and copies the pure-Python `z5py` package + tests into `bld/python/`. `make install` additionally installs headers and the Python package into the conda env. nanobind is located via `python -m nanobind --cmake_dir` (or `CMAKE_PREFIX_PATH`); the active conda env must provide `nanobind` (>= 2.1, enforced by CMake) and `numpy`.
 
 Key CMake options (see `CMakeLists.txt`): compression codecs `WITH_BLOSC` / `WITH_BZIP2` / `WITH_XZ` / `WITH_LZ4` / `WITH_ZSTD` are **OFF by default** (`WITH_ZLIB` is ON); a codec must be compiled in to read/write chunks using it. Backends: `WITH_S3`, `WITH_GCS` (both incomplete). Also `BUILD_TESTS` (C++ tests, OFF), `BUILD_Z5PY` (ON).
 
