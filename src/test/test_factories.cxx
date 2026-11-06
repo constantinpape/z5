@@ -1,3 +1,4 @@
+#include <bit>
 #include <random>
 #include "gtest/gtest.h"
 
@@ -153,7 +154,7 @@ namespace z5 {
         filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
         ASSERT_EQ(meta.zarrFormat, 3);
         ASSERT_EQ(meta.compressor, types::zlib);
-        ASSERT_EQ(meta.fillValue, 7);
+        ASSERT_EQ(std::get<int64_t>(meta.fillValue), 7);
         ASSERT_EQ(meta.chunkKeyEncoding, "v2");
         ASSERT_EQ(meta.shardShape, types::ShapeType({20, 20, 20}));
 
@@ -177,6 +178,92 @@ namespace z5 {
                                    types::ShapeType({100, 100, 100}),
                                    types::ShapeType({10, 10, 10}),
                                    bad), std::runtime_error);
+    }
+
+
+    TEST_F(FactoryTest, CreateDatasetExactFillValue) {
+        for(const int zarrFormat : {2, 3}) {
+            fs::path p = tmp / ("fill" + std::to_string(zarrFormat) + ".zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, zarrFormat);
+
+            // uint64 max has no exact double
+            DatasetOptions options;
+            options.zarrFormat = zarrFormat;
+            options.fillValue = std::numeric_limits<uint64_t>::max();
+            auto ds = createDataset(file, "u64", "uint64", types::ShapeType({10, 10}),
+                                    types::ShapeType({5, 5}), options);
+            uint64_t fill = 0;
+            ds->getFillValue(&fill);
+            ASSERT_EQ(fill, std::numeric_limits<uint64_t>::max());
+
+            DatasetMetadata meta;
+            filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+            ASSERT_EQ(std::get<uint64_t>(meta.fillValue), std::numeric_limits<uint64_t>::max());
+            nlohmann::json j;
+            meta.toJson(j);
+            ASSERT_EQ(j["fill_value"].get<uint64_t>(), std::numeric_limits<uint64_t>::max());
+
+            DatasetOptions neg;
+            neg.zarrFormat = zarrFormat;
+            neg.fillValue = std::numeric_limits<int64_t>::min() + 1;
+            auto ds2 = createDataset(file, "i64", "int64", types::ShapeType({10, 10}),
+                                     types::ShapeType({5, 5}), neg);
+            int64_t fill2 = 0;
+            ds2->getFillValue(&fill2);
+            ASSERT_EQ(fill2, std::numeric_limits<int64_t>::min() + 1);
+
+            // the fill value takes the data type's form: a double for an
+            // integer type becomes an integer, an integer for a float type a double
+            DatasetMetadata m;
+            DatasetOptions asDouble;
+            asDouble.zarrFormat = zarrFormat;
+            asDouble.fillValue = 7.;
+            createDatasetMetadata("uint8", types::ShapeType({10}), types::ShapeType({5}), true,
+                                  asDouble, m);
+            ASSERT_EQ(m.fillValue, types::FillValue(uint64_t(7)));
+            DatasetOptions asInt;
+            asInt.zarrFormat = zarrFormat;
+            asInt.fillValue = int64_t(-3);
+            createDatasetMetadata("float32", types::ShapeType({10}), types::ShapeType({5}), true,
+                                  asInt, m);
+            ASSERT_EQ(m.fillValue, types::FillValue(-3.));
+
+            // a NaN payload becomes the default NaN
+            DatasetOptions payload;
+            payload.zarrFormat = zarrFormat;
+            payload.fillValue = types::fillValueFromBits(types::float32, 0x7fc00001u);
+            auto ds3 = createDataset(file, "nan", "float32", types::ShapeType({10}),
+                                     types::ShapeType({5}), payload);
+            float fill3 = 0;
+            ds3->getFillValue(&fill3);
+            ASSERT_EQ(std::bit_cast<uint32_t>(fill3), 0x7fc00000u);
+
+            // out of range values, and bits wider than the data type, are refused
+            DatasetOptions bad;
+            bad.zarrFormat = zarrFormat;
+            bad.fillValue = int64_t(256);
+            ASSERT_THROW(createDataset(file, "bad", "uint8", types::ShapeType({10}),
+                                       types::ShapeType({5}), bad), std::runtime_error);
+            ASSERT_THROW(types::fillValueFromBits(types::float32, 0x100000000ull), std::runtime_error);
+            bad.fillValue = std::numeric_limits<double>::quiet_NaN();
+            ASSERT_THROW(createDataset(file, "bad", "int8", types::ShapeType({10}),
+                                       types::ShapeType({5}), bad), std::runtime_error);
+        }
+
+        // zarr v3 refuses a non-integral fill value for an integer type; v2 truncates it
+        fs::path p = tmp / "fill_frac.zr";
+        z5::filesystem::handle::File file(p);
+        z5::createFile(file, true, 3);
+        DatasetOptions frac;
+        frac.zarrFormat = 3;
+        frac.fillValue = 0.5;
+        ASSERT_THROW(createDataset(file, "frac", "int8", types::ShapeType({10}),
+                                   types::ShapeType({5}), frac), std::runtime_error);
+        frac.zarrFormat = 2;
+        DatasetMetadata m;
+        createDatasetMetadata("int8", types::ShapeType({10}), types::ShapeType({5}), true, frac, m);
+        ASSERT_EQ(m.fillValue, types::FillValue(int64_t(0)));
     }
 
 
