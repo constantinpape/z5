@@ -227,7 +227,8 @@ class Group(Mapping):
                 a suitable default value for the number of dimensions will be used (default: None).
             compression (str): name of the compression library used to compress chunks.
                 If no compression is given, the default for the current format is used (default: None).
-            fillvalue (float): fillvalue for empty chunks (only zarr) (default: 0).
+            fillvalue (scalar): value of elements in chunks that were never written,
+                kept exactly in the dataset's dtype (only zarr) (default: 0).
             n_threads (int): number of threads used for chunk I/O (default: 1).
             shards (tuple): shard shape, a multiple of ``chunks``; enables the
                 ``sharding_indexed`` codec (only zarr v3) (default: None).

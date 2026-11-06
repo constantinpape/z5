@@ -263,6 +263,23 @@ class Dataset:
                                        dimension_names=dimension_names,
                                        transpose=transpose, crc32c=crc32c)
 
+    @staticmethod
+    def _fill_value_bits(fillvalue, dtype):
+        """ The fill value's bits: its bytes as ``dtype``, read as a little-endian
+        unsigned integer. Passed to the C++ layer so that 64-bit integers are
+        kept exactly (a float argument would round them).
+
+        Raises:
+            ValueError: if ``fillvalue`` can't be represented in ``dtype``.
+        """
+        try:
+            value = np.asarray(fillvalue, dtype=dtype)
+        except (ValueError, TypeError, OverflowError) as e:
+            raise ValueError("Fill value %r is not valid for data type %s: %s" % (fillvalue, dtype, e))
+        if value.ndim != 0:
+            raise ValueError("Fill value %r must be a scalar" % (fillvalue,))
+        return int(value.astype(value.dtype.newbyteorder('<')).view('<u%i' % value.itemsize))
+
     @classmethod
     def _create_dataset(cls, group, name,
                         shape=None, dtype=None,
@@ -315,6 +332,7 @@ class Dataset:
 
         if parsed_dtype not in cls._dtype_dict:
             raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
+        fillvalue_bits = cls._fill_value_bits(fillvalue, parsed_dtype)
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
@@ -348,7 +366,7 @@ class Dataset:
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
-                                        names_arg, transpose_arg, bool(crc32c))
+                                        names_arg, transpose_arg, bool(crc32c), fillvalue_bits)
         else:
             # zarr v2 / n5
             # check compression / get default compression if no compression is given
@@ -370,7 +388,7 @@ class Dataset:
             copts = json.dumps(copts)
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
-                                        dimension_separator)
+                                        dimension_separator, fill_value_bits=fillvalue_bits)
 
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
@@ -428,6 +446,15 @@ class Dataset:
         """
         order = tuple(self._impl.transpose)
         return order if order else None
+
+    @property
+    def fillvalue(self):
+        """ Fill value of this dataset: the value of elements in chunks that
+        were never written.
+
+        n5 doesn't store a fill value, so it is 0 for an opened n5 dataset.
+        """
+        return np.frombuffer(self._impl.fill_value_bytes, dtype=self.dtype)[0]
 
     @property
     def crc32c(self):

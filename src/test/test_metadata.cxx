@@ -79,7 +79,7 @@ namespace z5 {
         ASSERT_EQ(std::get<int>(metadata.compressionOptions["shuffle"]), compressor["shuffle"]);
         // check dtype, fillvalue and order
         ASSERT_EQ(metadata.dtype, types::Datatypes::zarrToDtype()[jZarr["dtype"]]);
-        ASSERT_EQ(metadata.fillValue, jZarr["fill_value"]);
+        ASSERT_EQ(metadata.fillValueAs<double>(), jZarr["fill_value"].get<double>());
         // ASSERT_EQ(metadata.order, jZarr["order"]);
     }
 

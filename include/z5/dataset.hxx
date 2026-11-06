@@ -218,7 +218,7 @@ namespace z5 {
     template<class T>
     class MixinTyped {
     public:
-        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)) {
+        MixinTyped(const DatasetMetadata & metadata) : fillValue_(metadata.fillValueAs<T>()) {
             arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1;
             arrayCodecs_.order = metadata.transposeOrder;
             arrayCodecs_.chunkShape = metadata.chunkShape;
