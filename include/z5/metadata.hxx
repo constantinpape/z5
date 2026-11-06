@@ -109,13 +109,22 @@ namespace z5 {
             types::writeZarrCompressionOptionsToJson(compressor, compressionOptions, compressionOpts);
             j["compressor"] = compressionOpts;
 
-            j["dtype"] = types::Datatypes::dtypeToZarr().at(dtype);
+            // object arrays name their item codec as a filter (numcodecs' layout)
+            if(types::isVlenDtype(dtype)) {
+                j["dtype"] = "|O";
+            } else {
+                j["dtype"] = types::Datatypes::dtypeToZarr().at(dtype);
+            }
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
             types::fillValueToJson(dtype, fillValue, j["fill_value"]);
 
-            j["filters"] = nullptr;
+            if(types::isVlenDtype(dtype)) {
+                j["filters"] = nlohmann::json::array({{{"id", types::vlenCodecName(dtype)}}});
+            } else {
+                j["filters"] = nullptr;
+            }
             j["order"] = "C";
             j["zarr_format"] = zarrFormat;
             j["dimension_separator"] = zarrDelimiter;
@@ -266,7 +275,8 @@ namespace z5 {
             types::writeV3CodecsToJson(compressor, compressionOptions,
                                        types::datatypeSize(dtype), innerCodecs, bigEndian,
                                        transposeOrder, crc32cBeforeCompressor,
-                                       crc32cAfterCompressor);
+                                       crc32cAfterCompressor,
+                                       types::isVlenDtype(dtype) ? types::vlenCodecName(dtype) : "bytes");
 
             if(sharded) {
                 nlohmann::json sharding;
@@ -631,9 +641,17 @@ namespace z5 {
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("z5::createDatasetMetadata: Invalid dtype for dataset");
         }
+        // variable-length strings: zarr only (n5's own string type is encoded
+        // differently); not bare lz4 blocks (zarr v2), which don't record the
+        // decoded size. Transpose is checked below.
         if(types::isVlenDtype(internalDtype)) {
-            throw std::runtime_error("z5::createDatasetMetadata: creating " + dtype +
-                                     " datasets is not supported yet");
+            if(!createAsZarr) {
+                throw std::runtime_error("z5::createDatasetMetadata: " + dtype + " datasets are only supported for zarr");
+            }
+            if(zarrFormat != 3 && compressor == "lz4") {
+                throw std::runtime_error("z5::createDatasetMetadata: lz4 is not supported for zarr v2 " + dtype +
+                                         " datasets");
+            }
         }
 
         // get the compressor
@@ -700,6 +718,12 @@ namespace z5 {
                     break;
                 }
             }
+        }
+
+        // the parser refuses a transpose of variable-length elements too
+        if(!order.empty() && types::isVlenDtype(internalDtype)) {
+            throw std::runtime_error("z5::createDatasetMetadata: transpose is not supported for " + dtype +
+                                     " datasets");
         }
 
         if(options.crc32c && !(createAsZarr && zarrFormat == 3)) {
