@@ -917,5 +917,71 @@ class TestInteropZarrPyFillValue(unittest.TestCase):
         del za
 
 
+@requires_zarr_v3
+class TestInteropZarrPyZeroDim(unittest.TestCase):
+    """Zero-dimensional arrays between zarr-python and z5: zarr v2, and v3 with
+    the default and the v2 chunk key encodings."""
+    path = "interop_zero_dim.zr"
+    layouts = {"v2": ({"zarr_format": 2}, {}, "0"),
+               "v3": ({"zarr_format": 3}, {}, "c"),
+               "v3_flat": ({"zarr_format": 3, "chunk_key_encoding": {"name": "v2"}},
+                           {"chunk_key_encoding": "v2"}, "0")}
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _check(self, name):
+        zarr_kwargs, z5_kwargs, chunk_key = self.layouts[name]
+        zarr_format = zarr_kwargs["zarr_format"]
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=zarr_format)
+
+        # zarr -> z5, then z5 rewrites the element and zarr reads it back
+        za = zarr.create_array(store=self.path, name="zarr", shape=(), dtype="float64",
+                               fill_value=-1.0, compressors=None, **zarr_kwargs)
+        ds = f["zarr"]
+        self.assertEqual(ds.shape, (), name)
+        self.assertEqual(ds[()], -1.0, name)
+        za[()] = 2.5
+        self.assertEqual(ds[()], 2.5, name)
+        ds[()] = 4.5
+        self.assertEqual(zarr.open_array(store=self.path, path="zarr", mode="r")[()], 4.5, name)
+        self.assertIn(chunk_key, os.listdir(os.path.join(self.path, "zarr")), name)
+
+        # z5 -> zarr
+        ds = f.create_dataset("z5", shape=(), dtype="int16", fillvalue=3, compression="gzip",
+                              **z5_kwargs)
+        za = zarr.open_array(store=self.path, path="z5", mode="r")
+        self.assertEqual(za.shape, (), name)
+        self.assertEqual(za[()], 3, name)
+        ds[()] = -8
+        self.assertEqual(za[()], -8, name)
+        self.assertIn(chunk_key, os.listdir(os.path.join(self.path, "z5")), name)
+
+    def test_v2(self):
+        self._check("v2")
+
+    @requires_z5_v3
+    def test_v3(self):
+        self._check("v3")
+
+    @requires_z5_v3
+    def test_v3_flat_key(self):
+        self._check("v3_flat")
+
+    @requires_z5_v3
+    def test_v3_sharded_refused(self):
+        # z5 can't represent a 0-d shard; opening must fail rather than read
+        # the shard as a plain chunk. The refusal comes from the metadata, so
+        # no data is written (zarr-python < 3.2 fails to write 0-d shards).
+        z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        zarr.create_array(store=self.path, name="sharded", shape=(), dtype="int32",
+                          shards=(), zarr_format=3)
+        with self.assertRaises(RuntimeError):
+            z5py.File(self.path, mode="r")["sharded"]
+
+
 if __name__ == '__main__':
     unittest.main()
