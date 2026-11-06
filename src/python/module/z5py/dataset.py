@@ -336,6 +336,8 @@ class Dataset:
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
+        if shards is not None and len(shape) == 0:
+            raise ValueError("Sharding is not supported for zero-dimensional datasets")
         if transpose is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Transpose is only supported for zarr v3 datasets")
         if crc32c and not (is_zarr and zarr_format == 3):
@@ -393,7 +395,8 @@ class Dataset:
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
         if have_data:
-            ds[:] = data
+            # ``...`` also selects the single element of a zero-dimensional dataset
+            ds[...] = data
         return ds
 
     @classmethod
@@ -539,6 +542,9 @@ class Dataset:
 
     def __len__(self):
         """ The length of the first (outermost) dimension of the dataset.
+
+        Raises:
+            TypeError: for a zero-dimensional dataset, as numpy does.
         """
         return self._impl.len
 
@@ -582,8 +588,9 @@ class Dataset:
             index (int, slice, ellipsis or tuple): the region to read.
 
         Returns:
-            np.ndarray: the requested data (a scalar if fully integer-indexed),
-            with this dataset's dtype.
+            np.ndarray: the requested data (a scalar if fully integer-indexed,
+            or for ``ds[()]`` on a zero-dimensional dataset), with this
+            dataset's dtype.
         """
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
         out = np.empty(shape, dtype=self.dtype)
@@ -593,6 +600,9 @@ class Dataset:
                                 n_threads=self.n_threads)
 
         # todo: this probably has more copies than necessary
+        if not shape:
+            # zero-dimensional, as numpy: ds[()] is a scalar, ds[...] a 0-d array
+            return out if index is Ellipsis or (isinstance(index, tuple) and Ellipsis in index) else out[()]
         if len(to_squeeze) == len(shape):
             return out.flatten()[0]
         elif to_squeeze:
