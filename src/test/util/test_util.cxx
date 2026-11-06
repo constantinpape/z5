@@ -2,6 +2,7 @@
 #include "gtest/gtest.h"
 #include "z5/util/util.hxx"
 #include "z5/util/blocking.hxx"
+#include "z5/util/base64.hxx"
 
 
 namespace test_util_detail {
@@ -153,6 +154,28 @@ namespace util {
 
         types::ShapeType beginInRoi, shapeInRoi, beginInBlock;
         EXPECT_TRUE(blocking.getCoordinatesInRoi(coord, {}, {}, beginInRoi, shapeInRoi, beginInBlock));
+    }
+
+    // base64 as zarr-python writes bytes fill values (RFC 4648, padded)
+    TEST(Base64Test, RoundTrip) {
+        const std::vector<std::pair<std::string, std::string>> cases{
+            {"", ""}, {"a", "YQ=="}, {"ab", "YWI="}, {"abc", "YWJj"},
+            {std::string("\x00\xff\x01", 3), "AP8B"}, {std::string(1, '\xfb'), "+w=="}, {"\xff\xff", "//8="}};
+        for(const auto & c : cases) {
+            EXPECT_EQ(base64Encode(c.first), c.second);
+            EXPECT_EQ(base64Decode(c.second), c.first);
+        }
+        std::string all;
+        for(int i = 0; i < 256; ++i) {
+            all += static_cast<char>(i);
+        }
+        EXPECT_EQ(base64Decode(base64Encode(all)), all);
+    }
+
+    TEST(Base64Test, Invalid) {
+        for(const std::string bad : {"YQ", "YQ=", "Y===", "YQ==YQ==", "YW!=", "=YWI", "YW=I"}) {
+            EXPECT_THROW(base64Decode(bad), std::runtime_error) << bad;
+        }
     }
 
 }
