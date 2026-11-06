@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 
 #include "z5/factory.hxx"
+#include "z5/multiarray/array_access.hxx"
 
 #define SIZE 10*10*10
 
@@ -178,6 +179,63 @@ namespace z5 {
                                    types::ShapeType({100, 100, 100}),
                                    types::ShapeType({10, 10, 10}),
                                    bad), std::runtime_error);
+    }
+
+
+    // variable-length strings through the factory and the sub-array IO
+    TEST_F(FactoryTest, CreateStringDataset) {
+        for(const int zarrFormat : {2, 3}) {
+            fs::path p = tmp / ("strings" + std::to_string(zarrFormat) + ".zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, zarrFormat);
+
+            DatasetOptions options;
+            options.zarrFormat = zarrFormat;
+            options.compressor = "zlib";
+            options.fillValue = std::string("-");
+            auto ds = createDataset(file, "s", "string", types::ShapeType({3, 5}),
+                                    types::ShapeType({2, 2}), options);
+            ASSERT_EQ(ds->getDtype(), types::vlen_utf8);
+            std::string fill;
+            ds->getFillValue(&fill);
+            ASSERT_EQ(fill, "-");
+
+            std::vector<std::string> in{"a", "", "h\xc3\xa9", std::string(1000, 'x'), "e", "f"};
+            const types::ShapeType offset({1, 2});
+            multiarray::writeSubarray<std::string>(*ds, multiarray::makeView(in.data(), types::ShapeType({2, 3})),
+                                                   offset.begin());
+
+            auto reopened = openDataset(file, "s");
+            std::vector<std::string> out(15);
+            const types::ShapeType zero({0, 0});
+            multiarray::readSubarray<std::string>(*reopened, multiarray::makeView(out.data(), types::ShapeType({3, 5})),
+                                                  zero.begin());
+            const std::vector<std::string> expected{"-", "-", "-", "-", "-",
+                                                    "-", "-", "a", "", "h\xc3\xa9",
+                                                    "-", "-", std::string(1000, 'x'), "e", "f"};
+            ASSERT_EQ(out, expected);
+
+            // a numeric request on a string dataset is refused
+            std::vector<int> wrong(15);
+            ASSERT_THROW(multiarray::readSubarray<int>(*reopened, multiarray::makeView(wrong.data(), types::ShapeType({3, 5})),
+                                                       zero.begin()), std::runtime_error);
+        }
+
+        // n5 has no such type; numeric fill values other than 0 are refused
+        fs::path p = tmp / "strings.n5";
+        z5::filesystem::handle::File n5(p);
+        z5::createFile(n5, false);
+        DatasetOptions plain;
+        ASSERT_THROW(createDataset(n5, "s", "string", types::ShapeType({3}), types::ShapeType({2}), plain),
+                     std::runtime_error);
+        fs::path p2 = tmp / "strings_fill.zr";
+        z5::filesystem::handle::File zr(p2);
+        z5::createFile(zr, true, 3);
+        DatasetOptions badFill;
+        badFill.zarrFormat = 3;
+        badFill.fillValue = 1.;
+        ASSERT_THROW(createDataset(zr, "s", "string", types::ShapeType({3}), types::ShapeType({2}), badFill),
+                     std::runtime_error);
     }
 
 
