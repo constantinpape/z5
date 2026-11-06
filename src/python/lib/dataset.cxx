@@ -258,6 +258,14 @@ namespace z5 {
                 return j.dump();
             })
 
+            // the fill value's bytes (one element, little-endian); z5py views them
+            // with the dataset's dtype, so 64-bit integers are exact
+            .def_prop_ro("fill_value_bytes", [](const Dataset & ds){
+                char buffer[32] = {};
+                ds.getFillValue(buffer);
+                return nb::bytes(buffer, types::datatypeSize(ds.getDtype()));
+            })
+
             .def("remove_chunk", &Dataset::removeChunk, nb::arg("chunk_id"),
                  nb::call_guard<nb::gil_scoped_release>())
         ;

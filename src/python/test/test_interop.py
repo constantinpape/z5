@@ -17,6 +17,7 @@ is therefore against the z5-logical array.
 The zarr v3 classes are skip-gated until z5 implements v3; the sharding test is
 additionally gated on v3 sharding (which implies the crc32c shard index).
 """
+import json
 import os
 import unittest
 from abc import ABC
@@ -834,6 +835,86 @@ class TestInteropTsV3(InteropMixin, unittest.TestCase):
     ext = "zr"
     codecs = ["raw", "gzip", "zstd", "blosc"]
     supports_dimsep = False
+
+
+@requires_zarr_v3
+class TestInteropZarrPyFillValue(unittest.TestCase):
+    """Fill values a double can't hold, between zarr-python and z5 (v2 and v3)."""
+    path = "interop_fill_value.zr"
+    shape = (10, 10)
+    chunks = (5, 5)
+    values = [("uint64", 2**64 - 1), ("uint64", 2**53 + 1), ("int64", -2**63),
+              ("int64", 2**63 - 1), ("int64", 2**53 + 1)]
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _check_integers(self, zarr_format):
+        for i, (dtype, fv) in enumerate(self.values):
+            msg = "v%i %s %i" % (zarr_format, dtype, fv)
+            # zarr -> z5
+            key = "zarr_%i" % i
+            za = zarr.create_array(store=self.path, name=key, shape=self.shape, chunks=self.chunks,
+                                   dtype=dtype, fill_value=fv, zarr_format=zarr_format,
+                                   compressors=None)
+            za[:2, :2] = np.zeros((2, 2), dtype=dtype)
+            ds = z5py.File(self.path, mode="r")[key]
+            self.assertEqual(int(ds.fillvalue), fv, msg)
+            out = ds[:]
+            self.assertTrue((out[:2, :2] == 0).all(), msg)
+            out[:2, :2] = fv
+            self.assertTrue((out == fv).all(), msg)
+
+            # z5 -> zarr
+            key = "z5_%i" % i
+            ds = z5py.File(self.path, mode="a").create_dataset(
+                key, shape=self.shape, chunks=self.chunks, dtype=dtype, fillvalue=fv,
+                compression="raw")
+            ds[:2, :2] = np.zeros((2, 2), dtype=dtype)
+            za = zarr.open_array(store=self.path, path=key, mode="r")
+            self.assertEqual(int(za.fill_value), fv, msg)
+            out = za[:]
+            out[:2, :2] = fv
+            self.assertTrue((out == fv).all(), msg)
+
+    def test_integers_v2(self):
+        z5py.File(self.path, mode="w", use_zarr_format=True)
+        self._check_integers(2)
+
+    @requires_z5_v3
+    def test_integers_v3(self):
+        z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        self._check_integers(3)
+
+    @requires_z5_v3
+    def test_hex_floats_v3(self):
+        # z5 drops NaN payloads and writes "NaN", which zarr-python reads. A hex
+        # fill value written by hand reads as the same value in both.
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        for i, (dtype, bits) in enumerate([("float32", 0x7fc00001), ("float64", 0x7ff8000000000001)]):
+            key = "nan_%i" % i
+            fv = np.array(bits, dtype="<u%i" % np.dtype(dtype).itemsize).view(dtype)[()]
+            f.create_dataset(key, shape=self.shape, chunks=self.chunks, dtype=dtype, fillvalue=fv,
+                             compression="raw")
+            out = zarr.open_array(store=self.path, path=key, mode="r")[:]
+            self.assertTrue(np.isnan(out).all(), key)
+
+        za = zarr.create_array(store=self.path, name="one", shape=self.shape, chunks=self.chunks,
+                               dtype="float32", fill_value=0, zarr_format=3, compressors=None)
+        meta_path = os.path.join(self.path, "one", "zarr.json")
+        with open(meta_path) as fh:
+            meta = json.load(fh)
+        meta["fill_value"] = "0x3fc00000"
+        with open(meta_path, "w") as fh:
+            json.dump(meta, fh)
+        self.assertEqual(zarr.open_array(store=self.path, path="one", mode="r").fill_value, 1.5)
+        ds = z5py.File(self.path, mode="r")["one"]
+        self.assertEqual(ds.fillvalue, 1.5)
+        self.assertTrue((ds[:] == 1.5).all())
+        del za
 
 
 if __name__ == '__main__':

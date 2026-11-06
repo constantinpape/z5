@@ -9,6 +9,7 @@
 #include <iomanip>
 
 #include "z5/types/types.hxx"
+#include "z5/types/fill_value.hxx"
 
 
 namespace z5 {
@@ -43,7 +44,7 @@ namespace z5 {
             const bool isZarr,
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-            const double fillValue=0,
+            const types::FillValue & fillValue=0.,
             const std::string & zarrDelimiter=".",
             const int zarrFormat=2,
             const std::string & chunkKeyEncoding="default",
@@ -55,7 +56,7 @@ namespace z5 {
                 chunkShape(chunkShape),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
-                fillValue(fillValue),
+                fillValue(types::normalizeFillValue(fillValue, dtype, false)),
                 zarrDelimiter(zarrDelimiter),
                 chunkKeyEncoding(chunkKeyEncoding),
                 shardShape(shardShape),
@@ -112,13 +113,7 @@ namespace z5 {
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            if (std::isnan(fillValue)) {
-              j["fill_value"] = "NaN";
-            } else if (std::isinf(fillValue)) {
-              j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
-            } else {
-              j["fill_value"] = fillValue;
-            }
+            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
 
             j["filters"] = nullptr;
             j["order"] = "C";
@@ -155,22 +150,7 @@ namespace z5 {
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
 
-            const auto & fillValJson = j["fill_value"];
-            if(fillValJson.type() == nlohmann::json::value_t::string) {
-                if (fillValJson == "NaN") {
-                    fillValue = std::numeric_limits<double>::quiet_NaN();
-                } else if (fillValJson == "Infinity") {
-                    fillValue = std::numeric_limits<double>::infinity();
-                } else if (fillValJson == "-Infinity") {
-                    fillValue = -std::numeric_limits<double>::infinity();
-                } else {
-                    throw std::runtime_error("Invalid string value for fillValue");
-                }
-            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
-                fillValue = std::numeric_limits<double>::quiet_NaN();
-            } else {
-                fillValue = static_cast<double>(fillValJson);
-            }
+            fillValue = types::fillValueFromJson(j["fill_value"], dtype, 2);
 
             auto jIt = j.find("dimension_separator");
             if(jIt != j.end()) {
@@ -249,7 +229,8 @@ namespace z5 {
                 compressionOptions["useZlib"] = false;
             }
 
-            fillValue = 0;
+            // n5 has no fill value
+            fillValue = types::normalizeFillValue(0., dtype, false);
         }
 
 
@@ -269,21 +250,7 @@ namespace z5 {
             j["chunk_key_encoding"]["name"] = chunkKeyEncoding;
             j["chunk_key_encoding"]["configuration"]["separator"] = zarrDelimiter;
 
-            if(std::isnan(fillValue)) {
-                j["fill_value"] = "NaN";
-            } else if(std::isinf(fillValue)) {
-                j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
-            } else {
-                // zarr v3 expects an integer fill_value for integer data types
-                switch(dtype) {
-                    case types::int8: case types::int16: case types::int32: case types::int64:
-                        j["fill_value"] = static_cast<int64_t>(fillValue); break;
-                    case types::uint8: case types::uint16: case types::uint32: case types::uint64:
-                        j["fill_value"] = static_cast<uint64_t>(fillValue); break;
-                    default:
-                        j["fill_value"] = fillValue;
-                }
-            }
+            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
@@ -420,22 +387,7 @@ namespace z5 {
             }
 
             // fill value
-            const auto & fillValJson = j.at("fill_value");
-            if(fillValJson.type() == nlohmann::json::value_t::string) {
-                if(fillValJson == "NaN") {
-                    fillValue = std::numeric_limits<double>::quiet_NaN();
-                } else if(fillValJson == "Infinity") {
-                    fillValue = std::numeric_limits<double>::infinity();
-                } else if(fillValJson == "-Infinity") {
-                    fillValue = -std::numeric_limits<double>::infinity();
-                } else {
-                    throw std::runtime_error("Invalid string value for fillValue");
-                }
-            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
-                fillValue = 0;
-            } else {
-                fillValue = static_cast<double>(fillValJson);
-            }
+            fillValue = types::fillValueFromJson(j.at("fill_value"), dtype, 3);
 
             // codecs: detect sharding, recover inner chunk shape + inner compressor
             const auto & codecs = j.at("codecs");
@@ -497,7 +449,10 @@ namespace z5 {
         types::Compressor compressor;
         types::CompressionOptions compressionOptions;
 
-        double fillValue;
+        // the fill value: an exact integer for integer types, a double for
+        // float types; see types/fill_value.hxx. Read the typed value with
+        // fillValueAs<T>().
+        types::FillValue fillValue;
         std::string zarrDelimiter;
 
         // zarr v3 specific: chunk key encoding ("default"/"v2") and the shard
@@ -526,6 +481,12 @@ namespace z5 {
         // zarr v3 specific: composed permutation of the ``transpose`` codecs
         // (numpy ``transpose`` semantics); empty == no transpose
         std::vector<std::size_t> transposeOrder;
+
+        // the fill value as the dataset's element type
+        template<class T>
+        T fillValueAs() const {
+            return types::fillValueAs<T>(fillValue);
+        }
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -585,7 +546,9 @@ namespace z5 {
     struct DatasetOptions {
         std::string compressor = "raw";
         types::CompressionOptions compressionOptions;
-        double fillValue = 0;
+        // any alternative is accepted and converted to the data type's form
+        // (see types::FillValue); int64_t / uint64_t keep 64-bit integers exact
+        types::FillValue fillValue = 0.;
         std::string zarrDelimiter = ".";
         int zarrFormat = 2;
         // zarr v3 only
@@ -694,10 +657,15 @@ namespace z5 {
             throw std::runtime_error("z5::createDatasetMetadata: crc32c is only supported for zarr v3");
         }
 
+        // zarr v3 refuses a non-integral fill value for integer types; zarr v2
+        // and n5 truncate it, as before
+        const types::FillValue fillValue = types::normalizeFillValue(options.fillValue, internalDtype,
+                                                                     createAsZarr && zarrFormat == 3);
+
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
-                                   options.fillValue, options.zarrDelimiter,
+                                   fillValue, options.zarrDelimiter,
                                    zarrFormat, options.chunkKeyEncoding, shardShape,
                                    dimensionNames);
         metadata.transposeOrder = order;
