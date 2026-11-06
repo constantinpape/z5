@@ -229,7 +229,13 @@ namespace z5 {
             // shapes and stuff
             //
             .def_prop_ro("shape", [](const Dataset & ds){return ds.shape();})
-            .def_prop_ro("len", [](const Dataset & ds){return ds.shape(0);})
+            .def_prop_ro("len", [](const Dataset & ds){
+                // as numpy, a zero-dimensional dataset has no length
+                if(ds.dimension() == 0) {
+                    throw nb::type_error("len() of unsized object");
+                }
+                return ds.shape(0);
+            })
             .def_prop_ro("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
             .def_prop_ro("shards", [](const Dataset & ds){return ds.shardShape();})
             .def_prop_ro("dimension_names", [](const Dataset & ds){return ds.dimensionNames();})
