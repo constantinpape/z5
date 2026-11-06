@@ -33,8 +33,22 @@ namespace types {
         int8, int16, int32, int64,
         uint8, uint16, uint32, uint64,
         float32, float64,
-        complex64, complex128, complex256
+        complex64, complex128, complex256,
+        // variable-length UTF-8 strings (zarr-python's "string" / ``|O`` +
+        // vlen-utf8); elements are std::string
+        vlen_utf8
     };
+
+    // variable-length element types: encoded by a vlen codec instead of ``bytes``
+    inline bool isVlenDtype(const Datatype dtype) {
+        return dtype == vlen_utf8;
+    }
+
+    // the array-to-bytes codec of a data type: zarr v3 codec name, and the
+    // zarr v2 filter id of ``|O`` arrays
+    inline std::string vlenCodecName(const Datatype dtype) {
+        return "vlen-utf8";
+    }
 
     struct Datatypes {
         typedef std::map<std::string, Datatype> DtypeMap;
@@ -60,14 +74,16 @@ namespace types {
         static DtypeMap & n5ToDtype() {
             static DtypeMap dtypeMap({{{"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
                                        {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
-                                       {"float32", float32}, {"float64", float64}}});
+                                       {"float32", float32}, {"float64", float64},
+                                       {"string", vlen_utf8}}});
             return dtypeMap;
         }
 
         static InverseDtypeMap & dtypeToN5() {
             static InverseDtypeMap dtypeMap({{{int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
                                               {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
-                                              {float32,"float32"}, {float64, "float64"}}});
+                                              {float32,"float32"}, {float64, "float64"},
+                                              {vlen_utf8, "string"}}});
             return dtypeMap;
         }
     };
@@ -805,7 +821,8 @@ namespace types {
                                      bool & bigEndian,
                                      std::vector<std::size_t> & transposeOrder,
                                      unsigned & crc32cBefore,
-                                     unsigned & crc32cAfter) {
+                                     unsigned & crc32cAfter,
+                                     const std::string & arrayToBytes="bytes") {
         compressor = raw;
         bigEndian = false;
         crc32cBefore = 0;
@@ -820,15 +837,30 @@ namespace types {
         for(const auto & c : jCodecs) {
             const std::string name = c.at("name").get<std::string>();
             const nlohmann::json cfg = c.contains("configuration") ? c.at("configuration") : nlohmann::json::object();
-            if(name == "bytes") {
+            // the array-to-bytes codec: ``bytes`` for fixed-size elements, a vlen
+            // codec for variable-length ones
+            if(name == "bytes" || name == "vlen-utf8" || name == "vlen-bytes") {
                 if(seenBytes) {
-                    throw std::runtime_error("z5: zarr v3 codecs must contain exactly one bytes codec");
+                    throw std::runtime_error("z5: zarr v3 codecs must contain exactly one " + arrayToBytes + " codec");
                 }
-                bigEndian = readV3BytesEndian(cfg, typesize);
+                if(name != arrayToBytes) {
+                    throw std::runtime_error("z5: zarr v3 " + name + " codec does not fit the data type, which needs " +
+                                             arrayToBytes);
+                }
+                if(name == "bytes") {
+                    bigEndian = readV3BytesEndian(cfg, typesize);
+                } else if(!cfg.empty()) {
+                    throw std::runtime_error("z5: zarr v3 " + name + " codec has an unsupported configuration");
+                }
                 seenBytes = true;
                 continue;
             }
             if(name == "transpose") {
+                // a transpose of variable-length elements isn't supported yet
+                if(arrayToBytes != "bytes") {
+                    throw std::runtime_error("z5: zarr v3 transpose codec is not supported for variable-length "
+                                             "data types");
+                }
                 if(seenBytes) {
                     throw std::runtime_error("z5: zarr v3 transpose codec must come before the bytes codec");
                 }
@@ -845,7 +877,7 @@ namespace types {
                 throw std::runtime_error("z5: unsupported zarr v3 codec: " + name);
             }
             if(!seenBytes) {
-                throw std::runtime_error("z5: zarr v3 " + name + " codec must come after the bytes codec");
+                throw std::runtime_error("z5: zarr v3 " + name + " codec must come after the " + arrayToBytes + " codec");
             }
             if(name == "crc32c") {
                 // no configuration in the spec; refuse anything we would ignore
@@ -865,7 +897,7 @@ namespace types {
             readV3Compressor(name, cfg, typesize, compressor, options);
         }
         if(!seenBytes) {
-            throw std::runtime_error("z5: zarr v3 codecs must contain exactly one bytes codec");
+            throw std::runtime_error("z5: zarr v3 codecs must contain exactly one " + arrayToBytes + " codec");
         }
         // without a compressor, crc32c codecs simply follow each other
         if(!seenCompressor) {

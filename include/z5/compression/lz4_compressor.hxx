@@ -77,6 +77,28 @@ namespace compression {
             }
 		}
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            // only numcodecs' framing (zarr v3) records the decompressed size
+            if(!sizeHeader_) {
+                throw std::runtime_error("z5: lz4 blocks without a size header (zarr v2, n5) can't hold "
+                                         "variable-length chunks");
+            }
+            if(nBytesIn < 4) {
+                throw std::runtime_error("Exception during lz4 decompression: missing size header");
+            }
+            const unsigned char * p = reinterpret_cast<const unsigned char *>(dataIn);
+            const std::size_t stored = std::size_t(p[0]) | (std::size_t(p[1]) << 8) |
+                                       (std::size_t(p[2]) << 16) | (std::size_t(p[3]) << 24);
+            out.resize(stored);
+            if(stored == 0) {
+                return;
+            }
+            const int decompressed = LZ4_decompress_safe(dataIn + 4, out.data(), nBytesIn - 4, stored);
+            if(decompressed < 0 || static_cast<std::size_t>(decompressed) != stored) {
+                throw std::runtime_error("Exception during lz4 decompression: (" + std::to_string(decompressed) + ")");
+            }
+        }
+
         inline types::Compressor type() const {
             return types::lz4;
         }
