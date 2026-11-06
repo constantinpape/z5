@@ -983,5 +983,72 @@ class TestInteropZarrPyZeroDim(unittest.TestCase):
             z5py.File(self.path, mode="r")["sharded"]
 
 
+@requires_zarr_v3
+class TestInteropZarrPyStrings(unittest.TestCase):
+    """Variable-length string arrays written by zarr-python (``dtype=str``), read by z5."""
+    path = "interop_strings.zr"
+    data = np.array([["a", "h\u00e9llo", "", "xyz\u20ac", "q"],
+                     ["long " * 50, "b", "c", "\u65e5\u672c", "z"],
+                     ["x", "", "y", "tab\there", "end"]], dtype=object)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _layouts(self, zarr_format):
+        from z5py.dataset import AVAILABLE_COMPRESSORS
+        layouts = {"default": {}, "raw": {"compressors": None}, "fill": {"fill_value": "zz"}}
+        if zarr_format == 2:
+            layouts["zlib"] = {"compressors": numcodecs.Zlib()}
+            layouts["gzip"] = {"compressors": numcodecs.GZip()}
+            if AVAILABLE_COMPRESSORS["blosc"]:
+                layouts["blosc"] = {"compressors": numcodecs.Blosc()}
+            if not AVAILABLE_COMPRESSORS["zstd"]:
+                del layouts["default"], layouts["fill"]
+        else:
+            from zarr.codecs import BloscCodec, Crc32cCodec, GzipCodec
+            layouts["gzip"] = {"compressors": GzipCodec()}
+            layouts["crc32c"] = {"compressors": [GzipCodec(), Crc32cCodec()]}
+            layouts["sharded"] = {"compressors": GzipCodec(), "shards": (2, 4)}
+            layouts["v2_keys"] = {"compressors": None, "chunk_key_encoding": {"name": "v2"}}
+            if AVAILABLE_COMPRESSORS["blosc"]:
+                layouts["blosc"] = {"compressors": BloscCodec()}
+            if not AVAILABLE_COMPRESSORS["zstd"]:
+                del layouts["default"], layouts["fill"]
+        return layouts
+
+    def _check(self, zarr_format):
+        zarr.open_group(self.path, mode="w", zarr_format=zarr_format)
+        for name, kwargs in self._layouts(zarr_format).items():
+            za = zarr.create_array(store=self.path, name=name, shape=self.data.shape, chunks=(2, 2),
+                                   dtype=str, zarr_format=zarr_format, **kwargs)
+            # leave the last column unwritten: it reads as the fill value
+            za[:, :4] = self.data[:, :4]
+            expected = za[:]
+            ds = z5py.File(self.path, mode="r")[name]
+            out = ds[:]
+            self.assertEqual(out.tolist(), expected.tolist(), name)
+            self.assertEqual(ds.fillvalue, za.fill_value, name)
+            self.assertEqual(ds[1, 3], expected[1, 3], name)
+            self.assertEqual(ds[1:, 2:].tolist(), expected[1:, 2:].tolist(), name)
+
+    def test_v2(self):
+        self._check(2)
+
+    @requires_z5_v3
+    def test_v3(self):
+        self._check(3)
+
+    @requires_z5_v3
+    def test_zero_dim(self):
+        zarr.open_group(self.path, mode="w", zarr_format=3)
+        za = zarr.create_array(store=self.path, name="s", shape=(), dtype=str, zarr_format=3,
+                               compressors=None)
+        za[()] = "only \u00fcne"
+        self.assertEqual(z5py.File(self.path, mode="r")["s"][()], "only \u00fcne")
+
+
 if __name__ == '__main__':
     unittest.main()
