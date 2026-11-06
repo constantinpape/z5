@@ -545,7 +545,7 @@ namespace z5 {
             if(filters.is_array() && filters.size() == 1 && filters[0].is_object()) {
                 const auto & f = filters[0];
                 const std::string id = f.value("id", std::string());
-                for(const auto candidate : {types::vlen_utf8}) {
+                for(const auto candidate : {types::vlen_utf8, types::vlen_bytes}) {
                     if(id == types::vlenCodecName(candidate)) {
                         // numcodecs' vlen codecs have no settings
                         if(f.size() != 1) {
@@ -556,7 +556,7 @@ namespace z5 {
                 }
             }
             throw std::runtime_error("z5: zarr v2 object arrays (|O) are only supported with a single "
-                                     "vlen-utf8 filter, got " + filters.dump());
+                                     "vlen-utf8 or vlen-bytes filter, got " + filters.dump());
         }
 
         // make sure that fixed metadata values agree
