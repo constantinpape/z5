@@ -9,8 +9,10 @@ This file is the executable specification for the upcoming v3 implementation:
 it targets the proposed z5py API (``zarr_format=3`` on ``File``/``ZarrFile`` and
 ``shards=`` / ``chunk_key_encoding=`` on ``create_dataset``).
 """
+import bz2
 import gzip
 import json
+import lzma
 import os
 import unittest
 import zlib
@@ -1315,6 +1317,168 @@ class TestZarrV3ZstdChecksum(unittest.TestCase):
             f.write(blob)
         with self.assertRaises(RuntimeError):
             z5py.File(self.path, mode='r')['checksum'][:8, :8]
+
+
+# numcodecs.* codec name -> z5 compression name
+NUMCODECS_TO_Z5 = {'zlib': 'zlib', 'gzip': 'gzip', 'bz2': 'bzip2', 'lzma': 'xz',
+                   'lz4': 'lz4', 'zstd': 'zstd', 'blosc': 'blosc'}
+
+
+def _available_numcodecs():
+    from z5py.dataset import Dataset
+    return [n for n, z in NUMCODECS_TO_Z5.items() if z in Dataset.compressors_zarr_v3]
+
+
+@requires_z5_v3
+class TestZarrV3Numcodecs(unittest.TestCase):
+    """The ``numcodecs.*`` codecs zarr-python writes for numcodecs compressors.
+
+    Each test swaps the codec list of an empty dataset in zarr.json, writes
+    through z5, and decodes the chunk files with the standard library where
+    it can.
+    """
+    path = 'test_v3_numcodecs.zr'
+    shape = (20, 18)
+    chunks = (8, 8)
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _require(self, codec):
+        if codec not in _available_numcodecs():
+            self.skipTest('%s is not compiled in' % NUMCODECS_TO_Z5[codec])
+
+    def _meta_path(self, name):
+        return os.path.join(self.path, name, 'zarr.json')
+
+    def _create(self, codec, config, name=None, shards=None):
+        name = name or codec
+        self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                 dtype='int32', compression='raw', shards=shards)
+        with open(self._meta_path(name)) as f:
+            meta = json.load(f)
+        codecs = [{'name': 'bytes', 'configuration': {'endian': 'little'}},
+                  {'name': 'numcodecs.' + codec, 'configuration': config}]
+        if shards is None:
+            meta['codecs'] = codecs
+        else:
+            meta['codecs'][0]['configuration']['codecs'] = codecs
+        with open(self._meta_path(name), 'w') as f:
+            json.dump(meta, f)
+        return name
+
+    def _write(self, name):
+        ds = z5py.File(self.path, mode='a')[name]
+        data = _random(self.shape, 'int32')
+        ds[:] = data
+        new = _random((7, 9), 'int32')
+        ds[5:12, 3:12] = new
+        data[5:12, 3:12] = new
+        np.testing.assert_array_equal(ds[:], data, err_msg=name)
+        np.testing.assert_array_equal(z5py.File(self.path, mode='r')[name][:], data, err_msg=name)
+        return data
+
+    def _chunk(self, name):
+        with open(os.path.join(self.path, name, 'c', '0', '0'), 'rb') as f:
+            return f.read()
+
+    @staticmethod
+    def _stdlib_decode(codec, blob):
+        """Decode a chunk as numcodecs would; None if the stdlib can't."""
+        if codec == 'zlib':
+            return zlib.decompress(blob)
+        if codec == 'gzip':
+            return gzip.decompress(blob)
+        if codec == 'bz2':
+            return bz2.decompress(blob)
+        if codec == 'lzma':
+            return lzma.decompress(blob, format=lzma.FORMAT_XZ)
+        return None
+
+    def _check_chunk(self, codec, name, data):
+        blob = self._chunk(name)
+        if codec == 'lz4':
+            # numcodecs framing: the uncompressed size as uint32 LE first
+            self.assertEqual(int.from_bytes(blob[:4], 'little'), 8 * 8 * 4)
+        decoded = self._stdlib_decode(codec, blob)
+        if decoded is not None:
+            np.testing.assert_array_equal(np.frombuffer(decoded, dtype='<i4').reshape(self.chunks),
+                                          data[:8, :8], err_msg=name)
+
+    def test_default_configurations(self):
+        # zarr-python writes an empty configuration when all settings are defaults
+        for codec in _available_numcodecs():
+            name = self._create(codec, {})
+            self._check_chunk(codec, name, self._write(name))
+
+    def test_configurations(self):
+        configs = {'zlib': {'level': 6}, 'gzip': {'level': 6}, 'bz2': {'level': 7},
+                   'lzma': {'format': 1, 'check': 10, 'preset': 4, 'filters': None},
+                   'lz4': {'acceleration': 3}, 'zstd': {'level': 5, 'checksum': True},
+                   'blosc': {'cname': 'zstd', 'clevel': 4, 'shuffle': 2, 'blocksize': 0}}
+        for codec in _available_numcodecs():
+            name = self._create(codec, configs[codec])
+            self._check_chunk(codec, name, self._write(name))
+
+    def test_lzma_checks(self):
+        self._require('lzma')
+        # the check is recorded in the xz stream header (byte 7 of the stream flags)
+        for check in (-1, 0, 1, 4, 10):
+            name = self._create('lzma', {'check': check}, name='lzma_%i' % check)
+            data = self._write(name)
+            blob = self._chunk(name)
+            self.assertEqual(blob[7], 4 if check == -1 else check)
+            self._check_chunk('lzma', name, data)
+
+    def test_sharded(self):
+        for codec in _available_numcodecs():
+            name = self._create(codec, {}, name=codec + '_sharded', shards=(16, 16))
+            self._write(name)
+
+    def _assert_refused(self, codec, config):
+        self._require(codec)
+        name = self._create(codec, config)
+        with self.assertRaises(RuntimeError, msg=str(config)):
+            z5py.File(self.path, mode='r')[name]
+        rmtree(os.path.join(self.path, name))
+
+    def test_refused_configurations(self):
+        self._assert_refused('lzma', {'format': 2})
+        self._assert_refused('lzma', {'filters': [{'id': 33}]})
+        self._assert_refused('lzma', {'check': 2})
+        self._assert_refused('lzma', {'preset': 12})
+        self._assert_refused('bz2', {'level': 0})
+        self._assert_refused('zlib', {'level': 'high'})
+        self._assert_refused('zlib', {'level': 5, 'wbits': 15})
+        self._assert_refused('lz4', {'mode': 'fast'})
+
+    def test_create(self):
+        # z5py creates zarr v3 arrays with the non-core codecs under their numcodecs names
+        for z5_name, codec in (('zlib', 'zlib'), ('bzip2', 'bz2'), ('xz', 'lzma'), ('lz4', 'lz4')):
+            if codec not in _available_numcodecs():
+                continue
+            name = 'created_' + z5_name
+            self.root.create_dataset(name, shape=self.shape, chunks=self.chunks,
+                                     dtype='int32', compression=z5_name)
+            with open(self._meta_path(name)) as f:
+                stored = json.load(f)['codecs'][1]
+            self.assertEqual(stored['name'], 'numcodecs.' + codec)
+            self._check_chunk(codec, name, self._write(name))
+
+    def test_create_gzip_is_core(self):
+        self._require('gzip')
+        self.root.create_dataset('g', shape=self.shape, chunks=self.chunks,
+                                 dtype='int32', compression='gzip')
+        with open(self._meta_path('g')) as f:
+            self.assertEqual(json.load(f)['codecs'][1]['name'], 'gzip')
+        self._check_chunk('gzip', 'g', self._write('g'))
 
 
 @requires_z5_v3_sharding

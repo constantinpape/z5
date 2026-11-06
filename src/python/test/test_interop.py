@@ -749,6 +749,84 @@ class TestInteropZarrPyV3Crc32c(unittest.TestCase):
 
 
 @requires_z5_v3
+@requires_zarr_v3
+class TestInteropZarrPyV3Numcodecs(unittest.TestCase):
+    """zarr-python arrays with numcodecs compressors (``numcodecs.*`` codec names)."""
+    path = "interop_numcodecs.zr"
+    shape = (37, 29)
+    chunks = (8, 8)
+    shards = (16, 16)
+    # numcodecs name -> z5 compression name
+    names = {"zlib": "zlib", "gzip": "gzip", "bz2": "bzip2", "lzma": "xz",
+             "lz4": "lz4", "zstd": "zstd", "blosc": "blosc"}
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _codecs(self):
+        """(label, codec) pairs: each numcodecs compressor with default and other settings."""
+        import warnings
+        from z5py.dataset import Dataset
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from zarr.codecs import numcodecs as zn
+        variants = {"zlib": [zn.Zlib(), zn.Zlib(level=6)],
+                    "gzip": [zn.GZip(), zn.GZip(level=6)],
+                    "bz2": [zn.BZ2(), zn.BZ2(level=7)],
+                    "lzma": [zn.LZMA(), zn.LZMA(preset=4, check=10)],
+                    "lz4": [zn.LZ4(), zn.LZ4(acceleration=3)],
+                    "zstd": [zn.Zstd(), zn.Zstd(level=5, checksum=True)],
+                    "blosc": [zn.Blosc(), zn.Blosc(cname="zstd", clevel=4, shuffle=2)]}
+        return [("%s_%i" % (name, i), codec)
+                for name, codecs in variants.items() if self.names[name] in Dataset.compressors_zarr_v3
+                for i, codec in enumerate(codecs)]
+
+    def _check(self, sharded):
+        for label, codec in self._codecs():
+            kwargs = {"chunks": self.chunks}
+            if sharded:
+                kwargs["shards"] = self.shards
+            za = zarr.create_array(store=self.path, name=label, shape=self.shape, dtype="int32",
+                                   compressors=[codec], zarr_format=3, **kwargs)
+            data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+            za[:] = data
+
+            # zarr -> z5
+            ds = z5py.File(self.path, mode="a")[label]
+            np.testing.assert_array_equal(ds[:], data, err_msg=label)
+
+            # z5 -> zarr: partial write, z5 re-encodes with the same codec
+            new = np.random.randint(0, 1000, size=(20, 11)).astype("int32")
+            ds[3:23, 10:21] = new
+            data[3:23, 10:21] = new
+            out = zarr.open_array(store=self.path, path=label, mode="r")[:]
+            np.testing.assert_array_equal(out, data, err_msg=label)
+
+    def test_zarr_created(self):
+        self._check(sharded=False)
+
+    @requires_z5_v3_sharding
+    def test_zarr_created_sharded(self):
+        self._check(sharded=True)
+
+    def test_z5_created(self):
+        from z5py.dataset import Dataset
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        for compression in ("zlib", "bzip2", "xz", "lz4"):
+            if compression not in Dataset.compressors_zarr_v3:
+                continue
+            ds = f.create_dataset(compression, shape=self.shape, chunks=self.chunks,
+                                  dtype="int32", compression=compression)
+            data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+            ds[:] = data
+            out = zarr.open_array(store=self.path, path=compression, mode="r")[:]
+            np.testing.assert_array_equal(out, data, err_msg=compression)
+
+
+@requires_z5_v3
 @requires_tensorstore
 class TestInteropTsV3(InteropMixin, unittest.TestCase):
     library = "tensorstore"
