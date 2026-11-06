@@ -35,19 +35,20 @@ namespace types {
         float32, float64,
         complex64, complex128, complex256,
         // variable-length UTF-8 strings (zarr-python's "string" / ``|O`` +
-        // vlen-utf8); elements are std::string
-        vlen_utf8
+        // vlen-utf8) and byte strings ("variable_length_bytes" / ``|O`` +
+        // vlen-bytes); elements are std::string for both
+        vlen_utf8, vlen_bytes
     };
 
     // variable-length element types: encoded by a vlen codec instead of ``bytes``
     inline bool isVlenDtype(const Datatype dtype) {
-        return dtype == vlen_utf8;
+        return dtype == vlen_utf8 || dtype == vlen_bytes;
     }
 
     // the array-to-bytes codec of a data type: zarr v3 codec name, and the
     // zarr v2 filter id of ``|O`` arrays
     inline std::string vlenCodecName(const Datatype dtype) {
-        return "vlen-utf8";
+        return dtype == vlen_bytes ? "vlen-bytes" : "vlen-utf8";
     }
 
     struct Datatypes {
@@ -75,7 +76,7 @@ namespace types {
             static DtypeMap dtypeMap({{{"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
                                        {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
                                        {"float32", float32}, {"float64", float64},
-                                       {"string", vlen_utf8}}});
+                                       {"string", vlen_utf8}, {"variable_length_bytes", vlen_bytes}}});
             return dtypeMap;
         }
 
@@ -83,7 +84,7 @@ namespace types {
             static InverseDtypeMap dtypeMap({{{int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
                                               {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
                                               {float32,"float32"}, {float64, "float64"},
-                                              {vlen_utf8, "string"}}});
+                                              {vlen_utf8, "string"}, {vlen_bytes, "variable_length_bytes"}}});
             return dtypeMap;
         }
     };

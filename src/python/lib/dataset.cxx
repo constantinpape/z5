@@ -176,65 +176,116 @@ namespace z5 {
 
 
     //
-    // variable-length strings: the elements are std::string, exchanged with python
-    // as flat lists of str (z5py turns them into numpy arrays)
+    // variable-length strings and byte strings: the elements are std::string,
+    // exchanged with python as flat lists of str (vlen-utf8) or bytes (vlen-bytes);
+    // z5py turns them into numpy arrays. BYTES selects the kind; the items are
+    // converted with the GIL held, and the IO runs without it.
     //
 
-    inline void checkStringDataset(const Dataset & ds) {
-        if(!types::isVlenDtype(ds.getDtype())) {
-            throw std::runtime_error("z5: not a string dataset");
+    template<bool BYTES>
+    inline void checkVlenDataset(const Dataset & ds) {
+        if(ds.getDtype() != (BYTES ? types::vlen_bytes : types::vlen_utf8)) {
+            throw std::runtime_error(BYTES ? "z5: not a variable-length bytes dataset" : "z5: not a string dataset");
         }
     }
 
+    inline std::size_t regionSize(const std::vector<std::size_t> & shape) {
+        return std::accumulate(shape.begin(), shape.end(), std::size_t(1), std::multiplies<std::size_t>());
+    }
+
+    template<bool BYTES>
+    inline nb::list toPyItems(const std::vector<std::string> & items) {
+        nb::list out;
+        for(const auto & item : items) {
+            if constexpr(BYTES) {
+                out.append(nb::bytes(item.data(), item.size()));
+            } else {
+                // decodes UTF-8; invalid data raises UnicodeDecodeError
+                out.append(nb::str(item.data(), item.size()));
+            }
+        }
+        return out;
+    }
+
+    template<bool BYTES>
+    inline std::vector<std::string> fromPyItems(const nb::handle & seq) {
+        std::vector<std::string> items;
+        for(const nb::handle h : nb::iter(seq)) {
+            if constexpr(BYTES) {
+                if(!nb::isinstance<nb::bytes>(h)) {
+                    throw nb::type_error("variable-length bytes datasets take bytes items");
+                }
+                const nb::bytes b = nb::borrow<nb::bytes>(h);
+                items.emplace_back(b.c_str(), b.size());
+            } else {
+                if(!nb::isinstance<nb::str>(h)) {
+                    throw nb::type_error("string datasets take str items");
+                }
+                Py_ssize_t n = 0;
+                const char * utf8 = PyUnicode_AsUTF8AndSize(h.ptr(), &n);
+                if(utf8 == nullptr) {
+                    throw nb::python_error();
+                }
+                items.emplace_back(utf8, static_cast<std::size_t>(n));
+            }
+        }
+        return items;
+    }
+
     // read the region [roiBegin, roiBegin + shape) in C order
-    inline std::vector<std::string> readPyStringSubarray(const Dataset & ds,
-                                                         const std::vector<std::size_t> & roiBegin,
-                                                         const std::vector<std::size_t> & shape,
-                                                         const int numberOfThreads) {
-        checkStringDataset(ds);
-        const std::size_t size = std::accumulate(shape.begin(), shape.end(), std::size_t(1),
-                                                 std::multiplies<std::size_t>());
-        std::vector<std::string> out(size);
+    template<bool BYTES>
+    inline nb::list readPyVlenSubarray(const Dataset & ds,
+                                       const std::vector<std::size_t> & roiBegin,
+                                       const std::vector<std::size_t> & shape,
+                                       const int numberOfThreads) {
+        checkVlenDataset<BYTES>(ds);
+        std::vector<std::string> out(regionSize(shape));
         {
             nb::gil_scoped_release lift_gil;
             const auto view = multiarray::makeView(out.data(), types::ShapeType(shape.begin(), shape.end()));
             multiarray::readSubarray<std::string>(ds, view, roiBegin.begin(), numberOfThreads);
         }
-        return out;
+        return toPyItems<BYTES>(out);
     }
 
     // write `items` (C order) to the region [roiBegin, roiBegin + shape)
-    inline void writePyStringSubarray(const Dataset & ds,
-                                      const std::vector<std::string> & items,
-                                      const std::vector<std::size_t> & roiBegin,
-                                      const std::vector<std::size_t> & shape,
-                                      const int numberOfThreads) {
-        checkStringDataset(ds);
-        const std::size_t size = std::accumulate(shape.begin(), shape.end(), std::size_t(1),
-                                                 std::multiplies<std::size_t>());
-        if(items.size() != size) {
-            throw std::runtime_error("z5: got " + std::to_string(items.size()) + " strings for a region of " +
+    template<bool BYTES>
+    inline void writePyVlenSubarray(const Dataset & ds,
+                                    const nb::handle & items,
+                                    const std::vector<std::size_t> & roiBegin,
+                                    const std::vector<std::size_t> & shape,
+                                    const int numberOfThreads) {
+        checkVlenDataset<BYTES>(ds);
+        const auto data = fromPyItems<BYTES>(items);
+        const std::size_t size = regionSize(shape);
+        if(data.size() != size) {
+            throw std::runtime_error("z5: got " + std::to_string(data.size()) + " items for a region of " +
                                      std::to_string(size));
         }
-        const auto view = multiarray::makeView(items.data(), types::ShapeType(shape.begin(), shape.end()));
+        nb::gil_scoped_release lift_gil;
+        const auto view = multiarray::makeView(data.data(), types::ShapeType(shape.begin(), shape.end()));
         multiarray::writeSubarray<std::string>(ds, view, roiBegin.begin(), numberOfThreads);
     }
 
     // write one full chunk (zarr chunks always hold the full chunk shape)
-    inline void writePyStringChunk(const Dataset & ds, const types::ShapeType & chunkId,
-                                   const std::vector<std::string> & items) {
-        checkStringDataset(ds);
-        if(items.size() != ds.defaultChunkSize()) {
+    template<bool BYTES>
+    inline void writePyVlenChunk(const Dataset & ds, const types::ShapeType & chunkId,
+                                 const nb::handle & items) {
+        checkVlenDataset<BYTES>(ds);
+        const auto data = fromPyItems<BYTES>(items);
+        if(data.size() != ds.defaultChunkSize()) {
             throw std::runtime_error("Chunk data has the wrong number of elements: " +
-                                     std::to_string(items.size()) + " instead of " +
+                                     std::to_string(data.size()) + " instead of " +
                                      std::to_string(ds.defaultChunkSize()));
         }
-        ds.writeChunk(chunkId, items.data());
+        nb::gil_scoped_release lift_gil;
+        ds.writeChunk(chunkId, data.data());
     }
 
     // read one chunk (zarr: always the full chunk shape); None if it doesn't exist
-    inline nb::object readPyStringChunk(const Dataset & ds, const types::ShapeType & chunkId) {
-        checkStringDataset(ds);
+    template<bool BYTES>
+    inline nb::object readPyVlenChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+        checkVlenDataset<BYTES>(ds);
         std::vector<std::string> out;
         bool exists;
         {
@@ -248,7 +299,20 @@ namespace z5 {
         if(!exists) {
             return nb::none();
         }
-        return nb::cast(out);
+        return toPyItems<BYTES>(out);
+    }
+
+    template<bool BYTES>
+    void exportVlenIo(nb::module_ & module, const std::string & kind) {
+        module.def(("read_subarray_" + kind).c_str(), &readPyVlenSubarray<BYTES>,
+                   nb::arg("ds"), nb::arg("roi_begin"), nb::arg("shape"), nb::arg("n_threads")=1);
+        module.def(("write_subarray_" + kind).c_str(), &writePyVlenSubarray<BYTES>,
+                   nb::arg("ds"), nb::arg("items"), nb::arg("roi_begin"), nb::arg("shape"),
+                   nb::arg("n_threads")=1);
+        module.def(("read_chunk_" + kind).c_str(), &readPyVlenChunk<BYTES>,
+                   nb::arg("ds"), nb::arg("chunkId"));
+        module.def(("write_chunk_" + kind).c_str(), &writePyVlenChunk<BYTES>,
+                   nb::arg("ds"), nb::arg("chunkId"), nb::arg("items"));
     }
 
 
@@ -347,36 +411,33 @@ namespace z5 {
             .def_prop_ro("fill_value_bytes", [](const Dataset & ds){
                 // getFillValue writes one element; a string isn't a fixed-size one
                 if(types::isVlenDtype(ds.getDtype())) {
-                    throw std::runtime_error("z5: use fill_value_string for string datasets");
+                    throw std::runtime_error("z5: use fill_value_vlen for variable-length datasets");
                 }
                 char buffer[32] = {};
                 ds.getFillValue(buffer);
                 return nb::bytes(buffer, types::datatypeSize(ds.getDtype()));
             })
 
-            .def_prop_ro("fill_value_string", [](const Dataset & ds){
-                checkStringDataset(ds);
+            // the fill value of a variable-length dataset: str, or bytes for vlen-bytes
+            .def_prop_ro("fill_value_vlen", [](const Dataset & ds) -> nb::object {
+                if(!types::isVlenDtype(ds.getDtype())) {
+                    throw std::runtime_error("z5: not a variable-length dataset");
+                }
                 std::string fill;
                 ds.getFillValue(&fill);
-                return fill;
+                if(ds.getDtype() == types::vlen_bytes) {
+                    return nb::bytes(fill.data(), fill.size());
+                }
+                return nb::str(fill.data(), fill.size());
             })
 
             .def("remove_chunk", &Dataset::removeChunk, nb::arg("chunk_id"),
                  nb::call_guard<nb::gil_scoped_release>())
         ;
 
-        // variable-length strings
-        module.def("read_subarray_string", &readPyStringSubarray,
-                   nb::arg("ds"), nb::arg("roi_begin"), nb::arg("shape"), nb::arg("n_threads")=1);
-        module.def("read_chunk_string", &readPyStringChunk,
-                   nb::arg("ds"), nb::arg("chunkId"));
-        // the strings are converted from python before the GIL is released
-        module.def("write_subarray_string", &writePyStringSubarray,
-                   nb::arg("ds"), nb::arg("items"), nb::arg("roi_begin"), nb::arg("shape"),
-                   nb::arg("n_threads")=1, nb::call_guard<nb::gil_scoped_release>());
-        module.def("write_chunk_string", &writePyStringChunk,
-                   nb::arg("ds"), nb::arg("chunkId"), nb::arg("items"),
-                   nb::call_guard<nb::gil_scoped_release>());
+        // variable-length strings and byte strings
+        exportVlenIo<false>(module, "string");
+        exportVlenIo<true>(module, "bytes");
 
         // export I/O for all dtypes
         // integer types

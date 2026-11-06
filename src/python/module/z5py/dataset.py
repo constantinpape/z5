@@ -7,6 +7,7 @@ methods. Datasets are not created directly; use
 :meth:`z5py.Group.create_dataset` / :meth:`z5py.Group.require_dataset` or the
 ``[]`` operator of a :class:`z5py.File` / :class:`z5py.Group`.
 """
+import base64
 import numbers
 import json
 
@@ -24,18 +25,35 @@ STRING_DTYPE = (np.dtypes.StringDType() if hasattr(getattr(np, 'dtypes', None), 
                 else np.dtype(object))
 
 
-def _is_string_dtype(dtype):
-    """ True if ``dtype`` asks for a variable-length string dataset: ``str``,
-    numpy's StringDType or object. A fixed-length ``U<n>`` is not one (zarr-python
-    stores those as fixed-length strings).
+# variable-length data types, by their name in the C++ layer: the python item
+# type, the numpy dtype of read arrays, and the numpy kinds of arrays that can be
+# written (zarr-python returns object arrays of bytes for variable_length_bytes)
+VLEN_KINDS = {
+    'string': (str, STRING_DTYPE, ('U', 'T', 'O')),
+    'variable_length_bytes': (bytes, np.dtype(object), ('S', 'O')),
+}
+# suffix of the _z5py IO functions for each kind
+_VLEN_SUFFIX = {'string': 'string', 'variable_length_bytes': 'bytes'}
+
+
+def _vlen_kind(dtype):
+    """ The variable-length kind ``dtype`` asks for, or None.
+
+    ``str``, numpy's StringDType and object give 'string'; ``bytes`` (``S0``) gives
+    'variable_length_bytes'. Fixed-length ``U<n>`` / ``S<n>`` are not variable-length
+    (zarr-python stores those as fixed-length strings).
     """
     if dtype is str:
-        return True
+        return 'string'
     try:
         parsed = np.dtype(dtype)
     except TypeError:
-        return False
-    return parsed.kind in ('T', 'O') or (parsed.kind == 'U' and parsed.itemsize == 0)
+        return None
+    if parsed.kind in ('T', 'O') or (parsed.kind == 'U' and parsed.itemsize == 0):
+        return 'string'
+    if parsed.kind == 'S' and parsed.itemsize == 0:
+        return 'variable_length_bytes'
+    return None
 
 
 def _navigate(file_obj, name):
@@ -252,8 +270,8 @@ class Dataset:
                     raise TypeError("Chunks do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.chunks)),
                                                                                          ', '.join(map(str, chunks))))
             if dtype is not None:
-                if ds._is_string or _is_string_dtype(dtype):
-                    if ds._is_string != _is_string_dtype(dtype):
+                if ds._vlen or _vlen_kind(dtype):
+                    if ds._vlen != _vlen_kind(dtype):
                         raise TypeError("Datatypes do not match (existing %s vs new %s)"
                                         % (str(ds.dtype), str(dtype)))
                 elif np.dtype(dtype) != ds.dtype:
@@ -328,9 +346,9 @@ class Dataset:
                 raise ValueError("Shape is incompatible with data")
             if dtype is None:
                 dtype = data.dtype
-            elif _is_string_dtype(dtype):
-                # any numpy text array can fill a string dataset
-                if data.dtype.kind not in ('U', 'T', 'O'):
+            elif _vlen_kind(dtype):
+                # any numpy text (or bytes) array can fill a string (or bytes) dataset
+                if data.dtype.kind not in VLEN_KINDS[_vlen_kind(dtype)][2]:
                     raise ValueError("Datatype is incompatible with data")
             # NOTE In contrast to h5py, we don't do automatic type conversion
             elif np.dtype(dtype) != data.dtype:
@@ -342,8 +360,8 @@ class Dataset:
             # as default data type, but require a data type if no data is given
             if dtype is None:
                 raise TypeError("One of dtype or data must be specified")
-        is_string = _is_string_dtype(dtype)
-        parsed_dtype = STRING_DTYPE if is_string else np.dtype(dtype)
+        vlen = _vlen_kind(dtype)
+        parsed_dtype = VLEN_KINDS[vlen][1] if vlen else np.dtype(dtype)
 
         # get default chunks if necessary
         # NOTE in contrast to h5py, datasets are chunked
@@ -358,23 +376,29 @@ class Dataset:
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
         is_zarr = ghandle.is_zarr()
 
-        if is_string:
-            dtype_name = 'string'
+        if vlen:
+            dtype_name = vlen
+            item_type = VLEN_KINDS[vlen][0]
             if not is_zarr:
-                raise ValueError("String datasets are only supported for zarr")
+                raise ValueError("Variable-length datasets are only supported for zarr")
             if transpose is not None:
-                raise ValueError("Transpose is not supported for string datasets")
-            # the numeric default 0 means the empty string
+                raise ValueError("Transpose is not supported for variable-length datasets")
+            # the numeric default 0 means the empty string / bytes
             if isinstance(fillvalue, numbers.Number) and fillvalue == 0:
-                fillvalue = ''
-            if not isinstance(fillvalue, str):
-                raise ValueError("The fill value of a string dataset must be a str, got %r" % (fillvalue,))
-            fill_kwargs = {'fill_value_string': fillvalue}
+                fillvalue = item_type()
+            if not isinstance(fillvalue, item_type):
+                raise ValueError("The fill value of a %s dataset must be %s, got %r"
+                                 % (vlen, item_type.__name__, fillvalue))
+            # bytes travel base64-encoded, the form the metadata stores them in
+            fill_kwargs = ({'fill_value_string': fillvalue} if item_type is str else
+                           {'fill_value_base64': base64.b64encode(fillvalue).decode('ascii')})
             fillvalue = 0
         else:
-            if parsed_dtype.kind == 'U':
-                raise ValueError("Fixed-length string data type {} is not supported; use dtype=str for "
-                                 "variable-length strings".format(repr(dtype)))
+            if parsed_dtype.kind in ('U', 'S'):
+                raise ValueError("Fixed-length data type {} is not supported; use dtype={} for "
+                                 "variable-length {}".format(repr(dtype),
+                                                             'str' if parsed_dtype.kind == 'U' else 'bytes',
+                                                             'strings' if parsed_dtype.kind == 'U' else 'bytes'))
             if parsed_dtype not in cls._dtype_dict:
                 raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
             dtype_name = cls._dtype_dict[parsed_dtype]
@@ -503,8 +527,8 @@ class Dataset:
 
         n5 doesn't store a fill value, so it is 0 for an opened n5 dataset.
         """
-        if self._is_string:
-            return self._impl.fill_value_string
+        if self._vlen:
+            return self._impl.fill_value_vlen
         return np.frombuffer(self._impl.fill_value_bytes, dtype=self.dtype)[0]
 
     @property
@@ -530,35 +554,40 @@ class Dataset:
 
     @property
     def dtype(self):
-        """ Datatype of this dataset; ``STRING_DTYPE`` for variable-length strings.
+        """ Datatype of this dataset: ``STRING_DTYPE`` for variable-length strings,
+        object (arrays of bytes) for variable-length bytes.
         """
-        return STRING_DTYPE if self._is_string else np.dtype(self._impl.dtype)
+        return VLEN_KINDS[self._vlen][1] if self._vlen else np.dtype(self._impl.dtype)
 
     @property
-    def _is_string(self):
-        """ True for variable-length string datasets (zarr "string" / ``|O``). """
-        return self._impl.dtype == 'string'
+    def _vlen(self):
+        """ The variable-length kind of this dataset (see VLEN_KINDS), or None. """
+        dtype = self._impl.dtype
+        return dtype if dtype in VLEN_KINDS else None
 
-    def _read_strings(self, start, shape):
-        """ Read the region ``start`` + ``shape`` of a string dataset. """
+    def _read_vlen(self, start, shape):
+        """ Read the region ``start`` + ``shape`` of a variable-length dataset. """
+        dtype = VLEN_KINDS[self._vlen][1]
         if 0 in shape:
-            return np.empty(shape, dtype=STRING_DTYPE)
-        items = _z5py.read_subarray_string(self._impl, list(start), list(shape),
-                                           n_threads=self.n_threads)
-        return np.array(items, dtype=STRING_DTYPE).reshape(shape)
+            return np.empty(shape, dtype=dtype)
+        read = getattr(_z5py, 'read_subarray_' + _VLEN_SUFFIX[self._vlen])
+        items = read(self._impl, list(start), list(shape), n_threads=self.n_threads)
+        return np.array(items, dtype=dtype).reshape(shape)
 
-    def _write_strings(self, start, shape, item):
-        """ Write ``item`` (a str, broadcast, or a text array of ``shape``) to a
-        string dataset at ``start``. """
-        if isinstance(item, str):
-            items = [item] * int(np.prod(shape))
-        else:
-            arr = np.asarray(item)
-            if arr.dtype.kind not in ('U', 'T', 'O'):
-                raise TypeError("String datasets take str data, got %s" % arr.dtype)
-            items = rectify_shape(arr, shape).ravel().tolist()
-        _z5py.write_subarray_string(self._impl, items, list(start), list(shape),
-                                    n_threads=self.n_threads)
+    def _vlen_items(self, item, shape):
+        """ The items of ``item`` (one item, broadcast, or an array of ``shape``) as a flat list. """
+        item_type, _, kinds = VLEN_KINDS[self._vlen]
+        if isinstance(item, item_type):
+            return [item] * int(np.prod(shape))
+        arr = np.asarray(item)
+        if arr.dtype.kind not in kinds:
+            raise TypeError("%s datasets take %s data, got %s" % (self._vlen, item_type.__name__, arr.dtype))
+        return rectify_shape(arr, shape).ravel().tolist()
+
+    def _write_vlen(self, start, shape, item):
+        """ Write ``item`` to the region ``start`` + ``shape`` of a variable-length dataset. """
+        write = getattr(_z5py, 'write_subarray_' + _VLEN_SUFFIX[self._vlen])
+        write(self._impl, self._vlen_items(item, shape), list(start), list(shape), n_threads=self.n_threads)
 
     @property
     def chunks_per_dimension(self):
@@ -667,8 +696,8 @@ class Dataset:
             dataset's dtype.
         """
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
-        if self._is_string:
-            out = self._read_strings(roi_begin, shape)
+        if self._vlen:
+            out = self._read_vlen(roi_begin, shape)
         else:
             out = np.empty(shape, dtype=self.dtype)
             if 0 not in shape:
@@ -706,8 +735,8 @@ class Dataset:
         roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
             return
-        if self._is_string:
-            self._write_strings(roi_begin, shape, item)
+        if self._vlen:
+            self._write_vlen(roi_begin, shape, item)
             return
 
         # broadcast scalar
@@ -790,9 +819,9 @@ class Dataset:
             start (tuple): offset of the roi to write.
             data (np.ndarray): data to write; shape determines the roi shape.
         """
-        if self._is_string:
+        if self._vlen:
             data = np.asarray(data)
-            self._write_strings(start, data.shape, data)
+            self._write_vlen(start, data.shape, data)
             return
         _z5py.write_subarray(self._impl,
                              np.require(data, requirements='C'),
@@ -814,8 +843,8 @@ class Dataset:
             np.ndarray
         """
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
-        if self._is_string:
-            return self._read_strings(start, shape)
+        if self._vlen:
+            return self._read_vlen(start, shape)
         out = np.empty(shape, dtype=self.dtype)
         _z5py.read_subarray(self._impl, out, start, n_threads=self.n_threads)
         return out
@@ -844,10 +873,11 @@ class Dataset:
         """
         if self.is_zarr and varlen:
             raise RuntimeError("Varlength chunks are not supported in zarr")
-        if self._is_string:
+        if self._vlen:
             if varlen:
-                raise ValueError("String datasets have no varlen chunks")
-            _z5py.write_chunk_string(self._impl, chunk_indices, np.asarray(data, dtype=object).ravel().tolist())
+                raise ValueError("Variable-length datasets have no varlen (n5) chunks")
+            write = getattr(_z5py, 'write_chunk_' + _VLEN_SUFFIX[self._vlen])
+            write(self._impl, chunk_indices, np.asarray(data, dtype=object).ravel().tolist())
             return
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
@@ -862,9 +892,9 @@ class Dataset:
         """
         # the existence check happens in C++ (returning None for a missing chunk);
         # checking here as well would double the existence probe per chunk read
-        if self._is_string:
-            items = _z5py.read_chunk_string(self._impl, chunk_indices)
-            return None if items is None else np.array(items, dtype=STRING_DTYPE).reshape(self.chunks)
+        if self._vlen:
+            items = getattr(_z5py, 'read_chunk_' + _VLEN_SUFFIX[self._vlen])(self._impl, chunk_indices)
+            return None if items is None else np.array(items, dtype=self.dtype).reshape(self.chunks)
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 

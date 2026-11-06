@@ -34,14 +34,18 @@ namespace z5 {
                                    const std::vector<std::size_t> & transpose,
                                    const bool crc32c,
                                    const std::optional<uint64_t> fill_value_bits,
-                                   const std::optional<std::string> fill_value_string){
+                                   const std::optional<std::string> fill_value_string,
+                                   const std::optional<std::string> fill_value_base64){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
                 // z5py passes the exact bits of the fill value as the dtype, or
                 // the string of a string dataset
+                // (or, for a bytes dataset, its bytes base64-encoded, so they arrive as text)
                 if(fill_value_string) {
                     options.fillValue = *fill_value_string;
+                } else if(fill_value_base64) {
+                    options.fillValue = util::base64Decode(*fill_value_base64);
                 } else if(fill_value_bits) {
                     options.fillValue = types::fillValueFromBits(types::Datatypes::n5ToDtype().at(dtype),
                                                                  *fill_value_bits);
@@ -71,6 +75,7 @@ namespace z5 {
             nb::arg("crc32c")=false,
             nb::arg("fill_value_bits")=nb::none(),
             nb::arg("fill_value_string")=nb::none(),
+            nb::arg("fill_value_base64")=nb::none(),
             nb::call_guard<nb::gil_scoped_release>());
     }
 

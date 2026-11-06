@@ -30,6 +30,7 @@ namespace generic {
             // variable-length strings: chunks are std::string elements, encoded by
             // the vlen codecs (util/vlen.hxx)
             case types::vlen_utf8: return make(std::string());
+            case types::vlen_bytes: return make(std::string());
             default:             return fallback(dtype);
         }
     }

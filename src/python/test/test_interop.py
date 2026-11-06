@@ -1084,5 +1084,63 @@ class TestInteropZarrPyStrings(unittest.TestCase):
         self.assertEqual(z5py.File(self.path, mode="r")["s"][()], "only \u00fcne")
 
 
+@requires_zarr_v3
+class TestInteropZarrPyBytes(unittest.TestCase):
+    """Variable-length bytes arrays (zarr-python's ``VariableLengthBytes``), both directions."""
+    path = "interop_bytes.zr"
+
+    def setUp(self):
+        values = [b"a", b"", b"\x00\xff\x00", b"x" * 300, b"nul\x00", b"\xe9", b"q", b"r",
+                  b"s", b"t", b"u", b"\x00"]
+        self.data = np.empty(len(values), dtype=object)
+        self.data[:] = values
+        self.data = self.data.reshape(3, 4)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _check(self, zarr_format):
+        from zarr.dtype import VariableLengthBytes
+        compressors = {"raw": None, "gzip": numcodecs.GZip() if zarr_format == 2 else None}
+        if zarr_format == 3:
+            from zarr.codecs import GzipCodec
+            compressors["gzip"] = GzipCodec()
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=zarr_format)
+        for name, compressor in compressors.items():
+            # zarr -> z5
+            key = "zarr_" + name
+            za = zarr.create_array(store=self.path, name=key, shape=self.data.shape, chunks=(2, 2),
+                                   dtype=VariableLengthBytes(), zarr_format=zarr_format,
+                                   fill_value=b"fi\x00", compressors=compressor)
+            za[:, :3] = self.data[:, :3]
+            ds = f[key]
+            self.assertEqual(ds.fillvalue, b"fi\x00", key)
+            self.assertEqual(ds[:].tolist(), za[:].tolist(), key)
+
+            # z5 -> zarr, then zarr rewrites part of it -> z5
+            key = "z5_" + name
+            ds = f.create_dataset(key, shape=self.data.shape, chunks=(2, 2), dtype=bytes,
+                                  fillvalue=b"\x01", compression=name)
+            ds[:, 1:] = self.data[:, 1:]
+            expected = self.data.copy()
+            expected[:, 0] = b"\x01"
+            za = zarr.open_array(store=self.path, path=key, mode="a")
+            self.assertEqual(za.fill_value, b"\x01", key)
+            self.assertEqual(za[:].tolist(), expected.tolist(), key)
+            za[0, 0:2] = np.array([b"\xaa", b"\xbb"], dtype=object)
+            expected[0, 0:2] = [b"\xaa", b"\xbb"]
+            self.assertEqual(f[key][:].tolist(), expected.tolist(), key)
+
+    def test_v2(self):
+        self._check(2)
+
+    @requires_z5_v3
+    def test_v3(self):
+        self._check(3)
+
+
 if __name__ == '__main__':
     unittest.main()

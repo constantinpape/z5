@@ -11,6 +11,7 @@
 
 #include "nlohmann/json.hpp"
 #include "z5/types/types.hxx"
+#include "z5/util/base64.hxx"
 
 namespace z5 {
 namespace types {
@@ -19,7 +20,8 @@ namespace types {
     // and dataset creation apply), it holds int64_t for signed integer types
     // and uint64_t for unsigned ones, so every 64-bit value is exact, and double
     // for float and complex types, and std::string for variable-length string
-    // types. Read the typed value with fillValueAs<T>().
+    // and byte string types (the raw bytes; the metadata stores a bytes fill
+    // value base64-encoded). Read the typed value with fillValueAs<T>().
     //
     // NaN payloads are not kept: every NaN becomes the default quiet NaN and is
     // written as "NaN", as zarr-python does.
@@ -230,6 +232,14 @@ namespace types {
         const bool v3 = zarrFormat == 3;
 
         if(isVlenDtype(dtype)) {
+            // a bytes fill value is stored base64-encoded, as zarr-python does
+            if(j.is_string() && dtype == vlen_bytes) {
+                try {
+                    return util::base64Decode(j.get<std::string>());
+                } catch(const std::runtime_error & e) {
+                    invalid(j.dump(), dtype, e.what());
+                }
+            }
             if(j.is_string()) {
                 return j.get<std::string>();
             }
@@ -320,6 +330,10 @@ namespace types {
             } else {
                 j = *d;
             }
+            return;
+        }
+        if(const auto * s = std::get_if<std::string>(&v); s && dtype == vlen_bytes) {
+            j = util::base64Encode(*s);
             return;
         }
         std::visit([&](const auto & x) {j = x;}, v);
