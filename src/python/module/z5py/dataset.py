@@ -43,8 +43,10 @@ def _unpickle_dataset(file_obj, name, n_threads):
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
 COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4', 'zstd')
-# zarr v3 core codecs ('raw' == the v3 'bytes' codec)
-COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd')
+# zarr v3 codecs ('raw' == the v3 'bytes' codec). 'raw', 'gzip', 'blosc' and
+# 'zstd' are core codecs; 'zlib', 'bzip2', 'xz' and 'lz4' are written as the
+# zarr-python extension codecs numcodecs.zlib / .bz2 / .lzma / .lz4.
+COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd', 'zlib', 'bzip2', 'xz', 'lz4')
 
 
 class Dataset:
@@ -149,6 +151,16 @@ class Dataset:
             default_opts = {'level': 5, 'useZlib': False}
         elif compression == 'zstd':
             default_opts = {'level': 3, 'checksum': False}
+        elif compression == 'zlib':
+            default_opts = {'level': 5, 'useZlib': True}
+        elif compression == 'bzip2':
+            default_opts = {'level': 5}
+        elif compression == 'xz':
+            # level is the lzma preset
+            default_opts = {'level': 6}
+        elif compression == 'lz4':
+            # level is the lz4 acceleration (1 == default, higher == faster)
+            default_opts = {'level': 1}
         elif compression == 'raw':
             default_opts = {}
         else:

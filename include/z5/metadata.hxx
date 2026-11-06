@@ -635,6 +635,13 @@ namespace z5 {
         // add the default compression options if necessary
         // we need to make a copy of the compression options, because they are const
         auto internalCompressionOptions = options.compressionOptions;
+        // zarr v3 names the framing: "gzip" is the core gzip codec, "zlib" is
+        // numcodecs.zlib. (The generic default, zlib framing for zarr, would store
+        // zlib chunks under the gzip codec.)
+        if(createAsZarr && zarrFormat == 3 && internalCompressor == types::zlib &&
+           internalCompressionOptions.find("useZlib") == internalCompressionOptions.end()) {
+            internalCompressionOptions["useZlib"] = compressor == "zlib";
+        }
         types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
 
         // sharding is only valid for zarr v3, and the shard shape must be a
