@@ -2,6 +2,7 @@
 
 #ifdef WITH_XZ
 
+#include <algorithm>
 #include <lzma.h>
 
 #include "z5/compression/compressor_base.hxx"
@@ -129,6 +130,35 @@ namespace compression {
     		    throw std::runtime_error(err);
             }
 		}
+
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            lzma_stream lzs;
+            memset(&lzs, 0, sizeof(lzs));
+            if(lzma_stream_decoder(&lzs, UINT64_MAX, LZMA_CONCATENATED) != LZMA_OK) {
+                throw std::runtime_error("Initializing xz stream failed");
+            }
+            lzs.next_in = (uint8_t *) dataIn;
+            lzs.avail_in = nBytesIn;
+            out.resize(std::max<std::size_t>(4 * nBytesIn, 4096));
+            std::size_t produced = 0;
+            lzma_ret ret = LZMA_OK;
+            do {
+                if(produced == out.size()) {
+                    out.resize(2 * out.size());
+                }
+                lzs.next_out = reinterpret_cast<uint8_t *>(out.data() + produced);
+                lzs.avail_out = out.size() - produced;
+                // LZMA_CONCATENATED needs LZMA_FINISH to end once the input is consumed;
+                // a truncated stream then fails with LZMA_BUF_ERROR
+                ret = lzma_code(&lzs, lzs.avail_in == 0 ? LZMA_FINISH : LZMA_RUN);
+                produced = out.size() - lzs.avail_out;
+            } while(ret == LZMA_OK);
+            lzma_end(&lzs);
+            if(ret != LZMA_STREAM_END) {
+                throw std::runtime_error("Exception during xz decompression: (" + std::to_string(ret) + ")");
+            }
+            out.resize(produced);
+        }
 
         inline types::Compressor type() const {
             return types::xz;

@@ -18,6 +18,11 @@ from .shape_utils import normalize_slices, rectify_shape, get_default_chunks
 
 AVAILABLE_COMPRESSORS = _z5py.get_available_codecs()
 
+# numpy dtype of variable-length string datasets: numpy's StringDType (numpy >= 2,
+# what zarr-python returns), else object arrays of str
+STRING_DTYPE = (np.dtypes.StringDType() if hasattr(getattr(np, 'dtypes', None), 'StringDType')
+                else np.dtype(object))
+
 
 def _navigate(file_obj, name):
     """ Navigate from a (root) file to the object with the given (absolute) name.
@@ -457,6 +462,8 @@ class Dataset:
 
         n5 doesn't store a fill value, so it is 0 for an opened n5 dataset.
         """
+        if self._is_string:
+            return self._impl.fill_value_string
         return np.frombuffer(self._impl.fill_value_bytes, dtype=self.dtype)[0]
 
     @property
@@ -482,9 +489,26 @@ class Dataset:
 
     @property
     def dtype(self):
-        """ Datatype of this dataset.
+        """ Datatype of this dataset; ``STRING_DTYPE`` for variable-length strings.
         """
-        return np.dtype(self._impl.dtype)
+        return STRING_DTYPE if self._is_string else np.dtype(self._impl.dtype)
+
+    @property
+    def _is_string(self):
+        """ True for variable-length string datasets (zarr "string" / ``|O``). """
+        return self._impl.dtype == 'string'
+
+    def _read_strings(self, start, shape):
+        """ Read the region ``start`` + ``shape`` of a string dataset. """
+        if 0 in shape:
+            return np.empty(shape, dtype=STRING_DTYPE)
+        items = _z5py.read_subarray_string(self._impl, list(start), list(shape),
+                                           n_threads=self.n_threads)
+        return np.array(items, dtype=STRING_DTYPE).reshape(shape)
+
+    def _check_writable_type(self):
+        if self._is_string:
+            raise TypeError("Writing string datasets is not supported yet")
 
     @property
     def chunks_per_dimension(self):
@@ -593,11 +617,14 @@ class Dataset:
             dataset's dtype.
         """
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
-        out = np.empty(shape, dtype=self.dtype)
-        if 0 not in shape:
-            _z5py.read_subarray(self._impl,
-                                out, roi_begin,
-                                n_threads=self.n_threads)
+        if self._is_string:
+            out = self._read_strings(roi_begin, shape)
+        else:
+            out = np.empty(shape, dtype=self.dtype)
+            if 0 not in shape:
+                _z5py.read_subarray(self._impl,
+                                    out, roi_begin,
+                                    n_threads=self.n_threads)
 
         # todo: this probably has more copies than necessary
         if not shape:
@@ -626,6 +653,7 @@ class Dataset:
             index (int, slice, ellipsis or tuple): the region to write to.
             item (scalar or np.ndarray): the value(s) to write.
         """
+        self._check_writable_type()
         roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
             return
@@ -710,6 +738,7 @@ class Dataset:
             start (tuple): offset of the roi to write.
             data (np.ndarray): data to write; shape determines the roi shape.
         """
+        self._check_writable_type()
         _z5py.write_subarray(self._impl,
                              np.require(data, requirements='C'),
                              list(start),
@@ -730,6 +759,8 @@ class Dataset:
             np.ndarray
         """
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
+        if self._is_string:
+            return self._read_strings(start, shape)
         out = np.empty(shape, dtype=self.dtype)
         _z5py.read_subarray(self._impl, out, start, n_threads=self.n_threads)
         return out
@@ -758,6 +789,7 @@ class Dataset:
         """
         if self.is_zarr and varlen:
             raise RuntimeError("Varlength chunks are not supported in zarr")
+        self._check_writable_type()
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):
@@ -771,6 +803,9 @@ class Dataset:
         """
         # the existence check happens in C++ (returning None for a missing chunk);
         # checking here as well would double the existence probe per chunk read
+        if self._is_string:
+            items = _z5py.read_chunk_string(self._impl, chunk_indices)
+            return None if items is None else np.array(items, dtype=STRING_DTYPE).reshape(self.chunks)
         chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
         return chunk_reader(self._impl, chunk_indices)
 

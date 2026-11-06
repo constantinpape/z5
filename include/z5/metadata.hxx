@@ -142,10 +142,15 @@ namespace z5 {
 
         void fromJsonZarr(const nlohmann::json & j) {
             checkJson(j);
-            try {
-                dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
-            } catch(std::out_of_range) {
-                throw std::runtime_error("Unsupported zarr dtype: " + static_cast<std::string>(j["dtype"]));
+            if(j.at("dtype") == "|O") {
+                // object arrays: the filter names how the items are encoded
+                dtype = objectDtypeFromFilters(j.contains("filters") ? j.at("filters") : nlohmann::json());
+            } else {
+                try {
+                    dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
+                } catch(std::out_of_range) {
+                    throw std::runtime_error("Unsupported zarr dtype: " + static_cast<std::string>(j["dtype"]));
+                }
             }
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
@@ -175,6 +180,11 @@ namespace z5 {
         void fromJsonN5(const nlohmann::json & j) {
 
             dtype = types::Datatypes::n5ToDtype().at(j["dataType"]);
+            // n5's own "string" type is encoded differently from zarr's vlen codecs
+            if(types::isVlenDtype(dtype)) {
+                throw std::runtime_error("z5: n5 data type " + j["dataType"].get<std::string>() +
+                                         " is not supported");
+            }
 
             // N5-Axis order: we need to reverse the shape when reading from metadata
             shape = types::ShapeType(j["dimensions"].rbegin(), j["dimensions"].rend());
@@ -425,7 +435,8 @@ namespace z5 {
             types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype), shape.size(),
                                         compressor, compressionOptions, bigEndian,
                                         transposeOrder, crc32cBeforeCompressor,
-                                        crc32cAfterCompressor);
+                                        crc32cAfterCompressor,
+                                        types::isVlenDtype(dtype) ? types::vlenCodecName(dtype) : "bytes");
 
             // optional names of the dimensions; a null name is an unnamed dimension
             dimensionNames.clear();
@@ -518,6 +529,26 @@ namespace z5 {
         }
 
 
+        // the data type of a zarr v2 object array (``|O``), from its single
+        // vlen filter; other filters (or none) can't be decoded
+        static types::Datatype objectDtypeFromFilters(const nlohmann::json & filters) {
+            if(filters.is_array() && filters.size() == 1 && filters[0].is_object()) {
+                const auto & f = filters[0];
+                const std::string id = f.value("id", std::string());
+                for(const auto candidate : {types::vlen_utf8}) {
+                    if(id == types::vlenCodecName(candidate)) {
+                        // numcodecs' vlen codecs have no settings
+                        if(f.size() != 1) {
+                            throw std::runtime_error("z5: zarr v2 filter " + id + " has unsupported settings");
+                        }
+                        return candidate;
+                    }
+                }
+            }
+            throw std::runtime_error("z5: zarr v2 object arrays (|O) are only supported with a single "
+                                     "vlen-utf8 filter, got " + filters.dump());
+        }
+
         // make sure that fixed metadata values agree
         void checkJson(const nlohmann::json & j) {
 
@@ -540,8 +571,10 @@ namespace z5 {
                 }
             }
 
+            // object arrays (``|O``) carry their item codec as a filter, see
+            // objectDtypeFromFilters
             jIt = j.find("filters");
-            if(jIt != j.end()) {
+            if(jIt != j.end() && j.value("dtype", std::string()) != "|O") {
                 if(!j["filters"].is_null() && j["filters"].size() > 0) {
                     throw std::runtime_error(
                         "Invalid Filters: Z5 does not support filters"
@@ -597,6 +630,10 @@ namespace z5 {
             internalDtype = types::Datatypes::n5ToDtype().at(dtype);
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("z5::createDatasetMetadata: Invalid dtype for dataset");
+        }
+        if(types::isVlenDtype(internalDtype)) {
+            throw std::runtime_error("z5::createDatasetMetadata: creating " + dtype +
+                                     " datasets is not supported yet");
         }
 
         // get the compressor

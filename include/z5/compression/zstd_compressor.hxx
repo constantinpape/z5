@@ -2,6 +2,7 @@
 
 #ifdef WITH_ZSTD
 
+#include <algorithm>
 #include <memory>
 #include <zstd.h>
 
@@ -66,6 +67,48 @@ namespace compression {
                 throw std::runtime_error(err);
             }
 		}
+
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            // one-shot compressors (numcodecs, z5) write a single frame with its content size
+            const unsigned long long size = ZSTD_getFrameContentSize(dataIn, nBytesIn);
+            if(size != ZSTD_CONTENTSIZE_UNKNOWN && size != ZSTD_CONTENTSIZE_ERROR) {
+                out.resize(size);
+                const size_t decompressed = ZSTD_decompress(out.data(), out.size(), dataIn, nBytesIn);
+                if(ZSTD_isError(decompressed) || decompressed != size) {
+                    throw std::runtime_error("Exception during zstd decompression: " +
+                                             std::string(ZSTD_isError(decompressed) ?
+                                                         ZSTD_getErrorName(decompressed) :
+                                                         "size does not match the frame header"));
+                }
+                return;
+            }
+            // otherwise stream into a growing buffer
+            std::unique_ptr<ZSTD_DCtx, decltype(&ZSTD_freeDCtx)> ctx(ZSTD_createDCtx(), &ZSTD_freeDCtx);
+            if(!ctx) {
+                throw std::runtime_error("Exception during zstd decompression: cannot create context");
+            }
+            ZSTD_inBuffer input = {dataIn, nBytesIn, 0};
+            out.resize(std::max<std::size_t>(4 * nBytesIn, ZSTD_DStreamOutSize()));
+            std::size_t produced = 0;
+            size_t ret = 1;
+            while(ret != 0) {
+                if(produced == out.size()) {
+                    out.resize(2 * out.size());
+                }
+                ZSTD_outBuffer output = {out.data() + produced, out.size() - produced, 0};
+                ret = ZSTD_decompressStream(ctx.get(), &output, &input);
+                if(ZSTD_isError(ret)) {
+                    throw std::runtime_error("Exception during zstd decompression: " +
+                                             std::string(ZSTD_getErrorName(ret)));
+                }
+                produced += output.pos;
+                // all input consumed but the frame is not complete
+                if(ret != 0 && input.pos == input.size && output.pos < output.size) {
+                    throw std::runtime_error("Exception during zstd decompression: truncated frame");
+                }
+            }
+            out.resize(produced);
+        }
 
         inline types::Compressor type() const {
             return types::zstd;

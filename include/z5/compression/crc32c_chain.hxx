@@ -93,6 +93,26 @@ namespace compression {
             std::memcpy(dataOut, tmp.data(), nBytesOut);
         }
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            for(unsigned i = 0; i < after_; ++i) {
+                nBytesIn = stripChecksum(dataIn, nBytesIn);
+            }
+            if(before_ == 0) {
+                if(compressor_->isRaw()) {
+                    out.assign(dataIn, dataIn + nBytesIn);
+                } else {
+                    compressor_->decompressBytes(dataIn, nBytesIn, out);
+                }
+                return;
+            }
+            byteCompressor_->decompressBytes(dataIn, nBytesIn, out);
+            std::size_t n = out.size();
+            for(unsigned i = 0; i < before_; ++i) {
+                n = stripChecksum(out.data(), n);
+            }
+            out.resize(n);
+        }
+
         // report the wrapped compressor, so the dataset's compression API is unchanged
         inline types::Compressor type() const {return compressor_->type();}
         inline void getOptions(types::CompressionOptions & opts) const {compressor_->getOptions(opts);}

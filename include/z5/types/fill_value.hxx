@@ -18,11 +18,12 @@ namespace types {
     // A dataset's fill value. After normalizeFillValue (which metadata parsing
     // and dataset creation apply), it holds int64_t for signed integer types
     // and uint64_t for unsigned ones, so every 64-bit value is exact, and double
-    // for float and complex types. Read the typed value with fillValueAs<T>().
+    // for float and complex types, and std::string for variable-length string
+    // types. Read the typed value with fillValueAs<T>().
     //
     // NaN payloads are not kept: every NaN becomes the default quiet NaN and is
     // written as "NaN", as zarr-python does.
-    using FillValue = std::variant<double, int64_t, uint64_t>;
+    using FillValue = std::variant<double, int64_t, uint64_t, std::string>;
 
     inline bool isIntegerDtype(const Datatype dtype) {
         switch(dtype) {
@@ -115,6 +116,25 @@ namespace types {
             }
             invalid(v, dtype, "expected an integer");
         }
+
+        // a variable-length string fill value; the numeric default 0 (what
+        // DatasetOptions starts with) means the empty string
+        inline FillValue vlenFillValue(const FillValue & v, const Datatype dtype) {
+            if(std::holds_alternative<std::string>(v)) {
+                return v;
+            }
+            const bool isZero = std::visit([](const auto & x) {
+                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
+                    return false;
+                } else {
+                    return x == 0;
+                }
+            }, v);
+            if(!isZero) {
+                invalid(v, dtype, "expected a string");
+            }
+            return std::string();
+        }
     }
 
 
@@ -134,7 +154,19 @@ namespace types {
         if(isIntegerDtype(dtype)) {
             return fill_value_detail::integerFillValue(v, dtype, strict);
         }
-        const double d = std::visit([](const auto & x) {return static_cast<double>(x);}, v);
+        if(isVlenDtype(dtype)) {
+            return fill_value_detail::vlenFillValue(v, dtype);
+        }
+        if(std::holds_alternative<std::string>(v)) {
+            fill_value_detail::invalid(v, dtype, "expected a number");
+        }
+        const double d = std::visit([](const auto & x) -> double {
+            if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
+                return 0.;  // unreachable, checked above
+            } else {
+                return static_cast<double>(x);
+            }
+        }, v);
         return std::isnan(d) ? std::numeric_limits<double>::quiet_NaN() : d;
     }
 
@@ -165,7 +197,19 @@ namespace types {
     // The fill value as a dataset's element type
     template<class T>
     T fillValueAs(const FillValue & v) {
-        return std::visit([](const auto & x) {return static_cast<T>(x);}, v);
+        return std::visit([](const auto & x) -> T {
+            using X = std::decay_t<decltype(x)>;
+            if constexpr(std::is_same_v<T, std::string> || std::is_same_v<X, std::string>) {
+                if constexpr(std::is_same_v<T, X>) {
+                    return x;
+                } else {
+                    // normalizeFillValue keeps strings and numbers apart
+                    throw std::runtime_error("z5: fill value type does not match the data type");
+                }
+            } else {
+                return static_cast<T>(x);
+            }
+        }, v);
     }
 
 
@@ -184,6 +228,17 @@ namespace types {
     inline FillValue fillValueFromJson(const nlohmann::json & j, const Datatype dtype, const int zarrFormat) {
         using namespace fill_value_detail;
         const bool v3 = zarrFormat == 3;
+
+        if(isVlenDtype(dtype)) {
+            if(j.is_string()) {
+                return j.get<std::string>();
+            }
+            // zarr v2 object arrays may have no fill value
+            if(j.is_null() && !v3) {
+                return std::string();
+            }
+            invalid(j.dump(), dtype, "expected a string");
+        }
 
         if(j.is_null()) {
             if(v3) {

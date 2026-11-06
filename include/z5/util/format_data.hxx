@@ -2,6 +2,7 @@
 
 #include "z5/handle.hxx"
 #include "z5/multiarray/array_util.hxx"
+#include "z5/util/vlen.hxx"
 
 namespace z5 {
 namespace util {
@@ -90,9 +91,11 @@ namespace util {
 
     template<class T, class COMPRESSOR>
     inline void compress(const T * dataIn, const std::size_t dataSize, std::vector<char> & buffer, const COMPRESSOR & compressor) {
-        // if we have raw compression (no compression and no codec chain), we bypass
-        // the compression step but need to copy the data
-        if(compressor->isRaw()) {
+        if constexpr(isVlenElement<T>) {
+            throw std::runtime_error("z5: writing variable-length string chunks is not supported yet");
+        } else if(compressor->isRaw()) {
+            // raw compression (no compression and no codec chain): bypass the
+            // compression step but copy the data
             buffer.resize(dataSize * sizeof(T));
             memcpy(&buffer[0], dataIn, dataSize * sizeof(T));
         } else {
@@ -154,7 +157,7 @@ namespace util {
         std::vector<char> compressed;
 
         // reverse the endianness if necessary
-        if(sizeof(T) > 1) {
+        if(sizeof(T) > 1 && !isVlenElement<T>) {
             // copy the data and reverse endianness
             std::vector<T> dataTmp(static_cast<const T*>(dataIn),
                                    static_cast<const T*>(dataIn) + dataSize);
@@ -227,23 +230,42 @@ namespace util {
 
     // `arrayCodecs` decodes the zarr v3 element codecs (transpose / big-endian
     // ``bytes``) after decompression; n5 callers swap the byte order themselves.
+    // decode a chunk of `data_size` variable-length items: decompress to a byte
+    // stream of unknown length, then split it with the vlen framing
+    template<class COMPRESSOR>
+    inline void decompressVlen(const char * buffer, const std::size_t nBytes, std::string * dataOut,
+                               const std::size_t data_size, const COMPRESSOR & compressor) {
+        if(compressor->isRaw()) {
+            decodeVlen(buffer, nBytes, dataOut, data_size);
+            return;
+        }
+        std::vector<char> bytes;
+        compressor->decompressBytes(buffer, nBytes, bytes);
+        decodeVlen(bytes.data(), bytes.size(), dataOut, data_size);
+    }
+
     template<class T, class COMPRESSOR>
     inline void decompress(const char * buffer, const std::size_t nBytes, void * dataOut,
                            const std::size_t data_size, const COMPRESSOR & compressor,
                            const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
-        // we don't need to decompress for raw compression
-        if(compressor->isRaw()) {
-            // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
-            // slot length) must not overflow the caller's buffer
-            if(nBytes > data_size * sizeof(T)) {
-                throw std::runtime_error("z5: raw chunk is larger than the expected chunk size");
-            }
-            // mem-copy the binary data that was read to typed out data
-            memcpy((T*) dataOut, buffer, nBytes);
+        // variable-length items have no element codecs (no transpose, no byte order)
+        if constexpr(isVlenElement<T>) {
+            decompressVlen(buffer, nBytes, static_cast<std::string *>(dataOut), data_size, compressor);
         } else {
-            compressor->decompress(buffer, nBytes, static_cast<T*>(dataOut), data_size);
+            // we don't need to decompress for raw compression
+            if(compressor->isRaw()) {
+                // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
+                // slot length) must not overflow the caller's buffer
+                if(nBytes > data_size * sizeof(T)) {
+                    throw std::runtime_error("z5: raw chunk is larger than the expected chunk size");
+                }
+                // mem-copy the binary data that was read to typed out data
+                memcpy((T*) dataOut, buffer, nBytes);
+            } else {
+                compressor->decompress(buffer, nBytes, static_cast<T*>(dataOut), data_size);
+            }
+            decodeElements(static_cast<T*>(dataOut), data_size, arrayCodecs);
         }
-        decodeElements(static_cast<T*>(dataOut), data_size, arrayCodecs);
     }
 
     // convenience overload for a full buffer (forwards to the pointer form)
@@ -336,7 +358,7 @@ namespace util {
                       is_zarr ? arrayCodecs : ArrayCodecs());
 
         // reverse the endianness for N5 data (unless datatype is byte)
-        if(!is_zarr && sizeof(T) > 1) {
+        if(!is_zarr && sizeof(T) > 1 && !isVlenElement<T>) {
             util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
                                               static_cast<T*>(dataOut) + chunk_size);
         }

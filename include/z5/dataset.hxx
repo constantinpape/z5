@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <type_traits>
 
 #include "z5/metadata.hxx"
 #include "z5/handle.hxx"
@@ -214,10 +216,18 @@ namespace z5 {
     }
 
 
+    // the element type a dataset's compressor works on: variable-length strings
+    // are encoded to bytes (util/vlen.hxx) before compression
+    template<class T>
+    using CodecElement = std::conditional_t<std::is_same_v<T, std::string>, char, T>;
+
+
     // mixin to provide some typed functionality for typing
     template<class T>
     class MixinTyped {
     public:
+        using CodecT = CodecElement<T>;
+
         MixinTyped(const DatasetMetadata & metadata) : fillValue_(metadata.fillValueAs<T>()) {
             arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1;
             arrayCodecs_.order = metadata.transposeOrder;
@@ -233,11 +243,11 @@ namespace z5 {
         util::ArrayCodecs arrayCodecs_;
         // unique ptr to hold child classes of compressor; for zarr v3 with crc32c
         // codecs, a Crc32cChain wrapping the compressor
-        std::unique_ptr<compression::CompressorBase<T>> compressor_;
+        std::unique_ptr<compression::CompressorBase<CodecT>> compressor_;
 
     private:
         void init_compressor(const DatasetMetadata & metadata) {
-            compressor_ = makeCompressor<T>(metadata);
+            compressor_ = makeCompressor<CodecT>(metadata);
             const unsigned before = metadata.crc32cBeforeCompressor;
             const unsigned after = metadata.crc32cAfterCompressor;
             if(before == 0 && after == 0) {
@@ -245,7 +255,7 @@ namespace z5 {
             }
             // crc32c around a raw compressor: the order doesn't matter, all go after
             if(compressor_->isRaw()) {
-                compressor_ = std::make_unique<compression::Crc32cChain<T>>(
+                compressor_ = std::make_unique<compression::Crc32cChain<CodecT>>(
                     std::move(compressor_), nullptr, 0, before + after);
                 return;
             }
@@ -255,7 +265,7 @@ namespace z5 {
             if(before > 0) {
                 byteCompressor = makeCompressor<char>(metadata);
             }
-            compressor_ = std::make_unique<compression::Crc32cChain<T>>(
+            compressor_ = std::make_unique<compression::Crc32cChain<CodecT>>(
                 std::move(compressor_), std::move(byteCompressor), before, after);
         }
     };
