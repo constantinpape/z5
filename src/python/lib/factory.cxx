@@ -33,12 +33,16 @@ namespace z5 {
                                    const std::vector<std::optional<std::string>> & dimension_names,
                                    const std::vector<std::size_t> & transpose,
                                    const bool crc32c,
-                                   const std::optional<uint64_t> fill_value_bits){
+                                   const std::optional<uint64_t> fill_value_bits,
+                                   const std::optional<std::string> fill_value_string){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
-                // z5py passes the exact bits of the fill value as the dtype
-                if(fill_value_bits) {
+                // z5py passes the exact bits of the fill value as the dtype, or
+                // the string of a string dataset
+                if(fill_value_string) {
+                    options.fillValue = *fill_value_string;
+                } else if(fill_value_bits) {
                     options.fillValue = types::fillValueFromBits(types::Datatypes::n5ToDtype().at(dtype),
                                                                  *fill_value_bits);
                 } else {
@@ -66,6 +70,7 @@ namespace z5 {
             nb::arg("transpose")=std::vector<std::size_t>(),
             nb::arg("crc32c")=false,
             nb::arg("fill_value_bits")=nb::none(),
+            nb::arg("fill_value_string")=nb::none(),
             nb::call_guard<nb::gil_scoped_release>());
     }
 

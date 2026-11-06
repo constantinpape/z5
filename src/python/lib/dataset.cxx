@@ -203,6 +203,35 @@ namespace z5 {
         return out;
     }
 
+    // write `items` (C order) to the region [roiBegin, roiBegin + shape)
+    inline void writePyStringSubarray(const Dataset & ds,
+                                      const std::vector<std::string> & items,
+                                      const std::vector<std::size_t> & roiBegin,
+                                      const std::vector<std::size_t> & shape,
+                                      const int numberOfThreads) {
+        checkStringDataset(ds);
+        const std::size_t size = std::accumulate(shape.begin(), shape.end(), std::size_t(1),
+                                                 std::multiplies<std::size_t>());
+        if(items.size() != size) {
+            throw std::runtime_error("z5: got " + std::to_string(items.size()) + " strings for a region of " +
+                                     std::to_string(size));
+        }
+        const auto view = multiarray::makeView(items.data(), types::ShapeType(shape.begin(), shape.end()));
+        multiarray::writeSubarray<std::string>(ds, view, roiBegin.begin(), numberOfThreads);
+    }
+
+    // write one full chunk (zarr chunks always hold the full chunk shape)
+    inline void writePyStringChunk(const Dataset & ds, const types::ShapeType & chunkId,
+                                   const std::vector<std::string> & items) {
+        checkStringDataset(ds);
+        if(items.size() != ds.defaultChunkSize()) {
+            throw std::runtime_error("Chunk data has the wrong number of elements: " +
+                                     std::to_string(items.size()) + " instead of " +
+                                     std::to_string(ds.defaultChunkSize()));
+        }
+        ds.writeChunk(chunkId, items.data());
+    }
+
     // read one chunk (zarr: always the full chunk shape); None if it doesn't exist
     inline nb::object readPyStringChunk(const Dataset & ds, const types::ShapeType & chunkId) {
         checkStringDataset(ds);
@@ -341,6 +370,13 @@ namespace z5 {
                    nb::arg("ds"), nb::arg("roi_begin"), nb::arg("shape"), nb::arg("n_threads")=1);
         module.def("read_chunk_string", &readPyStringChunk,
                    nb::arg("ds"), nb::arg("chunkId"));
+        // the strings are converted from python before the GIL is released
+        module.def("write_subarray_string", &writePyStringSubarray,
+                   nb::arg("ds"), nb::arg("items"), nb::arg("roi_begin"), nb::arg("shape"),
+                   nb::arg("n_threads")=1, nb::call_guard<nb::gil_scoped_release>());
+        module.def("write_chunk_string", &writePyStringChunk,
+                   nb::arg("ds"), nb::arg("chunkId"), nb::arg("items"),
+                   nb::call_guard<nb::gil_scoped_release>());
 
         // export I/O for all dtypes
         // integer types

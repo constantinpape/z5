@@ -92,7 +92,14 @@ namespace util {
     template<class T, class COMPRESSOR>
     inline void compress(const T * dataIn, const std::size_t dataSize, std::vector<char> & buffer, const COMPRESSOR & compressor) {
         if constexpr(isVlenElement<T>) {
-            throw std::runtime_error("z5: writing variable-length string chunks is not supported yet");
+            // variable-length items: frame them as one byte stream, then compress it
+            std::vector<char> encoded;
+            encodeVlen(dataIn, dataSize, encoded);
+            if(compressor->isRaw()) {
+                buffer.swap(encoded);
+            } else {
+                compressor->compress(encoded.data(), buffer, encoded.size());
+            }
         } else if(compressor->isRaw()) {
             // raw compression (no compression and no codec chain): bypass the
             // compression step but copy the data

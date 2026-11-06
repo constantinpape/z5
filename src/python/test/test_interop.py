@@ -985,7 +985,7 @@ class TestInteropZarrPyZeroDim(unittest.TestCase):
 
 @requires_zarr_v3
 class TestInteropZarrPyStrings(unittest.TestCase):
-    """Variable-length string arrays written by zarr-python (``dtype=str``), read by z5."""
+    """Variable-length string arrays (zarr-python's ``dtype=str``) between zarr-python and z5."""
     path = "interop_strings.zr"
     data = np.array([["a", "h\u00e9llo", "", "xyz\u20ac", "q"],
                      ["long " * 50, "b", "c", "\u65e5\u672c", "z"],
@@ -1040,6 +1040,40 @@ class TestInteropZarrPyStrings(unittest.TestCase):
     @requires_z5_v3
     def test_v3(self):
         self._check(3)
+
+    def _check_write(self, zarr_format):
+        from z5py.dataset import AVAILABLE_COMPRESSORS
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=zarr_format)
+        layouts = {name: {"compression": name}
+                   for name in ("raw", "gzip", "zlib", "bzip2", "blosc", "zstd", "xz", "lz4")
+                   if AVAILABLE_COMPRESSORS[name] and (zarr_format == 3 or name not in ("xz", "lz4"))}
+        layouts["fill"] = {"compression": "raw", "fillvalue": "--"}
+        if zarr_format == 3:
+            layouts["sharded"] = {"compression": "gzip", "shards": (2, 4)}
+            layouts["crc32c"] = {"compression": "gzip", "crc32c": True}
+            layouts["v2_keys"] = {"compression": "raw", "chunk_key_encoding": "v2"}
+        for name, kwargs in layouts.items():
+            ds = f.create_dataset(name, shape=self.data.shape, chunks=(2, 2), dtype=str, **kwargs)
+            ds[:, 1:] = self.data[:, 1:]
+            expected = self.data.copy()
+            expected[:, 0] = ds.fillvalue
+
+            # z5 -> zarr
+            za = zarr.open_array(store=self.path, path=name, mode="a")
+            self.assertEqual(za[:].tolist(), expected.tolist(), name)
+            self.assertEqual(za.fill_value, ds.fillvalue, name)
+
+            # zarr rewrites part of z5's chunks -> z5
+            za[1:3, 0:3] = np.array([["p", "q", "r"], ["s", "t", "\u00fc"]], dtype=object)
+            expected[1:3, 0:3] = [["p", "q", "r"], ["s", "t", "\u00fc"]]
+            self.assertEqual(z5py.File(self.path, mode="r")[name][:].tolist(), expected.tolist(), name)
+
+    def test_write_v2(self):
+        self._check_write(2)
+
+    @requires_z5_v3
+    def test_write_v3(self):
+        self._check_write(3)
 
     @requires_z5_v3
     def test_zero_dim(self):

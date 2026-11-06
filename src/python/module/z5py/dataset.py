@@ -24,6 +24,20 @@ STRING_DTYPE = (np.dtypes.StringDType() if hasattr(getattr(np, 'dtypes', None), 
                 else np.dtype(object))
 
 
+def _is_string_dtype(dtype):
+    """ True if ``dtype`` asks for a variable-length string dataset: ``str``,
+    numpy's StringDType or object. A fixed-length ``U<n>`` is not one (zarr-python
+    stores those as fixed-length strings).
+    """
+    if dtype is str:
+        return True
+    try:
+        parsed = np.dtype(dtype)
+    except TypeError:
+        return False
+    return parsed.kind in ('T', 'O') or (parsed.kind == 'U' and parsed.itemsize == 0)
+
+
 def _navigate(file_obj, name):
     """ Navigate from a (root) file to the object with the given (absolute) name.
 
@@ -238,7 +252,11 @@ class Dataset:
                     raise TypeError("Chunks do not match (existing (%s) vs new (%s))" % (', '.join(map(str, ds.chunks)),
                                                                                          ', '.join(map(str, chunks))))
             if dtype is not None:
-                if np.dtype(dtype) != ds.dtype:
+                if ds._is_string or _is_string_dtype(dtype):
+                    if ds._is_string != _is_string_dtype(dtype):
+                        raise TypeError("Datatypes do not match (existing %s vs new %s)"
+                                        % (str(ds.dtype), str(dtype)))
+                elif np.dtype(dtype) != ds.dtype:
                     raise TypeError("Datatypes do not match (existing %s vs new %s)" % (str(ds.dtype), str(dtype)))
             return ds
 
@@ -310,6 +328,10 @@ class Dataset:
                 raise ValueError("Shape is incompatible with data")
             if dtype is None:
                 dtype = data.dtype
+            elif _is_string_dtype(dtype):
+                # any numpy text array can fill a string dataset
+                if data.dtype.kind not in ('U', 'T', 'O'):
+                    raise ValueError("Datatype is incompatible with data")
             # NOTE In contrast to h5py, we don't do automatic type conversion
             elif np.dtype(dtype) != data.dtype:
                 raise ValueError("Datatype is incompatible with data")
@@ -320,7 +342,8 @@ class Dataset:
             # as default data type, but require a data type if no data is given
             if dtype is None:
                 raise TypeError("One of dtype or data must be specified")
-        parsed_dtype = np.dtype(dtype)
+        is_string = _is_string_dtype(dtype)
+        parsed_dtype = STRING_DTYPE if is_string else np.dtype(dtype)
 
         # get default chunks if necessary
         # NOTE in contrast to h5py, datasets are chunked
@@ -335,9 +358,27 @@ class Dataset:
         chunks = tuple(min(ch, sh) for ch, sh in zip(chunks, shape))
         is_zarr = ghandle.is_zarr()
 
-        if parsed_dtype not in cls._dtype_dict:
-            raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
-        fillvalue_bits = cls._fill_value_bits(fillvalue, parsed_dtype)
+        if is_string:
+            dtype_name = 'string'
+            if not is_zarr:
+                raise ValueError("String datasets are only supported for zarr")
+            if transpose is not None:
+                raise ValueError("Transpose is not supported for string datasets")
+            # the numeric default 0 means the empty string
+            if isinstance(fillvalue, numbers.Number) and fillvalue == 0:
+                fillvalue = ''
+            if not isinstance(fillvalue, str):
+                raise ValueError("The fill value of a string dataset must be a str, got %r" % (fillvalue,))
+            fill_kwargs = {'fill_value_string': fillvalue}
+            fillvalue = 0
+        else:
+            if parsed_dtype.kind == 'U':
+                raise ValueError("Fixed-length string data type {} is not supported; use dtype=str for "
+                                 "variable-length strings".format(repr(dtype)))
+            if parsed_dtype not in cls._dtype_dict:
+                raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
+            dtype_name = cls._dtype_dict[parsed_dtype]
+            fill_kwargs = {'fill_value_bits': cls._fill_value_bits(fillvalue, parsed_dtype)}
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
@@ -370,10 +411,10 @@ class Dataset:
             shards_arg = list(shards) if shards is not None else []
             names_arg = list(dimension_names) if dimension_names is not None else []
             transpose_arg = [int(axis) for axis in transpose] if transpose is not None else []
-            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+            impl = _z5py.create_dataset(ghandle, name, dtype_name,
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
-                                        names_arg, transpose_arg, bool(crc32c), fillvalue_bits)
+                                        names_arg, transpose_arg, bool(crc32c), **fill_kwargs)
         else:
             # zarr v2 / n5
             # check compression / get default compression if no compression is given
@@ -393,9 +434,9 @@ class Dataset:
 
             # convert the copts to json parseable string
             copts = json.dumps(copts)
-            impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
+            impl = _z5py.create_dataset(ghandle, name, dtype_name,
                                         shape, chunks, compression, copts, fillvalue,
-                                        dimension_separator, fill_value_bits=fillvalue_bits)
+                                        dimension_separator, **fill_kwargs)
 
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
@@ -506,9 +547,18 @@ class Dataset:
                                            n_threads=self.n_threads)
         return np.array(items, dtype=STRING_DTYPE).reshape(shape)
 
-    def _check_writable_type(self):
-        if self._is_string:
-            raise TypeError("Writing string datasets is not supported yet")
+    def _write_strings(self, start, shape, item):
+        """ Write ``item`` (a str, broadcast, or a text array of ``shape``) to a
+        string dataset at ``start``. """
+        if isinstance(item, str):
+            items = [item] * int(np.prod(shape))
+        else:
+            arr = np.asarray(item)
+            if arr.dtype.kind not in ('U', 'T', 'O'):
+                raise TypeError("String datasets take str data, got %s" % arr.dtype)
+            items = rectify_shape(arr, shape).ravel().tolist()
+        _z5py.write_subarray_string(self._impl, items, list(start), list(shape),
+                                    n_threads=self.n_threads)
 
     @property
     def chunks_per_dimension(self):
@@ -653,9 +703,11 @@ class Dataset:
             index (int, slice, ellipsis or tuple): the region to write to.
             item (scalar or np.ndarray): the value(s) to write.
         """
-        self._check_writable_type()
         roi_begin, shape, _ = self.index_to_roi(index)
         if 0 in shape:
+            return
+        if self._is_string:
+            self._write_strings(roi_begin, shape, item)
             return
 
         # broadcast scalar
@@ -738,7 +790,10 @@ class Dataset:
             start (tuple): offset of the roi to write.
             data (np.ndarray): data to write; shape determines the roi shape.
         """
-        self._check_writable_type()
+        if self._is_string:
+            data = np.asarray(data)
+            self._write_strings(start, data.shape, data)
+            return
         _z5py.write_subarray(self._impl,
                              np.require(data, requirements='C'),
                              list(start),
@@ -789,7 +844,11 @@ class Dataset:
         """
         if self.is_zarr and varlen:
             raise RuntimeError("Varlength chunks are not supported in zarr")
-        self._check_writable_type()
+        if self._is_string:
+            if varlen:
+                raise ValueError("String datasets have no varlen chunks")
+            _z5py.write_chunk_string(self._impl, chunk_indices, np.asarray(data, dtype=object).ravel().tolist())
+            return
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):

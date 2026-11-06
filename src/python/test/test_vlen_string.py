@@ -1,10 +1,11 @@
-"""Reading variable-length UTF-8 string arrays (zarr-python's ``str`` arrays).
+"""Variable-length UTF-8 string arrays (zarr-python's ``str`` arrays).
 
 zarr v3 stores them with data type "string" and the ``vlen-utf8`` codec in place
 of ``bytes``; zarr v2 as dtype ``|O`` with a ``vlen-utf8`` filter. A chunk is a
 uint32 LE item count, then for each item a uint32 LE byte length and its UTF-8
 bytes, compressed as usual. These tests build such arrays by hand (metadata and
-chunk files, compressed with the standard library), so they need no zarr-python.
+chunk files, compressed with the standard library), and decode the chunks z5
+writes the same way, so they need no zarr-python.
 """
 import bz2
 import gzip
@@ -43,6 +44,23 @@ COMPRESSORS = {
             bz2.compress, 'bzip2'),
     'lzma': (None, {'name': 'numcodecs.lzma', 'configuration': {}}, lzma.compress, 'xz'),
 }
+
+
+def _unvlen(data):
+    """Split a vlen-utf8 chunk into its items."""
+    count, = struct.unpack_from('<I', data)
+    pos, items = 4, []
+    for _ in range(count):
+        n, = struct.unpack_from('<I', data, pos)
+        items.append(data[pos + 4:pos + 4 + n].decode('utf-8'))
+        pos += 4 + n
+    assert pos == len(data)
+    return items
+
+
+# z5 compressor name -> stdlib decompress function, for checking written chunks
+DECOMPRESS = {'raw': lambda b: b, 'gzip': gzip.decompress, 'zlib': zlib.decompress,
+              'bzip2': bz2.decompress, 'xz': lzma.decompress}
 
 
 def _available(name):
@@ -186,16 +204,152 @@ class StringArrayMixin:
             with self.assertRaises(RuntimeError, msg=key):
                 self._open(key)[:]
 
-    def test_writing_refused(self):
-        # reading only, for now
-        self._write_array('data', DATA)
-        ds = z5py.File(self.path, mode='a')['data']
+    #
+    # writing
+    #
+
+    def _create(self, key='data', shape=DATA.shape, **kwargs):
+        kwargs.setdefault('compression', 'raw')
+        f = z5py.File(self.path, mode='a')
+        return f.create_dataset(key, shape=shape, chunks=CHUNKS[:len(shape)], dtype=str, **kwargs)
+
+    def _stored_chunks(self, key):
+        found = {}
+        for root, _, files in os.walk(os.path.join(self.path, key)):
+            for name in files:
+                if name not in ('.zarray', '.zattrs', 'zarr.json'):
+                    found[os.path.relpath(os.path.join(root, name), os.path.join(self.path, key))] = \
+                        os.path.join(root, name)
+        return found
+
+    def test_write_chunk_bytes(self):
+        # the stored chunks decode with the standard library to the vlen framing
+        # of the full (fill-padded) chunk
+        for compression, decompress in DECOMPRESS.items():
+            if not AVAILABLE_COMPRESSORS.get(compression, compression == 'raw'):
+                continue
+            if compression == 'xz' and self.zarr_format == 2:
+                continue
+            key = 'w_' + compression
+            ds = self._create(key, compression=compression, fillvalue='f')
+            ds[:] = DATA
+            # z5py's zarr v2 "gzip" writes the zlib codec (and says so in .zarray)
+            if self.zarr_format == 2 and compression == 'gzip':
+                decompress = zlib.decompress
+            with open(self._chunk_path(key, (1, 2)), 'rb') as fh:
+                self.assertEqual(_unvlen(decompress(fh.read())), ['end', 'f', 'f', 'f'], compression)
+            with open(self._chunk_path(key, (0, 1)), 'rb') as fh:
+                self.assertEqual(_unvlen(decompress(fh.read())), list(DATA[:2, 2:4].ravel()), compression)
+            self._assert_equal(self._open(key)[:], DATA, compression)
+
+    def test_metadata_written(self):
+        self._create(fillvalue='x')
+        with open(self._meta_path('data')) as f:
+            meta = json.load(f)
+        self.assertEqual(meta['fill_value'], 'x')
+        if self.zarr_format == 3:
+            self.assertEqual(meta['data_type'], 'string')
+            self.assertEqual(meta['codecs'], [{'name': 'vlen-utf8', 'configuration': {}}])
+        else:
+            self.assertEqual(meta['dtype'], '|O')
+            self.assertEqual(meta['filters'], [{'id': 'vlen-utf8'}])
+
+    def test_partial_writes(self):
+        # writes across chunk boundaries keep the rest of each chunk
+        ds = self._create(fillvalue='-')
+        expected = np.full(DATA.shape, '-', dtype=object)
+        for region, value in [((slice(0, 3), slice(1, 4)), DATA[:, 1:4]),
+                              ((slice(1, 2), slice(0, 5)), np.array(['r%i' % i for i in range(5)], dtype=object)),
+                              ((2, 4), 'corner'),
+                              ((slice(0, 2), slice(3, 5)), 'bcast')]:
+            ds[region] = value
+            expected[region] = value
+            self._assert_equal(self._open()[:], expected)
+
+    def test_fill_chunks_not_stored(self):
+        ds = self._create(fillvalue='-')
+        ds[:] = np.full(DATA.shape, '-', dtype=object)
+        self.assertEqual(self._stored_chunks('data'), {})
+        ds[0, 0] = 'x'
+        self.assertEqual(len(self._stored_chunks('data')), 1)
+        # writing the fill value back removes the chunk
+        ds[0, 0] = '-'
+        self.assertEqual(self._stored_chunks('data'), {})
+
+    def test_input_types(self):
+        ds = self._create()
+        for data in [DATA.astype(str), DATA.astype(STRING_DTYPE), DATA]:
+            ds[:] = data
+            self._assert_equal(ds[:], DATA)
+        ds[0, 0] = np.str_('numpy str')
+        self.assertEqual(ds[0, 0], 'numpy str')
+        # not text
+        for bad in [np.zeros(DATA.shape), np.full(DATA.shape, b'x'), 5]:
+            with self.assertRaises(TypeError):
+                ds[:] = bad
+        bad = DATA.copy()
+        bad[1, 1] = 3
         with self.assertRaises(TypeError):
-            ds[0, 0] = 'new'
-        with self.assertRaises(TypeError):
-            ds.write_subarray((0, 0), np.array([['a']], dtype=object))
+            ds[:] = bad
+
+    def test_creation(self):
+        f = z5py.File(self.path, mode='a')
+        for i, dtype in enumerate([str, 'str', STRING_DTYPE, object, np.dtype('U')]):
+            ds = f.create_dataset('d%i' % i, shape=(3,), chunks=(2,), dtype=dtype, compression='raw')
+            self.assertEqual(ds.dtype, STRING_DTYPE)
+            self.assertEqual(ds.fillvalue, '')
+        # from data; a fixed-length U<n> array needs dtype=str (zarr-python stores
+        # U<n> as fixed-length strings, which z5 doesn't support yet)
+        ds = f.create_dataset('data', data=DATA.astype(str), dtype=str, chunks=CHUNKS, compression='raw')
+        self._assert_equal(ds[:], DATA)
+        ds = f.create_dataset('data_t', data=DATA.astype(STRING_DTYPE), chunks=CHUNKS, compression='raw')
+        self._assert_equal(ds[:], DATA)
         with self.assertRaises(ValueError):
-            z5py.File(self.path, mode='a').create_dataset('new', shape=(2,), dtype=str)
+            f.create_dataset('fixed', data=DATA.astype(str), chunks=CHUNKS)
+        with self.assertRaises(ValueError):
+            f.create_dataset('fixed', shape=(3,), dtype='U5')
+        with self.assertRaises(ValueError):
+            f.create_dataset('bad_fill', shape=(3,), dtype=str, fillvalue=1)
+        with self.assertRaises(ValueError):
+            f.create_dataset('bad_data', data=np.zeros(3), dtype=str)
+        # require_dataset matches string data types
+        self.assertEqual(f.require_dataset('d0', shape=(3,), dtype=str).dtype, STRING_DTYPE)
+        with self.assertRaises(TypeError):
+            f.require_dataset('d0', shape=(3,), dtype='int32')
+
+    def test_chunk_api(self):
+        ds = self._create(fillvalue='-')
+        chunk = np.array([['a', 'b'], ['c', 'é']], dtype=object)
+        ds.write_chunk((1, 1), chunk)
+        self._assert_equal(ds.read_chunk((1, 1)), chunk)
+        self.assertEqual(ds[2, 2:4].tolist(), ['a', 'b'])
+        with self.assertRaises(RuntimeError):
+            ds.write_chunk((0, 0), np.array(['a', 'b', 'c'], dtype=object))
+
+    def test_multithreaded(self):
+        data = np.array(['item %i %s' % (i, 'ü' * (i % 7)) for i in range(40 * 30)], dtype=object)
+        data = data.reshape(40, 30)
+        f = z5py.File(self.path, mode='a')
+        ds = f.create_dataset('data', shape=data.shape, chunks=(7, 4), dtype=str, compression='gzip',
+                              n_threads=4)
+        ds[:] = data
+        ds[5:33, 3:21] = data[:28, :18]
+        data[5:33, 3:21] = data[:28, :18].copy()
+        self._assert_equal(ds[:], data)
+
+    def test_zero_dim_write(self):
+        ds = self._create(shape=())
+        ds[()] = 'only'
+        self.assertEqual(self._open()[()], 'only')
+
+    def test_n5_and_transpose_refused(self):
+        with self.assertRaises(ValueError):
+            z5py.File(self.path + '.n5', mode='w', use_zarr_format=False).create_dataset(
+                'data', shape=(3,), dtype=str)
+        rmtree(self.path + '.n5')
+        if self.zarr_format == 3:
+            with self.assertRaises(ValueError):
+                self._create(transpose=(1, 0))
 
     def _assert_refused(self, edit, key='data'):
         self._write_array(key, DATA)
@@ -292,6 +446,17 @@ class TestStringV3(StringArrayMixin, unittest.TestCase):
                      lambda meta: meta.update(fill_value=None),
                      lambda meta: meta.update(fill_value=0)]:
             self._assert_refused(edit)
+
+    def test_write_sharded_crc32c(self):
+        for key, kwargs in [('sharded', {'shards': (2, 4)}), ('crc32c', {'crc32c': True}),
+                            ('both', {'shards': (4, 4), 'crc32c': True, 'compression': 'gzip'})]:
+            ds = self._create(key, fillvalue='-', **kwargs)
+            ds[:, 1:] = DATA[:, 1:]
+            ds[1, 0] = 'x'
+            expected = DATA.copy()
+            expected[:, 0] = '-'
+            expected[1, 0] = 'x'
+            self._assert_equal(self._open(key)[:], expected, key)
 
     def test_vlen_codec_on_numbers_refused(self):
         self._write_array('data', DATA)

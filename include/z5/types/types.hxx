@@ -484,7 +484,8 @@ namespace types {
                                     const bool bigEndian=false,
                                     const std::vector<std::size_t> & transposeOrder={},
                                     const unsigned crc32cBefore=0,
-                                    const unsigned crc32cAfter=0) {
+                                    const unsigned crc32cAfter=0,
+                                    const std::string & arrayToBytes="bytes") {
         jCodecs = nlohmann::json::array();
         nlohmann::json crcCodec;
         crcCodec["name"] = "crc32c";
@@ -496,9 +497,15 @@ namespace types {
             jCodecs.push_back(transposeCodec);
         }
 
+        // the array-to-bytes codec: ``bytes``, or a vlen codec for variable-length
+        // elements (which has no settings)
         nlohmann::json bytesCodec;
-        bytesCodec["name"] = "bytes";
-        bytesCodec["configuration"]["endian"] = bigEndian ? "big" : "little";
+        bytesCodec["name"] = arrayToBytes;
+        if(arrayToBytes == "bytes") {
+            bytesCodec["configuration"]["endian"] = bigEndian ? "big" : "little";
+        } else {
+            bytesCodec["configuration"] = nlohmann::json::object();
+        }
         jCodecs.push_back(bytesCodec);
 
         for(unsigned i = 0; i < crc32cBefore; ++i) {
