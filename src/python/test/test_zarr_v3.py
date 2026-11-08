@@ -173,6 +173,127 @@ class TestZarrV3(unittest.TestCase):
                                      dtype='uint8')
 
 
+@requires_z5_v3
+class TestZarrV3Endian(unittest.TestCase):
+    """Byte order requested by the v3 ``bytes`` codec (``endian``).
+
+    Datasets are written by z5 (little-endian), then the ``endian`` field in
+    zarr.json is flipped without touching the chunk bytes: a correct reader must
+    then see every multi-byte element byte-swapped.
+    """
+    path = 'test_v3_endian.zr'
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _meta_path(self, key):
+        return os.path.join(self.path, key, 'zarr.json')
+
+    def _bytes_codecs(self, meta):
+        codecs = meta['codecs']
+        if codecs[0]['name'] == 'sharding_indexed':
+            codecs = codecs[0]['configuration']['codecs']
+        return [c for c in codecs if c['name'] == 'bytes']
+
+    def _set_endian(self, key, endian):
+        with open(self._meta_path(key)) as f:
+            meta = json.load(f)
+        for codec in self._bytes_codecs(meta):
+            if endian is None:
+                codec.pop('configuration', None)
+            else:
+                codec.setdefault('configuration', {})['endian'] = endian
+        with open(self._meta_path(key), 'w') as f:
+            json.dump(meta, f)
+
+    def _open(self, key, mode='r'):
+        return z5py.File(self.path, mode=mode)[key]
+
+    def _check_read_and_write(self, name, dtype, compression='raw', **kwargs):
+        shape, chunks = (37, 45), (10, 16)
+        data = _random(shape, dtype)
+        self.root.create_dataset(name, data=data, chunks=chunks,
+                                 compression=compression, **kwargs)
+
+        # read: the little-endian chunk bytes reinterpreted as big-endian
+        self._set_endian(name, 'big')
+        swapped = data.byteswap()
+        out = self._open(name)[:]
+        self.assertEqual(out.dtype, np.dtype(dtype))
+        np.testing.assert_array_equal(out, swapped)
+
+        # write: z5 must store big-endian bytes, i.e. flipping the metadata back
+        # to little-endian exposes the byte-swapped values
+        new = _random(shape, dtype)
+        ds = self._open(name, mode='a')
+        ds[:] = new
+        # partial write exercises the read-modify-write of existing chunks
+        ds[3:14, 5:30] = data[3:14, 5:30]
+        expected = new.copy()
+        expected[3:14, 5:30] = data[3:14, 5:30]
+        np.testing.assert_array_equal(self._open(name)[:], expected)
+
+        self._set_endian(name, 'little')
+        np.testing.assert_array_equal(self._open(name)[:], expected.byteswap())
+
+    def test_v3_big_endian_dtypes(self):
+        for dtype in DTYPES:
+            self._check_read_and_write('ds_%s' % dtype, dtype)
+
+    def test_v3_big_endian_codecs(self):
+        for comp in available_v3_compressors():
+            for dtype in ('int16', 'float32', 'float64'):
+                self._check_read_and_write('ds_%s_%s' % (comp, dtype), dtype,
+                                           compression=comp)
+
+    @requires_z5_v3_sharding
+    def test_v3_big_endian_sharded(self):
+        for dtype in ('uint16', 'int32', 'float64'):
+            self._check_read_and_write('ds_%s' % dtype, dtype, shards=(20, 32))
+
+    def test_v3_big_endian_read_chunk(self):
+        data = _random((20, 20), 'uint32')
+        self.root.create_dataset('a', data=data, chunks=(10, 10),
+                                 compression='raw')
+        self._set_endian('a', 'big')
+        out = self._open('a').read_chunk((1, 0))
+        np.testing.assert_array_equal(out, data[10:20, 0:10].byteswap())
+
+    def test_v3_writes_little_endian(self):
+        self.root.create_dataset('a', shape=(10,), chunks=(5,), dtype='int32')
+        with open(self._meta_path('a')) as f:
+            meta = json.load(f)
+        self.assertEqual(self._bytes_codecs(meta)[0]['configuration']['endian'],
+                         'little')
+
+    def test_v3_endian_missing(self):
+        # 'endian' may be omitted for single-byte types only
+        data = _random((10, 10), 'uint8')
+        self.root.create_dataset('u8', data=data, chunks=(5, 5))
+        self._set_endian('u8', None)
+        np.testing.assert_array_equal(self._open('u8')[:], data)
+
+        self.root.create_dataset('i32', shape=(10, 10), chunks=(5, 5),
+                                 dtype='int32')
+        self._set_endian('i32', None)
+        with self.assertRaises(RuntimeError):
+            self._open('i32')
+
+    def test_v3_endian_invalid(self):
+        self.root.create_dataset('a', shape=(10, 10), chunks=(5, 5),
+                                 dtype='int32')
+        self._set_endian('a', 'middle')
+        with self.assertRaises(RuntimeError):
+            self._open('a')
+
+
 @requires_z5_v3_sharding
 class TestZarrV3Sharding(unittest.TestCase):
     path = 'test_v3_shard.zr'

@@ -1,8 +1,15 @@
 #pragma once
 
+#include <bit>
 #include <string>
 
 #include "z5/types/types.hxx"
+
+// z5 maps chunk bytes straight onto native memory: zarr (and little-endian
+// zarr v3) data is copied without conversion, and only n5 / big-endian zarr v3
+// data is byte-swapped. That is only correct on a little-endian host.
+static_assert(std::endian::native == std::endian::little,
+              "z5 requires a little-endian host");
 
 namespace z5 {
 namespace util {

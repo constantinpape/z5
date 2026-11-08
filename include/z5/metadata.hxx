@@ -283,7 +283,7 @@ namespace z5 {
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
-                                       types::datatypeSize(dtype), innerCodecs);
+                                       types::datatypeSize(dtype), innerCodecs, bigEndian);
 
             if(sharded) {
                 nlohmann::json sharding;
@@ -374,7 +374,8 @@ namespace z5 {
                 chunkShape = outerShape;
             }
 
-            types::readV3CodecsFromJson(*innerCodecs, compressor, compressionOptions);
+            types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype),
+                                        compressor, compressionOptions, bigEndian);
         }
 
     public:
@@ -394,6 +395,10 @@ namespace z5 {
         // shape (empty unless the sharding_indexed codec is used)
         std::string chunkKeyEncoding = "default";
         types::ShapeType shardShape;
+
+        // zarr v3 specific: chunk elements are stored big-endian (``bytes`` codec
+        // with endian "big"); z5 always writes little-endian for new datasets
+        bool bigEndian = false;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
