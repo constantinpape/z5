@@ -22,7 +22,7 @@ requirements:
   build:
     - python {{PY_VER}}
     - cmake
-    - nanobind
+    - nanobind >=2.1
     - numpy >=1.15
     - nlohmann_json
     - blosc
