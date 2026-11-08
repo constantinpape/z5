@@ -45,7 +45,11 @@ namespace store_detail {
         if(!file.good()) {
             throw std::runtime_error(std::string("z5: failed to write ") + what + " file: " + path.string());
         }
+        // buffered data is flushed, and on network filesystems often uploaded, on close
         file.close();
+        if(file.fail()) {
+            throw std::runtime_error(std::string("z5: failed to close ") + what + " file: " + path.string());
+        }
     }
 
 }  // namespace store_detail

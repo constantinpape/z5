@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <stdexcept>
 
 #include "z5/filesystem/handle.hxx"
 #include "z5/generic/attributes.hxx"
@@ -46,6 +47,7 @@ namespace attrs_detail {
             std::ofstream file(base_ / name);
             file << j;
             file.close();
+            checkWritten(file, name);
         }
 
         // pretty serialization (zarr.json and metadata files)
@@ -53,9 +55,17 @@ namespace attrs_detail {
             std::ofstream file(base_ / name);
             file << std::setw(4) << j << std::endl;
             file.close();
+            checkWritten(file, name);
         }
 
     private:
+        // failbit is sticky: this catches failures to open, write and close
+        inline void checkWritten(const std::ofstream & file, const std::string & name) const {
+            if(file.fail()) {
+                throw std::runtime_error("z5: failed to write " + (base_ / name).string());
+            }
+        }
+
         fs::path base_;
     };
 

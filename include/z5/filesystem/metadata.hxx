@@ -13,6 +13,10 @@ namespace metadata_detail {
         std::ofstream file(path);
         file << std::setw(4) << j << std::endl;
         file.close();
+        // failbit is sticky: this catches failures to open, write and close
+        if(file.fail()) {
+            throw std::runtime_error("z5: failed to write metadata file: " + path.string());
+        }
     }
 
     inline void readMetadata(const fs::path & path, nlohmann::json & j) {
