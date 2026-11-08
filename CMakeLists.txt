@@ -304,7 +304,27 @@ if(BUILD_Z5PY)
             OUTPUT_VARIABLE nanobind_DIR)
     endif()
     find_package(nanobind CONFIG REQUIRED)
-    message(STATUS "Using nanobind from ${nanobind_DIR}")
+
+    # nanobind < 2.1 fails to compile the bindings (ndarray::data() on a
+    # const array returns a const pointer there). The version is checked by
+    # hand: nanobind's version file only accepts the same major version, and
+    # releases before 2.1 ship none (nanobind_VERSION is then empty).
+    set(Z5_NANOBIND_MIN_VERSION 2.1)
+    if(NOT nanobind_VERSION OR nanobind_VERSION VERSION_LESS Z5_NANOBIND_MIN_VERSION)
+        if(NOT nanobind_VERSION)
+            set(_z5_nb_found "a version older than 2.1")
+        else()
+            set(_z5_nb_found "${nanobind_VERSION}")
+        endif()
+        message(FATAL_ERROR
+            "z5py needs nanobind >= ${Z5_NANOBIND_MIN_VERSION}, but the one in "
+            "${nanobind_DIR} is ${_z5_nb_found}. Install a recent nanobind for "
+            "${Python_EXECUTABLE} (pip or conda) and re-run cmake in a clean "
+            "build directory, or point nanobind_DIR at one with "
+            "-Dnanobind_DIR=$(python -m nanobind --cmake_dir). Distribution "
+            "packages such as Ubuntu's nanobind-dev may be too old.")
+    endif()
+    message(STATUS "Using nanobind ${nanobind_VERSION} from ${nanobind_DIR}")
 endif()
 
 add_library(z5 INTERFACE)

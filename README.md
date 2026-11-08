@@ -72,7 +72,7 @@ If you want to include z5 in another C++ project, note that the library itself i
 
 If you don't want to use conda for dependency management, the following dependencies are necessary:
 - [nlohmann_json](https://github.com/nlohmann/json)
-- [nanobind](https://github.com/wjakob/nanobind) (only for python bindings)
+- [nanobind](https://github.com/wjakob/nanobind) >= 2.1 (only for python bindings)
 - [numpy](https://numpy.org/) (only for python bindings)
 
 ## Examples / Usage

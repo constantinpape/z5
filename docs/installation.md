@@ -49,6 +49,6 @@ set `PYTHON_MODULE_INSTALL_DIR`.
 
 If you do not want to use conda, the build needs
 [nlohmann_json](https://github.com/nlohmann/json), plus
-[nanobind](https://github.com/wjakob/nanobind) and
+[nanobind](https://github.com/wjakob/nanobind) (2.1 or newer) and
 [numpy](https://numpy.org/) for the Python bindings, and the development
 libraries of whichever compression codecs you enable.
