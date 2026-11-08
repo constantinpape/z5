@@ -228,7 +228,8 @@ If you use this library in your research, please cite it via the associated DOI:
 ## Current Limitations / TODOs
 
 - No thread / process synchronization -> writing to the same chunk in parallel will lead to undefined behavior.
-- Supports only little endianness and C-order for the zarr format, but can read big-endian.
+- Supports only C-order for the zarr format.
+- New zarr datasets are always little-endian. Existing zarr v3 datasets with a big-endian `bytes` codec can be read and written. Big-endian zarr v2 datasets are not supported.
 
 
 ## A note on axis ordering

@@ -99,5 +99,5 @@ logic is already factored out:
 
 - **Axis ordering**: n5 is column-major (x, y, z), z5 is row-major (z, y, x). Handled internally, but n5 metadata (shape, chunk shape, chunk ids) is stored reversed relative to z5's in-memory order. Both zarr v2 and v3 are exercised in the tests.
 - **No thread/process synchronization**: concurrent writes to the same chunk are undefined behavior.
-- The zarr format here supports only little-endian and C-order.
+- The zarr format here supports only C-order. z5 always creates little-endian zarr datasets. It reads and writes existing zarr v3 datasets whose `bytes` codec is big-endian (`DatasetMetadata::bigEndian` → `reverseBytes_`, swapped in `util::decompress` / `data_to_buffer`). Big-endian zarr v2 dtypes (`">i4"` etc.) are rejected.
 - The version is the single source of truth in `include/z5/z5.hxx` (`Z5_VERSION_*`); CMake parses it from there, and it is mirrored in `src/python/module/z5py/__init__.py`.
