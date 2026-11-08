@@ -132,6 +132,54 @@ namespace z5 {
     }
 
 
+    TEST_F(FactoryTest, CreateDatasetOptions) {
+        fs::path p = tmp / "f.zr";
+        z5::filesystem::handle::File file(p);
+        z5::createFile(file, true, 3);
+
+        DatasetOptions options;
+        options.compressor = "zlib";
+        options.fillValue = 7;
+        options.zarrFormat = 3;
+        options.chunkKeyEncoding = "v2";
+        options.shardShape = types::ShapeType({20, 20, 20});
+        auto ds = createDataset(file, "data", "int32",
+                                types::ShapeType({100, 100, 100}),
+                                types::ShapeType({10, 10, 10}),
+                                options);
+
+        // the options round-trip through the metadata on disk
+        DatasetMetadata meta;
+        filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+        ASSERT_EQ(meta.zarrFormat, 3);
+        ASSERT_EQ(meta.compressor, types::zlib);
+        ASSERT_EQ(meta.fillValue, 7);
+        ASSERT_EQ(meta.chunkKeyEncoding, "v2");
+        ASSERT_EQ(meta.shardShape, types::ShapeType({20, 20, 20}));
+
+        // the positional form gives the same metadata
+        auto ds2 = createDataset(file, "data2", "int32",
+                                 types::ShapeType({100, 100, 100}),
+                                 types::ShapeType({10, 10, 10}),
+                                 "zlib", types::CompressionOptions(), 7, ".", 3, "v2",
+                                 types::ShapeType({20, 20, 20}));
+        DatasetMetadata meta2;
+        filesystem::readMetadata(filesystem::handle::Dataset(ds2->path(), ds2->mode()), meta2);
+        nlohmann::json j, j2;
+        meta.toJson(j);
+        meta2.toJson(j2);
+        ASSERT_EQ(j, j2);
+
+        // v3-only options are rejected for other formats
+        DatasetOptions bad;
+        bad.shardShape = types::ShapeType({20, 20, 20});
+        ASSERT_THROW(createDataset(file, "bad", "int32",
+                                   types::ShapeType({100, 100, 100}),
+                                   types::ShapeType({10, 10, 10}),
+                                   bad), std::runtime_error);
+    }
+
+
     TEST_F(FactoryTest, CreateAllDtypes) {
         std::vector<std::string> dtypes({
             "int8", "int16", "int32", "int64",
