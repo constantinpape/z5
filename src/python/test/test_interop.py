@@ -1142,5 +1142,84 @@ class TestInteropZarrPyBytes(unittest.TestCase):
         self._check(3)
 
 
+@requires_zarr_v3
+class TestInteropZarrPyDtypes(unittest.TestCase):
+    """The zarr data types n5 lacks, both directions: zarr v2, v3 and v3
+    sharded, with a non-default fill value and partial writes."""
+    path = "interop_dtypes.zr"
+    # name -> (sample values of n elements, fill value)
+    dtypes = {
+        "bool": (lambda n: np.random.RandomState(0).rand(n) > .5, True),
+    }
+    layouts = {"v2": ({"zarr_format": 2}, {}),
+               "v3": ({"zarr_format": 3}, {}),
+               "v3_sharded": ({"zarr_format": 3, "shards": (4, 6)}, {"shards": (4, 6)})}
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _compressors(self, zarr_format):
+        if zarr_format == 2:
+            return {"raw": None, "gzip": numcodecs.GZip()}
+        from zarr.codecs import GzipCodec
+        return {"raw": None, "gzip": GzipCodec()}
+
+    def _check(self, layout):
+        zarr_kwargs, z5_kwargs = self.layouts[layout]
+        zarr_format = zarr_kwargs["zarr_format"]
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=zarr_format)
+        shape, chunks = (7, 9), (2, 3)
+        for dtype, (values, fill) in self.dtypes.items():
+            data = values(63).reshape(shape)
+            for name, compressor in self._compressors(zarr_format).items():
+                msg = "%s %s %s" % (layout, dtype, name)
+                expected = np.full(shape, fill, dtype=dtype)
+                expected[1:6, 2:] = data[1:6, 2:]
+
+                # zarr -> z5, then z5 rewrites part of it -> zarr
+                key = "zarr_%s_%s" % (dtype, name)
+                za = zarr.create_array(store=self.path, name=key, shape=shape, chunks=chunks,
+                                       dtype=dtype, fill_value=fill, compressors=compressor,
+                                       **zarr_kwargs)
+                za[1:6, 2:] = data[1:6, 2:]
+                ds = f[key]
+                self.assertEqual(ds.dtype, np.dtype(dtype), msg)
+                self.assertEqual(ds.fillvalue, np.asarray(fill, dtype=dtype), msg)
+                np.testing.assert_array_equal(ds[:], expected, msg)
+                ds[0, :4] = data[0, :4]
+                expected[0, :4] = data[0, :4]
+                np.testing.assert_array_equal(
+                    zarr.open_array(store=self.path, path=key, mode="r")[:], expected, msg)
+
+                # z5 -> zarr, then zarr rewrites part of it -> z5
+                key = "z5_%s_%s" % (dtype, name)
+                expected = np.full(shape, fill, dtype=dtype)
+                expected[1:6, 2:] = data[1:6, 2:]
+                ds = f.create_dataset(key, shape=shape, chunks=chunks, dtype=dtype, fillvalue=fill,
+                                      compression=name, **z5_kwargs)
+                ds[1:6, 2:] = data[1:6, 2:]
+                za = zarr.open_array(store=self.path, path=key, mode="a")
+                self.assertEqual(za.dtype, np.dtype(dtype), msg)
+                self.assertEqual(za.fill_value, np.asarray(fill, dtype=dtype), msg)
+                np.testing.assert_array_equal(za[:], expected, msg)
+                za[6, :] = data[6, :]
+                expected[6, :] = data[6, :]
+                np.testing.assert_array_equal(f[key][:], expected, msg)
+
+    def test_v2(self):
+        self._check("v2")
+
+    @requires_z5_v3
+    def test_v3(self):
+        self._check("v3")
+
+    @requires_z5_v3_sharding
+    def test_v3_sharded(self):
+        self._check("v3_sharded")
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -18,14 +18,14 @@ namespace types {
 
     // A dataset's fill value. After normalizeFillValue (which metadata parsing
     // and dataset creation apply), it holds int64_t for signed integer types
-    // and uint64_t for unsigned ones, so every 64-bit value is exact, and double
-    // for float and complex types, and std::string for variable-length string
+    // and uint64_t for unsigned ones, so every 64-bit value is exact, bool for
+    // bool, double for float and complex types, and std::string for variable-length string
     // and byte string types (the raw bytes; the metadata stores a bytes fill
     // value base64-encoded). Read the typed value with fillValueAs<T>().
     //
     // NaN payloads are not kept: every NaN becomes the default quiet NaN and is
     // written as "NaN", as zarr-python does.
-    using FillValue = std::variant<double, int64_t, uint64_t, std::string>;
+    using FillValue = std::variant<double, int64_t, uint64_t, std::string, bool>;
 
     inline bool isIntegerDtype(const Datatype dtype) {
         switch(dtype) {
@@ -43,6 +43,10 @@ namespace types {
 
     inline bool isFloatDtype(const Datatype dtype) {
         return dtype == float32 || dtype == float64;
+    }
+
+    inline bool isBoolDtype(const Datatype dtype) {
+        return dtype == boolean;
     }
 
     // a readable form of a fill value, for error messages
@@ -83,6 +87,9 @@ namespace types {
 
         // an integer fill value as the alternative for `dtype`, range checked
         inline FillValue integerFillValue(const FillValue & v, const Datatype dtype, const bool strict) {
+            if(std::holds_alternative<bool>(v)) {
+                invalid(v, dtype, "expected an integer");
+            }
             const std::size_t size = datatypeSize(dtype);
             const bool isSigned = isSignedDtype(dtype);
             if(const auto * u = std::get_if<uint64_t>(&v)) {
@@ -119,11 +126,35 @@ namespace types {
             invalid(v, dtype, "expected an integer");
         }
 
+        // a bool fill value: true / false, or the numbers 0 and 1
+        inline FillValue boolFillValue(const FillValue & v, const Datatype dtype) {
+            const bool ok = std::visit([](const auto & x) {
+                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
+                    return false;
+                } else {
+                    return x == 0 || x == 1;
+                }
+            }, v);
+            if(!ok) {
+                invalid(v, dtype, "expected true or false");
+            }
+            return std::visit([](const auto & x) -> FillValue {
+                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
+                    return false;  // unreachable, checked above
+                } else {
+                    return x == 1;
+                }
+            }, v);
+        }
+
         // a variable-length string fill value; the numeric default 0 (what
         // DatasetOptions starts with) means the empty string
         inline FillValue vlenFillValue(const FillValue & v, const Datatype dtype) {
             if(std::holds_alternative<std::string>(v)) {
                 return v;
+            }
+            if(std::holds_alternative<bool>(v)) {
+                invalid(v, dtype, "expected a string");
             }
             const bool isZero = std::visit([](const auto & x) {
                 if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
@@ -156,10 +187,13 @@ namespace types {
         if(isIntegerDtype(dtype)) {
             return fill_value_detail::integerFillValue(v, dtype, strict);
         }
+        if(isBoolDtype(dtype)) {
+            return fill_value_detail::boolFillValue(v, dtype);
+        }
         if(isVlenDtype(dtype)) {
             return fill_value_detail::vlenFillValue(v, dtype);
         }
-        if(std::holds_alternative<std::string>(v)) {
+        if(std::holds_alternative<std::string>(v) || std::holds_alternative<bool>(v)) {
             fill_value_detail::invalid(v, dtype, "expected a number");
         }
         const double d = std::visit([](const auto & x) -> double {
@@ -178,7 +212,7 @@ namespace types {
     inline FillValue fillValueFromBits(const Datatype dtype, const uint64_t bits) {
         using namespace fill_value_detail;
         const std::size_t size = datatypeSize(dtype);
-        if(!isIntegerDtype(dtype) && !isFloatDtype(dtype)) {
+        if(!isIntegerDtype(dtype) && !isFloatDtype(dtype) && !isBoolDtype(dtype)) {
             throw std::runtime_error("z5: fill value bits are not supported for data type " + dtypeName(dtype));
         }
         if(size < 8 && (bits >> (8 * size)) != 0) {
@@ -186,6 +220,9 @@ namespace types {
         }
         if(isFloatDtype(dtype)) {
             return floatFromBits(bits, dtype);
+        }
+        if(isBoolDtype(dtype)) {
+            return boolFillValue(bits, dtype);
         }
         if(isSignedDtype(dtype)) {
             // sign-extend the low `size` bytes
@@ -223,6 +260,8 @@ namespace types {
     // the value's bits ("0x3f800000" is 1.0 for float32; NaN payloads are
     // dropped). v3 refuses null, as the spec and zarr-python do.
     //
+    // Bool takes true or false (zarr v2 also accepts 0 and 1, and null for false).
+    //
     // zarr v2 is read leniently, as before, so that existing arrays still
     // open: null means NaN for float types and 0 for integer types, a
     // non-integral number for an integer type is truncated, and a string for an
@@ -248,6 +287,19 @@ namespace types {
                 return std::string();
             }
             invalid(j.dump(), dtype, "expected a string");
+        }
+
+        if(isBoolDtype(dtype)) {
+            if(j.is_boolean()) {
+                return j.get<bool>();
+            }
+            if(!v3 && j.is_null()) {
+                return false;
+            }
+            if(!v3 && j.is_number()) {
+                return normalizeFillValue(j.get<double>(), dtype, false);
+            }
+            invalid(j.dump(), dtype, "expected true or false");
         }
 
         if(j.is_null()) {
@@ -318,6 +370,10 @@ namespace types {
     // Write a fill_value for zarr v2 or v3 metadata (the inverse of
     // fillValueFromJson). Integers are written exactly.
     inline void fillValueToJson(const Datatype dtype, const FillValue & v, nlohmann::json & j) {
+        if(isBoolDtype(dtype)) {
+            j = fillValueAs<uint8_t>(normalizeFillValue(v, dtype, false)) != 0;
+            return;
+        }
         if(const auto * d = std::get_if<double>(&v)) {
             if(std::isnan(*d)) {
                 j = "NaN";
