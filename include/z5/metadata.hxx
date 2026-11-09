@@ -189,8 +189,9 @@ namespace z5 {
         void fromJsonN5(const nlohmann::json & j) {
 
             dtype = types::Datatypes::n5ToDtype().at(j["dataType"]);
-            // n5's own "string" type is encoded differently from zarr's vlen codecs
-            if(types::isVlenDtype(dtype)) {
+            // n5's own "string" type is encoded differently from zarr's vlen
+            // codecs, and the zarr-only names aren't n5 types
+            if(!types::isN5Dtype(dtype)) {
                 throw std::runtime_error("z5: n5 data type " + j["dataType"].get<std::string>() +
                                          " is not supported");
             }
@@ -641,13 +642,13 @@ namespace z5 {
         } catch(const std::out_of_range & e) {
             throw std::runtime_error("z5::createDatasetMetadata: Invalid dtype for dataset");
         }
-        // variable-length strings: zarr only (n5's own string type is encoded
-        // differently); not bare lz4 blocks (zarr v2), which don't record the
-        // decoded size. Transpose is checked below.
+        // the types n5 lacks (bool, strings, ...) are zarr only
+        if(!createAsZarr && !types::isN5Dtype(internalDtype)) {
+            throw std::runtime_error("z5::createDatasetMetadata: " + dtype + " datasets are only supported for zarr");
+        }
+        // variable-length strings: not bare lz4 blocks (zarr v2), which don't
+        // record the decoded size. Transpose is checked below.
         if(types::isVlenDtype(internalDtype)) {
-            if(!createAsZarr) {
-                throw std::runtime_error("z5::createDatasetMetadata: " + dtype + " datasets are only supported for zarr");
-            }
             if(zarrFormat != 3 && compressor == "lz4") {
                 throw std::runtime_error("z5::createDatasetMetadata: lz4 is not supported for zarr v2 " + dtype +
                                          " datasets");

@@ -239,6 +239,68 @@ namespace z5 {
     }
 
 
+    // bool datasets hold uint8_t elements, 0 or 1; the fill value is a JSON bool
+    TEST_F(FactoryTest, CreateBoolDataset) {
+        for(const int zarrFormat : {2, 3}) {
+            fs::path p = tmp / ("bool" + std::to_string(zarrFormat) + ".zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, zarrFormat);
+
+            DatasetOptions options;
+            options.zarrFormat = zarrFormat;
+            options.fillValue = true;
+            auto ds = createDataset(file, "b", "bool", types::ShapeType({3, 5}),
+                                    types::ShapeType({2, 2}), options);
+            ASSERT_EQ(ds->getDtype(), types::boolean);
+            uint8_t fill = 0;
+            ds->getFillValue(&fill);
+            ASSERT_EQ(fill, 1);
+
+            std::vector<uint8_t> in{0, 1, 0, 0, 1, 0};
+            const types::ShapeType offset({1, 2});
+            multiarray::writeSubarray<uint8_t>(*ds, multiarray::makeView(in.data(), types::ShapeType({2, 3})),
+                                               offset.begin());
+            auto reopened = openDataset(file, "b");
+            std::vector<uint8_t> out(15);
+            const types::ShapeType zero({0, 0});
+            multiarray::readSubarray<uint8_t>(*reopened, multiarray::makeView(out.data(), types::ShapeType({3, 5})),
+                                              zero.begin());
+            ASSERT_EQ(out, std::vector<uint8_t>({1, 1, 1, 1, 1,
+                                                 1, 1, 0, 1, 0,
+                                                 1, 1, 0, 1, 0}));
+
+            DatasetMetadata meta;
+            filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+            nlohmann::json j;
+            meta.toJson(j);
+            ASSERT_EQ(j["fill_value"], nlohmann::json(true));
+            ASSERT_EQ(zarrFormat == 3 ? j["data_type"] : j["dtype"], zarrFormat == 3 ? "bool" : "|b1");
+
+            // only 0 and 1 are bool values
+            DatasetOptions bad;
+            bad.zarrFormat = zarrFormat;
+            bad.fillValue = int64_t(2);
+            ASSERT_THROW(createDataset(file, "bad", "bool", types::ShapeType({3}), types::ShapeType({2}), bad),
+                         std::runtime_error);
+        }
+
+        // fill_value parsing: zarr v3 takes only true / false, v2 also null, 0 and 1
+        ASSERT_EQ(types::fillValueFromJson(false, types::boolean, 3), types::FillValue(false));
+        ASSERT_THROW(types::fillValueFromJson(1, types::boolean, 3), std::runtime_error);
+        ASSERT_THROW(types::fillValueFromJson(nullptr, types::boolean, 3), std::runtime_error);
+        ASSERT_EQ(types::fillValueFromJson(nullptr, types::boolean, 2), types::FillValue(false));
+        ASSERT_EQ(types::fillValueFromJson(1, types::boolean, 2), types::FillValue(true));
+        ASSERT_THROW(types::fillValueFromJson(2, types::boolean, 2), std::runtime_error);
+
+        // n5 has no bool type
+        fs::path p = tmp / "bool.n5";
+        z5::filesystem::handle::File n5(p);
+        z5::createFile(n5, false);
+        ASSERT_THROW(createDataset(n5, "b", "bool", types::ShapeType({3}), types::ShapeType({2}), DatasetOptions()),
+                     std::runtime_error);
+    }
+
+
     TEST_F(FactoryTest, CreateDatasetExactFillValue) {
         for(const int zarrFormat : {2, 3}) {
             fs::path p = tmp / ("fill" + std::to_string(zarrFormat) + ".zr");

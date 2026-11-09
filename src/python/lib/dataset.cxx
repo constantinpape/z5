@@ -101,6 +101,22 @@ namespace z5 {
     }
 
 
+    // a bool dataset (uint8_t elements) takes any value as its truth value
+    inline void writePyScalarBool(const Dataset & ds,
+                                  const std::vector<std::size_t> & roiBegin,
+                                  const std::vector<std::size_t> & roiShape,
+                                  const nb::object & val,
+                                  const int numberOfThreads) {
+        const int truth = PyObject_IsTrue(val.ptr());
+        if(truth < 0) {
+            throw nb::python_error();
+        }
+        const uint8_t v = static_cast<uint8_t>(truth);
+        nb::gil_scoped_release lift_gil;
+        writePyScalar<uint8_t>(ds, roiBegin, roiShape, v, numberOfThreads);
+    }
+
+
     template<class T>
     inline nb::object readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
@@ -439,7 +455,8 @@ namespace z5 {
         exportVlenIo<false>(module, "string");
         exportVlenIo<true>(module, "bytes");
 
-        // export I/O for all dtypes
+        // export I/O for all dtypes; bool datasets are read and written through
+        // the uint8 functions (z5py passes uint8 views of bool arrays)
         // integer types
         exportIoT<int8_t>(module, "int8");
         exportIoT<int16_t>(module, "int16");
@@ -500,6 +517,9 @@ namespace z5 {
                             break;
                         case types::Datatype::float64 :
                             writePyScalarCasted<double, double>(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::boolean :
+                            writePyScalarBool(ds, roiBegin, roiShape, val, numberOfThreads);
                             break;
                         case types::Datatype::complex64 :
                             writePyScalarCasted<std::complex<float>, std::complex<double>>(
