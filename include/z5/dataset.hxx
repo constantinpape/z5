@@ -40,6 +40,7 @@ namespace z5 {
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     dimensionNames_(metadata.dimensionNames),
                                                     transposeOrder_(metadata.transposeOrder),
+                                                    elementSize_(metadata.elementSize),
                                                     crc32c_(metadata.crc32cBeforeCompressor + metadata.crc32cAfterCompressor > 0),
                                                     chunking_(shape_, chunkShape_)
         {}
@@ -112,6 +113,9 @@ namespace z5 {
         // zarr v3: the chunk codecs include at least one crc32c checksum
         inline bool hasCrc32c() const {return crc32c_;}
 
+        // the byte size of a raw element (raw_bits, raw_bytes); 0 otherwise
+        inline std::size_t elementSize() const {return elementSize_;}
+
         // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
         // do a single read-modify-write per shard and parallelize across shards. Default
         // bodies are no-ops; only ShardedDataset overrides them (and the sub-array code
@@ -183,6 +187,7 @@ namespace z5 {
         std::string zarrDelimiter_;
         std::vector<std::optional<std::string>> dimensionNames_;
         std::vector<std::size_t> transposeOrder_;
+        std::size_t elementSize_;
         bool crc32c_;
 
         util::Blocking chunking_;
@@ -217,7 +222,7 @@ namespace z5 {
 
 
     // the element type a dataset's compressor works on: variable-length strings
-    // are encoded to bytes (util/vlen.hxx) before compression
+    // (util/vlen.hxx) and raw elements are encoded to bytes before compression
     template<class T>
     using CodecElement = std::conditional_t<std::is_same_v<T, std::string>, char, T>;
 
@@ -229,8 +234,10 @@ namespace z5 {
         using CodecT = CodecElement<T>;
 
         MixinTyped(const DatasetMetadata & metadata) : fillValue_(metadata.fillValueAs<T>()) {
-            arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1;
+            // strings and raw elements have no byte order
+            arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1 && !util::isVlenElement<T>;
             arrayCodecs_.order = metadata.transposeOrder;
+            arrayCodecs_.fixedItemSize = metadata.elementSize;
             arrayCodecs_.chunkShape = metadata.chunkShape;
             init_compressor(metadata);
         }

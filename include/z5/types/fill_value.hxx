@@ -22,9 +22,10 @@ namespace types {
     // and dataset creation apply), it holds int64_t for signed integer types
     // and uint64_t for unsigned ones, so every 64-bit value is exact, bool for
     // bool, double for float types, std::complex<double> for complex types,
-    // and std::string for variable-length string and byte string types (the
-    // raw bytes; the metadata stores a bytes fill value base64-encoded). Read
-    // the typed value with fillValueAs<T>().
+    // and std::string for variable-length string and byte string types and
+    // for the raw types (the bytes; the metadata stores bytes base64-encoded,
+    // or as a list of byte values for zarr v3 raw bits). Read the typed value
+    // with fillValueAs<T>().
     //
     // NaN payloads are not kept: every NaN becomes the default quiet NaN and is
     // written as "NaN", as zarr-python does.
@@ -176,6 +177,21 @@ namespace types {
             return realFillValue(v) == 1;
         }
 
+        // a raw fill value: exactly `elementSize` bytes; the number 0 (what
+        // DatasetOptions starts with) means all zero bytes
+        inline FillValue rawFillValue(const FillValue & v, const Datatype dtype, const std::size_t elementSize) {
+            if(const auto * s = std::get_if<std::string>(&v)) {
+                if(s->size() != elementSize) {
+                    invalid(v, dtype, "expected " + std::to_string(elementSize) + " bytes");
+                }
+                return v;
+            }
+            if(!isRealFillValue(v) || realFillValue(v) != 0) {
+                invalid(v, dtype, "expected " + std::to_string(elementSize) + " bytes");
+            }
+            return std::string(elementSize, '\0');
+        }
+
         // a variable-length string fill value; the numeric default 0 (what
         // DatasetOptions starts with) means the empty string
         inline FillValue vlenFillValue(const FillValue & v, const Datatype dtype) {
@@ -203,7 +219,12 @@ namespace types {
     // Bring a fill value into the form described at FillValue, checking it
     // fits the data type. `strict` (zarr v3) refuses a non-integral value for
     // an integer type; otherwise (zarr v2, n5) it is truncated, as before.
-    inline FillValue normalizeFillValue(const FillValue & v, const Datatype dtype, const bool strict) {
+    // `elementSize` is the byte size of a raw element (DatasetMetadata).
+    inline FillValue normalizeFillValue(const FillValue & v, const Datatype dtype, const bool strict,
+                                        const std::size_t elementSize=0) {
+        if(isRawDtype(dtype)) {
+            return fill_value_detail::rawFillValue(v, dtype, elementSize);
+        }
         if(isIntegerDtype(dtype)) {
             return fill_value_detail::integerFillValue(v, dtype, strict);
         }
@@ -369,13 +390,45 @@ namespace types {
     // Complex types take [real, imag], each part as for a float type of half
     // the size (zarr v2 also accepts a number, the real part).
     //
+    // The zarr v3 raw bits types ("r<N>") take a list of the element's
+    // `elementSize` byte values, each in [0, 255]; zarr-python's raw_bytes,
+    // and zarr v2 "|V<n>", take the bytes base64-encoded.
+    //
     // zarr v2 is read leniently, as before, so that existing arrays still
     // open: null means NaN for float types and 0 for integer types, a
     // non-integral number for an integer type is truncated, and a string for an
     // integer type (which old z5 versions could write) reads as 0.
-    inline FillValue fillValueFromJson(const nlohmann::json & j, const Datatype dtype, const int zarrFormat) {
+    inline FillValue fillValueFromJson(const nlohmann::json & j, const Datatype dtype, const int zarrFormat,
+                                       const std::size_t elementSize=0) {
         using namespace fill_value_detail;
         const bool v3 = zarrFormat == 3;
+
+        if(isRawDtype(dtype)) {
+            if(v3 && dtype == raw_bits) {
+                if(!j.is_array()) {
+                    invalid(j.dump(), dtype, "expected a list of byte values");
+                }
+                std::string bytes;
+                for(const auto & b : j) {
+                    if(!b.is_number_integer() || b.get<int64_t>() < 0 || b.get<int64_t>() > 255) {
+                        invalid(j.dump(), dtype, "expected a list of byte values");
+                    }
+                    bytes.push_back(static_cast<char>(b.get<int64_t>()));
+                }
+                return normalizeFillValue(bytes, dtype, true, elementSize);
+            }
+            if(j.is_string()) {
+                try {
+                    return normalizeFillValue(util::base64Decode(j.get<std::string>()), dtype, v3, elementSize);
+                } catch(const std::runtime_error & e) {
+                    invalid(j.dump(), dtype, e.what());
+                }
+            }
+            if(j.is_null() && !v3) {
+                return normalizeFillValue(0., dtype, false, elementSize);
+            }
+            invalid(j.dump(), dtype, "expected base64-encoded bytes");
+        }
 
         if(isVlenDtype(dtype)) {
             // a bytes fill value is stored base64-encoded, as zarr-python does
@@ -454,7 +507,20 @@ namespace types {
 
     // Write a fill_value for zarr v2 or v3 metadata (the inverse of
     // fillValueFromJson). Integers are written exactly.
-    inline void fillValueToJson(const Datatype dtype, const FillValue & v, nlohmann::json & j) {
+    inline void fillValueToJson(const Datatype dtype, const FillValue & v, nlohmann::json & j,
+                                const int zarrFormat=3) {
+        if(isRawDtype(dtype)) {
+            const auto & bytes = std::get<std::string>(v);
+            if(zarrFormat == 3 && dtype == raw_bits) {
+                j = nlohmann::json::array();
+                for(const char c : bytes) {
+                    j.push_back(static_cast<unsigned char>(c));
+                }
+            } else {
+                j = util::base64Encode(bytes);
+            }
+            return;
+        }
         if(isBoolDtype(dtype)) {
             j = fillValueAs<uint8_t>(normalizeFillValue(v, dtype, false)) != 0;
             return;

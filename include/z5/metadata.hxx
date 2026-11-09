@@ -49,18 +49,20 @@ namespace z5 {
             const int zarrFormat=2,
             const std::string & chunkKeyEncoding="default",
             const types::ShapeType & shardShape=types::ShapeType(),
-            const std::vector<std::optional<std::string>> & dimensionNames={}
+            const std::vector<std::optional<std::string>> & dimensionNames={},
+            const std::size_t elementSize=0
             ) : Metadata(isZarr, zarrFormat),
                 dtype(dtype),
                 shape(shape),
                 chunkShape(chunkShape),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
-                fillValue(types::normalizeFillValue(fillValue, dtype, false)),
+                fillValue(types::normalizeFillValue(fillValue, dtype, false, elementSize)),
                 zarrDelimiter(zarrDelimiter),
                 chunkKeyEncoding(chunkKeyEncoding),
                 shardShape(shardShape),
-                dimensionNames(dimensionNames)
+                dimensionNames(dimensionNames),
+                elementSize(elementSize)
         {
             checkShapes();
         }
@@ -112,13 +114,15 @@ namespace z5 {
             // object arrays name their item codec as a filter (numcodecs' layout)
             if(types::isVlenDtype(dtype)) {
                 j["dtype"] = "|O";
+            } else if(types::isRawDtype(dtype)) {
+                j["dtype"] = "|V" + std::to_string(elementSize);
             } else {
                 j["dtype"] = types::Datatypes::dtypeToZarr().at(dtype);
             }
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
+            types::fillValueToJson(dtype, fillValue, j["fill_value"], 2);
 
             if(types::isVlenDtype(dtype)) {
                 j["filters"] = nlohmann::json::array({{{"id", types::vlenCodecName(dtype)}}});
@@ -154,6 +158,8 @@ namespace z5 {
             if(j.at("dtype") == "|O") {
                 // object arrays: the filter names how the items are encoded
                 dtype = objectDtypeFromFilters(j.contains("filters") ? j.at("filters") : nlohmann::json());
+            } else if(parseRawZarrDtype(j.at("dtype"))) {
+                // raw bytes, ``|V<n>``: parseRawZarrDtype set dtype and elementSize
             } else {
                 try {
                     dtype = types::Datatypes::zarrToDtype().at(j["dtype"]);
@@ -164,7 +170,7 @@ namespace z5 {
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
 
-            fillValue = types::fillValueFromJson(j["fill_value"], dtype, 2);
+            fillValue = types::fillValueFromJson(j["fill_value"], dtype, 2, elementSize);
 
             auto jIt = j.find("dimension_separator");
             if(jIt != j.end()) {
@@ -257,7 +263,14 @@ namespace z5 {
         void toJsonV3(nlohmann::json & j) const {
             j["zarr_format"] = 3;
             j["node_type"] = "array";
-            j["data_type"] = types::Datatypes::dtypeToN5().at(dtype);
+            if(dtype == types::raw_bits) {
+                j["data_type"] = "r" + std::to_string(8 * elementSize);
+            } else if(dtype == types::raw_bytes) {
+                // zarr-python's extension data type
+                j["data_type"] = {{"name", "raw_bytes"}, {"configuration", {{"length_bytes", elementSize}}}};
+            } else {
+                j["data_type"] = types::Datatypes::dtypeToN5().at(dtype);
+            }
             j["shape"] = shape;
 
             const bool sharded = !shardShape.empty();
@@ -270,7 +283,7 @@ namespace z5 {
             j["chunk_key_encoding"]["name"] = chunkKeyEncoding;
             j["chunk_key_encoding"]["configuration"]["separator"] = zarrDelimiter;
 
-            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
+            types::fillValueToJson(dtype, fillValue, j["fill_value"], 3);
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
@@ -374,11 +387,7 @@ namespace z5 {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: node_type is not 'array'");
             }
             checkV3Fields(j);
-            try {
-                dtype = types::Datatypes::n5ToDtype().at(j.at("data_type"));
-            } catch(std::out_of_range) {
-                throw std::runtime_error("Unsupported zarr v3 data_type: " + j.at("data_type").get<std::string>());
-            }
+            dtypeFromV3(j.at("data_type"));
             shape = types::ShapeType(j.at("shape").begin(), j.at("shape").end());
 
             // outer chunk grid (== shard shape when sharded, else inner chunk shape)
@@ -408,7 +417,7 @@ namespace z5 {
             }
 
             // fill value
-            fillValue = types::fillValueFromJson(j.at("fill_value"), dtype, 3);
+            fillValue = types::fillValueFromJson(j.at("fill_value"), dtype, 3, elementSize);
 
             // codecs: detect sharding, recover inner chunk shape + inner compressor
             const auto & codecs = j.at("codecs");
@@ -496,6 +505,10 @@ namespace z5 {
         // unnamed dimension; empty if the array has no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
 
+        // the byte size of a raw element (raw_bits, raw_bytes); 0 for the other
+        // types, whose size the type gives
+        std::size_t elementSize = 0;
+
         // zarr v3 specific: layout of the shard index (sharding codec's
         // index_location and index_codecs); new arrays use the defaults
         bool shardIndexAtStart = false;
@@ -540,6 +553,58 @@ namespace z5 {
             }
         }
 
+
+        // a zarr v2 raw bytes dtype ``|V<n>``: sets dtype and elementSize
+        bool parseRawZarrDtype(const nlohmann::json & name) {
+            if(!name.is_string()) {
+                return false;
+            }
+            const std::string s = name.get<std::string>();
+            if(s.size() < 3 || s.compare(0, 2, "|V") != 0) {
+                return false;
+            }
+            types::Datatype parsed;
+            std::size_t size;
+            if(!types::parseDtypeName(s.substr(1), parsed, size)) {
+                throw std::runtime_error("Unsupported zarr dtype: " + s);
+            }
+            dtype = parsed;
+            elementSize = size;
+            return true;
+        }
+
+        // the zarr v3 data_type: a core name, "r<bits>", or an extension
+        // object (only zarr-python's raw_bytes is known); sets dtype and
+        // elementSize
+        void dtypeFromV3(const nlohmann::json & dt) {
+            if(dt.is_object()) {
+                const auto name = dt.value("name", nlohmann::json());
+                if(name == "raw_bytes") {
+                    const auto cfg = dt.value("configuration", nlohmann::json::object());
+                    const auto size = cfg.value("length_bytes", nlohmann::json());
+                    if(!size.is_number_unsigned() || size.get<std::size_t>() == 0 || dt.size() != 2 ||
+                       cfg.size() != 1) {
+                        throw std::runtime_error("z5: invalid zarr v3 raw_bytes data_type: " + dt.dump());
+                    }
+                    dtype = types::raw_bytes;
+                    elementSize = size.get<std::size_t>();
+                    return;
+                }
+                throw std::runtime_error("Unsupported zarr v3 data_type: " + dt.dump());
+            }
+            if(!dt.is_string()) {
+                throw std::runtime_error("Unsupported zarr v3 data_type: " + dt.dump());
+            }
+            const std::string s = dt.get<std::string>();
+            // "r<bits>" only: "V<n>" is z5's API name, not a zarr v3 one
+            types::Datatype parsed;
+            std::size_t size;
+            if(s.empty() || s[0] == 'V' || !types::parseDtypeName(s, parsed, size)) {
+                throw std::runtime_error("Unsupported zarr v3 data_type: " + s);
+            }
+            dtype = parsed;
+            elementSize = size;
+        }
 
         // the data type of a zarr v2 object array (``|O``), from its single
         // vlen filter; other filters (or none) can't be decoded
@@ -638,9 +703,8 @@ namespace z5 {
 
         // get the internal data type
         types::Datatype internalDtype;
-        try {
-            internalDtype = types::Datatypes::n5ToDtype().at(dtype);
-        } catch(const std::out_of_range & e) {
+        std::size_t elementSize;
+        if(!types::parseDtypeName(dtype, internalDtype, elementSize)) {
             throw std::runtime_error("z5::createDatasetMetadata: Invalid dtype for dataset");
         }
         // the types n5 lacks (bool, strings, ...) are zarr only
@@ -735,14 +799,14 @@ namespace z5 {
         // zarr v3 refuses a non-integral fill value for integer types; zarr v2
         // and n5 truncate it, as before
         const types::FillValue fillValue = types::normalizeFillValue(options.fillValue, internalDtype,
-                                                                     createAsZarr && zarrFormat == 3);
+                                                                     createAsZarr && zarrFormat == 3, elementSize);
 
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
                                    fillValue, options.zarrDelimiter,
                                    zarrFormat, options.chunkKeyEncoding, shardShape,
-                                   dimensionNames);
+                                   dimensionNames, elementSize);
         metadata.transposeOrder = order;
         metadata.crc32cAfterCompressor = options.crc32c ? 1 : 0;
     }

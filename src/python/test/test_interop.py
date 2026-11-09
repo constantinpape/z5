@@ -20,6 +20,7 @@ additionally gated on v3 sharding (which implies the crc32c shard index).
 import json
 import os
 import unittest
+import warnings
 from abc import ABC
 from shutil import rmtree
 
@@ -1153,10 +1154,18 @@ class TestInteropZarrPyDtypes(unittest.TestCase):
         "float16": (lambda n: np.random.RandomState(0).randn(n).astype("float16"), -0.25),
         "complex64": (lambda n: (np.random.RandomState(0).randn(n) * (1 - 2j)).astype("complex64"), 1 - 2j),
         "complex128": (lambda n: np.random.RandomState(0).randn(n) * (0.5 + 3j), complex(np.inf, 1)),
+        "V3": (lambda n: np.frombuffer(np.random.RandomState(0).bytes(3 * n), dtype="V3"), b"\x01\x02\x03"),
     }
     layouts = {"v2": ({"zarr_format": 2}, {}),
                "v3": ({"zarr_format": 3}, {}),
                "v3_sharded": ({"zarr_format": 3, "shards": (4, 6)}, {"shards": (4, 6)})}
+
+    def setUp(self):
+        # zarr-python warns that raw_bytes has no zarr v3 specification yet
+        catcher = warnings.catch_warnings()
+        catcher.__enter__()
+        self.addCleanup(catcher.__exit__, None, None, None)
+        warnings.filterwarnings("ignore", message=".*does not have a Zarr V3 specification")
 
     def tearDown(self):
         try:
@@ -1170,12 +1179,21 @@ class TestInteropZarrPyDtypes(unittest.TestCase):
         from zarr.codecs import GzipCodec
         return {"raw": None, "gzip": GzipCodec()}
 
+    @staticmethod
+    def _zarr_can_shard(dtype):
+        # zarr-python before 3.3 fails to write sharded raw_bytes arrays (it hashes
+        # the void fill value); 3.1 is the last release for python 3.11
+        zarr_version = tuple(int(v) for v in zarr.__version__.split(".")[:2])
+        return np.dtype(dtype).kind != "V" or zarr_version >= (3, 3)
+
     def _check(self, layout):
         zarr_kwargs, z5_kwargs = self.layouts[layout]
         zarr_format = zarr_kwargs["zarr_format"]
         f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=zarr_format)
         shape, chunks = (7, 9), (2, 3)
         for dtype, (values, fill) in self.dtypes.items():
+            if "shards" in zarr_kwargs and not self._zarr_can_shard(dtype):
+                continue
             data = values(63).reshape(shape)
             for name, compressor in self._compressors(zarr_format).items():
                 msg = "%s %s %s" % (layout, dtype, name)

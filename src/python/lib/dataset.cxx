@@ -344,6 +344,101 @@ namespace z5 {
     }
 
 
+    //
+    // raw elements (raw_bits, raw_bytes): std::string items of the dataset's
+    // element size, exchanged with python as one bytes object holding the items
+    // back to back in C order (z5py views it as a numpy ``V<n>`` array)
+    //
+
+    inline std::size_t checkRawDataset(const Dataset & ds) {
+        if(!types::isRawDtype(ds.getDtype())) {
+            throw std::runtime_error("z5: not a raw dataset");
+        }
+        return ds.elementSize();
+    }
+
+    inline nb::bytes joinRawItems(const std::vector<std::string> & items, const std::size_t itemSize) {
+        std::string joined;
+        joined.reserve(items.size() * itemSize);
+        for(const auto & item : items) {
+            joined += item;
+        }
+        return nb::bytes(joined.data(), joined.size());
+    }
+
+    inline std::vector<std::string> splitRawItems(const nb::bytes & data, const std::size_t n,
+                                                  const std::size_t itemSize) {
+        if(data.size() != n * itemSize) {
+            throw std::runtime_error("z5: got " + std::to_string(data.size()) + " bytes for " +
+                                     std::to_string(n) + " elements of " + std::to_string(itemSize) + " bytes");
+        }
+        std::vector<std::string> items(n);
+        for(std::size_t i = 0; i < n; ++i) {
+            items[i].assign(data.c_str() + i * itemSize, itemSize);
+        }
+        return items;
+    }
+
+    inline nb::bytes readPyRawSubarray(const Dataset & ds,
+                                       const std::vector<std::size_t> & roiBegin,
+                                       const std::vector<std::size_t> & shape,
+                                       const int numberOfThreads) {
+        const std::size_t itemSize = checkRawDataset(ds);
+        std::vector<std::string> out(regionSize(shape));
+        {
+            nb::gil_scoped_release lift_gil;
+            const auto view = multiarray::makeView(out.data(), types::ShapeType(shape.begin(), shape.end()));
+            multiarray::readSubarray<std::string>(ds, view, roiBegin.begin(), numberOfThreads);
+        }
+        return joinRawItems(out, itemSize);
+    }
+
+    inline void writePyRawSubarray(const Dataset & ds,
+                                   const nb::bytes & data,
+                                   const std::vector<std::size_t> & roiBegin,
+                                   const std::vector<std::size_t> & shape,
+                                   const int numberOfThreads) {
+        const auto items = splitRawItems(data, regionSize(shape), checkRawDataset(ds));
+        nb::gil_scoped_release lift_gil;
+        const auto view = multiarray::makeView(items.data(), types::ShapeType(shape.begin(), shape.end()));
+        multiarray::writeSubarray<std::string>(ds, view, roiBegin.begin(), numberOfThreads);
+    }
+
+    inline nb::object readPyRawChunk(const Dataset & ds, const types::ShapeType & chunkId) {
+        const std::size_t itemSize = checkRawDataset(ds);
+        std::vector<std::string> out;
+        bool exists;
+        {
+            nb::gil_scoped_release lift_gil;
+            exists = ds.chunkExists(chunkId);
+            if(exists) {
+                out.resize(ds.defaultChunkSize());
+                ds.readChunk(chunkId, out.data());
+            }
+        }
+        if(!exists) {
+            return nb::none();
+        }
+        return joinRawItems(out, itemSize);
+    }
+
+    inline void writePyRawChunk(const Dataset & ds, const types::ShapeType & chunkId, const nb::bytes & data) {
+        const auto items = splitRawItems(data, ds.defaultChunkSize(), checkRawDataset(ds));
+        nb::gil_scoped_release lift_gil;
+        ds.writeChunk(chunkId, items.data());
+    }
+
+    void exportRawIo(nb::module_ & module) {
+        module.def("read_subarray_raw", &readPyRawSubarray,
+                   nb::arg("ds"), nb::arg("roi_begin"), nb::arg("shape"), nb::arg("n_threads")=1);
+        module.def("write_subarray_raw", &writePyRawSubarray,
+                   nb::arg("ds"), nb::arg("data"), nb::arg("roi_begin"), nb::arg("shape"),
+                   nb::arg("n_threads")=1);
+        module.def("read_chunk_raw", &readPyRawChunk, nb::arg("ds"), nb::arg("chunkId"));
+        module.def("write_chunk_raw", &writePyRawChunk, nb::arg("ds"), nb::arg("chunkId"), nb::arg("data"));
+    }
+
+
     template<class T>
     void exportIoT(nb::module_ & module, const std::string & dtype) {
 
@@ -411,6 +506,8 @@ namespace z5 {
             .def_prop_ro("dimension_names", [](const Dataset & ds){return ds.dimensionNames();})
             .def_prop_ro("transpose", [](const Dataset & ds){return ds.transposeOrder();})
             .def_prop_ro("crc32c", [](const Dataset & ds){return ds.hasCrc32c();})
+            // the byte size of a raw element; 0 for the other types
+            .def_prop_ro("element_size", [](const Dataset & ds){return ds.elementSize();})
             .def_prop_ro("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_prop_ro("size", [](const Dataset & ds){return ds.size();})
             .def_prop_ro("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
@@ -441,6 +538,12 @@ namespace z5 {
                 if(types::isVlenDtype(ds.getDtype())) {
                     throw std::runtime_error("z5: use fill_value_vlen for variable-length datasets");
                 }
+                // a raw element is a std::string of its bytes
+                if(types::isRawDtype(ds.getDtype())) {
+                    std::string fill;
+                    ds.getFillValue(&fill);
+                    return nb::bytes(fill.data(), fill.size());
+                }
                 char buffer[32] = {};
                 ds.getFillValue(buffer);
                 return nb::bytes(buffer, types::datatypeSize(ds.getDtype()));
@@ -466,6 +569,8 @@ namespace z5 {
         // variable-length strings and byte strings
         exportVlenIo<false>(module, "string");
         exportVlenIo<true>(module, "bytes");
+        // raw elements
+        exportRawIo(module);
 
         // export I/O for all dtypes; bool and float16 datasets are read and
         // written through the uint8 / uint16 functions (z5py passes views)

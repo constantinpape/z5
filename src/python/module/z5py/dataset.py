@@ -10,6 +10,7 @@ methods. Datasets are not created directly; use
 import base64
 import numbers
 import json
+import re
 
 import numpy as np
 
@@ -59,6 +60,33 @@ def _vlen_kind(dtype):
         return 'string'
     if parsed.kind == 'S' and parsed.itemsize == 0:
         return 'variable_length_bytes'
+    return None
+
+
+# the raw data types, by their name in the C++ layer; their numpy dtype is V<n>
+RAW_KINDS = ('raw_bits', 'raw_bytes')
+
+
+def _raw_dtype(dtype):
+    """ The C++ name and numpy dtype of the raw data type ``dtype`` asks for, or None.
+
+    A numpy ``V<n>`` dtype (``np.void``, without fields) gives zarr-python's raw bytes
+    type (``raw_bytes`` in zarr v3, ``|V<n>`` in zarr v2), the string ``'r<bits>'``
+    the zarr v3 core raw bits type (``r8``, ``r16``, ...). Both read as ``V<n>``.
+    """
+    if isinstance(dtype, str):
+        match = re.fullmatch(r'r([0-9]+)', dtype)
+        if match:
+            bits = int(match.group(1))
+            if bits == 0 or bits % 8:
+                raise ValueError("Raw bits data type %r must have a positive multiple of 8 bits" % dtype)
+            return dtype, np.dtype('V%i' % (bits // 8))
+    try:
+        parsed = np.dtype(dtype)
+    except TypeError:
+        return None
+    if parsed.kind == 'V' and parsed.fields is None and parsed.subdtype is None and parsed.itemsize > 0:
+        return 'V%i' % parsed.itemsize, parsed
     return None
 
 
@@ -284,7 +312,7 @@ class Dataset:
                     if ds._vlen != _vlen_kind(dtype):
                         raise TypeError("Datatypes do not match (existing %s vs new %s)"
                                         % (str(ds.dtype), str(dtype)))
-                elif np.dtype(dtype) != ds.dtype:
+                elif (_raw_dtype(dtype) or (None, np.dtype(dtype)))[1] != ds.dtype:
                     raise TypeError("Datatypes do not match (existing %s vs new %s)" % (str(ds.dtype), str(dtype)))
             return ds
 
@@ -371,7 +399,7 @@ class Dataset:
                 if data.dtype.kind not in VLEN_KINDS[_vlen_kind(dtype)][2]:
                     raise ValueError("Datatype is incompatible with data")
             # NOTE In contrast to h5py, we don't do automatic type conversion
-            elif np.dtype(dtype) != data.dtype:
+            elif (_raw_dtype(dtype) or (None, np.dtype(dtype)))[1] != data.dtype:
                 raise ValueError("Datatype is incompatible with data")
         else:
             if shape is None:
@@ -381,7 +409,8 @@ class Dataset:
             if dtype is None:
                 raise TypeError("One of dtype or data must be specified")
         vlen = _vlen_kind(dtype)
-        parsed_dtype = VLEN_KINDS[vlen][1] if vlen else np.dtype(dtype)
+        raw = None if vlen else _raw_dtype(dtype)
+        parsed_dtype = VLEN_KINDS[vlen][1] if vlen else (raw[1] if raw else np.dtype(dtype))
 
         # get default chunks if necessary
         # NOTE in contrast to h5py, datasets are chunked
@@ -412,6 +441,17 @@ class Dataset:
             # bytes travel base64-encoded, the form the metadata stores them in
             fill_kwargs = ({'fill_value_string': fillvalue} if item_type is str else
                            {'fill_value_base64': base64.b64encode(fillvalue).decode('ascii')})
+            fillvalue = 0
+        elif raw:
+            dtype_name = raw[0]
+            if not is_zarr:
+                raise ValueError("Raw data types are only supported for zarr")
+            # the numeric default 0 means all zero bytes
+            if isinstance(fillvalue, numbers.Number) and fillvalue == 0:
+                fill_kwargs = {}
+            else:
+                fill = cls._raw_item(fillvalue, parsed_dtype)
+                fill_kwargs = {'fill_value_base64': base64.b64encode(fill).decode('ascii')}
             fillvalue = 0
         else:
             if parsed_dtype.kind in ('U', 'S'):
@@ -582,7 +622,11 @@ class Dataset:
         """ Datatype of this dataset: ``STRING_DTYPE`` for variable-length strings,
         object (arrays of bytes) for variable-length bytes.
         """
-        return VLEN_KINDS[self._vlen][1] if self._vlen else np.dtype(self._impl.dtype)
+        if self._vlen:
+            return VLEN_KINDS[self._vlen][1]
+        if self._raw:
+            return np.dtype('V%i' % self._impl.element_size)
+        return np.dtype(self._impl.dtype)
 
     @property
     def _vlen(self):
@@ -603,6 +647,42 @@ class Dataset:
                 raise TypeError("Data of dtype %s can't be written to a %s dataset" % (arr.dtype, self.dtype))
             return arr
         return arr.view(storage)
+
+    @property
+    def _raw(self):
+        """ True for a raw dataset (see RAW_KINDS). """
+        return self._impl.dtype in RAW_KINDS
+
+    @staticmethod
+    def _raw_item(item, dtype):
+        """ One raw element: ``bytes`` (or a ``np.void``) of exactly ``dtype.itemsize`` bytes. """
+        if isinstance(item, np.void):
+            item = bytes(item)
+        if not isinstance(item, bytes) or len(item) != dtype.itemsize:
+            raise ValueError("A %s element must be %i bytes, got %r" % (dtype, dtype.itemsize, item))
+        return item
+
+    def _read_raw(self, start, shape):
+        """ Read the region ``start`` + ``shape`` of a raw dataset. """
+        if 0 in shape:
+            return np.empty(shape, dtype=self.dtype)
+        data = _z5py.read_subarray_raw(self._impl, list(start), list(shape), n_threads=self.n_threads)
+        return np.frombuffer(data, dtype=self.dtype).reshape(shape).copy()
+
+    def _raw_bytes(self, item, shape):
+        """ The bytes of ``item`` (one element, broadcast, or an array of ``shape``) in C order. """
+        if isinstance(item, (bytes, np.void)):
+            return self._raw_item(item, self.dtype) * int(np.prod(shape))
+        arr = np.asarray(item)
+        # no conversion: numpy would pad or cut other data to the element size
+        if arr.dtype != self.dtype:
+            raise TypeError("A %s dataset takes %s data, got %s" % (self.dtype, self.dtype, arr.dtype))
+        return np.ascontiguousarray(rectify_shape(arr, tuple(shape))).tobytes()
+
+    def _write_raw(self, start, shape, item):
+        """ Write ``item`` to the region ``start`` + ``shape`` of a raw dataset. """
+        _z5py.write_subarray_raw(self._impl, self._raw_bytes(item, shape), list(start), list(shape),
+                                 n_threads=self.n_threads)
 
     def _read_vlen(self, start, shape):
         """ Read the region ``start`` + ``shape`` of a variable-length dataset. """
@@ -737,6 +817,8 @@ class Dataset:
         roi_begin, shape, to_squeeze = self.index_to_roi(index)
         if self._vlen:
             out = self._read_vlen(roi_begin, shape)
+        elif self._raw:
+            out = self._read_raw(roi_begin, shape)
         else:
             out = np.empty(shape, dtype=self.dtype)
             if 0 not in shape:
@@ -776,6 +858,9 @@ class Dataset:
             return
         if self._vlen:
             self._write_vlen(roi_begin, shape, item)
+            return
+        if self._raw:
+            self._write_raw(roi_begin, shape, item)
             return
 
         # broadcast scalar
@@ -862,6 +947,10 @@ class Dataset:
             data = np.asarray(data)
             self._write_vlen(start, data.shape, data)
             return
+        if self._raw:
+            data = np.asarray(data)
+            self._write_raw(start, data.shape, data)
+            return
         _z5py.write_subarray(self._impl,
                              self._storage(np.require(data, requirements='C'), True),
                              list(start),
@@ -884,6 +973,8 @@ class Dataset:
         shape = tuple(sto - sta for sta, sto in zip(start, stop))
         if self._vlen:
             return self._read_vlen(start, shape)
+        if self._raw:
+            return self._read_raw(start, shape)
         out = np.empty(shape, dtype=self.dtype)
         _z5py.read_subarray(self._impl, self._storage(out, False), start, n_threads=self.n_threads)
         return out
@@ -918,6 +1009,11 @@ class Dataset:
             write = getattr(_z5py, 'write_chunk_' + _VLEN_SUFFIX[self._vlen])
             write(self._impl, chunk_indices, np.asarray(data, dtype=object).ravel().tolist())
             return
+        if self._raw:
+            if varlen:
+                raise ValueError("Raw datasets have no varlen (n5) chunks")
+            _z5py.write_chunk_raw(self._impl, chunk_indices, self._raw_bytes(data, self.chunks))
+            return
         if self.dtype in _STORAGE_DTYPE:
             data = self._storage(np.asarray(data), True)
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
@@ -936,6 +1032,9 @@ class Dataset:
         if self._vlen:
             items = getattr(_z5py, 'read_chunk_' + _VLEN_SUFFIX[self._vlen])(self._impl, chunk_indices)
             return None if items is None else np.array(items, dtype=self.dtype).reshape(self.chunks)
+        if self._raw:
+            data = _z5py.read_chunk_raw(self._impl, chunk_indices)
+            return None if data is None else np.frombuffer(data, dtype=self.dtype).reshape(self.chunks).copy()
         storage = _STORAGE_DTYPE.get(self.dtype, self.dtype)
         chunk = getattr(_z5py, 'read_chunk_%s' % storage.name)(self._impl, chunk_indices)
         return None if chunk is None else chunk.view(self.dtype)

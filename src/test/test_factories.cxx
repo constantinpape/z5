@@ -393,6 +393,72 @@ namespace z5 {
     }
 
 
+    // raw datasets hold std::string elements of the element size
+    TEST_F(FactoryTest, CreateRawDataset) {
+        types::Datatype dtype;
+        std::size_t size;
+        ASSERT_TRUE(types::parseDtypeName("r24", dtype, size));
+        ASSERT_EQ(dtype, types::raw_bits);
+        ASSERT_EQ(size, 3u);
+        ASSERT_TRUE(types::parseDtypeName("V5", dtype, size));
+        ASSERT_EQ(dtype, types::raw_bytes);
+        ASSERT_EQ(size, 5u);
+        for(const std::string bad : {"r0", "r12", "V0", "r", "raw_bits", "rx8"}) {
+            ASSERT_FALSE(types::parseDtypeName(bad, dtype, size)) << bad;
+        }
+
+        for(const bool sharded : {false, true}) {
+            fs::path p = tmp / (sharded ? "raw_sharded.zr" : "raw.zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, 3);
+
+            DatasetOptions options;
+            options.zarrFormat = 3;
+            options.fillValue = std::string("\x01\x02\x03");
+            options.transposeOrder = {1, 0};
+            if(sharded) {
+                options.shardShape = types::ShapeType({4, 2});
+            }
+            auto ds = createDataset(file, "r", "r24", types::ShapeType({3, 2}), types::ShapeType({2, 1}), options);
+            ASSERT_EQ(ds->getDtype(), types::raw_bits);
+            ASSERT_EQ(ds->elementSize(), 3u);
+
+            const std::vector<std::string> in{"abc", "def", "ghi", "jkl"};
+            const types::ShapeType offset({1, 0});
+            multiarray::writeSubarray<std::string>(*ds, multiarray::makeView(in.data(), types::ShapeType({2, 2})),
+                                                   offset.begin());
+            std::vector<std::string> out(6);
+            const types::ShapeType zero({0, 0});
+            multiarray::readSubarray<std::string>(*openDataset(file, "r"),
+                                                  multiarray::makeView(out.data(), types::ShapeType({3, 2})),
+                                                  zero.begin());
+            const std::string f("\x01\x02\x03");
+            ASSERT_EQ(out, std::vector<std::string>({f, f, "abc", "def", "ghi", "jkl"}));
+
+            // an element of another size is refused
+            const std::vector<std::string> bad{"ab"};
+            ASSERT_THROW(multiarray::writeSubarray<std::string>(*ds, multiarray::makeView(bad.data(),
+                                                                                         types::ShapeType({1, 1})),
+                                                                zero.begin()), std::runtime_error);
+
+            DatasetMetadata meta;
+            filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+            nlohmann::json j;
+            meta.toJson(j);
+            ASSERT_EQ(j["data_type"], "r24");
+            ASSERT_EQ(j["fill_value"], nlohmann::json::array({1, 2, 3}));
+        }
+
+        // a fill value of another size is refused
+        DatasetOptions badFill;
+        badFill.zarrFormat = 3;
+        badFill.fillValue = std::string("ab");
+        DatasetMetadata m;
+        ASSERT_THROW(createDatasetMetadata("V3", types::ShapeType({4}), types::ShapeType({2}), true, badFill, m),
+                     std::runtime_error);
+    }
+
+
     TEST_F(FactoryTest, CreateDatasetExactFillValue) {
         for(const int zarrFormat : {2, 3}) {
             fs::path p = tmp / ("fill" + std::to_string(zarrFormat) + ".zr");

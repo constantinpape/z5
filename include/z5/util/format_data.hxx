@@ -21,6 +21,9 @@ namespace util {
         std::vector<std::size_t> order;
         // logical (decoded) chunk shape; only used when transposing
         types::ShapeType chunkShape;
+        // std::string elements: 0 for variable-length items (the vlen
+        // framing), else the byte size of every raw item, stored back to back
+        std::size_t fixedItemSize = 0;
 
         inline bool isIdentity() const {return !reverseBytes && order.empty();}
 
@@ -53,7 +56,11 @@ namespace util {
     // which swaps each part of a complex number on its own
     template<class T>
     inline void reverseElementBytes(T * data, const std::size_t n) {
-        if constexpr(types::isComplexType<T>) {
+        if constexpr(isVlenElement<T>) {
+            // strings and raw elements have no byte order (MixinTyped never
+            // sets reverseBytes for them)
+            throw std::logic_error("z5: byte order of string elements");
+        } else if constexpr(types::isComplexType<T>) {
             using U = typename T::value_type;
             // std::complex<U> is laid out as U[2]
             U * parts = reinterpret_cast<U *>(data);
@@ -104,12 +111,38 @@ namespace util {
     }
 
 
+    // the bytes of `n` raw items of `itemSize` bytes each, back to back
+    inline void encodeFixed(const std::string * items, const std::size_t n, const std::size_t itemSize,
+                            std::vector<char> & out) {
+        out.resize(n * itemSize);
+        for(std::size_t i = 0; i < n; ++i) {
+            if(items[i].size() != itemSize) {
+                throw std::runtime_error("z5: raw element has " + std::to_string(items[i].size()) +
+                                         " bytes, expected " + std::to_string(itemSize));
+            }
+            std::copy(items[i].begin(), items[i].end(), out.begin() + i * itemSize);
+        }
+    }
+
+    inline void decodeFixed(const char * in, const std::size_t n, const std::size_t itemSize, std::string * items) {
+        for(std::size_t i = 0; i < n; ++i) {
+            items[i].assign(in + i * itemSize, itemSize);
+        }
+    }
+
+
     template<class T, class COMPRESSOR>
-    inline void compress(const T * dataIn, const std::size_t dataSize, std::vector<char> & buffer, const COMPRESSOR & compressor) {
+    inline void compress(const T * dataIn, const std::size_t dataSize, std::vector<char> & buffer,
+                         const COMPRESSOR & compressor, const std::size_t fixedItemSize=0) {
         if constexpr(isVlenElement<T>) {
-            // variable-length items: frame them as one byte stream, then compress it
+            // variable-length items: frame them as one byte stream (raw items:
+            // their bytes back to back), then compress it
             std::vector<char> encoded;
-            encodeVlen(dataIn, dataSize, encoded);
+            if(fixedItemSize) {
+                encodeFixed(dataIn, dataSize, fixedItemSize, encoded);
+            } else {
+                encodeVlen(dataIn, dataSize, encoded);
+            }
             if(compressor->isRaw()) {
                 buffer.swap(encoded);
             } else {
@@ -240,7 +273,7 @@ namespace util {
             std::vector<T> dataTmp;
             const T * encoded = encodeElements(static_cast<const T*>(dataIn), dataSize,
                                                arrayCodecs, dataTmp);
-            compress(encoded, dataSize, buffer, compressor);
+            compress(encoded, dataSize, buffer, compressor, arrayCodecs.fixedItemSize);
         } else {
             data_to_n5_format<T>(dataIn, dataSize,
                                  chunk_shape, buffer,
@@ -270,9 +303,26 @@ namespace util {
     inline void decompress(const char * buffer, const std::size_t nBytes, void * dataOut,
                            const std::size_t data_size, const COMPRESSOR & compressor,
                            const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
-        // variable-length items have no element codecs (no transpose, no byte order)
         if constexpr(isVlenElement<T>) {
-            decompressVlen(buffer, nBytes, static_cast<std::string *>(dataOut), data_size, compressor);
+            std::string * items = static_cast<std::string *>(dataOut);
+            if(arrayCodecs.fixedItemSize) {
+                // raw items: a known number of bytes; they may be transposed
+                const std::size_t expected = data_size * arrayCodecs.fixedItemSize;
+                if(compressor->isRaw()) {
+                    if(nBytes != expected) {
+                        throw std::runtime_error("z5: raw chunk does not have the expected size");
+                    }
+                    decodeFixed(buffer, data_size, arrayCodecs.fixedItemSize, items);
+                } else {
+                    std::vector<char> bytes(expected);
+                    compressor->decompress(buffer, nBytes, bytes.data(), expected);
+                    decodeFixed(bytes.data(), data_size, arrayCodecs.fixedItemSize, items);
+                }
+                decodeElements(items, data_size, arrayCodecs);
+            } else {
+                // variable-length items have no element codecs (no transpose, no byte order)
+                decompressVlen(buffer, nBytes, items, data_size, compressor);
+            }
         } else {
             // we don't need to decompress for raw compression
             if(compressor->isRaw()) {
