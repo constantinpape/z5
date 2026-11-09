@@ -1,4 +1,4 @@
-"""The zarr data types n5 lacks: bool, float16, complex64 and complex128.
+"""The zarr data types n5 lacks: bool, float16, complex64, complex128 and raw bytes.
 
 Each data type runs the same round trip in zarr v2, v3 and v3 sharded, and
 has its own class for its fill value rules and on-disk layout. n5 refuses
@@ -126,7 +126,8 @@ def _refused_for_n5(test, dtype):
     path = 'test_dtypes_refused.n5'
     try:
         f = z5py.File(path, mode='w', use_zarr_format=False)
-        with test.assertRaises(RuntimeError):
+        # RuntimeError from C++, ValueError from z5py (raw types)
+        with test.assertRaises((RuntimeError, ValueError)):
             f.create_dataset('data', shape=(4,), chunks=(2,), dtype=dtype)
     finally:
         rmtree(path, ignore_errors=True)
@@ -483,6 +484,169 @@ class TestComplexN5(unittest.TestCase):
     def test_refused(self):
         _refused_for_n5(self, 'complex64')
         _refused_for_n5(self, 'complex128')
+
+
+#
+# raw bytes: zarr-python's raw_bytes ("V<n>"), zarr v3 raw bits ("r<bits>")
+#
+
+class RawMixin(DtypeMixin):
+    dtype = 'V3'
+    fill = b'\x01\x02\x03'
+
+    @staticmethod
+    def values(n):
+        return np.frombuffer(np.random.RandomState(0).bytes(3 * n), dtype='V3').copy()
+
+    def _create(self, key='data', compression='raw', **kwargs):
+        # dtype_arg: the name asked for at creation ('V3' or 'r24'); reads as V3
+        kwargs.setdefault('fillvalue', self.fill)
+        if self.shards is not None:
+            kwargs.setdefault('shards', self.shards)
+        return self.root.create_dataset(key, shape=self.shape, chunks=self.chunks, dtype=self.dtype_arg,
+                                        compression=compression, **kwargs)
+
+    def _edit(self, field, value):
+        if 'data' not in self.root:
+            self._create()
+        name = 'zarr.json' if self.zarr_format == 3 else '.zarray'
+        meta = self._meta()
+        meta[field] = value
+        with open(os.path.join(self.path, 'data', name), 'w') as f:
+            json.dump(meta, f)
+        return z5py.File(self.path, mode='r')['data']
+
+    def test_raw_metadata(self):
+        self._create()
+        meta = self._meta()
+        self.assertEqual(meta['data_type'] if self.zarr_format == 3 else meta['dtype'], self.json_dtype)
+        self.assertEqual(meta['fill_value'], self.json_fill)
+
+    def test_bytes_on_disk(self):
+        # the elements' bytes, back to back
+        ds = self._create(fillvalue=0)
+        values = self.values(3)
+        ds[:4, :3] = np.tile(values, (4, 1))
+        if self.shards is not None:
+            return
+        name = 'c/0/0' if self.zarr_format == 3 else '0.0'
+        with open(os.path.join(self.path, 'data', name), 'rb') as f:
+            self.assertEqual(f.read(), values.tobytes() * 4)
+
+    def test_zero_fill_value(self):
+        ds = self._create(fillvalue=0)
+        self.assertEqual(bytes(ds.fillvalue), b'\0\0\0')
+
+    def test_element_size_checked(self):
+        # numpy would pad or cut bytes of another size; z5py refuses them
+        with self.assertRaises(ValueError):
+            self._create('short_fill', fillvalue=b'\x01')
+        ds = self._create()
+        for item in (b'ab', b'abcd'):
+            with self.assertRaises(ValueError):
+                ds[0, 0] = item
+        with self.assertRaises(TypeError):
+            ds[0, :2] = np.array([b'ab', b'cd'], dtype='V2')
+
+    def test_bytes_item(self):
+        ds = self._create()
+        ds[1, 2:4] = b'xyz'
+        self.assertEqual([bytes(v) for v in ds[1, 1:5]], [self.fill, b'xyz', b'xyz', self.fill])
+
+
+class RawV3Mixin(V3Mixin, RawMixin):
+
+    def test_endian_ignored(self):
+        # raw elements have no byte order: an endian setting changes nothing
+        data = self._data()
+        self._create()[:] = data
+        meta = self._meta()
+        codecs = meta['codecs'][0]['configuration']['codecs'] if self.shards else meta['codecs']
+        codecs[0]['configuration'] = {'endian': 'big'}
+        self.assert_same(self._edit('codecs', meta['codecs'])[:], data)
+
+    def test_unknown_data_type(self):
+        # object data types other than raw_bytes are refused with a clear error
+        for value in ({'name': 'fixed_length_utf32', 'configuration': {'length_bytes': 4}},
+                      {'name': 'raw_bytes', 'configuration': {'length_bytes': 0}},
+                      {'name': 'raw_bytes', 'configuration': {}}, 'r12', 'r0', 'V3', 'r'):
+            with self.assertRaises(RuntimeError) as cm:
+                self._edit('data_type', value)
+            self.assertIn('data_type', str(cm.exception), value)
+
+
+class TestRawBytesV2(RawMixin, unittest.TestCase):
+    path = 'test_dtypes_raw_v2.zr'
+    zarr_format = 2
+    dtype_arg = 'V3'
+    json_dtype = '|V3'
+    json_fill = 'AQID'
+
+    def test_raw_bits_in_v2(self):
+        # zarr v2 has only |V<n>
+        ds = self.root.create_dataset('r', shape=(4,), chunks=(2,), dtype='r24', compression='raw')
+        self.assertEqual(ds.dtype, np.dtype('V3'))
+        self.assertEqual(self._meta('r')['dtype'], '|V3')
+
+    def test_fill_values(self):
+        self.assertEqual(bytes(self._edit('fill_value', None).fillvalue), b'\0\0\0')
+        for value in ('AQI=', 'AQIDBA==', '!!'):
+            with self.assertRaises(RuntimeError):
+                self._edit('fill_value', value)
+
+
+class TestRawBytesV3(RawV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_raw_v3.zr'
+    dtype_arg = 'V3'
+    json_dtype = {'name': 'raw_bytes', 'configuration': {'length_bytes': 3}}
+    json_fill = 'AQID'
+
+
+class TestRawBytesV3Sharded(RawV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_raw_v3_sharded.zr'
+    dtype_arg = 'V3'
+    json_dtype = {'name': 'raw_bytes', 'configuration': {'length_bytes': 3}}
+    json_fill = 'AQID'
+    shards = (8, 6)
+
+
+class TestRawBitsV3(RawV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_raw_bits_v3.zr'
+    dtype_arg = 'r24'
+    json_dtype = 'r24'
+    json_fill = [1, 2, 3]
+
+    def test_fill_values(self):
+        # a list of the element's byte values
+        self.assertEqual(bytes(self._edit('fill_value', [255, 0, 7]).fillvalue), b'\xff\x00\x07')
+        for value in ([1, 2], [1, 2, 3, 4], [1, 2, 256], [1, 2, -1], [1, 2, 1.5], 'AQID', None):
+            with self.assertRaises(RuntimeError):
+                self._edit('fill_value', value)
+
+    def test_names(self):
+        for name in ('r0', 'r12'):
+            with self.assertRaises(ValueError):
+                self.root.create_dataset(name, shape=(4,), dtype=name)
+        ds = self.root.create_dataset('r8', shape=(4,), dtype='r8', compression='raw')
+        self.assertEqual(ds.dtype, np.dtype('V1'))
+        self.assertEqual(self._meta('r8')['data_type'], 'r8')
+        ds = self.root.require_dataset('r8', shape=(4,), dtype='r8')
+        self.assertEqual(ds.dtype, np.dtype('V1'))
+
+
+class TestRawBitsV3Sharded(RawV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_raw_bits_v3_sharded.zr'
+    dtype_arg = 'r24'
+    json_dtype = 'r24'
+    json_fill = [1, 2, 3]
+    shards = (8, 6)
+
+
+class TestRawN5(unittest.TestCase):
+
+    def test_refused(self):
+        _refused_for_n5(self, 'V3')
+        _refused_for_n5(self, 'r24')
 
 
 if __name__ == '__main__':

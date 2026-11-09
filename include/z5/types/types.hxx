@@ -42,8 +42,18 @@ namespace types {
         // variable-length UTF-8 strings (zarr-python's "string" / ``|O`` +
         // vlen-utf8) and byte strings ("variable_length_bytes" / ``|O`` +
         // vlen-bytes); elements are std::string for both
-        vlen_utf8, vlen_bytes
+        vlen_utf8, vlen_bytes,
+        // fixed-size opaque elements, their size in bytes given by the metadata
+        // (DatasetMetadata::elementSize): the zarr v3 raw bits types ("r8",
+        // "r16", ...), and zarr-python's raw bytes ("raw_bytes", zarr v2
+        // "|V<n>"). Elements are std::string of exactly that size.
+        raw_bits, raw_bytes
     };
+
+    // fixed-size opaque element types
+    inline bool isRawDtype(const Datatype dtype) {
+        return dtype == raw_bits || dtype == raw_bytes;
+    }
 
     // std::complex element types
     template<class T>
@@ -103,7 +113,8 @@ namespace types {
                                        {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
                                        {"float32", float32}, {"float64", float64}, {"bool", boolean},
                                        {"float16", float16}, {"complex64", complex64}, {"complex128", complex128},
-                                       {"string", vlen_utf8}, {"variable_length_bytes", vlen_bytes}}});
+                                       {"string", vlen_utf8}, {"variable_length_bytes", vlen_bytes},
+                                       {"raw_bits", raw_bits}, {"raw_bytes", raw_bytes}}});
             return dtypeMap;
         }
 
@@ -113,10 +124,44 @@ namespace types {
                                               {float32,"float32"}, {float64, "float64"}, {boolean, "bool"},
                                               {float16, "float16"}, {complex64, "complex64"},
                                               {complex128, "complex128"},
-                                              {vlen_utf8, "string"}, {vlen_bytes, "variable_length_bytes"}}});
+                                              {vlen_utf8, "string"}, {vlen_bytes, "variable_length_bytes"},
+                                              {raw_bits, "raw_bits"}, {raw_bytes, "raw_bytes"}}});
             return dtypeMap;
         }
     };
+
+
+    // The data type named by `name` in the z5 API (createDataset, z5py): the
+    // names of Datatypes::n5ToDtype, plus "r<bits>" (raw_bits) and "V<bytes>"
+    // (raw_bytes, numpy's name), which also give `elementSize`. Returns false
+    // for an unknown name.
+    inline bool parseDtypeName(const std::string & name, Datatype & dtype, std::size_t & elementSize) {
+        elementSize = 0;
+        if(name.size() > 1 && (name[0] == 'r' || name[0] == 'V') &&
+           name.find_first_not_of("0123456789", 1) == std::string::npos && name.size() < 12) {
+            const std::size_t n = std::stoull(name.substr(1));
+            if(name[0] == 'r') {
+                if(n == 0 || n % 8 != 0) {
+                    return false;
+                }
+                dtype = raw_bits;
+                elementSize = n / 8;
+            } else {
+                if(n == 0) {
+                    return false;
+                }
+                dtype = raw_bytes;
+                elementSize = n;
+            }
+            return true;
+        }
+        const auto it = Datatypes::n5ToDtype().find(name);
+        if(it == Datatypes::n5ToDtype().end() || isRawDtype(it->second)) {
+            return false;
+        }
+        dtype = it->second;
+        return true;
+    }
 
 
     //

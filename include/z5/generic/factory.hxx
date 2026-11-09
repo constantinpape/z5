@@ -39,6 +39,9 @@ namespace generic {
             // the vlen codecs (util/vlen.hxx)
             case types::vlen_utf8: return make(std::string());
             case types::vlen_bytes: return make(std::string());
+            // raw elements: std::string of DatasetMetadata::elementSize bytes
+            case types::raw_bits: return make(std::string());
+            case types::raw_bytes: return make(std::string());
             default:             return fallback(dtype);
         }
     }

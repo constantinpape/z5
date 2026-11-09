@@ -223,7 +223,9 @@ class Group(Mapping):
                 the ``data`` argument must be given. ``str`` (or numpy's StringDType, or
                 object) makes a variable-length string dataset (zarr only), stored as
                 zarr-python stores ``str`` arrays. ``bool``, ``float16``, ``complex64`` and
-                ``complex128`` are zarr only too (default: None).
+                ``complex128`` are zarr only too, and so are the raw types: numpy ``V<n>``
+                (zarr-python's raw bytes) and ``'r<bits>'`` (zarr v3 raw bits, e.g. ``'r24'``),
+                both read as ``V<n>`` (default: None).
             data (np.ndarray): data used to infer shape, dtype and fill the dataset
                 upon creation (default: None).
             chunks (tuple): chunk sizes of the new dataset. If no chunks are given,
