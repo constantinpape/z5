@@ -3,6 +3,7 @@
 #include "z5/util/util.hxx"
 #include "z5/util/blocking.hxx"
 #include "z5/util/base64.hxx"
+#include "z5/types/float16.hxx"
 
 
 namespace test_util_detail {
@@ -175,6 +176,34 @@ namespace util {
     TEST(Base64Test, Invalid) {
         for(const std::string bad : {"YQ", "YQ=", "Y===", "YQ==YQ==", "YW!=", "=YWI", "YW=I"}) {
             EXPECT_THROW(base64Decode(bad), std::runtime_error) << bad;
+        }
+    }
+
+    // every half survives a round trip through double (NaNs become the
+    // default quiet NaN, keeping the sign)
+    TEST(Float16Test, RoundTrip) {
+        for(uint32_t bits = 0; bits <= 0xffffu; ++bits) {
+            const uint16_t half = static_cast<uint16_t>(bits);
+            const double d = types::float16ToDouble(half);
+            const bool isNan = (half & 0x7c00u) == 0x7c00u && (half & 0x3ffu) != 0;
+            ASSERT_EQ(std::isnan(d), isNan) << bits;
+            const uint16_t expected = isNan ? static_cast<uint16_t>((half & 0x8000u) | 0x7e00u) : half;
+            ASSERT_EQ(types::doubleToFloat16(d), expected) << bits;
+        }
+    }
+
+    // round to nearest, ties to even (expected bits from numpy)
+    TEST(Float16Test, Rounding) {
+        const std::vector<std::pair<double, uint16_t>> cases{
+            {1., 0x3c00}, {-2., 0xc000}, {0.1, 0x2e66}, {1. / 3., 0x3555},
+            {1. + std::ldexp(1., -11), 0x3c00}, {1. + 3 * std::ldexp(1., -11), 0x3c02},
+            {65504., 0x7bff}, {65519.99, 0x7bff}, {65520., 0x7c00}, {1e6, 0x7c00}, {-1e6, 0xfc00},
+            {std::ldexp(1., -24), 0x0001}, {std::ldexp(1., -25), 0x0000},
+            {std::ldexp(1., -25) + std::ldexp(1., -40), 0x0001}, {3 * std::ldexp(1., -26), 0x0001},
+            {std::ldexp(1., -14), 0x0400}, {std::ldexp(1., -14) - std::ldexp(1., -25), 0x0400},
+            {1e-10, 0x0000}, {-0., 0x8000}, {INFINITY, 0x7c00}, {-INFINITY, 0xfc00}};
+        for(const auto & c : cases) {
+            EXPECT_EQ(types::doubleToFloat16(c.first), c.second) << c.first;
         }
     }
 

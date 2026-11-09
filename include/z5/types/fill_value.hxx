@@ -11,6 +11,7 @@
 
 #include "nlohmann/json.hpp"
 #include "z5/types/types.hxx"
+#include "z5/types/float16.hxx"
 #include "z5/util/base64.hxx"
 
 namespace z5 {
@@ -42,7 +43,7 @@ namespace types {
     }
 
     inline bool isFloatDtype(const Datatype dtype) {
-        return dtype == float32 || dtype == float64;
+        return dtype == float16 || dtype == float32 || dtype == float64;
     }
 
     inline bool isBoolDtype(const Datatype dtype) {
@@ -174,7 +175,8 @@ namespace types {
     // a float given by its bits (from a hex fill value or z5py), as a double;
     // any NaN becomes the default quiet NaN
     inline double floatFromBits(const uint64_t bits, const Datatype dtype) {
-        const double d = dtype == float32 ? std::bit_cast<float>(static_cast<uint32_t>(bits))
+        const double d = dtype == float16 ? float16ToDouble(static_cast<uint16_t>(bits))
+                       : dtype == float32 ? std::bit_cast<float>(static_cast<uint32_t>(bits))
                                           : std::bit_cast<double>(bits);
         return std::isnan(d) ? std::numeric_limits<double>::quiet_NaN() : d;
     }
@@ -233,7 +235,8 @@ namespace types {
     }
 
 
-    // The fill value as a dataset's element type
+    // The fill value as a dataset's element type. (A float16 dataset's
+    // elements are uint16_t bits: use fillValueElement.)
     template<class T>
     T fillValueAs(const FillValue & v) {
         return std::visit([](const auto & x) -> T {
@@ -249,6 +252,19 @@ namespace types {
                 return static_cast<T>(x);
             }
         }, v);
+    }
+
+
+    // The fill value as an element of a `dtype` dataset: as fillValueAs, but
+    // float16 elements are the half-precision bits
+    template<class T>
+    T fillValueElement(const FillValue & v, const Datatype dtype) {
+        if constexpr(std::is_same_v<T, uint16_t>) {
+            if(dtype == float16) {
+                return doubleToFloat16(fillValueAs<double>(v));
+            }
+        }
+        return fillValueAs<T>(v);
     }
 
 

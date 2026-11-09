@@ -117,6 +117,18 @@ namespace z5 {
     }
 
 
+    // a float16 dataset holds the half-precision bits (uint16_t elements)
+    inline void writePyScalarFloat16(const Dataset & ds,
+                                     const std::vector<std::size_t> & roiBegin,
+                                     const std::vector<std::size_t> & roiShape,
+                                     const nb::object & val,
+                                     const int numberOfThreads) {
+        const uint16_t v = types::doubleToFloat16(nb::cast<double>(val));
+        nb::gil_scoped_release lift_gil;
+        writePyScalar<uint16_t>(ds, roiBegin, roiShape, v, numberOfThreads);
+    }
+
+
     template<class T>
     inline nb::object readPyChunk(const Dataset & ds, const types::ShapeType & chunkId) {
 
@@ -455,8 +467,8 @@ namespace z5 {
         exportVlenIo<false>(module, "string");
         exportVlenIo<true>(module, "bytes");
 
-        // export I/O for all dtypes; bool datasets are read and written through
-        // the uint8 functions (z5py passes uint8 views of bool arrays)
+        // export I/O for all dtypes; bool and float16 datasets are read and
+        // written through the uint8 / uint16 functions (z5py passes views)
         // integer types
         exportIoT<int8_t>(module, "int8");
         exportIoT<int16_t>(module, "int16");
@@ -520,6 +532,9 @@ namespace z5 {
                             break;
                         case types::Datatype::boolean :
                             writePyScalarBool(ds, roiBegin, roiShape, val, numberOfThreads);
+                            break;
+                        case types::Datatype::float16 :
+                            writePyScalarFloat16(ds, roiBegin, roiShape, val, numberOfThreads);
                             break;
                         case types::Datatype::complex64 :
                             writePyScalarCasted<std::complex<float>, std::complex<double>>(

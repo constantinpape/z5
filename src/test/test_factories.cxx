@@ -301,6 +301,45 @@ namespace z5 {
     }
 
 
+    // float16 datasets hold uint16_t elements, the half-precision bits
+    TEST_F(FactoryTest, CreateFloat16Dataset) {
+        for(const int zarrFormat : {2, 3}) {
+            fs::path p = tmp / ("half" + std::to_string(zarrFormat) + ".zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, zarrFormat);
+
+            DatasetOptions options;
+            options.zarrFormat = zarrFormat;
+            options.fillValue = -2.5;
+            auto ds = createDataset(file, "h", "float16", types::ShapeType({4}), types::ShapeType({2}), options);
+            ASSERT_EQ(ds->getDtype(), types::float16);
+            uint16_t fill = 0;
+            ds->getFillValue(&fill);
+            ASSERT_EQ(fill, 0xc100);
+
+            const std::vector<uint16_t> in{0x3c00, 0x7c00, 0x0001};
+            const types::ShapeType offset({1});
+            multiarray::writeSubarray<uint16_t>(*ds, multiarray::makeView(in.data(), types::ShapeType({3})),
+                                                offset.begin());
+            std::vector<uint16_t> out(4);
+            const types::ShapeType zero({0});
+            multiarray::readSubarray<uint16_t>(*openDataset(file, "h"),
+                                               multiarray::makeView(out.data(), types::ShapeType({4})), zero.begin());
+            ASSERT_EQ(out, std::vector<uint16_t>({0xc100, 0x3c00, 0x7c00, 0x0001}));
+        }
+
+        // a zarr v3 hex fill value has four digits
+        ASSERT_EQ(types::fillValueFromJson("0x3c00", types::float16, 3), types::FillValue(1.));
+        ASSERT_THROW(types::fillValueFromJson("0x3c", types::float16, 3), std::runtime_error);
+
+        fs::path p = tmp / "half.n5";
+        z5::filesystem::handle::File n5(p);
+        z5::createFile(n5, false);
+        ASSERT_THROW(createDataset(n5, "h", "float16", types::ShapeType({3}), types::ShapeType({2}), DatasetOptions()),
+                     std::runtime_error);
+    }
+
+
     TEST_F(FactoryTest, CreateDatasetExactFillValue) {
         for(const int zarrFormat : {2, 3}) {
             fs::path p = tmp / ("fill" + std::to_string(zarrFormat) + ".zr");
