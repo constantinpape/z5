@@ -111,7 +111,9 @@ class Dataset:
                    np.dtype('float16'): 'float16',
                    np.dtype('float32'): 'float32',
                    np.dtype('float64'): 'float64',
-                   np.dtype('bool'): 'bool'}
+                   np.dtype('bool'): 'bool',
+                   np.dtype('complex64'): 'complex64',
+                   np.dtype('complex128'): 'complex128'}
 
     # Compression libraries supported by zarr format
     compressors_zarr = tuple(comp for comp in COMPRESSORS_ZARR if AVAILABLE_COMPRESSORS[comp])
@@ -313,10 +315,8 @@ class Dataset:
                                        transpose=transpose, crc32c=crc32c)
 
     @staticmethod
-    def _fill_value_bits(fillvalue, dtype):
-        """ The fill value's bits: its bytes as ``dtype``, read as a little-endian
-        unsigned integer. Passed to the C++ layer so that 64-bit integers are
-        kept exactly (a float argument would round them).
+    def _fill_value_as(fillvalue, dtype):
+        """ ``fillvalue`` as a numpy scalar of ``dtype``.
 
         Raises:
             ValueError: if ``fillvalue`` can't be represented in ``dtype``.
@@ -327,6 +327,18 @@ class Dataset:
             raise ValueError("Fill value %r is not valid for data type %s: %s" % (fillvalue, dtype, e))
         if value.ndim != 0:
             raise ValueError("Fill value %r must be a scalar" % (fillvalue,))
+        return value[()]
+
+    @classmethod
+    def _fill_value_bits(cls, fillvalue, dtype):
+        """ The fill value's bits: its bytes as ``dtype``, read as a little-endian
+        unsigned integer. Passed to the C++ layer so that 64-bit integers are
+        kept exactly (a float argument would round them).
+
+        Raises:
+            ValueError: if ``fillvalue`` can't be represented in ``dtype``.
+        """
+        value = np.asarray(cls._fill_value_as(fillvalue, dtype))
         return int(value.astype(value.dtype.newbyteorder('<')).view('<u%i' % value.itemsize))
 
     @classmethod
@@ -410,7 +422,12 @@ class Dataset:
             if parsed_dtype not in cls._dtype_dict:
                 raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
             dtype_name = cls._dtype_dict[parsed_dtype]
-            fill_kwargs = {'fill_value_bits': cls._fill_value_bits(fillvalue, parsed_dtype)}
+            if parsed_dtype.kind == 'c':
+                # complex128 doesn't fit the bits; both parts are exact as doubles
+                fill_kwargs = {'fill_value_complex': complex(cls._fill_value_as(fillvalue, parsed_dtype))}
+                fillvalue = 0
+            else:
+                fill_kwargs = {'fill_value_bits': cls._fill_value_bits(fillvalue, parsed_dtype)}
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")

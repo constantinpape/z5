@@ -49,6 +49,21 @@ namespace util {
     };
 
 
+    // reverse the byte order of `n` elements for a big-endian ``bytes`` codec,
+    // which swaps each part of a complex number on its own
+    template<class T>
+    inline void reverseElementBytes(T * data, const std::size_t n) {
+        if constexpr(types::isComplexType<T>) {
+            using U = typename T::value_type;
+            // std::complex<U> is laid out as U[2]
+            U * parts = reinterpret_cast<U *>(data);
+            util::reverseEndiannessInplace<U>(parts, parts + 2 * n);
+        } else {
+            util::reverseEndiannessInplace<T>(data, data + n);
+        }
+    }
+
+
     // encode `n` logical chunk elements to the stored element order. Returns
     // `dataIn` for the identity, else `tmp` holding the encoded elements.
     template<class T>
@@ -67,7 +82,7 @@ namespace util {
             tmp.assign(dataIn, dataIn + n);
         }
         if(codecs.reverseBytes && sizeof(T) > 1) {
-            util::reverseEndiannessInplace<T>(tmp.begin(), tmp.end());
+            reverseElementBytes(tmp.data(), n);
         }
         return tmp.data();
     }
@@ -77,7 +92,7 @@ namespace util {
     template<class T>
     inline void decodeElements(T * data, const std::size_t n, const ArrayCodecs & codecs) {
         if(codecs.reverseBytes && sizeof(T) > 1) {
-            util::reverseEndiannessInplace<T>(data, data + n);
+            reverseElementBytes(data, n);
         }
         if(!codecs.order.empty()) {
             codecs.checkSize(n);

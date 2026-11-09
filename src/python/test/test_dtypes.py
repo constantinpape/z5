@@ -1,4 +1,4 @@
-"""The zarr data types n5 lacks: bool, float16.
+"""The zarr data types n5 lacks: bool, float16, complex64 and complex128.
 
 Each data type runs the same round trip in zarr v2, v3 and v3 sharded, and
 has its own class for its fill value rules and on-disk layout. n5 refuses
@@ -96,8 +96,9 @@ class DtypeMixin:
 
     def test_write_subarray_needs_dtype(self):
         # the IO is typed: data of another dtype is refused, not reinterpreted
+        # (TypeError from z5py for bool / float16, RuntimeError from C++ else)
         ds = self._create()
-        with self.assertRaises(TypeError):
+        with self.assertRaises((TypeError, RuntimeError)):
             ds.write_subarray((0, 0), np.ones((2, 2), dtype='int64'))
 
     def test_require_dataset(self):
@@ -343,6 +344,145 @@ class TestFloat16N5(unittest.TestCase):
 
     def test_refused(self):
         _refused_for_n5(self, 'float16')
+
+
+#
+# complex64, complex128
+#
+
+class ComplexMixin(DtypeMixin):
+    fill = complex(1.5, -np.inf)
+
+    def values(self, n):
+        rng = np.random.RandomState(0)
+        return (rng.randn(n) + 1j * rng.randn(n)).astype(self.dtype)
+
+    def _edit_fill(self, value):
+        if 'data' not in self.root:
+            self._create()
+        name = 'zarr.json' if self.zarr_format == 3 else '.zarray'
+        meta = self._meta()
+        meta['fill_value'] = value
+        with open(os.path.join(self.path, 'data', name), 'w') as f:
+            json.dump(meta, f)
+        return z5py.File(self.path, mode='r')['data']
+
+    def test_complex_metadata(self):
+        self._create()
+        meta = self._meta()
+        name = self.dtype if self.zarr_format == 3 else {'complex64': '<c8', 'complex128': '<c16'}[self.dtype]
+        self.assertEqual(meta['data_type'] if self.zarr_format == 3 else meta['dtype'], name)
+        # [real, imag], each part as a float fill value
+        self.assertEqual(meta['fill_value'], [1.5, '-Infinity'])
+
+    def test_bytes_on_disk(self):
+        # little-endian real part, then imaginary part
+        ds = self._create(fillvalue=0)
+        values = np.array([1 + 2j, -3j, 0.5], dtype=self.dtype)
+        ds[:4, :3] = np.tile(values, (4, 1))
+        if self.shards is not None:
+            return
+        name = 'c/0/0' if self.zarr_format == 3 else '0.0'
+        with open(os.path.join(self.path, 'data', name), 'rb') as f:
+            self.assertEqual(f.read(), values.tobytes() * 4)
+
+    def test_nan_fill_value(self):
+        ds = self._create(fillvalue=complex(np.nan, 2))
+        self.assertTrue(np.isnan(ds.fillvalue.real))
+        self.assertEqual(ds.fillvalue.imag, 2)
+        self.assertEqual(self._meta()['fill_value'], ['NaN', 2.0])
+
+    def test_real_fill_value(self):
+        ds = self._create(fillvalue=-4)
+        self.assertEqual(ds.fillvalue, -4 + 0j)
+        self.assertEqual(self._meta()['fill_value'], [-4.0, 0.0])
+
+    def test_fill_value_parts(self):
+        for value, expected in [([1, 2], 1 + 2j), (['Infinity', -0.5], complex(np.inf, -.5))]:
+            self.assertEqual(self._edit_fill(value).fillvalue, expected, value)
+        for value in ([1], [1, 2, 3], ['x', 1], [[1], 2]):
+            with self.assertRaises(RuntimeError):
+                self._edit_fill(value)
+
+
+class ComplexV2Mixin(ComplexMixin):
+    zarr_format = 2
+
+    def test_lenient_fill_values(self):
+        # zarr v2 also takes a number (the real part), and null
+        self.assertEqual(self._edit_fill(2.5).fillvalue, 2.5 + 0j)
+        self.assertTrue(np.isnan(self._edit_fill(None).fillvalue.real))
+
+
+class ComplexV3Mixin(V3Mixin, ComplexMixin):
+
+    def test_strict_fill_values(self):
+        for value in (2.5, None, 'NaN'):
+            with self.assertRaises(RuntimeError):
+                self._edit_fill(value)
+
+    def test_hex_fill_value(self):
+        # each part has the bits of the float type of half the size
+        part = 8 if self.dtype == 'complex64' else 16
+        one = '0x3f800000' if part == 8 else '0x3ff0000000000000'
+        self.assertEqual(self._edit_fill([one, '0x' + '0' * part]).fillvalue, 1 + 0j)
+        with self.assertRaises(RuntimeError):
+            self._edit_fill(['0x3c00', 0])
+
+    def test_big_endian(self):
+        # a big-endian bytes codec swaps each part on its own
+        data = self._data()
+        self._create()
+        path = os.path.join(self.path, 'data', 'zarr.json')
+        meta = self._meta()
+        meta['codecs'][0]['configuration']['endian'] = 'big'
+        with open(path, 'w') as f:
+            json.dump(meta, f)
+        ds = z5py.File(self.path, mode='a')['data']
+        ds[:] = data
+        self.assert_same(ds[:], data)
+        if self.shards is None:
+            with open(os.path.join(self.path, 'data', 'c', '0', '0'), 'rb') as f:
+                self.assertEqual(f.read(), data[:4, :3].astype(np.dtype(self.dtype).newbyteorder('>')).tobytes())
+
+
+class TestComplex64V2(ComplexV2Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex64_v2.zr'
+    dtype = 'complex64'
+
+
+class TestComplex128V2(ComplexV2Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex128_v2.zr'
+    dtype = 'complex128'
+
+
+class TestComplex64V3(ComplexV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex64_v3.zr'
+    dtype = 'complex64'
+
+
+class TestComplex128V3(ComplexV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex128_v3.zr'
+    dtype = 'complex128'
+
+
+class TestComplex64V3Sharded(ComplexV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex64_v3_sharded.zr'
+    dtype = 'complex64'
+    shards = (8, 6)
+
+
+class TestComplex128V3Sharded(ComplexV3Mixin, unittest.TestCase):
+    path = 'test_dtypes_complex128_v3_sharded.zr'
+    dtype = 'complex128'
+    shards = (8, 6)
+
+
+class TestComplexN5(unittest.TestCase):
+
+    def test_refused(self):
+        _refused_for_n5(self, 'complex64')
+        _refused_for_n5(self, 'complex128')
 
 
 if __name__ == '__main__':
