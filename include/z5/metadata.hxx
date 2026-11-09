@@ -511,10 +511,11 @@ namespace z5 {
         // (numpy ``transpose`` semantics); empty == no transpose
         std::vector<std::size_t> transposeOrder;
 
-        // the fill value as the dataset's element type
+        // the fill value as the dataset's element type (for float16, uint16_t
+        // holding the half-precision bits)
         template<class T>
         T fillValueAs() const {
-            return types::fillValueAs<T>(fillValue);
+            return types::fillValueElement<T>(fillValue, dtype);
         }
 
         // metadata values that are fixed for now

@@ -1,4 +1,4 @@
-"""The zarr data types n5 lacks: bool.
+"""The zarr data types n5 lacks: bool, float16.
 
 Each data type runs the same round trip in zarr v2, v3 and v3 sharded, and
 has its own class for its fill value rules and on-disk layout. n5 refuses
@@ -228,6 +228,121 @@ class TestBoolN5(unittest.TestCase):
 
     def test_refused(self):
         _refused_for_n5(self, 'bool')
+
+
+#
+# float16
+#
+
+# doubles that test the rounding to half precision: ties (to even), the
+# subnormal range, the largest half and the overflow threshold, specials
+ROUNDING = [0.1, 1 / 3, 1 + 2**-11, 1 + 3 * 2**-11, 2049., 2051., 65504., 65519.99, 65520., 1e6,
+            2**-24, 2**-25, 2**-25 + 2**-40, 3 * 2**-26, 2**-14, 2**-14 - 2**-25, 6e-8, 1e-10,
+            -0., -2.5e-5, float('inf'), -float('inf')]
+
+
+class Float16Mixin(DtypeMixin):
+    dtype = 'float16'
+    fill = -2.5
+
+    @staticmethod
+    def values(n):
+        values = np.random.RandomState(0).randn(n).astype('float16')
+        specials = [np.inf, -0., 6e-8, 65504.][:n]
+        values[:len(specials)] = specials
+        return values
+
+    def test_float16_metadata(self):
+        self._create()
+        meta = self._meta()
+        self.assertEqual(meta['data_type'] if self.zarr_format == 3 else meta['dtype'],
+                         'float16' if self.zarr_format == 3 else '<f2')
+        self.assertEqual(meta['fill_value'], -2.5)
+
+    def test_bytes_on_disk(self):
+        # the little-endian half-precision bits
+        ds = self._create(fillvalue=0)
+        values = np.array([1., -2., 0.5], dtype='float16')
+        ds[:4, :3] = np.tile(values, (4, 1))
+        if self.shards is not None:
+            return
+        name = 'c/0/0' if self.zarr_format == 3 else '0.0'
+        with open(os.path.join(self.path, 'data', name), 'rb') as f:
+            self.assertEqual(f.read(), values.astype('<f2').tobytes() * 4)
+
+    def test_scalar_rounding(self):
+        # a scalar is rounded to half precision as numpy rounds it
+        ds = self._create('round', fillvalue=0)
+        for i, value in enumerate(ROUNDING):
+            ds[i // 7, i % 7] = value
+        expected = np.zeros(self.shape, dtype='float16').ravel()
+        expected[:len(ROUNDING)] = np.array(ROUNDING).astype('float16')
+        out = ds[:].ravel()
+        self.assertEqual(out.view('uint16').tolist(), expected.view('uint16').tolist())
+
+    def test_fill_value_rounding(self):
+        for i, value in enumerate(ROUNDING):
+            ds = self._create('fill%i' % i, fillvalue=value)
+            expected = np.float16(value)
+            self.assertEqual(ds.fillvalue.view('uint16'), expected.view('uint16'), value)
+            self.assertEqual(ds[0, 0].view('uint16'), expected.view('uint16'), value)
+
+    def test_nan_fill_value(self):
+        ds = self._create(fillvalue=np.nan)
+        self.assertTrue(np.isnan(ds.fillvalue))
+        self.assertEqual(self._meta()['fill_value'], 'NaN')
+        self.assertTrue(np.isnan(ds[:]).all())
+
+
+class TestFloat16V2(Float16Mixin, unittest.TestCase):
+    path = 'test_dtypes_float16_v2.zr'
+    zarr_format = 2
+
+
+class TestFloat16V3(V3Mixin, Float16Mixin, unittest.TestCase):
+    path = 'test_dtypes_float16_v3.zr'
+
+    def test_hex_fill_value(self):
+        # zarr v3 hex fill values are the half's bits, four digits
+        self._create()
+        path = os.path.join(self.path, 'data', 'zarr.json')
+        for value, expected in [('0x3c00', 1.), ('0xfc00', -np.inf), ('0x0001', 2**-24)]:
+            meta = self._meta()
+            meta['fill_value'] = value
+            with open(path, 'w') as f:
+                json.dump(meta, f)
+            self.assertEqual(z5py.File(self.path, mode='r')['data'].fillvalue, expected, value)
+        for value in ('0x3c', '0x00003c00'):
+            meta['fill_value'] = value
+            with open(path, 'w') as f:
+                json.dump(meta, f)
+            with self.assertRaises(RuntimeError):
+                z5py.File(self.path, mode='r')['data']
+
+    def test_big_endian(self):
+        data = self._data()
+        self._create()
+        path = os.path.join(self.path, 'data', 'zarr.json')
+        meta = self._meta()
+        meta['codecs'][0]['configuration']['endian'] = 'big'
+        with open(path, 'w') as f:
+            json.dump(meta, f)
+        ds = z5py.File(self.path, mode='a')['data']
+        ds[:] = data
+        self.assert_same(ds[:], data)
+        with open(os.path.join(self.path, 'data', 'c', '0', '0'), 'rb') as f:
+            self.assertEqual(f.read(), data[:4, :3].astype('>f2').tobytes())
+
+
+class TestFloat16V3Sharded(V3Mixin, Float16Mixin, unittest.TestCase):
+    path = 'test_dtypes_float16_v3_sharded.zr'
+    shards = (8, 6)
+
+
+class TestFloat16N5(unittest.TestCase):
+
+    def test_refused(self):
+        _refused_for_n5(self, 'float16')
 
 
 if __name__ == '__main__':
