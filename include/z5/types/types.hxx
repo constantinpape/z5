@@ -33,6 +33,8 @@ namespace types {
         int8, int16, int32, int64,
         uint8, uint16, uint32, uint64,
         float32, float64,
+        // stored as one byte, 0 or 1; datasets use uint8_t elements
+        boolean,
         complex64, complex128, complex256,
         // variable-length UTF-8 strings (zarr-python's "string" / ``|O`` +
         // vlen-utf8) and byte strings ("variable_length_bytes" / ``|O`` +
@@ -43,6 +45,18 @@ namespace types {
     // variable-length element types: encoded by a vlen codec instead of ``bytes``
     inline bool isVlenDtype(const Datatype dtype) {
         return dtype == vlen_utf8 || dtype == vlen_bytes;
+    }
+
+    // the data types n5 defines; the others are zarr only
+    inline bool isN5Dtype(const Datatype dtype) {
+        switch(dtype) {
+            case int8: case int16: case int32: case int64:
+            case uint8: case uint16: case uint32: case uint64:
+            case float32: case float64:
+                return true;
+            default:
+                return false;
+        }
     }
 
     // the array-to-bytes codec of a data type: zarr v3 codec name, and the
@@ -58,7 +72,7 @@ namespace types {
         static DtypeMap & zarrToDtype() {
             static DtypeMap dtypeMap({{{"|i1", int8}, {"<i2", int16}, {"<i4", int32}, {"<i8", int64},
                                        {"|u1", uint8}, {"<u2", uint16}, {"<u4", uint32}, {"<u8", uint64},
-                                       {"<f4", float32}, {"<f8", float64},
+                                       {"<f4", float32}, {"<f8", float64}, {"|b1", boolean},
                                        {"<c8", complex64}, {"<c16", complex128}, {"<c32", complex256}}});
             return dtypeMap;
         }
@@ -67,15 +81,18 @@ namespace types {
 
             static InverseDtypeMap dtypeMap({{{int8   , "|i1"}, {int16,  "<i2"}, {int32, "<i4"}, {int64, "<i8"},
                                               {uint8  , "|u1"}, {uint16, "<u2"}, {uint32, "<u4"},{uint64,"<u8"},
-                                              {float32, "<f4"}, {float64,"<f8"},
+                                              {float32, "<f4"}, {float64,"<f8"}, {boolean, "|b1"},
                                               {complex64, "<c8"}, {complex128, "<c16"}, {complex256, "<c32"}}});
             return dtypeMap;
         }
 
+        // the n5 names, which are also the zarr v3 names and the names z5 uses
+        // in its API (createDataset, z5py); the types n5 itself lacks (see
+        // isN5Dtype) are refused for n5 datasets
         static DtypeMap & n5ToDtype() {
             static DtypeMap dtypeMap({{{"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
                                        {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
-                                       {"float32", float32}, {"float64", float64},
+                                       {"float32", float32}, {"float64", float64}, {"bool", boolean},
                                        {"string", vlen_utf8}, {"variable_length_bytes", vlen_bytes}}});
             return dtypeMap;
         }
@@ -83,7 +100,7 @@ namespace types {
         static InverseDtypeMap & dtypeToN5() {
             static InverseDtypeMap dtypeMap({{{int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
                                               {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
-                                              {float32,"float32"}, {float64, "float64"},
+                                              {float32,"float32"}, {float64, "float64"}, {boolean, "bool"},
                                               {vlen_utf8, "string"}, {vlen_bytes, "variable_length_bytes"}}});
             return dtypeMap;
         }
@@ -451,7 +468,7 @@ namespace types {
     // size of a datatype in bytes (used for the blosc ``typesize`` field)
     inline std::size_t datatypeSize(Datatype dt) {
         switch(dt) {
-            case int8: case uint8: return 1;
+            case int8: case uint8: case boolean: return 1;
             case int16: case uint16: return 2;
             case int32: case uint32: case float32: return 4;
             case int64: case uint64: case float64: return 8;

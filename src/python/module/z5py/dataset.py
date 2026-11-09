@@ -35,6 +35,11 @@ VLEN_KINDS = {
 # suffix of the _z5py IO functions for each kind
 _VLEN_SUFFIX = {'string': 'string', 'variable_length_bytes': 'bytes'}
 
+# data types the C++ layer stores as another numpy type of the same size: the
+# IO functions of _z5py take and return arrays of the storage type, and z5py
+# hands them views (a bool dataset holds the bytes 0 and 1, as numpy does)
+_STORAGE_DTYPE = {np.dtype('bool'): np.dtype('uint8')}
+
 
 def _vlen_kind(dtype):
     """ The variable-length kind ``dtype`` asks for, or None.
@@ -103,7 +108,8 @@ class Dataset:
                    np.dtype('int32'): 'int32',
                    np.dtype('int64'): 'int64',
                    np.dtype('float32'): 'float32',
-                   np.dtype('float64'): 'float64'}
+                   np.dtype('float64'): 'float64',
+                   np.dtype('bool'): 'bool'}
 
     # Compression libraries supported by zarr format
     compressors_zarr = tuple(comp for comp in COMPRESSORS_ZARR if AVAILABLE_COMPRESSORS[comp])
@@ -565,6 +571,20 @@ class Dataset:
         dtype = self._impl.dtype
         return dtype if dtype in VLEN_KINDS else None
 
+    def _storage(self, arr, writing):
+        """ ``arr`` as the type the C++ layer takes for this dataset (see _STORAGE_DTYPE).
+
+        An array to write must have the dataset's dtype; it isn't converted.
+        """
+        storage = _STORAGE_DTYPE.get(self.dtype)
+        if storage is None:
+            return arr
+        if arr.dtype != self.dtype:
+            if writing:
+                raise TypeError("Data of dtype %s can't be written to a %s dataset" % (arr.dtype, self.dtype))
+            return arr
+        return arr.view(storage)
+
     def _read_vlen(self, start, shape):
         """ Read the region ``start`` + ``shape`` of a variable-length dataset. """
         dtype = VLEN_KINDS[self._vlen][1]
@@ -702,7 +722,7 @@ class Dataset:
             out = np.empty(shape, dtype=self.dtype)
             if 0 not in shape:
                 _z5py.read_subarray(self._impl,
-                                    out, roi_begin,
+                                    self._storage(out, False), roi_begin,
                                     n_threads=self.n_threads)
 
         # todo: this probably has more copies than necessary
@@ -740,7 +760,7 @@ class Dataset:
             return
 
         # broadcast scalar
-        if isinstance(item, (numbers.Number, np.number)):
+        if isinstance(item, (numbers.Number, np.number, np.bool_)):
             _z5py.write_scalar(self._impl, roi_begin,
                                list(shape), item,
                                str(self.dtype), self.n_threads)
@@ -762,7 +782,7 @@ class Dataset:
 
         item_arr = rectify_shape(item_arr, shape)
         _z5py.write_subarray(self._impl,
-                             item_arr,
+                             self._storage(item_arr, True),
                              roi_begin,
                              n_threads=self.n_threads)
 
@@ -824,7 +844,7 @@ class Dataset:
             self._write_vlen(start, data.shape, data)
             return
         _z5py.write_subarray(self._impl,
-                             np.require(data, requirements='C'),
+                             self._storage(np.require(data, requirements='C'), True),
                              list(start),
                              n_threads=self.n_threads)
 
@@ -846,7 +866,7 @@ class Dataset:
         if self._vlen:
             return self._read_vlen(start, shape)
         out = np.empty(shape, dtype=self.dtype)
-        _z5py.read_subarray(self._impl, out, start, n_threads=self.n_threads)
+        _z5py.read_subarray(self._impl, self._storage(out, False), start, n_threads=self.n_threads)
         return out
 
     def chunk_exists(self, chunk_indices):
@@ -879,6 +899,8 @@ class Dataset:
             write = getattr(_z5py, 'write_chunk_' + _VLEN_SUFFIX[self._vlen])
             write(self._impl, chunk_indices, np.asarray(data, dtype=object).ravel().tolist())
             return
+        if self.dtype in _STORAGE_DTYPE:
+            data = self._storage(np.asarray(data), True)
         _z5py.write_chunk(self._impl, chunk_indices, data, varlen)
 
     def read_chunk(self, chunk_indices):
@@ -895,8 +917,9 @@ class Dataset:
         if self._vlen:
             items = getattr(_z5py, 'read_chunk_' + _VLEN_SUFFIX[self._vlen])(self._impl, chunk_indices)
             return None if items is None else np.array(items, dtype=self.dtype).reshape(self.chunks)
-        chunk_reader = getattr(_z5py, 'read_chunk_%s' % self._impl.dtype)
-        return chunk_reader(self._impl, chunk_indices)
+        storage = _STORAGE_DTYPE.get(self.dtype, self.dtype)
+        chunk = getattr(_z5py, 'read_chunk_%s' % storage.name)(self._impl, chunk_indices)
+        return None if chunk is None else chunk.view(self.dtype)
 
     def get_chunk_shape(self, chunk_indices, from_header=False):
         """ Get the shape of chunk.

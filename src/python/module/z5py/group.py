@@ -222,7 +222,7 @@ class Group(Mapping):
             dtype (str or np.dtype): datatype of the new dataset. If no dtype is given,
                 the ``data`` argument must be given. ``str`` (or numpy's StringDType, or
                 object) makes a variable-length string dataset (zarr only), stored as
-                zarr-python stores ``str`` arrays (default: None).
+                zarr-python stores ``str`` arrays. ``bool`` is zarr only too (default: None).
             data (np.ndarray): data used to infer shape, dtype and fill the dataset
                 upon creation (default: None).
             chunks (tuple): chunk sizes of the new dataset. If no chunks are given,
