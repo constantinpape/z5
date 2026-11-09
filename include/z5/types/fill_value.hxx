@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <bit>
 #include <limits>
@@ -20,13 +21,14 @@ namespace types {
     // A dataset's fill value. After normalizeFillValue (which metadata parsing
     // and dataset creation apply), it holds int64_t for signed integer types
     // and uint64_t for unsigned ones, so every 64-bit value is exact, bool for
-    // bool, double for float and complex types, and std::string for variable-length string
-    // and byte string types (the raw bytes; the metadata stores a bytes fill
-    // value base64-encoded). Read the typed value with fillValueAs<T>().
+    // bool, double for float types, std::complex<double> for complex types,
+    // and std::string for variable-length string and byte string types (the
+    // raw bytes; the metadata stores a bytes fill value base64-encoded). Read
+    // the typed value with fillValueAs<T>().
     //
     // NaN payloads are not kept: every NaN becomes the default quiet NaN and is
     // written as "NaN", as zarr-python does.
-    using FillValue = std::variant<double, int64_t, uint64_t, std::string, bool>;
+    using FillValue = std::variant<double, int64_t, uint64_t, std::string, bool, std::complex<double>>;
 
     inline bool isIntegerDtype(const Datatype dtype) {
         switch(dtype) {
@@ -50,9 +52,45 @@ namespace types {
         return dtype == boolean;
     }
 
+    inline bool isComplexDtype(const Datatype dtype) {
+        return dtype == complex64 || dtype == complex128 || dtype == complex256;
+    }
+
+    // the data type of one component of a complex type
+    inline Datatype complexComponentDtype(const Datatype dtype) {
+        return dtype == complex64 ? float32 : float64;
+    }
+
     // a readable form of a fill value, for error messages
     inline std::string fillValueToString(const FillValue & v) {
-        return std::visit([](const auto & x) {return nlohmann::json(x).dump();}, v);
+        return std::visit([](const auto & x) {
+            if constexpr(isComplexType<std::decay_t<decltype(x)>>) {
+                return nlohmann::json::array({x.real(), x.imag()}).dump();
+            } else {
+                return nlohmann::json(x).dump();
+            }
+        }, v);
+    }
+
+    // a fill value that is a real number (not a string, bool or complex)
+    inline bool isRealFillValue(const FillValue & v) {
+        return std::holds_alternative<double>(v) || std::holds_alternative<int64_t>(v) ||
+               std::holds_alternative<uint64_t>(v);
+    }
+
+    // a real fill value as a double
+    inline double realFillValue(const FillValue & v) {
+        if(const auto * i = std::get_if<int64_t>(&v)) {
+            return static_cast<double>(*i);
+        }
+        if(const auto * u = std::get_if<uint64_t>(&v)) {
+            return static_cast<double>(*u);
+        }
+        return std::get<double>(v);
+    }
+
+    inline double canonicalNaN(const double d) {
+        return std::isnan(d) ? std::numeric_limits<double>::quiet_NaN() : d;
     }
 
     namespace fill_value_detail {
@@ -88,7 +126,7 @@ namespace types {
 
         // an integer fill value as the alternative for `dtype`, range checked
         inline FillValue integerFillValue(const FillValue & v, const Datatype dtype, const bool strict) {
-            if(std::holds_alternative<bool>(v)) {
+            if(std::holds_alternative<bool>(v) || std::holds_alternative<std::complex<double>>(v)) {
                 invalid(v, dtype, "expected an integer");
             }
             const std::size_t size = datatypeSize(dtype);
@@ -129,23 +167,13 @@ namespace types {
 
         // a bool fill value: true / false, or the numbers 0 and 1
         inline FillValue boolFillValue(const FillValue & v, const Datatype dtype) {
-            const bool ok = std::visit([](const auto & x) {
-                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
-                    return false;
-                } else {
-                    return x == 0 || x == 1;
-                }
-            }, v);
-            if(!ok) {
+            if(const auto * b = std::get_if<bool>(&v)) {
+                return *b;
+            }
+            if(!isRealFillValue(v) || (realFillValue(v) != 0 && realFillValue(v) != 1)) {
                 invalid(v, dtype, "expected true or false");
             }
-            return std::visit([](const auto & x) -> FillValue {
-                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
-                    return false;  // unreachable, checked above
-                } else {
-                    return x == 1;
-                }
-            }, v);
+            return realFillValue(v) == 1;
         }
 
         // a variable-length string fill value; the numeric default 0 (what
@@ -154,17 +182,7 @@ namespace types {
             if(std::holds_alternative<std::string>(v)) {
                 return v;
             }
-            if(std::holds_alternative<bool>(v)) {
-                invalid(v, dtype, "expected a string");
-            }
-            const bool isZero = std::visit([](const auto & x) {
-                if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
-                    return false;
-                } else {
-                    return x == 0;
-                }
-            }, v);
-            if(!isZero) {
+            if(!isRealFillValue(v) || realFillValue(v) != 0) {
                 invalid(v, dtype, "expected a string");
             }
             return std::string();
@@ -195,17 +213,20 @@ namespace types {
         if(isVlenDtype(dtype)) {
             return fill_value_detail::vlenFillValue(v, dtype);
         }
-        if(std::holds_alternative<std::string>(v) || std::holds_alternative<bool>(v)) {
-            fill_value_detail::invalid(v, dtype, "expected a number");
-        }
-        const double d = std::visit([](const auto & x) -> double {
-            if constexpr(std::is_same_v<std::decay_t<decltype(x)>, std::string>) {
-                return 0.;  // unreachable, checked above
-            } else {
-                return static_cast<double>(x);
+        if(isComplexDtype(dtype)) {
+            // a real number is the real part
+            if(const auto * c = std::get_if<std::complex<double>>(&v)) {
+                return std::complex<double>(canonicalNaN(c->real()), canonicalNaN(c->imag()));
             }
-        }, v);
-        return std::isnan(d) ? std::numeric_limits<double>::quiet_NaN() : d;
+            if(!isRealFillValue(v)) {
+                fill_value_detail::invalid(v, dtype, "expected a number");
+            }
+            return std::complex<double>(canonicalNaN(realFillValue(v)), 0.);
+        }
+        if(!isRealFillValue(v)) {
+            fill_value_detail::invalid(v, dtype, "expected a real number");
+        }
+        return canonicalNaN(realFillValue(v));
     }
 
 
@@ -248,6 +269,15 @@ namespace types {
                     // normalizeFillValue keeps strings and numbers apart
                     throw std::runtime_error("z5: fill value type does not match the data type");
                 }
+            } else if constexpr(isComplexType<T>) {
+                if constexpr(isComplexType<X>) {
+                    return static_cast<T>(x);
+                } else {
+                    return T(static_cast<typename T::value_type>(x));
+                }
+            } else if constexpr(isComplexType<X>) {
+                // normalizeFillValue gives complex fill values to complex types only
+                throw std::runtime_error("z5: fill value type does not match the data type");
             } else {
                 return static_cast<T>(x);
             }
@@ -268,6 +298,64 @@ namespace types {
     }
 
 
+    namespace fill_value_detail {
+
+        // a float fill value of `floatDtype` (one component, for a complex
+        // `dtype`): a number, "NaN", "Infinity" or "-Infinity", and in v3 also
+        // a hex string of the value's bits
+        inline double floatFromJson(const nlohmann::json & j, const Datatype floatDtype, const bool v3,
+                                    const Datatype dtype) {
+            if(j.is_number()) {
+                return j.get<double>();
+            }
+            if(!j.is_string()) {
+                invalid(j.dump(), dtype, "expected a number or a string");
+            }
+            const std::string s = j.get<std::string>();
+            if(s == "NaN") {
+                return std::numeric_limits<double>::quiet_NaN();
+            } else if(s == "Infinity") {
+                return std::numeric_limits<double>::infinity();
+            } else if(s == "-Infinity") {
+                return -std::numeric_limits<double>::infinity();
+            } else if(v3 && s.size() > 2 && s[0] == '0' && s[1] == 'x') {
+                // the value's bits, most significant first, two digits per byte
+                const std::size_t size = datatypeSize(floatDtype);
+                if(s.size() != 2 + 2 * size) {
+                    invalid(j.dump(), dtype, "a hex fill value needs " + std::to_string(2 * size) + " digits");
+                }
+                uint64_t b = 0;
+                for(std::size_t i = 2; i < s.size(); ++i) {
+                    const char c = s[i];
+                    unsigned digit;
+                    if(c >= '0' && c <= '9') {
+                        digit = c - '0';
+                    } else if(c >= 'a' && c <= 'f') {
+                        digit = c - 'a' + 10;
+                    } else if(c >= 'A' && c <= 'F') {
+                        digit = c - 'A' + 10;
+                    } else {
+                        invalid(j.dump(), dtype, "not a hex number");
+                    }
+                    b = (b << 4) | digit;
+                }
+                return floatFromBits(b, floatDtype);
+            }
+            invalid(j.dump(), dtype, "unknown string");
+        }
+
+        // the inverse of floatFromJson
+        inline nlohmann::json floatToJson(const double d) {
+            if(std::isnan(d)) {
+                return "NaN";
+            } else if(std::isinf(d)) {
+                return d > 0 ? "Infinity" : "-Infinity";
+            }
+            return d;
+        }
+    }
+
+
     // Parse a fill_value from zarr v2 (.zarray) or v3 (zarr.json) metadata.
     //
     // Integer types take a JSON integer within the type's range (v3 also
@@ -277,6 +365,9 @@ namespace types {
     // dropped). v3 refuses null, as the spec and zarr-python do.
     //
     // Bool takes true or false (zarr v2 also accepts 0 and 1, and null for false).
+    //
+    // Complex types take [real, imag], each part as for a float type of half
+    // the size (zarr v2 also accepts a number, the real part).
     //
     // zarr v2 is read leniently, as before, so that existing arrays still
     // open: null means NaN for float types and 0 for integer types, a
@@ -318,6 +409,19 @@ namespace types {
             invalid(j.dump(), dtype, "expected true or false");
         }
 
+        if(isComplexDtype(dtype) && j.is_array()) {
+            if(j.size() != 2) {
+                invalid(j.dump(), dtype, "expected [real, imag]");
+            }
+            const Datatype component = complexComponentDtype(dtype);
+            return normalizeFillValue(std::complex<double>(floatFromJson(j[0], component, v3, dtype),
+                                                           floatFromJson(j[1], component, v3, dtype)),
+                                      dtype, false);
+        }
+        if(isComplexDtype(dtype) && v3) {
+            invalid(j.dump(), dtype, "expected [real, imag]");
+        }
+
         if(j.is_null()) {
             if(v3) {
                 invalid(j.dump(), dtype, "zarr v3 requires a fill value");
@@ -342,44 +446,9 @@ namespace types {
             return normalizeFillValue(v, dtype, v3);
         }
 
-        // float and complex types
-        if(j.is_number()) {
-            return j.get<double>();
-        }
-        if(!j.is_string()) {
-            invalid(j.dump(), dtype, "expected a number or a string");
-        }
-        const std::string s = j.get<std::string>();
-        if(s == "NaN") {
-            return std::numeric_limits<double>::quiet_NaN();
-        } else if(s == "Infinity") {
-            return std::numeric_limits<double>::infinity();
-        } else if(s == "-Infinity") {
-            return -std::numeric_limits<double>::infinity();
-        } else if(v3 && isFloatDtype(dtype) && s.size() > 2 && s[0] == '0' && s[1] == 'x') {
-            // the value's bits, most significant first, two digits per byte
-            const std::size_t size = datatypeSize(dtype);
-            if(s.size() != 2 + 2 * size) {
-                invalid(j.dump(), dtype, "a hex fill value needs " + std::to_string(2 * size) + " digits");
-            }
-            uint64_t b = 0;
-            for(std::size_t i = 2; i < s.size(); ++i) {
-                const char c = s[i];
-                unsigned digit;
-                if(c >= '0' && c <= '9') {
-                    digit = c - '0';
-                } else if(c >= 'a' && c <= 'f') {
-                    digit = c - 'a' + 10;
-                } else if(c >= 'A' && c <= 'F') {
-                    digit = c - 'A' + 10;
-                } else {
-                    invalid(j.dump(), dtype, "not a hex number");
-                }
-                b = (b << 4) | digit;
-            }
-            return floatFromBits(b, dtype);
-        }
-        invalid(j.dump(), dtype, "unknown string");
+        // float types, and a zarr v2 complex fill value given by its real part
+        const Datatype floatDtype = isComplexDtype(dtype) ? complexComponentDtype(dtype) : dtype;
+        return normalizeFillValue(floatFromJson(j, floatDtype, v3, dtype), dtype, false);
     }
 
 
@@ -390,11 +459,15 @@ namespace types {
             j = fillValueAs<uint8_t>(normalizeFillValue(v, dtype, false)) != 0;
             return;
         }
+        if(isComplexDtype(dtype)) {
+            const auto c = std::get<std::complex<double>>(normalizeFillValue(v, dtype, false));
+            j = nlohmann::json::array({fill_value_detail::floatToJson(c.real()),
+                                       fill_value_detail::floatToJson(c.imag())});
+            return;
+        }
         if(const auto * d = std::get_if<double>(&v)) {
-            if(std::isnan(*d)) {
-                j = "NaN";
-            } else if(std::isinf(*d)) {
-                j = *d > 0 ? "Infinity" : "-Infinity";
+            if(std::isnan(*d) || std::isinf(*d)) {
+                j = fill_value_detail::floatToJson(*d);
             } else if(isIntegerDtype(dtype)) {
                 // not normalized (a DatasetMetadata built by hand): write an
                 // integer, which zarr v3 requires for integer types
@@ -408,7 +481,14 @@ namespace types {
             j = util::base64Encode(*s);
             return;
         }
-        std::visit([&](const auto & x) {j = x;}, v);
+        std::visit([&](const auto & x) {
+            if constexpr(isComplexType<std::decay_t<decltype(x)>>) {
+                j = nlohmann::json::array({fill_value_detail::floatToJson(x.real()),
+                                           fill_value_detail::floatToJson(x.imag())});
+            } else {
+                j = x;
+            }
+        }, v);
     }
 
 } // namespace types

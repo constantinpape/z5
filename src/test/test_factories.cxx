@@ -340,6 +340,59 @@ namespace z5 {
     }
 
 
+    // complex datasets, plain and sharded; the fill value is [real, imag]
+    TEST_F(FactoryTest, CreateComplexDataset) {
+        for(const bool sharded : {false, true}) {
+            fs::path p = tmp / (sharded ? "complex_sharded.zr" : "complex.zr");
+            z5::filesystem::handle::File file(p);
+            z5::createFile(file, true, 3);
+
+            DatasetOptions options;
+            options.zarrFormat = 3;
+            options.fillValue = std::complex<double>(1.5, -2.);
+            if(sharded) {
+                options.shardShape = types::ShapeType({4});
+            }
+            auto ds = createDataset(file, "c", "complex64", types::ShapeType({6}), types::ShapeType({2}), options);
+            ASSERT_EQ(ds->getDtype(), types::complex64);
+            ASSERT_EQ(ds->isSharded(), sharded);
+            std::complex<float> fill;
+            ds->getFillValue(&fill);
+            ASSERT_EQ(fill, std::complex<float>(1.5f, -2.f));
+
+            const std::vector<std::complex<float>> in{{1.f, 2.f}, {0.f, -3.f}, {4.f, 0.f}};
+            const types::ShapeType offset({1});
+            multiarray::writeSubarray<std::complex<float>>(*ds, multiarray::makeView(in.data(), types::ShapeType({3})),
+                                                           offset.begin());
+            std::vector<std::complex<float>> out(6);
+            const types::ShapeType zero({0});
+            multiarray::readSubarray<std::complex<float>>(*openDataset(file, "c"),
+                                                          multiarray::makeView(out.data(), types::ShapeType({6})),
+                                                          zero.begin());
+            const std::complex<float> f(1.5f, -2.f);
+            ASSERT_EQ(out, std::vector<std::complex<float>>({f, {1.f, 2.f}, {0.f, -3.f}, {4.f, 0.f}, f, f}));
+
+            DatasetMetadata meta;
+            filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+            nlohmann::json j;
+            meta.toJson(j);
+            ASSERT_EQ(j["fill_value"], nlohmann::json::array({1.5, -2.}));
+            ASSERT_EQ(j["data_type"], "complex64");
+        }
+
+        // fill_value parsing: zarr v3 takes only [real, imag], v2 also a number
+        ASSERT_EQ(types::fillValueFromJson(nlohmann::json::array({"NaN", 2}), types::complex128, 3).index(), 5u);
+        ASSERT_EQ(types::fillValueFromJson(nlohmann::json::array({"0x3f800000", 0}), types::complex64, 3),
+                  types::FillValue(std::complex<double>(1., 0.)));
+        ASSERT_THROW(types::fillValueFromJson(1., types::complex64, 3), std::runtime_error);
+        ASSERT_THROW(types::fillValueFromJson(nlohmann::json::array({1}), types::complex64, 3), std::runtime_error);
+        ASSERT_EQ(types::fillValueFromJson(2., types::complex64, 2), types::FillValue(std::complex<double>(2., 0.)));
+        // a complex fill value is refused for a real type
+        ASSERT_THROW(types::normalizeFillValue(std::complex<double>(1., 1.), types::float32, false),
+                     std::runtime_error);
+    }
+
+
     TEST_F(FactoryTest, CreateDatasetExactFillValue) {
         for(const int zarrFormat : {2, 3}) {
             fs::path p = tmp / ("fill" + std::to_string(zarrFormat) + ".zr");
