@@ -1151,6 +1151,8 @@ class TestInteropZarrPyDtypes(unittest.TestCase):
     dtypes = {
         "bool": (lambda n: np.random.RandomState(0).rand(n) > .5, True),
         "float16": (lambda n: np.random.RandomState(0).randn(n).astype("float16"), -0.25),
+        "complex64": (lambda n: (np.random.RandomState(0).randn(n) * (1 - 2j)).astype("complex64"), 1 - 2j),
+        "complex128": (lambda n: np.random.RandomState(0).randn(n) * (0.5 + 3j), complex(np.inf, 1)),
     }
     layouts = {"v2": ({"zarr_format": 2}, {}),
                "v3": ({"zarr_format": 3}, {}),

@@ -24,12 +24,8 @@ namespace factory_detail {
                 return std::unique_ptr<z5::Dataset>(new Dataset<T>(dataset, metadata));
             },
             [&](const types::Datatype dtype) -> std::unique_ptr<z5::Dataset> {
-                // complex datasets are only supported as plain (non-sharded) datasets
+                // complex256 (zarr v2 "<c32" only, so never sharded)
                 switch(dtype) {
-                    case types::complex64:
-                        return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<float>>(dataset, metadata));
-                    case types::complex128:
-                        return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<double>>(dataset, metadata));
                     case types::complex256:
                         return std::unique_ptr<z5::Dataset>(new Dataset<std::complex<long double>>(dataset, metadata));
                     default:

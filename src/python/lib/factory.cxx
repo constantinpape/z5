@@ -3,6 +3,7 @@
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/complex.h>
 
 #include "z5/factory.hxx"
 
@@ -35,14 +36,18 @@ namespace z5 {
                                    const bool crc32c,
                                    const std::optional<uint64_t> fill_value_bits,
                                    const std::optional<std::string> fill_value_string,
-                                   const std::optional<std::string> fill_value_base64){
+                                   const std::optional<std::string> fill_value_base64,
+                                   const std::optional<std::complex<double>> fill_value_complex){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
                 // z5py passes the exact bits of the fill value as the dtype, or
                 // the string of a string dataset
-                // (or, for a bytes dataset, its bytes base64-encoded, so they arrive as text)
-                if(fill_value_string) {
+                // (or, for a bytes dataset, its bytes base64-encoded, so they arrive as text),
+                // or the parts of a complex fill value
+                if(fill_value_complex) {
+                    options.fillValue = *fill_value_complex;
+                } else if(fill_value_string) {
                     options.fillValue = *fill_value_string;
                 } else if(fill_value_base64) {
                     options.fillValue = util::base64Decode(*fill_value_base64);
@@ -76,6 +81,7 @@ namespace z5 {
             nb::arg("fill_value_bits")=nb::none(),
             nb::arg("fill_value_string")=nb::none(),
             nb::arg("fill_value_base64")=nb::none(),
+            nb::arg("fill_value_complex")=nb::none(),
             nb::call_guard<nb::gil_scoped_release>());
     }
 

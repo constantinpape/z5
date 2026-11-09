@@ -45,6 +45,12 @@ namespace types {
         vlen_utf8, vlen_bytes
     };
 
+    // std::complex element types
+    template<class T>
+    inline constexpr bool isComplexType = false;
+    template<class T>
+    inline constexpr bool isComplexType<std::complex<T>> = true;
+
     // variable-length element types: encoded by a vlen codec instead of ``bytes``
     inline bool isVlenDtype(const Datatype dtype) {
         return dtype == vlen_utf8 || dtype == vlen_bytes;
@@ -96,7 +102,7 @@ namespace types {
             static DtypeMap dtypeMap({{{"int8", int8},  {"int16", int16},  {"int32", int32},  {"int64", int64},
                                        {"uint8", uint8}, {"uint16", uint16}, {"uint32", uint32}, {"uint64", uint64},
                                        {"float32", float32}, {"float64", float64}, {"bool", boolean},
-                                       {"float16", float16},
+                                       {"float16", float16}, {"complex64", complex64}, {"complex128", complex128},
                                        {"string", vlen_utf8}, {"variable_length_bytes", vlen_bytes}}});
             return dtypeMap;
         }
@@ -105,7 +111,8 @@ namespace types {
             static InverseDtypeMap dtypeMap({{{int8   ,"int8"},    {int16,   "int16"},  {int32, "int32"},  {int64, "int64"},
                                               {uint8  ,"uint8"},   {uint16,  "uint16"}, {uint32,"uint32"}, {uint64, "uint64"},
                                               {float32,"float32"}, {float64, "float64"}, {boolean, "bool"},
-                                              {float16, "float16"},
+                                              {float16, "float16"}, {complex64, "complex64"},
+                                              {complex128, "complex128"},
                                               {vlen_utf8, "string"}, {vlen_bytes, "variable_length_bytes"}}});
             return dtypeMap;
         }
