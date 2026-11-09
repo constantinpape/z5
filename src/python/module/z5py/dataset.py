@@ -37,8 +37,9 @@ _VLEN_SUFFIX = {'string': 'string', 'variable_length_bytes': 'bytes'}
 
 # data types the C++ layer stores as another numpy type of the same size: the
 # IO functions of _z5py take and return arrays of the storage type, and z5py
-# hands them views (a bool dataset holds the bytes 0 and 1, as numpy does)
-_STORAGE_DTYPE = {np.dtype('bool'): np.dtype('uint8')}
+# hands them views (a bool dataset holds the bytes 0 and 1, as numpy does, and
+# a float16 dataset the half-precision bits)
+_STORAGE_DTYPE = {np.dtype('bool'): np.dtype('uint8'), np.dtype('float16'): np.dtype('uint16')}
 
 
 def _vlen_kind(dtype):
@@ -107,6 +108,7 @@ class Dataset:
                    np.dtype('int16'): 'int16',
                    np.dtype('int32'): 'int32',
                    np.dtype('int64'): 'int64',
+                   np.dtype('float16'): 'float16',
                    np.dtype('float32'): 'float32',
                    np.dtype('float64'): 'float64',
                    np.dtype('bool'): 'bool'}

@@ -1150,6 +1150,7 @@ class TestInteropZarrPyDtypes(unittest.TestCase):
     # name -> (sample values of n elements, fill value)
     dtypes = {
         "bool": (lambda n: np.random.RandomState(0).rand(n) > .5, True),
+        "float16": (lambda n: np.random.RandomState(0).randn(n).astype("float16"), -0.25),
     }
     layouts = {"v2": ({"zarr_format": 2}, {}),
                "v3": ({"zarr_format": 3}, {}),
