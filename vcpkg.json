@@ -11,5 +11,10 @@
     "zstd",
     "snappy",
     "nlohmann-json"
-  ]
+  ],
+  "vcpkg-configuration": {
+    "overlay-triplets": [
+      "cmake/vcpkg-triplets"
+    ]
+  }
 }
