@@ -164,6 +164,65 @@ class TestZarrV3(unittest.TestCase):
         for rel in ('a', 'a/b', 'a/b/c'):
             self.assertEqual(self._read_meta(rel)['node_type'], 'group')
 
+    # --------------------------------------------------------- dimension names
+    def test_v3_dimension_names(self):
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=('y', 'x'))
+        self.assertEqual(ds.dimension_names, ('y', 'x'))
+        self.assertEqual(self._read_meta('a')['dimension_names'], ['y', 'x'])
+        # the names survive reopening the dataset
+        f = z5py.File(self.path, mode='r')
+        self.assertEqual(f['a'].dimension_names, ('y', 'x'))
+
+    def test_v3_dimension_names_unnamed(self):
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=(None, 'x'))
+        self.assertEqual(ds.dimension_names, (None, 'x'))
+        self.assertEqual(self._read_meta('a')['dimension_names'], [None, 'x'])
+
+    def test_v3_dimension_names_empty_is_not_unnamed(self):
+        # "" is a name; only None (null) is an unnamed dimension
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=('', None))
+        self.assertEqual(ds.dimension_names, ('', None))
+        self.assertEqual(self._read_meta('a')['dimension_names'], ['', None])
+        f = z5py.File(self.path, mode='r')
+        self.assertEqual(f['a'].dimension_names, ('', None))
+
+    def test_v3_dimension_names_all_unnamed(self):
+        # a list of nulls is kept: it differs from no dimension_names at all
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=(None, None))
+        self.assertEqual(ds.dimension_names, (None, None))
+        self.assertEqual(self._read_meta('a')['dimension_names'], [None, None])
+
+    def test_v3_dimension_names_invalid_metadata(self):
+        self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4), dtype='float32')
+        meta_path = os.path.join(self.path, 'a', 'zarr.json')
+        for bad in ([1, 'x'], 'yx', ['x']):
+            meta = self._read_meta('a')
+            meta['dimension_names'] = bad
+            with open(meta_path, 'w') as f:
+                json.dump(meta, f)
+            with self.assertRaises(RuntimeError, msg=str(bad)):
+                z5py.File(self.path, mode='r')['a']
+
+    def test_v3_dimension_names_default(self):
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32')
+        self.assertIsNone(ds.dimension_names)
+        self.assertNotIn('dimension_names', self._read_meta('a'))
+
+    def test_v3_dimension_names_require_dataset(self):
+        ds = self.root.require_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                       dtype='float32',
+                                       dimension_names=('y', 'x'))
+        self.assertEqual(ds.dimension_names, ('y', 'x'))
+
     # --------------------------------------------------------------- rejections
     def test_v3_reject_invalid_shard(self):
         # shard shape must be a multiple of the chunk shape
@@ -171,6 +230,23 @@ class TestZarrV3(unittest.TestCase):
             self.root.create_dataset('bad_shard', shape=(40, 40),
                                      chunks=(10, 10), shards=(15, 15),
                                      dtype='uint8')
+
+    def test_v3_reject_invalid_dimension_names(self):
+        # one name per dimension
+        with self.assertRaises(ValueError):
+            self.root.create_dataset('bad_names', shape=(40, 40),
+                                     chunks=(10, 10), dtype='uint8',
+                                     dimension_names=('x',))
+
+    def test_reject_dimension_names_v2(self):
+        path = 'test_v2_names.zr'
+        try:
+            f = z5py.File(path, mode='w', use_zarr_format=True)
+            with self.assertRaises(ValueError):
+                f.create_dataset('a', shape=(40, 40), chunks=(10, 10),
+                                 dtype='uint8', dimension_names=('y', 'x'))
+        finally:
+            rmtree(path, ignore_errors=True)
 
 
 @requires_z5_v3
