@@ -28,6 +28,9 @@ namespace compression {
         }
         virtual types::Compressor type() const = 0;
         virtual void getOptions(types::CompressionOptions &) const = 0;
+        // true if compress / decompress must be bypassed by a plain copy (the raw
+        // compressor); a codec chain around the raw compressor still has work to do
+        virtual bool isRaw() const {return type() == types::raw;}
     };
 
 
