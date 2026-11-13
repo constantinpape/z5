@@ -23,6 +23,7 @@ echo "Running Util Test"
 
 echo "Running Compression Tests"
 ./compression/test_raw
+./compression/test_decompress_bytes
 for codec in blosc bzip2 lz4 xz zlib zstd; do
     if [ -f "./compression/test_${codec}" ]; then
         "./compression/test_${codec}"

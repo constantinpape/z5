@@ -2,6 +2,7 @@
 
 #ifdef WITH_XZ
 
+#include <algorithm>
 #include <lzma.h>
 
 #include "z5/compression/compressor_base.hxx"
@@ -41,7 +42,7 @@ namespace compression {
 
             // initialize lzma stream
             // TODO is second argument (= preset) the level ?!
-            if(lzma_easy_encoder(&lzs, level_, LZMA_CHECK_CRC64) != LZMA_OK) {
+            if(lzma_easy_encoder(&lzs, level_, check_) != LZMA_OK) {
                 throw(std::runtime_error("Initializing xz stream failed"));
             }
 
@@ -130,21 +131,61 @@ namespace compression {
             }
 		}
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            lzma_stream lzs;
+            memset(&lzs, 0, sizeof(lzs));
+            if(lzma_stream_decoder(&lzs, UINT64_MAX, LZMA_CONCATENATED) != LZMA_OK) {
+                throw std::runtime_error("Initializing xz stream failed");
+            }
+            lzs.next_in = (uint8_t *) dataIn;
+            lzs.avail_in = nBytesIn;
+            out.resize(std::max<std::size_t>(4 * nBytesIn, 4096));
+            std::size_t produced = 0;
+            lzma_ret ret = LZMA_OK;
+            do {
+                if(produced == out.size()) {
+                    out.resize(2 * out.size());
+                }
+                lzs.next_out = reinterpret_cast<uint8_t *>(out.data() + produced);
+                lzs.avail_out = out.size() - produced;
+                // LZMA_CONCATENATED needs LZMA_FINISH to end once the input is consumed;
+                // a truncated stream then fails with LZMA_BUF_ERROR
+                ret = lzma_code(&lzs, lzs.avail_in == 0 ? LZMA_FINISH : LZMA_RUN);
+                produced = out.size() - lzs.avail_out;
+            } while(ret == LZMA_OK);
+            lzma_end(&lzs);
+            if(ret != LZMA_STREAM_END) {
+                throw std::runtime_error("Exception during xz decompression: (" + std::to_string(ret) + ")");
+            }
+            out.resize(produced);
+        }
+
         inline types::Compressor type() const {
             return types::xz;
         }
 
         inline void getOptions(types::CompressionOptions & opts) const {
             opts["level"] = level_;
+            if(hasCheckOption_) {
+                opts["check"] = static_cast<int>(check_);
+            }
         }
 
     private:
         void init(const DatasetMetadata & metadata) {
-            level_ = std::get<int>(metadata.compressionOptions.at("level"));
+            const auto & cOpts = metadata.compressionOptions;
+            level_ = std::get<int>(cOpts.at("level"));
+            // integrity check of the xz container (zarr v3 ``numcodecs.lzma``);
+            // the values are liblzma's lzma_check, CRC64 by default
+            const auto check = cOpts.find("check");
+            hasCheckOption_ = check != cOpts.end();
+            check_ = hasCheckOption_ ? static_cast<lzma_check>(std::get<int>(check->second)) : LZMA_CHECK_CRC64;
         }
 
         // compression level
         int level_;
+        lzma_check check_;
+        bool hasCheckOption_;
 
     };
 

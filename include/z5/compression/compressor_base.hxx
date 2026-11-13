@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdexcept>
 #include <vector>
 #include "z5/types/types.hxx"
 
@@ -26,8 +27,18 @@ namespace compression {
                                std::size_t sizeOut) const {
             decompress(dataIn.data(), dataIn.size(), dataOut, sizeOut);
         }
+        // decode a byte stream whose decoded size isn't known in advance (chunks of
+        // variable-length strings); `out` is resized to the decoded bytes. Codecs
+        // that can't find the size (bare lz4 blocks) refuse.
+        virtual void decompressBytes(const char * dataIn, std::size_t nBytesIn,
+                                     std::vector<char> & out) const {
+            throw std::runtime_error("z5: this compressor can't decode chunks of unknown size");
+        }
         virtual types::Compressor type() const = 0;
         virtual void getOptions(types::CompressionOptions &) const = 0;
+        // true if compress / decompress must be bypassed by a plain copy (the raw
+        // compressor); a codec chain around the raw compressor still has work to do
+        virtual bool isRaw() const {return type() == types::raw;}
     };
 
 

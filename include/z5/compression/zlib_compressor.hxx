@@ -8,7 +8,9 @@
 #include <zlib.h>
 #endif
 
+#include <algorithm>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -123,6 +125,43 @@ namespace compression {
             }
         }
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            std::unique_ptr<libdeflate_decompressor, void(*)(libdeflate_decompressor *)>
+                decompressor(libdeflate_alloc_decompressor(), libdeflate_free_decompressor);
+            if(!decompressor) {
+                throw std::runtime_error("z5: libdeflate_alloc_decompressor failed");
+            }
+            // libdeflate needs the output buffer up front: grow it until the stream
+            // fits. Deflate expands by at most ~1032:1, which bounds the retries.
+            const std::size_t maxSize = nBytesIn * 1032 + 1024;
+            std::size_t capacity = std::min(maxSize, std::max<std::size_t>(4 * nBytesIn, 4096));
+            std::size_t actualOut = 0;
+            libdeflate_result res = LIBDEFLATE_BAD_DATA;
+            for(;;) {
+                out.resize(capacity);
+                bool tooSmall = false;
+                // the declared wrapper first, then the other one (see decompress)
+                for(int attempt = 0; attempt < 2; ++attempt) {
+                    const bool zlibWrapper = (attempt == 0) == useZlibEncoding_;
+                    res = zlibWrapper ?
+                        libdeflate_zlib_decompress(decompressor.get(), dataIn, nBytesIn, out.data(), capacity, &actualOut) :
+                        libdeflate_gzip_decompress(decompressor.get(), dataIn, nBytesIn, out.data(), capacity, &actualOut);
+                    if(res == LIBDEFLATE_SUCCESS) {
+                        break;
+                    }
+                    tooSmall = tooSmall || res == LIBDEFLATE_INSUFFICIENT_SPACE;
+                }
+                if(res == LIBDEFLATE_SUCCESS || !tooSmall || capacity >= maxSize) {
+                    break;
+                }
+                capacity = std::min(maxSize, 2 * capacity);
+            }
+            if(res != LIBDEFLATE_SUCCESS) {
+                throw std::runtime_error("z5: libdeflate decompression failed (" + std::to_string((int) res) + ")");
+            }
+            out.resize(actualOut);
+        }
+
 #else // WITH_LIBDEFLATE -- stock zlib backend
 
         void compress(const T * dataIn, std::vector<char> & dataOut, std::size_t sizeIn) const {
@@ -210,6 +249,35 @@ namespace compression {
     		    throw std::runtime_error(err);
     		}
 		}
+
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            z_stream zs;
+            memset(&zs, 0, sizeof(zs));
+            // automatic header detection for the zlib and gzip wrappers
+            if(inflateInit2(&zs, MAX_WBITS + 32) != Z_OK) {
+                throw std::runtime_error("Initializing zLib inflate failed");
+            }
+            zs.next_in = (Bytef*) dataIn;
+            zs.avail_in = nBytesIn;
+            out.resize(std::max<std::size_t>(4 * nBytesIn, 4096));
+            std::size_t produced = 0;
+            int ret;
+            do {
+                // grow the output whenever it is full, so inflate can always progress
+                if(produced == out.size()) {
+                    out.resize(2 * out.size());
+                }
+                zs.next_out = reinterpret_cast<Bytef*>(out.data() + produced);
+                zs.avail_out = out.size() - produced;
+                ret = inflate(&zs, Z_NO_FLUSH);
+                produced = out.size() - zs.avail_out;
+            } while(ret == Z_OK);
+            inflateEnd(&zs);
+            if(ret != Z_STREAM_END) {
+                throw std::runtime_error("Exception during zlib decompression: (" + std::to_string(ret) + ")");
+            }
+            out.resize(produced);
+        }
 
 #endif // WITH_LIBDEFLATE
 

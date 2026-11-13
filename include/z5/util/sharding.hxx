@@ -14,8 +14,13 @@
 // On-disk layout of a shard file (index_location == "end", the default):
 //
 //   [ inner chunk blob 0 ][ inner chunk blob 1 ] ... [ inner chunk blob k ]
-//   [ shard index: nSlots * (offset uint64 LE, nbytes uint64 LE) ]
+//   [ shard index: nSlots * (offset uint64, nbytes uint64) ]
 //   [ crc32c of the index bytes, uint32 LE ]
+//
+// With index_location == "start" the index (+ checksum) comes first and the
+// blobs follow it. Offsets are always counted from the start of the shard.
+// The index integers are little-endian unless the index ``bytes`` codec says
+// "big"; the crc32c is present only if the index codecs include ``crc32c``.
 //
 // The index has one entry per inner-chunk slot of the shard, in C order over
 // the chunks-per-shard grid; ``nSlots`` is always the full product (out-of-array
@@ -72,6 +77,19 @@ namespace util {
         return slot;
     }
 
+    // how the shard index is stored (the sharding codec's index_location and
+    // index_codecs); the default is what z5 writes for new arrays
+    struct ShardIndexLayout {
+        bool atStart = false;     // index_location "start"
+        bool bigEndian = false;   // index bytes codec endian "big"
+        bool checksum = true;     // index codecs end with crc32c
+
+        // bytes taken by the index and its checksum
+        inline std::size_t size(const std::size_t nSlots) const {
+            return 16 * nSlots + (checksum ? 4 : 0);
+        }
+    };
+
     // little-endian (de)serialization
     inline uint64_t readLE64(const char * p) {
         uint64_t v = 0;
@@ -97,32 +115,53 @@ namespace util {
             out.push_back(static_cast<char>((v >> (8 * i)) & 0xFFu));
         }
     }
+    inline uint64_t readBE64(const char * p) {
+        uint64_t v = 0;
+        for(int i = 0; i < 8; ++i) {
+            v = (v << 8) | static_cast<uint64_t>(static_cast<unsigned char>(p[i]));
+        }
+        return v;
+    }
+    inline void writeBE64(std::vector<char> & out, uint64_t v) {
+        for(int i = 7; i >= 0; --i) {
+            out.push_back(static_cast<char>((v >> (8 * i)) & 0xFFu));
+        }
+    }
 
-    // parse the index located at the end of the shard buffer; returns false if
-    // the shard is too small, the index checksum does not match, or an entry
-    // points outside of the data region (i.e. the shard is corrupt)
+    // parse the shard index; returns false if the shard is too small, the
+    // index checksum does not match, or an entry points outside of the data
+    // region (i.e. the shard is corrupt)
     inline bool parseShardIndex(const std::vector<char> & shard, std::size_t nSlots,
-                                std::vector<ShardEntry> & entries) {
-        const std::size_t footer = 16 * nSlots + 4;  // index + crc32c
+                                std::vector<ShardEntry> & entries,
+                                const ShardIndexLayout & layout=ShardIndexLayout()) {
+        const std::size_t indexSize = 16 * nSlots;
+        const std::size_t footer = layout.size(nSlots);
         if(shard.size() < footer) {
             return false;
         }
-        const std::size_t indexStart = shard.size() - footer;
-        // validate the crc32c that buildShard stores behind the index
-        const uint32_t storedCrc = readLE32(shard.data() + shard.size() - 4);
-        if(crc32c(shard.data() + indexStart, 16 * nSlots) != storedCrc) {
-            return false;
+        // the data region is everything outside of the index + checksum
+        const std::size_t indexStart = layout.atStart ? 0 : shard.size() - footer;
+        const std::size_t dataBegin = layout.atStart ? footer : 0;
+        const std::size_t dataEnd = layout.atStart ? shard.size() : indexStart;
+        // validate the crc32c stored behind the index
+        if(layout.checksum) {
+            const uint32_t storedCrc = readLE32(shard.data() + indexStart + indexSize);
+            if(crc32c(shard.data() + indexStart, indexSize) != storedCrc) {
+                return false;
+            }
         }
+        const auto read64 = layout.bigEndian ? readBE64 : readLE64;
         entries.resize(nSlots);
         for(std::size_t s = 0; s < nSlots; ++s) {
             const char * p = shard.data() + indexStart + 16 * s;
-            entries[s].offset = readLE64(p);
-            entries[s].nbytes = readLE64(p + 8);
+            entries[s].offset = read64(p);
+            entries[s].nbytes = read64(p + 8);
             // bound non-empty entries by the data region so corrupt offsets can
             // never cause out-of-bounds reads downstream
             if(!entries[s].empty() &&
-               (entries[s].offset > indexStart ||
-                entries[s].nbytes > indexStart - entries[s].offset)) {
+               (entries[s].offset < dataBegin ||
+                entries[s].offset > dataEnd ||
+                entries[s].nbytes > dataEnd - entries[s].offset)) {
                 return false;
             }
         }
@@ -150,32 +189,47 @@ namespace util {
 
     // build a shard file from per-slot inner chunk blobs (empty vector -> empty slot)
     inline void buildShard(const std::vector<std::vector<char>> & blobs,
-                           std::vector<char> & out) {
+                           std::vector<char> & out,
+                           const ShardIndexLayout & layout=ShardIndexLayout()) {
         const std::size_t nSlots = blobs.size();
         out.clear();
         std::vector<ShardEntry> entries(nSlots);
 
-        // data region
+        // offsets count from the start of the shard, so they skip a leading index
+        std::size_t pos = layout.atStart ? layout.size(nSlots) : 0;
+        std::size_t dataSize = 0;
         for(std::size_t s = 0; s < nSlots; ++s) {
-            if(blobs[s].empty()) {
-                entries[s] = ShardEntry{SHARD_EMPTY, SHARD_EMPTY};
-            } else {
-                entries[s].offset = out.size();
+            if(!blobs[s].empty()) {
+                entries[s].offset = pos;
                 entries[s].nbytes = blobs[s].size();
-                out.insert(out.end(), blobs[s].begin(), blobs[s].end());
+                pos += blobs[s].size();
+                dataSize += blobs[s].size();
             }
         }
 
-        // index region + crc32c over the index bytes
+        // index + crc32c over the index bytes
         std::vector<char> index;
-        index.reserve(16 * nSlots);
+        index.reserve(layout.size(nSlots));
+        const auto write64 = layout.bigEndian ? writeBE64 : writeLE64;
         for(std::size_t s = 0; s < nSlots; ++s) {
-            writeLE64(index, entries[s].offset);
-            writeLE64(index, entries[s].nbytes);
+            write64(index, entries[s].offset);
+            write64(index, entries[s].nbytes);
         }
-        const uint32_t crc = crc32c(index.data(), index.size());
-        out.insert(out.end(), index.begin(), index.end());
-        writeLE32(out, crc);
+        if(layout.checksum) {
+            const uint32_t crc = crc32c(index.data(), index.size());
+            writeLE32(index, crc);
+        }
+
+        out.reserve(index.size() + dataSize);
+        if(layout.atStart) {
+            out.insert(out.end(), index.begin(), index.end());
+        }
+        for(const auto & blob : blobs) {
+            out.insert(out.end(), blob.begin(), blob.end());
+        }
+        if(!layout.atStart) {
+            out.insert(out.end(), index.begin(), index.end());
+        }
     }
 
     // true if every slot is empty (used to decide whether to delete the shard file)
