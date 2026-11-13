@@ -148,7 +148,7 @@ class Dataset:
         elif compression == 'gzip':
             default_opts = {'level': 5, 'useZlib': False}
         elif compression == 'zstd':
-            default_opts = {'level': 3}
+            default_opts = {'level': 3, 'checksum': False}
         elif compression == 'raw':
             default_opts = {}
         else:
@@ -240,13 +240,16 @@ class Dataset:
             shards = kwargs.pop('shards', None)
             chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
             dimension_names = kwargs.pop('dimension_names', None)
+            transpose = kwargs.pop('transpose', None)
+            crc32c = kwargs.pop('crc32c', False)
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
                                        compression_options=kwargs, dimension_separator=dimension_separator,
                                        zarr_format=zarr_format, shards=shards,
                                        chunk_key_encoding=chunk_key_encoding,
-                                       dimension_names=dimension_names)
+                                       dimension_names=dimension_names,
+                                       transpose=transpose, crc32c=crc32c)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -259,7 +262,9 @@ class Dataset:
                         zarr_format=2,
                         shards=None,
                         chunk_key_encoding="default",
-                        dimension_names=None):
+                        dimension_names=None,
+                        transpose=None,
+                        crc32c=False):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -301,6 +306,13 @@ class Dataset:
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
+        if transpose is not None and not (is_zarr and zarr_format == 3):
+            raise ValueError("Transpose is only supported for zarr v3 datasets")
+        if crc32c and not (is_zarr and zarr_format == 3):
+            raise ValueError("crc32c is only supported for zarr v3 datasets")
+        if transpose is not None and sorted(transpose) != list(range(len(shape))):
+            raise ValueError("Transpose %s must be a permutation of the %i axes"
+                             % (str(tuple(transpose)), len(shape)))
 
         if dimension_names is not None:
             if not (is_zarr and zarr_format == 3):
@@ -320,10 +332,11 @@ class Dataset:
             separator = '.' if chunk_key_encoding == 'v2' else '/'
             shards_arg = list(shards) if shards is not None else []
             names_arg = list(dimension_names) if dimension_names is not None else []
+            transpose_arg = [int(axis) for axis in transpose] if transpose is not None else []
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
-                                        names_arg)
+                                        names_arg, transpose_arg, bool(crc32c))
         else:
             # zarr v2 / n5
             # check compression / get default compression if no compression is given
@@ -395,6 +408,20 @@ class Dataset:
         """ Chunks of this dataset.
         """
         return tuple(self._impl.chunks)
+
+    @property
+    def transpose(self):
+        """ Axis order of the zarr v3 ``transpose`` codec (``numpy.transpose``
+        semantics), or None if chunks are stored untransposed.
+        """
+        order = tuple(self._impl.transpose)
+        return order if order else None
+
+    @property
+    def crc32c(self):
+        """ True if the chunks carry a zarr v3 ``crc32c`` checksum.
+        """
+        return self._impl.crc32c
 
     @property
     def shards(self):

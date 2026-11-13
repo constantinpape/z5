@@ -518,6 +518,237 @@ class TestInteropZarrPyV3DimensionNames(unittest.TestCase):
 
 
 @requires_z5_v3
+@requires_zarr_v3
+class TestInteropZarrPyV3Transpose(unittest.TestCase):
+    """zarr-python arrays with a ``transpose`` filter (array-to-array codec)."""
+    path = "interop_transpose.zr"
+    # irregular shape -> padded edge chunks
+    shape = (23, 37, 18)
+    chunks = (10, 16, 8)
+    shards = (20, 32, 16)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _data(self, dtype):
+        if np.issubdtype(np.dtype(dtype), np.floating):
+            return (np.random.rand(*self.shape) * 100).astype(dtype)
+        return np.random.randint(0, 100, size=self.shape).astype(dtype)
+
+    def _roundtrip(self, sharded, endian="little"):
+        from zarr.codecs import BytesCodec, TransposeCodec
+        for order in ((2, 0, 1), (1, 2, 0), (2, 1, 0)):
+            for comp in ("raw", "gzip"):
+                for dtype in ("uint8", "int16", "float32", "float64"):
+                    name = "%s_%s_%s" % ("".join(map(str, order)), comp, dtype)
+                    compressor = _zpy_v3_compressors(comp)
+                    kwargs = {"shards": self.shards} if sharded else {}
+                    za = zarr.create_array(
+                        store=self.path, name=name, shape=self.shape,
+                        chunks=self.chunks, dtype=dtype,
+                        filters=[TransposeCodec(order=order)],
+                        serializer=BytesCodec(endian=endian),
+                        compressors=None if compressor is None else [compressor],
+                        zarr_format=3, **kwargs)
+                    data = self._data(dtype)
+                    za[:] = data
+
+                    # zarr (transposed) -> z5
+                    ds = z5py.File(self.path, mode="a")[name]
+                    self.assertEqual(ds.transpose, order)
+                    np.testing.assert_array_equal(ds[:], data, err_msg=name)
+
+                    # z5 -> zarr: partial write across chunk boundaries
+                    new = self._data(dtype)[5:19, 3:30, 2:17]
+                    ds[5:19, 3:30, 2:17] = new
+                    data[5:19, 3:30, 2:17] = new
+                    out = zarr.open_array(store=self.path, path=name, mode="r")[:]
+                    np.testing.assert_array_equal(out, data, err_msg=name)
+
+    def test_transpose_roundtrip(self):
+        self._roundtrip(sharded=False)
+
+    def test_transpose_big_endian_roundtrip(self):
+        self._roundtrip(sharded=False, endian="big")
+
+    @requires_z5_v3_sharding
+    def test_transpose_sharded_roundtrip(self):
+        self._roundtrip(sharded=True)
+
+    def _z5_create(self, sharded):
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        for order in ((2, 0, 1), (1, 2, 0), (2, 1, 0)):
+            for comp in ("raw", "gzip"):
+                for dtype in ("uint8", "int16", "float32", "float64"):
+                    name = "%s_%s_%s" % ("".join(map(str, order)), comp, dtype)
+                    kwargs = {"shards": self.shards} if sharded else {}
+                    data = self._data(dtype)
+                    f.create_dataset(name, data=data, chunks=self.chunks,
+                                     compression=comp, transpose=order, **kwargs)
+                    za = zarr.open_array(store=self.path, path=name, mode="r")
+                    np.testing.assert_array_equal(za[:], data, err_msg=name)
+
+    def test_z5_created_transpose(self):
+        self._z5_create(sharded=False)
+
+    @requires_z5_v3_sharding
+    def test_z5_created_transpose_sharded(self):
+        self._z5_create(sharded=True)
+
+
+@requires_z5_v3_sharding
+@requires_zarr_v3
+class TestInteropZarrPyV3ShardIndex(unittest.TestCase):
+    """zarr-python shards with a non-default index layout."""
+    path = "interop_shard_index.zr"
+    shape = (37, 29)
+    chunks = (8, 8)
+    shards = (16, 16)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def test_index_layouts(self):
+        from zarr.codecs import BytesCodec, Crc32cCodec, GzipCodec, ShardingCodec
+        for location in ("start", "end"):
+            for endian in ("little", "big"):
+                for checksum in (True, False):
+                    name = "%s_%s_%s" % (location, endian, "crc" if checksum else "nocrc")
+                    index_codecs = [BytesCodec(endian=endian)]
+                    if checksum:
+                        index_codecs.append(Crc32cCodec())
+                    sharding = ShardingCodec(chunk_shape=self.chunks,
+                                             codecs=[BytesCodec(), GzipCodec()],
+                                             index_codecs=index_codecs,
+                                             index_location=location)
+                    za = zarr.create_array(store=self.path, name=name, shape=self.shape,
+                                           chunks=self.shards, dtype="int32",
+                                           serializer=sharding, compressors=None,
+                                           zarr_format=3)
+                    data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+                    # leave the last inner chunks unwritten -> empty slots
+                    data[32:, 24:] = 0
+                    za[:] = data
+
+                    # zarr -> z5
+                    ds = z5py.File(self.path, mode="a")[name]
+                    self.assertEqual(ds.shards, self.shards)
+                    np.testing.assert_array_equal(ds[:], data, err_msg=name)
+
+                    # z5 -> zarr: partial write, z5 rebuilds the shards in their layout
+                    new = np.random.randint(0, 1000, size=(20, 11)).astype("int32")
+                    ds[3:23, 10:21] = new
+                    data[3:23, 10:21] = new
+                    out = zarr.open_array(store=self.path, path=name, mode="r")[:]
+                    np.testing.assert_array_equal(out, data, err_msg=name)
+
+
+@requires_z5_v3
+@requires_zarr_v3
+class TestInteropZarrPyV3Crc32c(unittest.TestCase):
+    """zarr-python arrays whose bytes-to-bytes codecs include crc32c."""
+    path = "interop_crc32c.zr"
+    shape = (37, 29)
+    chunks = (8, 8)
+    shards = (16, 16)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _chains():
+        from zarr.codecs import BloscCodec, Crc32cCodec, GzipCodec, ZstdCodec
+        from _v3_capability import available_v3_compressors
+        available = available_v3_compressors()
+        chains = {"crc": [Crc32cCodec()],
+                  "gzip_crc": [GzipCodec(), Crc32cCodec()],
+                  "crc_gzip": [Crc32cCodec(), GzipCodec()],
+                  "crc_gzip_crc": [Crc32cCodec(), GzipCodec(), Crc32cCodec()]}
+        if "zstd" in available:
+            chains["zstdsum"] = [ZstdCodec(checksum=True)]
+            chains["zstdsum_crc"] = [ZstdCodec(checksum=True), Crc32cCodec()]
+            chains["crc_zstd"] = [Crc32cCodec(), ZstdCodec()]
+        if "blosc" in available:
+            chains["blosc_crc"] = [BloscCodec(), Crc32cCodec()]
+            chains["crc_blosc"] = [Crc32cCodec(), BloscCodec()]
+        return chains
+
+    def _check(self, sharded):
+        for name, compressors in self._chains().items():
+            kwargs = {"chunks": self.chunks}
+            if sharded:
+                kwargs["shards"] = self.shards
+            za = zarr.create_array(store=self.path, name=name, shape=self.shape, dtype="int32",
+                                   compressors=compressors, zarr_format=3, **kwargs)
+            data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+            za[:] = data
+
+            # zarr -> z5
+            ds = z5py.File(self.path, mode="a")[name]
+            np.testing.assert_array_equal(ds[:], data, err_msg=name)
+
+            # z5 -> zarr: partial write, z5 re-encodes the chunks with the same codecs
+            new = np.random.randint(0, 1000, size=(20, 11)).astype("int32")
+            ds[3:23, 10:21] = new
+            data[3:23, 10:21] = new
+            out = zarr.open_array(store=self.path, path=name, mode="r")[:]
+            np.testing.assert_array_equal(out, data, err_msg=name)
+
+    def test_chains(self):
+        self._check(sharded=False)
+
+    @requires_z5_v3_sharding
+    def test_chains_sharded(self):
+        self._check(sharded=True)
+
+    def _z5_create_crc32c(self, sharded):
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        ds = f.create_dataset("data", shape=self.shape, chunks=self.chunks, dtype="int32",
+                              compression="gzip", crc32c=True,
+                              shards=self.shards if sharded else None)
+        data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+        ds[:] = data
+        za = zarr.open_array(store=self.path, path="data", mode="a")
+        self.assertIn("crc32c", [type(c).__name__.lower().replace("codec", "") for c in za.compressors])
+        np.testing.assert_array_equal(za[:], data)
+
+        # zarr -> z5: zarr rewrites part of the array with the same codecs
+        new = np.random.randint(0, 1000, size=(20, 11)).astype("int32")
+        za[3:23, 10:21] = new
+        data[3:23, 10:21] = new
+        np.testing.assert_array_equal(z5py.File(self.path, mode="r")["data"][:], data)
+
+    def test_z5_crc32c(self):
+        self._z5_create_crc32c(sharded=False)
+
+    @requires_z5_v3_sharding
+    def test_z5_crc32c_sharded(self):
+        self._z5_create_crc32c(sharded=True)
+
+    def test_z5_zstd_checksum(self):
+        from _v3_capability import available_v3_compressors
+        if "zstd" not in available_v3_compressors():
+            self.skipTest("zstd is not compiled in")
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        ds = f.create_dataset("data", shape=self.shape, chunks=self.chunks, dtype="int32",
+                              compression="zstd", checksum=True)
+        data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+        ds[:] = data
+        za = zarr.open_array(store=self.path, path="data", mode="r")
+        self.assertTrue(za.metadata.codecs[1].checksum)
+        np.testing.assert_array_equal(za[:], data)
+
+
+@requires_z5_v3
 @requires_tensorstore
 class TestInteropTsV3(InteropMixin, unittest.TestCase):
     library = "tensorstore"
