@@ -558,7 +558,7 @@ class TestInteropZarrPyV3Transpose(unittest.TestCase):
 
                     # zarr (transposed) -> z5
                     ds = z5py.File(self.path, mode="a")[name]
-                    self.assertEqual(ds.transpose, order)
+                    self.assertEqual(ds.transpose_order, order)
                     np.testing.assert_array_equal(ds[:], data, err_msg=name)
 
                     # z5 -> zarr: partial write across chunk boundaries
@@ -587,7 +587,7 @@ class TestInteropZarrPyV3Transpose(unittest.TestCase):
                     kwargs = {"shards": self.shards} if sharded else {}
                     data = self._data(dtype)
                     f.create_dataset(name, data=data, chunks=self.chunks,
-                                     compression=comp, transpose=order, **kwargs)
+                                     compression=comp, transpose_order=order, **kwargs)
                     za = zarr.open_array(store=self.path, path=name, mode="r")
                     np.testing.assert_array_equal(za[:], data, err_msg=name)
 

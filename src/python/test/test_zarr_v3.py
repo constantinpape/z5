@@ -521,7 +521,7 @@ class TestZarrV3Transpose(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self._open('a')
 
-    # ------------------------------------------------- creation via transpose=
+    # ------------------------------------------------- creation via transpose_order=
     def _codec_names(self, key):
         with open(self._meta_path(key)) as f:
             codecs = json.load(f)['codecs']
@@ -533,7 +533,7 @@ class TestZarrV3Transpose(unittest.TestCase):
         order = (2, 0, 1)
         data = _random(self.shape, 'int32')
         ds = self.root.create_dataset('a', data=data, chunks=self.shape,
-                                      compression='raw', transpose=order)
+                                      compression='raw', transpose_order=order)
         np.testing.assert_array_equal(ds[:], data)
         codecs = self._codec_names('a')
         self.assertEqual(codecs[0], {'name': 'transpose',
@@ -549,7 +549,7 @@ class TestZarrV3Transpose(unittest.TestCase):
             data = _random((23, 37, 18), 'float64')
             ds = self.root.create_dataset('a_%s' % comp, data=data,
                                           chunks=(10, 16, 8), compression=comp,
-                                          transpose=[1, 2, 0])
+                                          transpose_order=[1, 2, 0])
             ds[5:19, 3:30, 2:17] = 0
             data[5:19, 3:30, 2:17] = 0
             np.testing.assert_array_equal(
@@ -559,51 +559,51 @@ class TestZarrV3Transpose(unittest.TestCase):
     def test_v3_create_transpose_sharded(self):
         data = _random((40, 40), 'uint16')
         ds = self.root.create_dataset('a', data=data, chunks=(10, 10),
-                                      shards=(20, 20), transpose=(1, 0))
+                                      shards=(20, 20), transpose_order=(1, 0))
         np.testing.assert_array_equal(ds[:], data)
         self.assertEqual(self._codec_names('a')[0]['name'], 'transpose')
 
     def test_v3_transpose_property(self):
         ds = self.root.create_dataset('t', shape=self.shape, chunks=self.shape,
-                                      dtype='uint8', transpose=[2, 0, 1])
-        self.assertEqual(ds.transpose, (2, 0, 1))
-        self.assertEqual(z5py.File(self.path, 'r')['t'].transpose, (2, 0, 1))
+                                      dtype='uint8', transpose_order=[2, 0, 1])
+        self.assertEqual(ds.transpose_order, (2, 0, 1))
+        self.assertEqual(z5py.File(self.path, 'r')['t'].transpose_order, (2, 0, 1))
 
         # identity / no transpose codec
-        for name, kwargs in (('i', {'transpose': (0, 1, 2)}), ('n', {})):
+        for name, kwargs in (('i', {'transpose_order': (0, 1, 2)}), ('n', {})):
             ds = self.root.create_dataset(name, shape=self.shape, chunks=self.shape,
                                           dtype='uint8', **kwargs)
-            self.assertIsNone(ds.transpose)
+            self.assertIsNone(ds.transpose_order)
 
         # read from metadata: legacy "F" and composed codecs
         self.root.create_dataset('f', shape=self.shape, chunks=self.shape, dtype='uint8')
         self._add_transpose('f', 'F')
-        self.assertEqual(self._open('f').transpose, (2, 1, 0))
+        self.assertEqual(self._open('f').transpose_order, (2, 1, 0))
         self.root.create_dataset('c', shape=self.shape, chunks=self.shape, dtype='uint8')
         self._add_transpose('c', [1, 0, 2], [0, 2, 1])
         # composed order: p1[p2[i]] -> (1, 2, 0)
-        self.assertEqual(self._open('c').transpose, (1, 2, 0))
+        self.assertEqual(self._open('c').transpose_order, (1, 2, 0))
         # (1, 2, 0) followed by (2, 0, 1) cancels out -> no transpose
         self.root.create_dataset('x', shape=self.shape, chunks=self.shape, dtype='uint8')
         self._add_transpose('x', [1, 2, 0], [2, 0, 1])
-        self.assertIsNone(self._open('x').transpose)
+        self.assertIsNone(self._open('x').transpose_order)
 
     @requires_z5_v3_sharding
     def test_v3_transpose_property_sharded(self):
         ds = self.root.create_dataset('a', shape=(40, 40), chunks=(10, 10),
-                                      shards=(20, 20), dtype='uint8', transpose=(1, 0))
-        self.assertEqual(ds.transpose, (1, 0))
-        self.assertEqual(z5py.File(self.path, 'r')['a'].transpose, (1, 0))
+                                      shards=(20, 20), dtype='uint8', transpose_order=(1, 0))
+        self.assertEqual(ds.transpose_order, (1, 0))
+        self.assertEqual(z5py.File(self.path, 'r')['a'].transpose_order, (1, 0))
 
     def test_v3_create_transpose_identity(self):
         self.root.create_dataset('a', shape=self.shape, chunks=self.shape,
-                                 dtype='uint8', transpose=(0, 1, 2))
+                                 dtype='uint8', transpose_order=(0, 1, 2))
         self.assertNotIn('transpose', [c['name'] for c in self._codec_names('a')])
 
     def test_v3_create_transpose_require(self):
         data = _random(self.shape, 'uint8')
         ds = self.root.require_dataset('a', shape=self.shape, dtype='uint8',
-                                       chunks=self.shape, transpose=(2, 1, 0))
+                                       chunks=self.shape, transpose_order=(2, 1, 0))
         ds[:] = data
         self.assertEqual(self._codec_names('a')[0]['name'], 'transpose')
         np.testing.assert_array_equal(self.root['a'][:], data)
@@ -612,7 +612,7 @@ class TestZarrV3Transpose(unittest.TestCase):
         for i, order in enumerate([(0, 1), (0, 1, 1), (0, 1, 3)]):
             with self.assertRaises(ValueError, msg=str(order)):
                 self.root.create_dataset('bad_%i' % i, shape=self.shape,
-                                         dtype='uint8', transpose=order)
+                                         dtype='uint8', transpose_order=order)
 
     def test_v3_create_transpose_not_v3(self):
         path = 'test_v2_transpose.zr'
@@ -620,9 +620,9 @@ class TestZarrV3Transpose(unittest.TestCase):
             f = z5py.File(path, mode='w', use_zarr_format=True)
             with self.assertRaises(ValueError):
                 f.create_dataset('a', shape=(10, 10), dtype='uint8',
-                                 transpose=(1, 0))
+                                 transpose_order=(1, 0))
             ds = f.create_dataset('b', shape=(10, 10), dtype='uint8')
-            self.assertIsNone(ds.transpose)
+            self.assertIsNone(ds.transpose_order)
         finally:
             rmtree(path, ignore_errors=True)
 

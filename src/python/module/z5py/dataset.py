@@ -240,7 +240,7 @@ class Dataset:
             shards = kwargs.pop('shards', None)
             chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
             dimension_names = kwargs.pop('dimension_names', None)
-            transpose = kwargs.pop('transpose', None)
+            transpose_order = kwargs.pop('transpose_order', None)
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
@@ -248,7 +248,7 @@ class Dataset:
                                        zarr_format=zarr_format, shards=shards,
                                        chunk_key_encoding=chunk_key_encoding,
                                        dimension_names=dimension_names,
-                                       transpose=transpose)
+                                       transpose_order=transpose_order)
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -262,7 +262,7 @@ class Dataset:
                         shards=None,
                         chunk_key_encoding="default",
                         dimension_names=None,
-                        transpose=None):
+                        transpose_order=None):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -304,11 +304,11 @@ class Dataset:
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
-        if transpose is not None and not (is_zarr and zarr_format == 3):
-            raise ValueError("Transpose is only supported for zarr v3 datasets")
-        if transpose is not None and sorted(transpose) != list(range(len(shape))):
-            raise ValueError("Transpose %s must be a permutation of the %i axes"
-                             % (str(tuple(transpose)), len(shape)))
+        if transpose_order is not None and not (is_zarr and zarr_format == 3):
+            raise ValueError("transpose_order is only supported for zarr v3 datasets")
+        if transpose_order is not None and sorted(transpose_order) != list(range(len(shape))):
+            raise ValueError("transpose_order %s must be a permutation of the %i axes"
+                             % (str(tuple(transpose_order)), len(shape)))
 
         if dimension_names is not None:
             if not (is_zarr and zarr_format == 3):
@@ -328,7 +328,7 @@ class Dataset:
             separator = '.' if chunk_key_encoding == 'v2' else '/'
             shards_arg = list(shards) if shards is not None else []
             names_arg = list(dimension_names) if dimension_names is not None else []
-            transpose_arg = [int(axis) for axis in transpose] if transpose is not None else []
+            transpose_arg = [int(axis) for axis in transpose_order] if transpose_order is not None else []
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
@@ -406,11 +406,11 @@ class Dataset:
         return tuple(self._impl.chunks)
 
     @property
-    def transpose(self):
+    def transpose_order(self):
         """ Axis order of the zarr v3 ``transpose`` codec (``numpy.transpose``
         semantics), or None if chunks are stored untransposed.
         """
-        order = tuple(self._impl.transpose)
+        order = tuple(self._impl.transpose_order)
         return order if order else None
 
     @property
