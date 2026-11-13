@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -286,7 +287,9 @@ namespace z5 {
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
-                                       types::datatypeSize(dtype), innerCodecs, bigEndian);
+                                       types::datatypeSize(dtype), innerCodecs, bigEndian,
+                                       transposeOrder, crc32cBeforeCompressor,
+                                       crc32cAfterCompressor);
 
             if(sharded) {
                 nlohmann::json sharding;
@@ -296,13 +299,15 @@ namespace z5 {
                 nlohmann::json indexCodecs = nlohmann::json::array();
                 nlohmann::json bytesCodec;
                 bytesCodec["name"] = "bytes";
-                bytesCodec["configuration"]["endian"] = "little";
+                bytesCodec["configuration"]["endian"] = shardIndexBigEndian ? "big" : "little";
                 indexCodecs.push_back(bytesCodec);
-                nlohmann::json crcCodec;
-                crcCodec["name"] = "crc32c";
-                indexCodecs.push_back(crcCodec);
+                if(shardIndexChecksum) {
+                    nlohmann::json crcCodec;
+                    crcCodec["name"] = "crc32c";
+                    indexCodecs.push_back(crcCodec);
+                }
                 sharding["configuration"]["index_codecs"] = indexCodecs;
-                sharding["configuration"]["index_location"] = "end";
+                sharding["configuration"]["index_location"] = shardIndexAtStart ? "start" : "end";
                 j["codecs"] = nlohmann::json::array({sharding});
             } else {
                 j["codecs"] = innerCodecs;
@@ -324,10 +329,63 @@ namespace z5 {
         }
 
 
+        // The spec requires refusing an array with a metadata field we don't
+        // know, unless it is an extension object marked "must_understand": false.
+        static void checkV3Fields(const nlohmann::json & j) {
+            static const std::set<std::string> known = {
+                "zarr_format", "node_type", "shape", "data_type", "chunk_grid",
+                "chunk_key_encoding", "fill_value", "codecs", "attributes",
+                "storage_transformers", "dimension_names"
+            };
+            for(const auto & item : j.items()) {
+                if(known.count(item.key())) {
+                    continue;
+                }
+                const auto & val = item.value();
+                const auto mu = val.is_object() ? val.find("must_understand") : val.end();
+                if(val.is_object() && mu != val.end() && mu->is_boolean() && !mu->get<bool>()) {
+                    continue;
+                }
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported metadata field: " +
+                                         item.key());
+            }
+            // storage transformers change where and how chunks are stored; z5 supports none
+            const auto st = j.find("storage_transformers");
+            if(st != j.end() && !st->is_null() && !st->empty()) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: storage_transformers are not supported");
+            }
+        }
+
+        // read the shard index layout: index_location "end" (the default) or
+        // "start", and index_codecs = bytes (either endian) optionally followed
+        // by crc32c; any other index codec can't be decoded and is refused
+        void readV3ShardIndex(const nlohmann::json & scfg) {
+            const std::string loc = scfg.value("index_location", std::string("end"));
+            if(loc != "end" && loc != "start") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: invalid shard index_location: " + loc);
+            }
+            shardIndexAtStart = loc == "start";
+
+            const auto & ic = scfg.at("index_codecs");
+            const bool supported = ic.is_array() && (ic.size() == 1 || ic.size() == 2) &&
+                ic[0].at("name") == "bytes" &&
+                (ic.size() == 1 || ic[1].at("name") == "crc32c");
+            if(!supported) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: shard index_codecs other than "
+                                         "bytes, optionally followed by crc32c, are not supported: " +
+                                         ic.dump());
+            }
+            const auto & bytesCfg = ic[0].contains("configuration") ? ic[0].at("configuration")
+                                                                     : nlohmann::json::object();
+            shardIndexBigEndian = types::readV3BytesEndian(bytesCfg, sizeof(uint64_t));
+            shardIndexChecksum = ic.size() == 2;
+        }
+
         void fromJsonV3(const nlohmann::json & j) {
             if(j.at("node_type") != "array") {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: node_type is not 'array'");
             }
+            checkV3Fields(j);
             try {
                 dtype = types::Datatypes::n5ToDtype().at(j.at("data_type"));
             } catch(std::out_of_range) {
@@ -336,14 +394,27 @@ namespace z5 {
             shape = types::ShapeType(j.at("shape").begin(), j.at("shape").end());
 
             // outer chunk grid (== shard shape when sharded, else inner chunk shape)
-            const auto & gridShape = j.at("chunk_grid").at("configuration").at("chunk_shape");
+            const auto & grid = j.at("chunk_grid");
+            if(grid.at("name") != "regular") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported chunk_grid: " +
+                                         grid.at("name").dump());
+            }
+            const auto & gridShape = grid.at("configuration").at("chunk_shape");
             types::ShapeType outerShape(gridShape.begin(), gridShape.end());
 
             // chunk key encoding
             const auto & cke = j.at("chunk_key_encoding");
             chunkKeyEncoding = cke.at("name").get<std::string>();
+            if(chunkKeyEncoding != "default" && chunkKeyEncoding != "v2") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported chunk_key_encoding: " +
+                                         chunkKeyEncoding);
+            }
             if(cke.contains("configuration") && cke.at("configuration").contains("separator")) {
                 zarrDelimiter = cke.at("configuration").at("separator").get<std::string>();
+                if(zarrDelimiter != "/" && zarrDelimiter != ".") {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: invalid chunk key separator: " +
+                                             zarrDelimiter);
+                }
             } else {
                 zarrDelimiter = (chunkKeyEncoding == "v2") ? "." : "/";
             }
@@ -379,15 +450,23 @@ namespace z5 {
                     chunkShape = types::ShapeType(innerShapeJson.begin(), innerShapeJson.end());
                     shardShape = outerShape;
                     innerCodecs = &scfg.at("codecs");
+                    readV3ShardIndex(scfg);
                     break;
                 }
             }
             if(!sharded) {
                 chunkShape = outerShape;
+            } else if(codecs.size() != 1) {
+                // e.g. a transpose of the whole shard: ignoring it would silently
+                // misread the data
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: codecs before or after "
+                                         "sharding_indexed are not supported");
             }
 
-            types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype),
-                                        compressor, compressionOptions, bigEndian);
+            types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype), shape.size(),
+                                        compressor, compressionOptions, bigEndian,
+                                        transposeOrder, crc32cBeforeCompressor,
+                                        crc32cAfterCompressor);
 
             // optional names of the dimensions; a null name is an unnamed dimension
             dimensionNames.clear();
@@ -432,6 +511,21 @@ namespace z5 {
         // zarr v3 specific: the names of the dimensions, std::nullopt for an
         // unnamed dimension; empty if the array has no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
+
+        // zarr v3 specific: layout of the shard index (sharding codec's
+        // index_location and index_codecs); new arrays use the defaults
+        bool shardIndexAtStart = false;
+        bool shardIndexBigEndian = false;
+        bool shardIndexChecksum = true;
+
+        // zarr v3 specific: number of ``crc32c`` codecs before and after the
+        // compressor (without a compressor, all count as after it)
+        unsigned crc32cBeforeCompressor = 0;
+        unsigned crc32cAfterCompressor = 0;
+
+        // zarr v3 specific: composed permutation of the ``transpose`` codecs
+        // (numpy ``transpose`` semantics); empty == no transpose
+        std::vector<std::size_t> transposeOrder;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -501,6 +595,10 @@ namespace z5 {
         // zarr v3 only; the names of the dimensions, std::nullopt for an
         // unnamed dimension; empty: no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
+        // zarr v3 only; the transpose codec's permutation, empty: no transpose
+        std::vector<std::size_t> transposeOrder;
+        // zarr v3 only; add a crc32c codec after the compressor
+        bool crc32c = false;
     };
 
 
@@ -516,6 +614,7 @@ namespace z5 {
         const auto & zarrFormat = options.zarrFormat;
         const auto & shardShape = options.shardShape;
         const auto & dimensionNames = options.dimensionNames;
+        const auto & transposeOrder = options.transposeOrder;
 
         // get the internal data type
         types::Datatype internalDtype;
@@ -536,6 +635,13 @@ namespace z5 {
         // add the default compression options if necessary
         // we need to make a copy of the compression options, because they are const
         auto internalCompressionOptions = options.compressionOptions;
+        // zarr v3 names the framing: "gzip" is the core gzip codec, "zlib" is
+        // numcodecs.zlib. (The generic default, zlib framing for zarr, would store
+        // zlib chunks under the gzip codec.)
+        if(createAsZarr && zarrFormat == 3 && internalCompressor == types::zlib &&
+           internalCompressionOptions.find("useZlib") == internalCompressionOptions.end()) {
+            internalCompressionOptions["useZlib"] = compressor == "zlib";
+        }
         types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
 
         // sharding is only valid for zarr v3, and the shard shape must be a
@@ -559,12 +665,43 @@ namespace z5 {
             throw std::runtime_error("z5::createDatasetMetadata: dimension names are only supported for zarr v3");
         }
 
+        // the transpose codec is only valid for zarr v3 and must permute all axes;
+        // the identity is stored as "no transpose codec"
+        std::vector<std::size_t> order;
+        if(!transposeOrder.empty()) {
+            if(!(createAsZarr && zarrFormat == 3)) {
+                throw std::runtime_error("z5::createDatasetMetadata: transpose is only supported for zarr v3");
+            }
+            std::vector<bool> seen(shape.size(), false);
+            if(transposeOrder.size() != shape.size()) {
+                throw std::runtime_error("z5::createDatasetMetadata: transpose order must list every axis once");
+            }
+            for(const auto axis : transposeOrder) {
+                if(axis >= shape.size() || seen[axis]) {
+                    throw std::runtime_error("z5::createDatasetMetadata: transpose order must list every axis once");
+                }
+                seen[axis] = true;
+            }
+            for(std::size_t d = 0; d < transposeOrder.size(); ++d) {
+                if(transposeOrder[d] != d) {
+                    order = transposeOrder;
+                    break;
+                }
+            }
+        }
+
+        if(options.crc32c && !(createAsZarr && zarrFormat == 3)) {
+            throw std::runtime_error("z5::createDatasetMetadata: crc32c is only supported for zarr v3");
+        }
+
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
                                    options.fillValue, options.zarrDelimiter,
                                    zarrFormat, options.chunkKeyEncoding, shardShape,
                                    dimensionNames);
+        metadata.transposeOrder = order;
+        metadata.crc32cAfterCompressor = options.crc32c ? 1 : 0;
     }
 
 

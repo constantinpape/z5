@@ -180,6 +180,93 @@ namespace z5 {
     }
 
 
+    TEST_F(FactoryTest, CreateDatasetCrc32c) {
+        fs::path p = tmp / "f.zr";
+        z5::filesystem::handle::File file(p);
+        z5::createFile(file, true, 3);
+
+        DatasetOptions options;
+        options.compressor = "zlib";
+        options.zarrFormat = 3;
+        options.crc32c = true;
+        auto ds = createDataset(file, "data", "int32",
+                                types::ShapeType({100, 100, 100}),
+                                types::ShapeType({10, 10, 10}),
+                                options);
+        ASSERT_TRUE(ds->hasCrc32c());
+        checkDataset<int32_t>(ds);
+
+        // the checksum follows the compressor in the stored codec list
+        DatasetMetadata meta;
+        filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+        ASSERT_EQ(meta.crc32cBeforeCompressor, 0u);
+        ASSERT_EQ(meta.crc32cAfterCompressor, 1u);
+        nlohmann::json j;
+        meta.toJson(j);
+        ASSERT_EQ(j["codecs"].size(), 3u);
+        ASSERT_EQ(j["codecs"][2]["name"], "crc32c");
+
+        // off by default
+        DatasetOptions plain;
+        plain.zarrFormat = 3;
+        auto ds2 = createDataset(file, "plain", "int32",
+                                 types::ShapeType({100, 100, 100}),
+                                 types::ShapeType({10, 10, 10}),
+                                 plain);
+        ASSERT_FALSE(ds2->hasCrc32c());
+
+        // zarr v3 only
+        fs::path p2 = tmp / "f2.zr";
+        z5::filesystem::handle::File file2(p2);
+        z5::createFile(file2, true, 2);
+        DatasetOptions bad;
+        bad.crc32c = true;
+        ASSERT_THROW(createDataset(file2, "bad", "int32",
+                                   types::ShapeType({100, 100, 100}),
+                                   types::ShapeType({10, 10, 10}),
+                                   bad), std::runtime_error);
+    }
+
+
+    TEST_F(FactoryTest, CreateDatasetV3ZlibFraming) {
+        // zarr v3: "gzip" must write gzip-framed chunks under the core gzip codec,
+        // "zlib" zlib-framed chunks under numcodecs.zlib
+        fs::path p = tmp / "f.zr";
+        z5::filesystem::handle::File file(p);
+        z5::createFile(file, true, 3);
+
+        const std::vector<std::pair<std::string, std::string>> cases{
+            {"gzip", "gzip"}, {"zlib", "numcodecs.zlib"}};
+        for(const auto & c : cases) {
+            DatasetOptions options;
+            options.compressor = c.first;
+            options.zarrFormat = 3;
+            auto ds = createDataset(file, c.first, "int32",
+                                    types::ShapeType({100, 100, 100}),
+                                    types::ShapeType({10, 10, 10}),
+                                    options);
+            checkDataset<int32_t>(ds);
+
+            DatasetMetadata meta;
+            filesystem::readMetadata(filesystem::handle::Dataset(ds->path(), ds->mode()), meta);
+            nlohmann::json j;
+            meta.toJson(j);
+            ASSERT_EQ(j["codecs"][1]["name"], c.second);
+
+            // gzip streams start with 1f 8b, zlib streams with 78
+            std::vector<char> raw;
+            ds->readRawChunk(types::ShapeType({0, 0, 0}), raw);
+            ASSERT_GE(raw.size(), 2u);
+            if(c.first == "gzip") {
+                ASSERT_EQ(static_cast<unsigned char>(raw[0]), 0x1fu);
+                ASSERT_EQ(static_cast<unsigned char>(raw[1]), 0x8bu);
+            } else {
+                ASSERT_EQ(static_cast<unsigned char>(raw[0]), 0x78u);
+            }
+        }
+    }
+
+
     TEST_F(FactoryTest, CreateAllDtypes) {
         std::vector<std::string> dtypes({
             "int8", "int16", "int32", "int64",
