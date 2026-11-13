@@ -48,6 +48,12 @@ namespace util {
         const int nDim = minCoords.size();
         types::ShapeType positions = minCoords;
 
+        // zero-dimensional: a single point with an empty coordinate
+        if(nDim == 0) {
+            grid.emplace_back(positions);
+            return;
+        }
+
         // start iteration in highest dimension
         for(int d = nDim - 1; d >= 0;) {
             // write out the coordinates

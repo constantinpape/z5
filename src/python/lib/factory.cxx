@@ -3,6 +3,7 @@
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/complex.h>
 
 #include "z5/factory.hxx"
 
@@ -30,16 +31,39 @@ namespace z5 {
                                    const int zarr_format,
                                    const std::vector<std::size_t> & shards,
                                    const std::string & chunk_key_encoding,
-                                   const std::vector<std::optional<std::string>> & dimension_names){
+                                   const std::vector<std::optional<std::string>> & dimension_names,
+                                   const std::vector<std::size_t> & transpose,
+                                   const bool crc32c,
+                                   const std::optional<uint64_t> fill_value_bits,
+                                   const std::optional<std::string> fill_value_string,
+                                   const std::optional<std::string> fill_value_base64,
+                                   const std::optional<std::complex<double>> fill_value_complex){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
-                options.fillValue = fill_value;
+                // z5py passes the exact bits of the fill value as the dtype, or
+                // the string of a string dataset
+                // (or, for a bytes dataset, its bytes base64-encoded, so they arrive as text),
+                // or the parts of a complex fill value
+                if(fill_value_complex) {
+                    options.fillValue = *fill_value_complex;
+                } else if(fill_value_string) {
+                    options.fillValue = *fill_value_string;
+                } else if(fill_value_base64) {
+                    options.fillValue = util::base64Decode(*fill_value_base64);
+                } else if(fill_value_bits) {
+                    options.fillValue = types::fillValueFromBits(types::Datatypes::n5ToDtype().at(dtype),
+                                                                 *fill_value_bits);
+                } else {
+                    options.fillValue = fill_value;
+                }
                 options.zarrDelimiter = dimension_separator;
                 options.zarrFormat = zarr_format;
                 options.chunkKeyEncoding = chunk_key_encoding;
                 options.shardShape = shards;
                 options.dimensionNames = dimension_names;
+                options.transposeOrder = transpose;
+                options.crc32c = crc32c;
                 return createDataset(root, key, dtype, shape, chunk_shape, options);
             },
             nb::arg("root"), nb::arg("key"),
@@ -52,6 +76,12 @@ namespace z5 {
             nb::arg("shards")=std::vector<std::size_t>(),
             nb::arg("chunk_key_encoding")=std::string("default"),
             nb::arg("dimension_names")=std::vector<std::optional<std::string>>(),
+            nb::arg("transpose")=std::vector<std::size_t>(),
+            nb::arg("crc32c")=false,
+            nb::arg("fill_value_bits")=nb::none(),
+            nb::arg("fill_value_string")=nb::none(),
+            nb::arg("fill_value_base64")=nb::none(),
+            nb::arg("fill_value_complex")=nb::none(),
             nb::call_guard<nb::gil_scoped_release>());
     }
 

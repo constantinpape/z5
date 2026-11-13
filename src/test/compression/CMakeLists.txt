@@ -37,3 +37,7 @@ if(WITH_ZSTD)
     add_executable(test_zstd test_zstd.cxx)
     target_link_libraries(test_zstd ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
 endif()
+
+# decoding chunks of unknown size (variable-length strings) and the vlen framing
+add_executable(test_decompress_bytes test_decompress_bytes.cxx)
+target_link_libraries(test_decompress_bytes ${TEST_LIBS} ${COMPRESSION_LIBRARIES})
