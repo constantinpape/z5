@@ -43,8 +43,10 @@ def _unpickle_dataset(file_obj, name, n_threads):
 # COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'lz4')
 COMPRESSORS_ZARR = ('raw', 'blosc', 'zlib', 'bzip2', 'gzip', 'zstd')
 COMPRESSORS_N5 = ('raw', 'blosc', 'gzip', 'bzip2', 'xz', 'lz4', 'zstd')
-# zarr v3 core codecs ('raw' == the v3 'bytes' codec)
-COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd')
+# zarr v3 codecs ('raw' == the v3 'bytes' codec). 'raw', 'gzip', 'blosc' and
+# 'zstd' are core codecs; 'zlib', 'bzip2', 'xz' and 'lz4' are written as the
+# zarr-python extension codecs numcodecs.zlib / .bz2 / .lzma / .lz4.
+COMPRESSORS_ZARR_V3 = ('raw', 'gzip', 'blosc', 'zstd', 'zlib', 'bzip2', 'xz', 'lz4')
 
 
 class Dataset:
@@ -148,7 +150,17 @@ class Dataset:
         elif compression == 'gzip':
             default_opts = {'level': 5, 'useZlib': False}
         elif compression == 'zstd':
-            default_opts = {'level': 3}
+            default_opts = {'level': 3, 'checksum': False}
+        elif compression == 'zlib':
+            default_opts = {'level': 5, 'useZlib': True}
+        elif compression == 'bzip2':
+            default_opts = {'level': 5}
+        elif compression == 'xz':
+            # level is the lzma preset
+            default_opts = {'level': 6}
+        elif compression == 'lz4':
+            # level is the lz4 acceleration (1 == default, higher == faster)
+            default_opts = {'level': 1}
         elif compression == 'raw':
             default_opts = {}
         else:
@@ -240,13 +252,33 @@ class Dataset:
             shards = kwargs.pop('shards', None)
             chunk_key_encoding = kwargs.pop('chunk_key_encoding', 'default')
             dimension_names = kwargs.pop('dimension_names', None)
+            transpose = kwargs.pop('transpose', None)
+            crc32c = kwargs.pop('crc32c', False)
             return cls._create_dataset(group, name, shape, dtype, data=data,
                                        chunks=chunks, compression=compression,
                                        fillvalue=fillvalue, n_threads=n_threads,
                                        compression_options=kwargs, dimension_separator=dimension_separator,
                                        zarr_format=zarr_format, shards=shards,
                                        chunk_key_encoding=chunk_key_encoding,
-                                       dimension_names=dimension_names)
+                                       dimension_names=dimension_names,
+                                       transpose=transpose, crc32c=crc32c)
+
+    @staticmethod
+    def _fill_value_bits(fillvalue, dtype):
+        """ The fill value's bits: its bytes as ``dtype``, read as a little-endian
+        unsigned integer. Passed to the C++ layer so that 64-bit integers are
+        kept exactly (a float argument would round them).
+
+        Raises:
+            ValueError: if ``fillvalue`` can't be represented in ``dtype``.
+        """
+        try:
+            value = np.asarray(fillvalue, dtype=dtype)
+        except (ValueError, TypeError, OverflowError) as e:
+            raise ValueError("Fill value %r is not valid for data type %s: %s" % (fillvalue, dtype, e))
+        if value.ndim != 0:
+            raise ValueError("Fill value %r must be a scalar" % (fillvalue,))
+        return int(value.astype(value.dtype.newbyteorder('<')).view('<u%i' % value.itemsize))
 
     @classmethod
     def _create_dataset(cls, group, name,
@@ -259,7 +291,9 @@ class Dataset:
                         zarr_format=2,
                         shards=None,
                         chunk_key_encoding="default",
-                        dimension_names=None):
+                        dimension_names=None,
+                        transpose=None,
+                        crc32c=False):
 
         # check shape, dtype and data
         ghandle = group._handle
@@ -298,9 +332,17 @@ class Dataset:
 
         if parsed_dtype not in cls._dtype_dict:
             raise ValueError("Invalid data type {} for dataset".format(repr(dtype)))
+        fillvalue_bits = cls._fill_value_bits(fillvalue, parsed_dtype)
 
         if shards is not None and not (is_zarr and zarr_format == 3):
             raise ValueError("Sharding is only supported for zarr v3 datasets")
+        if transpose is not None and not (is_zarr and zarr_format == 3):
+            raise ValueError("Transpose is only supported for zarr v3 datasets")
+        if crc32c and not (is_zarr and zarr_format == 3):
+            raise ValueError("crc32c is only supported for zarr v3 datasets")
+        if transpose is not None and sorted(transpose) != list(range(len(shape))):
+            raise ValueError("Transpose %s must be a permutation of the %i axes"
+                             % (str(tuple(transpose)), len(shape)))
 
         if dimension_names is not None:
             if not (is_zarr and zarr_format == 3):
@@ -320,10 +362,11 @@ class Dataset:
             separator = '.' if chunk_key_encoding == 'v2' else '/'
             shards_arg = list(shards) if shards is not None else []
             names_arg = list(dimension_names) if dimension_names is not None else []
+            transpose_arg = [int(axis) for axis in transpose] if transpose is not None else []
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
-                                        names_arg)
+                                        names_arg, transpose_arg, bool(crc32c), fillvalue_bits)
         else:
             # zarr v2 / n5
             # check compression / get default compression if no compression is given
@@ -345,7 +388,7 @@ class Dataset:
             copts = json.dumps(copts)
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
-                                        dimension_separator)
+                                        dimension_separator, fill_value_bits=fillvalue_bits)
 
         handle = ghandle.get_dataset_handle(name)
         ds = cls(impl, handle, group, group._name + '/' + name, n_threads)
@@ -395,6 +438,29 @@ class Dataset:
         """ Chunks of this dataset.
         """
         return tuple(self._impl.chunks)
+
+    @property
+    def transpose(self):
+        """ Axis order of the zarr v3 ``transpose`` codec (``numpy.transpose``
+        semantics), or None if chunks are stored untransposed.
+        """
+        order = tuple(self._impl.transpose)
+        return order if order else None
+
+    @property
+    def fillvalue(self):
+        """ Fill value of this dataset: the value of elements in chunks that
+        were never written.
+
+        n5 doesn't store a fill value, so it is 0 for an opened n5 dataset.
+        """
+        return np.frombuffer(self._impl.fill_value_bytes, dtype=self.dtype)[0]
+
+    @property
+    def crc32c(self):
+        """ True if the chunks carry a zarr v3 ``crc32c`` checksum.
+        """
+        return self._impl.crc32c
 
     @property
     def shards(self):

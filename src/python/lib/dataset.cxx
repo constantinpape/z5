@@ -233,6 +233,8 @@ namespace z5 {
             .def_prop_ro("chunks", [](const Dataset & ds){return ds.defaultChunkShape();})
             .def_prop_ro("shards", [](const Dataset & ds){return ds.shardShape();})
             .def_prop_ro("dimension_names", [](const Dataset & ds){return ds.dimensionNames();})
+            .def_prop_ro("transpose", [](const Dataset & ds){return ds.transposeOrder();})
+            .def_prop_ro("crc32c", [](const Dataset & ds){return ds.hasCrc32c();})
             .def_prop_ro("ndim", [](const Dataset & ds){return ds.dimension();})
             .def_prop_ro("size", [](const Dataset & ds){return ds.size();})
             .def_prop_ro("dtype", [](const Dataset & ds){return types::Datatypes::dtypeToN5()[ds.getDtype()];})
@@ -254,6 +256,14 @@ namespace z5 {
                 nlohmann::json j;
                 types::compressionTypeToJson(opts, j);
                 return j.dump();
+            })
+
+            // the fill value's bytes (one element, little-endian); z5py views them
+            // with the dataset's dtype, so 64-bit integers are exact
+            .def_prop_ro("fill_value_bytes", [](const Dataset & ds){
+                char buffer[32] = {};
+                ds.getFillValue(buffer);
+                return nb::bytes(buffer, types::datatypeSize(ds.getDtype()));
             })
 
             .def("remove_chunk", &Dataset::removeChunk, nb::arg("chunk_id"),
