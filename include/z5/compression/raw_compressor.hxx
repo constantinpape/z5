@@ -27,6 +27,10 @@ namespace compression {
             throw std::runtime_error("Raw compressor should never be called!");
         }
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            out.assign(dataIn, dataIn + nBytesIn);
+        }
+
         inline types::Compressor type() const {
             return types::raw;
         }

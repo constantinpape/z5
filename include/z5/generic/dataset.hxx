@@ -57,7 +57,7 @@ namespace generic {
             // data_to_buffer will return false if there's nothing to write (all fill value)
             if(!util::data_to_buffer(chunk, dataIn, buffer, Mixin::compressor_,
                                      Mixin::fillValue_, isVarlen, varSize,
-                                     Mixin::reverseBytes_)) {
+                                     Mixin::arrayCodecs_)) {
                 // if we have data on store for the chunk, delete it
                 STORE::erase(chunk);
                 return;
@@ -85,7 +85,7 @@ namespace generic {
             }
 
             // format the data
-            const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_, Mixin::reverseBytes_);
+            const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_, Mixin::arrayCodecs_);
 
             return is_varlen;
         }
@@ -163,12 +163,12 @@ namespace generic {
         inline void decompress(const std::vector<char> & buffer,
                                void * dataOut,
                                const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
                                void * dataOut,
                                const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
         }
 
         inline void getFillValue(void * fillValue) const {

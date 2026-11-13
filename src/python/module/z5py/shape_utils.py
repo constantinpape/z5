@@ -118,6 +118,9 @@ def get_default_chunks(shape):
     Returns:
         tuple: the default chunk shape.
     """
+    # a zero-dimensional dataset has one chunk with an empty shape
+    if len(shape) == 0:
+        return ()
     # the default size is 64**3
     default_size = 262144
     default_dim = int(round(default_size ** (1. / len(shape))))

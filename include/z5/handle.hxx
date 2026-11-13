@@ -202,8 +202,13 @@ namespace handle {
                     }
                 } else {
                     // zarr v2 (or zarr v3 "v2" chunk key encoding): flat key joined
-                    // by the delimiter, e.g. "0.1.2"
-                    util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                    // by the delimiter, e.g. "0.1.2"; "0" for the single chunk of
+                    // a zero-dimensional array (the v3 default encoding gives "c")
+                    if(indices.empty()) {
+                        name = "0";
+                    } else {
+                        util::join(indices.begin(), indices.end(), name, zarrDelimiter);
+                    }
                 }
             }
 
