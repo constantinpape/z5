@@ -182,6 +182,35 @@ class TestZarrV3(unittest.TestCase):
         self.assertEqual(ds.dimension_names, (None, 'x'))
         self.assertEqual(self._read_meta('a')['dimension_names'], [None, 'x'])
 
+    def test_v3_dimension_names_empty_is_not_unnamed(self):
+        # "" is a name; only None (null) is an unnamed dimension
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=('', None))
+        self.assertEqual(ds.dimension_names, ('', None))
+        self.assertEqual(self._read_meta('a')['dimension_names'], ['', None])
+        f = z5py.File(self.path, mode='r')
+        self.assertEqual(f['a'].dimension_names, ('', None))
+
+    def test_v3_dimension_names_all_unnamed(self):
+        # a list of nulls is kept: it differs from no dimension_names at all
+        ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
+                                      dtype='float32',
+                                      dimension_names=(None, None))
+        self.assertEqual(ds.dimension_names, (None, None))
+        self.assertEqual(self._read_meta('a')['dimension_names'], [None, None])
+
+    def test_v3_dimension_names_invalid_metadata(self):
+        self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4), dtype='float32')
+        meta_path = os.path.join(self.path, 'a', 'zarr.json')
+        for bad in ([1, 'x'], 'yx', ['x']):
+            meta = self._read_meta('a')
+            meta['dimension_names'] = bad
+            with open(meta_path, 'w') as f:
+                json.dump(meta, f)
+            with self.assertRaises(RuntimeError, msg=str(bad)):
+                z5py.File(self.path, mode='r')['a']
+
     def test_v3_dimension_names_default(self):
         ds = self.root.create_dataset('a', shape=(4, 8), chunks=(2, 4),
                                       dtype='float32')

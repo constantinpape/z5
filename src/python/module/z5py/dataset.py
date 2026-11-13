@@ -319,9 +319,7 @@ class Dataset:
             # the chunk key separator is determined by the chunk key encoding
             separator = '.' if chunk_key_encoding == 'v2' else '/'
             shards_arg = list(shards) if shards is not None else []
-            # an unnamed dimension is passed as an empty name
-            names_arg = ['' if dim is None else dim for dim in dimension_names]\
-                if dimension_names is not None else []
+            names_arg = list(dimension_names) if dimension_names is not None else []
             impl = _z5py.create_dataset(ghandle, name, cls._dtype_dict[parsed_dtype],
                                         shape, chunks, compression, copts, fillvalue,
                                         separator, 3, shards_arg, chunk_key_encoding,
@@ -408,10 +406,10 @@ class Dataset:
     @property
     def dimension_names(self):
         """ Names of the dimensions of this dataset (zarr v3), with ``None`` for an
-        unnamed dimension, or None if no dimension is named.
+        unnamed dimension, or None if the dataset has no dimension names.
         """
-        names = tuple(dim if dim else None for dim in self._impl.dimension_names)
-        return names if any(names) else None
+        names = tuple(self._impl.dimension_names)
+        return names if names else None
 
     @property
     def dtype(self):

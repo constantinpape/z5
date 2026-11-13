@@ -475,6 +475,49 @@ class TestInteropZarrPyV3BigEndian(unittest.TestCase):
 
 
 @requires_z5_v3
+@requires_zarr_v3
+class TestInteropZarrPyV3DimensionNames(unittest.TestCase):
+    """``dimension_names`` written by one library and read by the other. An
+    unnamed dimension (None) and an empty name ("") are different values."""
+    path = "interop_dimension_names.zr"
+    shape = (4, 6, 8)
+    chunks = (2, 3, 4)
+    names = {"named": ("z", "y", "x"),
+             "unnamed": (None, "y", None),
+             "all_unnamed": (None, None, None),
+             "empty": ("", None, "x")}
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def test_z5_to_zarr(self):
+        f = z5py.File(self.path, mode="w", use_zarr_format=True, zarr_format=3)
+        for key, names in self.names.items():
+            f.create_dataset(key, shape=self.shape, chunks=self.chunks, dtype="float32",
+                             dimension_names=names)
+            za = zarr.open_array(store=self.path, path=key, mode="r")
+            self.assertEqual(za.metadata.dimension_names, names, key)
+        f.create_dataset("no_names", shape=self.shape, chunks=self.chunks, dtype="float32")
+        za = zarr.open_array(store=self.path, path="no_names", mode="r")
+        self.assertIsNone(za.metadata.dimension_names)
+
+    def test_zarr_to_z5(self):
+        # uncompressed, so a build without zarr-python's default codec reads them
+        for key, names in self.names.items():
+            zarr.create_array(store=self.path, name=key, shape=self.shape, chunks=self.chunks,
+                              dtype="float32", dimension_names=names, compressors=None, zarr_format=3)
+        zarr.create_array(store=self.path, name="no_names", shape=self.shape, chunks=self.chunks,
+                          dtype="float32", compressors=None, zarr_format=3)
+        f = z5py.File(self.path, mode="r")
+        for key, names in self.names.items():
+            self.assertEqual(f[key].dimension_names, names, key)
+        self.assertIsNone(f["no_names"].dimension_names)
+
+
+@requires_z5_v3
 @requires_tensorstore
 class TestInteropTsV3(InteropMixin, unittest.TestCase):
     library = "tensorstore"

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "z5/metadata.hxx"
 #include "z5/handle.hxx"
@@ -92,8 +93,9 @@ namespace z5 {
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
 
-        // names of the dimensions (zarr v3) - empty if unnamed
-        inline const std::vector<std::string> & dimensionNames() const {return dimensionNames_;}
+        // names of the dimensions (zarr v3), std::nullopt for an unnamed
+        // dimension - empty if the dataset has no dimension names
+        inline const std::vector<std::optional<std::string>> & dimensionNames() const {return dimensionNames_;}
 
         // sharding (zarr v3) - default: not sharded; overridden by ShardedDataset
         virtual bool isSharded() const {return false;}
@@ -168,7 +170,7 @@ namespace z5 {
         types::ShapeType chunkShape_;
         std::size_t chunkSize_;
         std::string zarrDelimiter_;
-        std::vector<std::string> dimensionNames_;
+        std::vector<std::optional<std::string>> dimensionNames_;
 
         util::Blocking chunking_;
     };

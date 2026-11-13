@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -46,7 +47,7 @@ namespace z5 {
             const int zarrFormat=2,
             const std::string & chunkKeyEncoding="default",
             const types::ShapeType & shardShape=types::ShapeType(),
-            const std::vector<std::string> & dimensionNames=std::vector<std::string>()
+            const std::vector<std::optional<std::string>> & dimensionNames={}
             ) : Metadata(isZarr, zarrFormat),
                 dtype(dtype),
                 shape(shape),
@@ -307,11 +308,11 @@ namespace z5 {
                 j["codecs"] = innerCodecs;
             }
 
-            // optional names of the dimensions; an empty name is stored as null
+            // optional names of the dimensions; an unnamed dimension is stored as null
             if(!dimensionNames.empty()) {
                 nlohmann::json names = nlohmann::json::array();
                 for(const auto & name : dimensionNames) {
-                    names.push_back(name.empty() ? nlohmann::json(nullptr) : nlohmann::json(name));
+                    names.push_back(name ? nlohmann::json(*name) : nlohmann::json(nullptr));
                 }
                 j["dimension_names"] = names;
             }
@@ -388,12 +389,21 @@ namespace z5 {
             types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype),
                                         compressor, compressionOptions, bigEndian);
 
-            // optional names of the dimensions; a null name is read as empty
+            // optional names of the dimensions; a null name is an unnamed dimension
             dimensionNames.clear();
             auto namesIt = j.find("dimension_names");
             if(namesIt != j.end() && !namesIt->is_null()) {
+                if(!namesIt->is_array()) {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: dimension_names must be an array");
+                }
                 for(const auto & name : *namesIt) {
-                    dimensionNames.push_back(name.is_null() ? std::string() : name.get<std::string>());
+                    if(name.is_null()) {
+                        dimensionNames.emplace_back(std::nullopt);
+                    } else if(name.is_string()) {
+                        dimensionNames.emplace_back(name.get<std::string>());
+                    } else {
+                        throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: a dimension name must be a string or null");
+                    }
                 }
             }
         }
@@ -419,8 +429,9 @@ namespace z5 {
         // zarr v3 specific: chunk elements are stored big-endian (``bytes`` codec
         // with endian "big"); z5 always writes little-endian for new datasets
         bool bigEndian = false;
-        // zarr v3 specific: the names of the dimensions (empty if unnamed)
-        std::vector<std::string> dimensionNames;
+        // zarr v3 specific: the names of the dimensions, std::nullopt for an
+        // unnamed dimension; empty if the array has no dimension names
+        std::vector<std::optional<std::string>> dimensionNames;
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -487,9 +498,9 @@ namespace z5 {
         std::string chunkKeyEncoding = "default";
         // zarr v3 only; empty: not sharded
         types::ShapeType shardShape;
-        // zarr v3 only; the names of the dimensions, an empty name for an
+        // zarr v3 only; the names of the dimensions, std::nullopt for an
         // unnamed dimension; empty: no dimension names
-        std::vector<std::string> dimensionNames;
+        std::vector<std::optional<std::string>> dimensionNames;
     };
 
 
