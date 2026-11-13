@@ -370,6 +370,277 @@ class TestZarrV3Endian(unittest.TestCase):
             self._open('a')
 
 
+@requires_z5_v3
+class TestZarrV3Transpose(unittest.TestCase):
+    """The v3 ``transpose`` array-to-array codec.
+
+    A single-chunk dataset is written by z5 (no transpose), then a transpose codec
+    is added to zarr.json without touching the chunk bytes: the stored C-order
+    buffer must now be read as ``chunk.transpose(order)``, i.e. the logical chunk
+    is ``stored.transpose(argsort(order))``.
+    """
+    path = 'test_v3_transpose.zr'
+    shape = (6, 7, 8)
+
+    def setUp(self):
+        self.root = z5py.File(self.path, mode='w', use_zarr_format=True,
+                              zarr_format=3, dimension_separator='/')
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def _meta_path(self, key):
+        return os.path.join(self.path, key, 'zarr.json')
+
+    def _edit_codecs(self, key, edit):
+        """Apply ``edit`` to the (inner, if sharded) codec list of ``key``."""
+        with open(self._meta_path(key)) as f:
+            meta = json.load(f)
+        codecs = meta['codecs']
+        if codecs[0]['name'] == 'sharding_indexed':
+            codecs = codecs[0]['configuration']['codecs']
+        edit(codecs)
+        with open(self._meta_path(key), 'w') as f:
+            json.dump(meta, f)
+
+    def _add_transpose(self, key, *orders):
+        def edit(codecs):
+            for order in reversed(orders):
+                codecs.insert(0, {'name': 'transpose',
+                                  'configuration': {'order': order}})
+        self._edit_codecs(key, edit)
+
+    def _drop_transpose(self, key):
+        def edit(codecs):
+            codecs[:] = [c for c in codecs if c['name'] != 'transpose']
+        self._edit_codecs(key, edit)
+
+    def _open(self, key, mode='r'):
+        return z5py.File(self.path, mode=mode)[key]
+
+    @staticmethod
+    def _as_logical(stored_flat, shape, order):
+        stored_shape = tuple(shape[o] for o in order)
+        return stored_flat.reshape(stored_shape).transpose(np.argsort(order))
+
+    def _check_read_and_write(self, name, dtype, order, compression='raw',
+                              **kwargs):
+        data = _random(self.shape, dtype)
+        self.root.create_dataset(name, data=data, chunks=self.shape,
+                                 compression=compression, **kwargs)
+
+        # read: the stored buffer is interpreted as the transposed chunk
+        self._add_transpose(name, list(order))
+        np.testing.assert_array_equal(
+            self._open(name)[:], self._as_logical(data.ravel(), self.shape, order))
+
+        # write: full and partial writes are stored transposed
+        new = _random(self.shape, dtype)
+        ds = self._open(name, mode='a')
+        ds[:] = new
+        ds[1:4, 2:6, 3:7] = data[1:4, 2:6, 3:7]
+        expected = new.copy()
+        expected[1:4, 2:6, 3:7] = data[1:4, 2:6, 3:7]
+        np.testing.assert_array_equal(self._open(name)[:], expected)
+
+        self._drop_transpose(name)
+        np.testing.assert_array_equal(
+            self._open(name)[:],
+            expected.transpose(order).ravel().reshape(self.shape))
+
+    def test_v3_transpose_orders(self):
+        for i, order in enumerate([(0, 1, 2), (2, 1, 0), (2, 0, 1), (1, 2, 0)]):
+            self._check_read_and_write('ds_%i' % i, 'float32', order)
+
+    def test_v3_transpose_dtypes(self):
+        for dtype in DTYPES:
+            self._check_read_and_write('ds_%s' % dtype, dtype, (1, 2, 0))
+
+    def test_v3_transpose_codecs(self):
+        for comp in available_v3_compressors():
+            self._check_read_and_write('ds_%s' % comp, 'int32', (2, 0, 1),
+                                       compression=comp)
+
+    @requires_z5_v3_sharding
+    def test_v3_transpose_sharded(self):
+        self._check_read_and_write('ds', 'uint16', (2, 0, 1),
+                                   shards=self.shape)
+
+    def test_v3_transpose_big_endian(self):
+        data = _random(self.shape, 'int32')
+        self.root.create_dataset('a', data=data, chunks=self.shape)
+        self._add_transpose('a', [1, 2, 0])
+
+        def make_big(codecs):
+            for codec in codecs:
+                if codec['name'] == 'bytes':
+                    codec['configuration']['endian'] = 'big'
+        self._edit_codecs('a', make_big)
+        expected = self._as_logical(data.byteswap().ravel(), self.shape, (1, 2, 0))
+        np.testing.assert_array_equal(self._open('a')[:], expected)
+
+    def test_v3_transpose_composed(self):
+        # transpose(p1) then transpose(p2) == transpose(p1[p2])
+        data = _random(self.shape, 'uint8')
+        self.root.create_dataset('a', data=data, chunks=self.shape)
+        p1, p2 = (1, 2, 0), (2, 0, 1)
+        self._add_transpose('a', list(p1), list(p2))
+        composed = tuple(p1[i] for i in p2)
+        np.testing.assert_array_equal(
+            self._open('a')[:], self._as_logical(data.ravel(), self.shape, composed))
+
+    def test_v3_transpose_legacy_strings(self):
+        data = _random(self.shape, 'uint8')
+        self.root.create_dataset('c', data=data, chunks=self.shape)
+        self._add_transpose('c', 'C')
+        np.testing.assert_array_equal(self._open('c')[:], data)
+
+        self.root.create_dataset('f', data=data, chunks=self.shape)
+        self._add_transpose('f', 'F')
+        np.testing.assert_array_equal(
+            self._open('f')[:], self._as_logical(data.ravel(), self.shape, (2, 1, 0)))
+
+    def test_v3_transpose_invalid(self):
+        bad_orders = [[0, 1], [0, 1, 1], [0, 1, 3], [-1, 0, 1], 'X']
+        for i, order in enumerate(bad_orders):
+            name = 'bad_%i' % i
+            self.root.create_dataset(name, shape=self.shape, chunks=self.shape,
+                                     dtype='uint8')
+            self._add_transpose(name, order)
+            with self.assertRaises(RuntimeError, msg=str(order)):
+                self._open(name)
+
+    def test_v3_transpose_after_bytes(self):
+        self.root.create_dataset('a', shape=self.shape, chunks=self.shape,
+                                 dtype='uint8')
+        self._edit_codecs('a', lambda codecs: codecs.append(
+            {'name': 'transpose', 'configuration': {'order': [2, 1, 0]}}))
+        with self.assertRaises(RuntimeError):
+            self._open('a')
+
+    # ------------------------------------------------- creation via transpose=
+    def _codec_names(self, key):
+        with open(self._meta_path(key)) as f:
+            codecs = json.load(f)['codecs']
+        if codecs[0]['name'] == 'sharding_indexed':
+            codecs = codecs[0]['configuration']['codecs']
+        return codecs
+
+    def test_v3_create_transpose(self):
+        order = (2, 0, 1)
+        data = _random(self.shape, 'int32')
+        ds = self.root.create_dataset('a', data=data, chunks=self.shape,
+                                      compression='raw', transpose=order)
+        np.testing.assert_array_equal(ds[:], data)
+        codecs = self._codec_names('a')
+        self.assertEqual(codecs[0], {'name': 'transpose',
+                                     'configuration': {'order': list(order)}})
+        self.assertEqual(codecs[1]['name'], 'bytes')
+        # the single chunk is stored as data.transpose(order) in C order
+        with open(os.path.join(self.path, 'a', 'c', '0', '0', '0'), 'rb') as f:
+            stored = np.frombuffer(f.read(), dtype='int32')
+        np.testing.assert_array_equal(stored, data.transpose(order).ravel())
+
+    def test_v3_create_transpose_multichunk(self):
+        for comp in available_v3_compressors():
+            data = _random((23, 37, 18), 'float64')
+            ds = self.root.create_dataset('a_%s' % comp, data=data,
+                                          chunks=(10, 16, 8), compression=comp,
+                                          transpose=[1, 2, 0])
+            ds[5:19, 3:30, 2:17] = 0
+            data[5:19, 3:30, 2:17] = 0
+            np.testing.assert_array_equal(
+                z5py.File(self.path, 'r')['a_%s' % comp][:], data)
+
+    @requires_z5_v3_sharding
+    def test_v3_create_transpose_sharded(self):
+        data = _random((40, 40), 'uint16')
+        ds = self.root.create_dataset('a', data=data, chunks=(10, 10),
+                                      shards=(20, 20), transpose=(1, 0))
+        np.testing.assert_array_equal(ds[:], data)
+        self.assertEqual(self._codec_names('a')[0]['name'], 'transpose')
+
+    def test_v3_transpose_property(self):
+        ds = self.root.create_dataset('t', shape=self.shape, chunks=self.shape,
+                                      dtype='uint8', transpose=[2, 0, 1])
+        self.assertEqual(ds.transpose, (2, 0, 1))
+        self.assertEqual(z5py.File(self.path, 'r')['t'].transpose, (2, 0, 1))
+
+        # identity / no transpose codec
+        for name, kwargs in (('i', {'transpose': (0, 1, 2)}), ('n', {})):
+            ds = self.root.create_dataset(name, shape=self.shape, chunks=self.shape,
+                                          dtype='uint8', **kwargs)
+            self.assertIsNone(ds.transpose)
+
+        # read from metadata: legacy "F" and composed codecs
+        self.root.create_dataset('f', shape=self.shape, chunks=self.shape, dtype='uint8')
+        self._add_transpose('f', 'F')
+        self.assertEqual(self._open('f').transpose, (2, 1, 0))
+        self.root.create_dataset('c', shape=self.shape, chunks=self.shape, dtype='uint8')
+        self._add_transpose('c', [1, 0, 2], [0, 2, 1])
+        # composed order: p1[p2[i]] -> (1, 2, 0)
+        self.assertEqual(self._open('c').transpose, (1, 2, 0))
+        # (1, 2, 0) followed by (2, 0, 1) cancels out -> no transpose
+        self.root.create_dataset('x', shape=self.shape, chunks=self.shape, dtype='uint8')
+        self._add_transpose('x', [1, 2, 0], [2, 0, 1])
+        self.assertIsNone(self._open('x').transpose)
+
+    @requires_z5_v3_sharding
+    def test_v3_transpose_property_sharded(self):
+        ds = self.root.create_dataset('a', shape=(40, 40), chunks=(10, 10),
+                                      shards=(20, 20), dtype='uint8', transpose=(1, 0))
+        self.assertEqual(ds.transpose, (1, 0))
+        self.assertEqual(z5py.File(self.path, 'r')['a'].transpose, (1, 0))
+
+    def test_v3_create_transpose_identity(self):
+        self.root.create_dataset('a', shape=self.shape, chunks=self.shape,
+                                 dtype='uint8', transpose=(0, 1, 2))
+        self.assertNotIn('transpose', [c['name'] for c in self._codec_names('a')])
+
+    def test_v3_create_transpose_require(self):
+        data = _random(self.shape, 'uint8')
+        ds = self.root.require_dataset('a', shape=self.shape, dtype='uint8',
+                                       chunks=self.shape, transpose=(2, 1, 0))
+        ds[:] = data
+        self.assertEqual(self._codec_names('a')[0]['name'], 'transpose')
+        np.testing.assert_array_equal(self.root['a'][:], data)
+
+    def test_v3_create_transpose_invalid(self):
+        for i, order in enumerate([(0, 1), (0, 1, 1), (0, 1, 3)]):
+            with self.assertRaises(ValueError, msg=str(order)):
+                self.root.create_dataset('bad_%i' % i, shape=self.shape,
+                                         dtype='uint8', transpose=order)
+
+    def test_v3_create_transpose_not_v3(self):
+        path = 'test_v2_transpose.zr'
+        try:
+            f = z5py.File(path, mode='w', use_zarr_format=True)
+            with self.assertRaises(ValueError):
+                f.create_dataset('a', shape=(10, 10), dtype='uint8',
+                                 transpose=(1, 0))
+            ds = f.create_dataset('b', shape=(10, 10), dtype='uint8')
+            self.assertIsNone(ds.transpose)
+        finally:
+            rmtree(path, ignore_errors=True)
+
+    @requires_z5_v3_sharding
+    def test_v3_transpose_outside_sharding(self):
+        # a transpose of the whole shard is not supported and must not be ignored
+        self.root.create_dataset('a', shape=self.shape, chunks=(3, 7, 8),
+                                 shards=self.shape, dtype='uint8')
+        with open(self._meta_path('a')) as f:
+            meta = json.load(f)
+        meta['codecs'].insert(0, {'name': 'transpose',
+                                  'configuration': {'order': [2, 1, 0]}})
+        with open(self._meta_path('a'), 'w') as f:
+            json.dump(meta, f)
+        with self.assertRaises(RuntimeError):
+            self._open('a')
+
+
 @requires_z5_v3_sharding
 class TestZarrV3Sharding(unittest.TestCase):
     path = 'test_v3_shard.zr'
