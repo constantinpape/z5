@@ -110,6 +110,15 @@ namespace z5 {
         // zarr v3 transpose codec order (numpy ``transpose`` semantics); empty if none
         inline const std::vector<std::size_t> & transposeOrder() const {return transposeOrder_;}
 
+        // element strides of a chunk buffer of `chunkShape` in ChunkOrder::stored:
+        // C-order strides without a transpose codec, else the strides that address
+        // the transposed buffer by logical chunk coordinates. The sub-array paths
+        // view their chunk buffers this way, so the transpose costs no extra pass.
+        // (Transposed datasets are zarr v3, whose chunks are always full-shape.)
+        inline types::ShapeType chunkBufferStrides(const types::ShapeType & chunkShape) const {
+            return util::transposedStrides(chunkShape, transposeOrder_);
+        }
+
         // zarr v3: the chunk codecs include at least one crc32c checksum
         inline bool hasCrc32c() const {return crc32c_;}
 
@@ -135,18 +144,22 @@ namespace z5 {
         // compress one inner chunk to its on-disk blob; returns false if it is all-fill
         // (-> empty slot), in which case 'blob' is left empty
         virtual bool makeChunkBlob(const types::ShapeType &, const void *,
-                                   std::vector<char> &) const {return false;}
+                                   std::vector<char> &,
+                                   const util::ChunkOrder=util::ChunkOrder::logical) const {return false;}
 
         //
         // API - MUST implement
         //
 
-        // we need to use void pointer here to have a generic API
+        // we need to use void pointer here to have a generic API; the chunk
+        // buffer is in C order unless ChunkOrder::stored is passed (see util::ChunkOrder)
         // write a chunk
         virtual void writeChunk(const types::ShapeType &, const void *,
-                                const bool=false, const std::size_t=0) const = 0;
+                                const bool=false, const std::size_t=0,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // read a chunk - returns True if this is a varlen chunk
-        virtual bool readChunk(const types::ShapeType &, void *) const = 0;
+        virtual bool readChunk(const types::ShapeType &, void *,
+                               const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // read a chunk; return the unformatted data
         virtual void readRawChunk(const types::ShapeType &, std::vector<char> &) const = 0;
 
@@ -165,10 +178,12 @@ namespace z5 {
         virtual void getCompressor(std::string &) const = 0;
         virtual void getFillValue(void *) const = 0;
         virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
-        virtual void decompress(const std::vector<char> &, void *, const std::size_t) const = 0;
+        virtual void decompress(const std::vector<char> &, void *, const std::size_t,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // decompress straight from a raw byte range (used by the sharded read path to decode
         // an inner chunk in-place from the shard buffer, without copying the blob out first)
-        virtual void decompress(const char *, std::size_t, void *, const std::size_t) const = 0;
+        virtual void decompress(const char *, std::size_t, void *, const std::size_t,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
 
         // file paths, permissions and removal
         virtual const FileMode & mode() const = 0;
@@ -239,6 +254,7 @@ namespace z5 {
             arrayCodecs_.order = metadata.transposeOrder;
             arrayCodecs_.fixedItemSize = metadata.elementSize;
             arrayCodecs_.chunkShape = metadata.chunkShape;
+            storedCodecs_ = arrayCodecs_.withoutTranspose();
             init_compressor(metadata);
         }
         ~MixinTyped(){}
@@ -248,6 +264,12 @@ namespace z5 {
         // zarr v3 element codecs (transpose, big-endian ``bytes``) applied around
         // the compressor on encode / decode; identity for zarr v2 and n5
         util::ArrayCodecs arrayCodecs_;
+        // the same without the transpose, for buffers in util::ChunkOrder::stored
+        util::ArrayCodecs storedCodecs_;
+
+        inline const util::ArrayCodecs & codecs(const util::ChunkOrder order) const {
+            return order == util::ChunkOrder::stored ? storedCodecs_ : arrayCodecs_;
+        }
         // unique ptr to hold child classes of compressor; for zarr v3 with crc32c
         // codecs, a Crc32cChain wrapping the compressor
         std::unique_ptr<compression::CompressorBase<CodecT>> compressor_;

@@ -28,7 +28,8 @@ namespace gcs {
         //
 
         inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn,
-                               const bool isVarlen=false, const std::size_t varSize=0) const {
+                               const bool isVarlen=false, const std::size_t varSize=0,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
             // check if we are allowed to write
             if(!handle_.mode().canWrite()) {
                 const std::string err = "Cannot write data in file mode " + handle_.mode().printMode();
@@ -39,7 +40,8 @@ namespace gcs {
 
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
-        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut,
+                              const util::ChunkOrder order=util::ChunkOrder::logical) const {
             detail::notImplemented();
         }
 
@@ -90,13 +92,15 @@ namespace gcs {
 
         inline void decompress(const std::vector<char> & buffer,
                                void * dataOut,
-                               const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
                                void * dataOut,
-                               const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
 
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
