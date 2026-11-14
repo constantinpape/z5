@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <numeric>
 #include <vector>
 
@@ -203,6 +204,59 @@ namespace multiarray {
         // other entries untouched
         ASSERT_EQ(dst[0], -1);
         ASSERT_EQ(dst[1], -1);
+    }
+
+
+    // copies between a C-order view and a view of a transposed buffer (one side
+    // contiguous along an outer axis: the tiled path), in both directions, for
+    // every axis permutation and shapes that leave partial tiles
+    TEST(ArrayUtilTest, TestPermutedStrides) {
+        for(const types::ShapeType shape : {types::ShapeType({5, 37, 19}),
+                                            types::ShapeType({3, 18, 2, 33}),
+                                            types::ShapeType({40, 1, 17})}) {
+            const std::size_t dim = shape.size();
+            std::vector<std::size_t> order(dim);
+            std::iota(order.begin(), order.end(), 0);
+            do {
+                // strides that address a C-order buffer of shape[order] by `shape` coordinates
+                types::ShapeType storedShape(dim), permStrides(dim);
+                for(std::size_t d = 0; d < dim; ++d) {
+                    storedShape[d] = shape[order[d]];
+                }
+                const auto storedC = cOrderStrides(storedShape);
+                for(std::size_t d = 0; d < dim; ++d) {
+                    permStrides[order[d]] = storedC[d];
+                }
+
+                // C-order sub-block of a larger array, so both sides have offsets
+                types::ShapeType outerShape(shape), offset(dim, 1);
+                for(auto & s : outerShape) {
+                    s += 2;
+                }
+                std::vector<int> outer(prod(outerShape), -1), perm(prod(shape), -1);
+                std::vector<int> ref(prod(shape));
+                std::iota(ref.begin(), ref.end(), 0);
+                const auto outerView = makeView(outer.data(), outerShape);
+                const auto block = subview(outerView, offset, shape);
+                const ArrayView<int> permView(perm.data(), shape, permStrides);
+
+                // C order -> transposed, then transposed -> C order sub-block
+                copyView(makeView(ref.data(), shape), permView);
+                copyView(permView, block);
+
+                const auto cStrides = cOrderStrides(shape);
+                types::ShapeType idx(dim, 0);
+                do {
+                    const int expected = ref[flatOffset(idx, cStrides)];
+                    ASSERT_EQ(perm[flatOffset(idx, permStrides)], expected);
+                    ASSERT_EQ(block.data[flatOffset(idx, block.strides)], expected);
+                } while(increment(idx, shape));
+                // nothing outside the sub-block was written
+                const std::size_t written = std::count_if(outer.begin(), outer.end(),
+                                                          [](const int v){return v != -1;});
+                ASSERT_EQ(written, prod(shape));
+            } while(std::next_permutation(order.begin(), order.end()));
+        }
     }
 
 }

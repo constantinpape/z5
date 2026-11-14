@@ -138,9 +138,10 @@ namespace multiarray {
                 buffer.resize(chunkSize);
             }
 
-            // decompress the data, decoding straight past the n5 header (no memmove)
+            // decompress the data, decoding straight past the n5 header (no memmove);
+            // the buffer keeps the stored element order (see chunkBufferStrides)
             ds.decompress(dataBuffer.data() + headerLength, dataBuffer.size() - headerLength,
-                          &buffer[0], chunkSize);
+                          &buffer[0], chunkSize, util::ChunkOrder::stored);
 
             // reverse the endianness for N5 data (unless datatype is byte)
             if(!isZarr && sizeof(T) > 1 && !util::isVlenElement<T>) {
@@ -148,7 +149,9 @@ namespace multiarray {
             }
 
             // copy the requested sub-block of the chunk buffer into the output view
-            const ConstArrayView<T> chunkView(buffer.data(), chunkShape, cOrderStrides(chunkShape));
+            // (for a transposed chunk the strided view undoes the transpose)
+            const ConstArrayView<T> chunkView(buffer.data(), chunkShape,
+                                              ds.chunkBufferStrides(chunkShape));
             copyView(subview(chunkView, offsetInChunk, requestShape), outView);
         });
     }
@@ -190,6 +193,8 @@ namespace multiarray {
     // `chunkShape` is set to the shape to hand to the chunk writer. Shared by the
     // non-sharded and sharded write paths; the only difference between them is the
     // "read existing chunk" source.
+    // The buffer holds util::ChunkOrder::stored (viewed with ds.chunkBufferStrides), so
+    // `readExisting` must decode, and the chunk writer encode, in that order.
     template<typename T, typename FILL_REQUEST, typename READ_EXISTING>
     inline void prepareChunkWriteBuffer(const Dataset & ds,
                                         const util::Blocking & chunking,
@@ -221,14 +226,14 @@ namespace multiarray {
             buffer.resize(chunkSize);
         }
 
+        const ArrayView<T> bufferView(buffer.data(), chunkShape, ds.chunkBufferStrides(chunkShape));
         if(completeOvlp) {
-            fillRequest(makeView(buffer.data(), chunkShape), offsetInRequest, requestShape);
+            fillRequest(bufferView, offsetInRequest, requestShape);
         } else {
             // preserve the part of the chunk that is not covered by the request
             if(!readExisting(buffer)) {
                 std::fill(buffer.begin(), buffer.end(), fillValue);
             }
-            const auto bufferView = makeView(buffer.data(), chunkShape);
             fillRequest(subview(bufferView, offsetInChunk, requestShape),
                         offsetInRequest, requestShape);
         }
@@ -277,13 +282,13 @@ namespace multiarray {
                                            if(!ds.chunkExists(chunkId)) {
                                                return false;
                                            }
-                                           if(ds.readChunk(chunkId, &buf[0])) {
+                                           if(ds.readChunk(chunkId, &buf[0], util::ChunkOrder::stored)) {
                                                throw std::runtime_error(
                                                    "Can't write to varlen chunks from multiarray");
                                            }
                                            return true;
                                        });
-            ds.writeChunk(chunkId, &buffer[0]);
+            ds.writeChunk(chunkId, &buffer[0], false, 0, util::ChunkOrder::stored);
         });
     }
 
@@ -380,10 +385,11 @@ namespace multiarray {
                         if(blobs[slot].empty()) {
                             return false;
                         }
-                        ds.decompress(blobs[slot], &buf[0], buf.size());
+                        ds.decompress(blobs[slot], &buf[0], buf.size(), util::ChunkOrder::stored);
                         return true;
                     });
-                const bool nonEmpty = ds.makeChunkBlob(chunkId, &scratch.buffer[0], scratch.blob);
+                const bool nonEmpty = ds.makeChunkBlob(chunkId, &scratch.buffer[0], scratch.blob,
+                                                       util::ChunkOrder::stored);
                 // swap instead of copy; every compressor overwrites its output, so
                 // reusing `blob` (now holding the slot's old bytes) is safe
                 if(nonEmpty) {
@@ -442,8 +448,8 @@ namespace multiarray {
         }
 
         // inner chunks are always stored at the full chunk shape (zarr v3); the strides are
-        // constant across chunks, so compute them once.
-        const auto chunkStrides = cOrderStrides(maxChunkShape);
+        // constant across chunks, so compute them once (stored order: see chunkBufferStrides)
+        const auto chunkStrides = ds.chunkBufferStrides(maxChunkShape);
 
         // per-thread scratch, reused across the thread's shards (see forEachWithState)
         struct Scratch {
@@ -479,7 +485,8 @@ namespace multiarray {
                     buffer.resize(maxChunkSize);
                 }
                 ds.decompress(scratch.shardBuf.data() + scratch.offsets[slot],
-                              scratch.nbytes[slot], &buffer[0], maxChunkSize);
+                              scratch.nbytes[slot], &buffer[0], maxChunkSize,
+                              util::ChunkOrder::stored);
                 const ConstArrayView<T> chunkView(buffer.data(), maxChunkShape, chunkStrides);
                 copyView(subview(chunkView, offsetInChunk, requestShape), outView);
             }

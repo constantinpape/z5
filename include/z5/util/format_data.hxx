@@ -8,6 +8,36 @@ namespace z5 {
 namespace util {
 
 
+    // Element order of a chunk buffer handed to a dataset's chunk IO. ``logical``
+    // is the C-order chunk (the public readChunk / writeChunk contract);
+    // ``stored`` skips the ``transpose`` codec and holds the elements in the order
+    // they are stored, for callers that address the buffer through
+    // Dataset::chunkBufferStrides() -- the sub-array paths, which then permute
+    // while copying to / from the request instead of in a separate pass.
+    enum class ChunkOrder {logical, stored};
+
+
+    // element strides that address a C-order buffer of the transposed shape
+    // (``shape.transpose(order)``) by coordinates of `shape`; C-order strides of
+    // `shape` for the identity (empty `order`)
+    inline types::ShapeType transposedStrides(const types::ShapeType & shape,
+                                              const std::vector<std::size_t> & order) {
+        if(order.empty()) {
+            return multiarray::cOrderStrides(shape);
+        }
+        types::ShapeType storedShape(order.size());
+        for(std::size_t i = 0; i < order.size(); ++i) {
+            storedShape[i] = shape[order[i]];
+        }
+        const auto cStrides = multiarray::cOrderStrides(storedShape);
+        types::ShapeType strides(order.size());
+        for(std::size_t i = 0; i < order.size(); ++i) {
+            strides[order[i]] = cStrides[i];
+        }
+        return strides;
+    }
+
+
     // The zarr v3 codec stages that act on array elements rather than bytes: the
     // ``transpose`` array-to-array codec and the ``endian`` of the ``bytes`` codec.
     // Encoding maps a C-order chunk of the logical chunk shape to the element
@@ -30,16 +60,15 @@ namespace util {
         // element strides that address the stored (transposed, C-order) buffer by
         // logical chunk coordinates
         inline types::ShapeType storedStrides() const {
-            types::ShapeType storedShape(order.size());
-            for(std::size_t i = 0; i < order.size(); ++i) {
-                storedShape[i] = chunkShape[order[i]];
-            }
-            const auto cStrides = multiarray::cOrderStrides(storedShape);
-            types::ShapeType strides(order.size());
-            for(std::size_t i = 0; i < order.size(); ++i) {
-                strides[order[i]] = cStrides[i];
-            }
-            return strides;
+            return transposedStrides(chunkShape, order);
+        }
+
+        // the codecs for a buffer that already holds the stored element order
+        // (ChunkOrder::stored): everything but the transpose
+        inline ArrayCodecs withoutTranspose() const {
+            ArrayCodecs codecs = *this;
+            codecs.order.clear();
+            return codecs;
         }
 
         inline void checkSize(const std::size_t n) const {

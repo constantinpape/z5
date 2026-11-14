@@ -54,7 +54,8 @@ namespace generic {
         //
 
         inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn,
-                               const bool isVarlen=false, const std::size_t varSize=0) const {
+                               const bool isVarlen=false, const std::size_t varSize=0,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
             if(!handle_.mode().canWrite()) {
                 throw std::invalid_argument("Cannot write data in file mode " + handle_.mode().printMode());
             }
@@ -64,14 +65,15 @@ namespace generic {
 
             // compress the inner chunk; empty (all-fill) chunks become empty slots
             std::vector<char> blob;
-            const bool nonEmpty = makeChunkBlob(chunkIndices, dataIn, blob);
+            const bool nonEmpty = makeChunkBlob(chunkIndices, dataIn, blob, order);
             writeInnerBlob(chunkIndices, std::move(blob), nonEmpty);
         }
 
-        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut,
+                              const util::ChunkOrder order=util::ChunkOrder::logical) const {
             std::vector<char> buffer;
             readRawChunk(chunkIndices, buffer);
-            util::decompress<T>(buffer, dataOut, defaultChunkSize(), Mixin::compressor_, Mixin::arrayCodecs_);
+            util::decompress<T>(buffer, dataOut, defaultChunkSize(), Mixin::compressor_, Mixin::codecs(order));
             return false;  // no varlen in zarr v3
         }
 
@@ -147,12 +149,14 @@ namespace generic {
             Mixin::compressor_->getOptions(opts);
         }
         inline void decompress(const std::vector<char> & buffer,
-                               void * dataOut, const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               void * dataOut, const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
-                               void * dataOut, const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               void * dataOut, const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
         inline void getFillValue(void * fillValue) const {
             *((T*) fillValue) = Mixin::fillValue_;
@@ -241,11 +245,12 @@ namespace generic {
 
         // compress one inner chunk to its on-disk blob; false => all-fill (empty slot).
         inline bool makeChunkBlob(const types::ShapeType & chunkId, const void * dataIn,
-                                  std::vector<char> & blob) const override {
+                                  std::vector<char> & blob,
+                                  const util::ChunkOrder order=util::ChunkOrder::logical) const override {
             ChunkHandleType innerChunk(handle_, chunkId, defaultChunkShape(), shape());
             return util::data_to_buffer(innerChunk, dataIn, blob,
                                         Mixin::compressor_, Mixin::fillValue_,
-                                        false, 0, Mixin::arrayCodecs_);
+                                        false, 0, Mixin::codecs(order));
         }
 
         //

@@ -569,6 +569,60 @@ class TestZarrV3Transpose(unittest.TestCase):
             np.testing.assert_array_equal(
                 z5py.File(self.path, 'r')['a_%s' % comp][:], data)
 
+    def _check_subarray_paths(self, name, dtype, order, **kwargs):
+        """Sub-array IO over many chunks keeps the transposed chunk buffers in their
+        stored order: full, partial and scalar writes, edge chunks, several threads
+        and the chunk API (logical order) must agree."""
+        shape, chunks = (23, 37, 18), (10, 16, 8)
+        if np.dtype(dtype).kind == 'V':
+            data = np.random.randint(0, 256, size=shape + (np.dtype(dtype).itemsize,),
+                                     dtype='uint8').view(dtype)[..., 0]
+        else:
+            data = _random(shape, dtype)
+        ds = self.root.create_dataset(name, shape=shape, chunks=chunks, dtype=dtype,
+                                      compression='raw', transpose_order=order,
+                                      n_threads=3, **kwargs)
+        ds[:] = data
+        np.testing.assert_array_equal(ds[:], data)
+
+        # partial writes across chunk (and shard) boundaries read-modify-write
+        # the existing chunks; a scalar write fills through the same buffers
+        patch = data[::-1, ::-1, ::-1][3:19, 5:33, 1:17].copy()
+        ds[3:19, 5:33, 1:17] = patch
+        data[3:19, 5:33, 1:17] = patch
+        ds[12:23, 30:37, 4:18] = data[0, 0, 0]
+        data[12:23, 30:37, 4:18] = data[0, 0, 0]
+        np.testing.assert_array_equal(ds[:], data)
+        np.testing.assert_array_equal(ds[2:21, 7:35, 3:15], data[2:21, 7:35, 3:15])
+        np.testing.assert_array_equal(self._open(name)[:], data)
+
+        # the chunk API works in logical order and sees the same chunks
+        np.testing.assert_array_equal(ds.read_chunk((0, 1, 0)), data[:10, 16:32, :8])
+        block = data[10:20, 0:16, 8:16][::-1].copy()
+        ds.write_chunk((1, 0, 1), block)
+        data[10:20, 0:16, 8:16] = block
+        np.testing.assert_array_equal(ds[:], data)
+
+        if 'shards' not in kwargs:
+            # an edge chunk is stored padded to the full chunk shape, transposed
+            with open(os.path.join(self.path, name, 'c', '2', '2', '2'), 'rb') as f:
+                stored = np.frombuffer(f.read(), dtype=dtype)
+            padded = np.zeros(chunks, dtype=dtype)
+            padded[:3, :5, :2] = data[20:, 32:, 16:]
+            np.testing.assert_array_equal(stored, padded.transpose(order).ravel())
+
+    def test_v3_transpose_subarray_paths(self):
+        for i, order in enumerate([(2, 1, 0), (1, 2, 0), (0, 2, 1), (1, 0, 2)]):
+            self._check_subarray_paths('o%i' % i, 'float32', order)
+        for dtype in ('int8', 'uint64', 'complex64', 'V3'):
+            self._check_subarray_paths(dtype, dtype, (2, 0, 1))
+
+    @requires_z5_v3_sharding
+    def test_v3_transpose_subarray_paths_sharded(self):
+        for i, order in enumerate([(2, 1, 0), (1, 2, 0)]):
+            self._check_subarray_paths('o%i' % i, 'int16', order, shards=(20, 32, 16))
+        self._check_subarray_paths('V5', 'V5', (2, 1, 0), shards=(20, 32, 16))
+
     @requires_z5_v3_sharding
     def test_v3_create_transpose_sharded(self):
         data = _random((40, 40), 'uint16')
