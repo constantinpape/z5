@@ -1,9 +1,91 @@
 #pragma once
 
 #include "z5/handle.hxx"
+#include "z5/multiarray/array_util.hxx"
 
 namespace z5 {
 namespace util {
+
+
+    // The zarr v3 codec stages that act on array elements rather than bytes: the
+    // ``transpose`` array-to-array codec and the ``endian`` of the ``bytes`` codec.
+    // Encoding maps a C-order chunk of the logical chunk shape to the element
+    // sequence handed to the compressor; decoding inverts it. Default-constructed
+    // it is the identity (zarr v2, n5, little-endian v3 without transpose).
+    struct ArrayCodecs {
+        // stored elements are big-endian
+        bool reverseBytes = false;
+        // transpose permutation with numpy ``transpose`` semantics: the stored chunk
+        // is ``chunk.transpose(order)`` in C order; empty == identity
+        std::vector<std::size_t> order;
+        // logical (decoded) chunk shape; only used when transposing
+        types::ShapeType chunkShape;
+
+        inline bool isIdentity() const {return !reverseBytes && order.empty();}
+
+        // element strides that address the stored (transposed, C-order) buffer by
+        // logical chunk coordinates
+        inline types::ShapeType storedStrides() const {
+            types::ShapeType storedShape(order.size());
+            for(std::size_t i = 0; i < order.size(); ++i) {
+                storedShape[i] = chunkShape[order[i]];
+            }
+            const auto cStrides = multiarray::cOrderStrides(storedShape);
+            types::ShapeType strides(order.size());
+            for(std::size_t i = 0; i < order.size(); ++i) {
+                strides[order[i]] = cStrides[i];
+            }
+            return strides;
+        }
+
+        inline void checkSize(const std::size_t n) const {
+            const std::size_t expected = std::accumulate(chunkShape.begin(), chunkShape.end(),
+                                                         std::size_t(1), std::multiplies<std::size_t>());
+            if(n != expected) {
+                throw std::runtime_error("z5: transposed chunk does not have the full chunk size");
+            }
+        }
+    };
+
+
+    // encode `n` logical chunk elements to the stored element order. Returns
+    // `dataIn` for the identity, else `tmp` holding the encoded elements.
+    template<class T>
+    inline const T * encodeElements(const T * dataIn, const std::size_t n,
+                                    const ArrayCodecs & codecs, std::vector<T> & tmp) {
+        if(codecs.isIdentity()) {
+            return dataIn;
+        }
+        if(!codecs.order.empty()) {
+            codecs.checkSize(n);
+            tmp.resize(n);
+            multiarray::copyView(multiarray::makeView(dataIn, codecs.chunkShape),
+                                 multiarray::ArrayView<T>(tmp.data(), codecs.chunkShape,
+                                                          codecs.storedStrides()));
+        } else {
+            tmp.assign(dataIn, dataIn + n);
+        }
+        if(codecs.reverseBytes && sizeof(T) > 1) {
+            util::reverseEndiannessInplace<T>(tmp.begin(), tmp.end());
+        }
+        return tmp.data();
+    }
+
+
+    // decode `n` stored elements in place to the logical C-order chunk
+    template<class T>
+    inline void decodeElements(T * data, const std::size_t n, const ArrayCodecs & codecs) {
+        if(codecs.reverseBytes && sizeof(T) > 1) {
+            util::reverseEndiannessInplace<T>(data, data + n);
+        }
+        if(!codecs.order.empty()) {
+            codecs.checkSize(n);
+            const std::vector<T> stored(data, data + n);
+            multiarray::copyView(multiarray::ConstArrayView<T>(stored.data(), codecs.chunkShape,
+                                                               codecs.storedStrides()),
+                                 multiarray::makeView(data, codecs.chunkShape));
+        }
+    }
 
 
     template<class T, class COMPRESSOR>
@@ -99,7 +181,7 @@ namespace util {
                                const T fillValue,
                                const bool isVarlen=false,
                                const std::size_t varSize=0,
-                               const bool reverseBytes=false) {
+                               const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
         const bool isZarr = chunk.isZarr();
         if(isVarlen && isZarr) {
             throw std::runtime_error("Varlen chunks are not supported in zarr.");
@@ -126,16 +208,14 @@ namespace util {
             return false;
         }
 
-        // for zarr format, we only need to compress the data (after converting to
-        // big-endian if the zarr v3 ``bytes`` codec asks for it).
+        // for zarr format, we only need to compress the data (after the zarr v3
+        // element codecs: transpose / big-endian ``bytes``).
         // for n5, we need to also reverse the endianness and add the header
-        if(isZarr && reverseBytes && sizeof(T) > 1) {
-            std::vector<T> dataTmp(static_cast<const T*>(dataIn),
-                                   static_cast<const T*>(dataIn) + dataSize);
-            util::reverseEndiannessInplace<T>(dataTmp.begin(), dataTmp.end());
-            compress(&dataTmp[0], dataSize, buffer, compressor);
-        } else if(isZarr) {
-            compress((const T *) dataIn, dataSize, buffer, compressor);
+        if(isZarr) {
+            std::vector<T> dataTmp;
+            const T * encoded = encodeElements(static_cast<const T*>(dataIn), dataSize,
+                                               arrayCodecs, dataTmp);
+            compress(encoded, dataSize, buffer, compressor);
         } else {
             data_to_n5_format<T>(dataIn, dataSize,
                                  chunk_shape, buffer,
@@ -145,12 +225,12 @@ namespace util {
     }
 
 
-    // `reverseBytes` converts the decoded elements from big-endian to native order
-    // (zarr v3 ``bytes`` codec with endian "big"); n5 callers swap themselves.
+    // `arrayCodecs` decodes the zarr v3 element codecs (transpose / big-endian
+    // ``bytes``) after decompression; n5 callers swap the byte order themselves.
     template<class T, class COMPRESSOR>
     inline void decompress(const char * buffer, const std::size_t nBytes, void * dataOut,
                            const std::size_t data_size, const COMPRESSOR & compressor,
-                           const bool reverseBytes=false) {
+                           const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
         // we don't need to decompress for raw compression
         if(compressor->type() == 0) {
             // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
@@ -163,18 +243,15 @@ namespace util {
         } else {
             compressor->decompress(buffer, nBytes, static_cast<T*>(dataOut), data_size);
         }
-        if(reverseBytes && sizeof(T) > 1) {
-            util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
-                                              static_cast<T*>(dataOut) + data_size);
-        }
+        decodeElements(static_cast<T*>(dataOut), data_size, arrayCodecs);
     }
 
     // convenience overload for a full buffer (forwards to the pointer form)
     template<class T, class COMPRESSOR>
     inline void decompress(const std::vector<char> & buffer, void * dataOut,
                            const std::size_t data_size, const COMPRESSOR & compressor,
-                           const bool reverseBytes=false) {
-        decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor, reverseBytes);
+                           const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
+        decompress<T>(buffer.data(), buffer.size(), dataOut, data_size, compressor, arrayCodecs);
     }
 
     // Parse the n5 chunk header at the start of `buffer`. Returns true for varlen
@@ -241,7 +318,7 @@ namespace util {
                                const std::vector<char> & buffer,
                                void * dataOut,
                                const COMPRESSOR & compressor,
-                               const bool reverseBytes=false) {
+                               const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
 
         const bool is_zarr = chunk.isZarr();
         std::size_t chunk_size = chunk.defaultSize();
@@ -253,12 +330,13 @@ namespace util {
         }
 
         // decode straight past the header (no copy / memmove of the payload)
+        // (zarr v3 element codecs are undone by decompress)
         decompress<T>(buffer.data() + header_length, buffer.size() - header_length,
-                      dataOut, chunk_size, compressor);
+                      dataOut, chunk_size, compressor,
+                      is_zarr ? arrayCodecs : ArrayCodecs());
 
-        // reverse the endianness for N5 data and big-endian zarr v3 data
-        // (unless datatype is byte)
-        if((!is_zarr || reverseBytes) && sizeof(T) > 1) {
+        // reverse the endianness for N5 data (unless datatype is byte)
+        if(!is_zarr && sizeof(T) > 1) {
             util::reverseEndiannessInplace<T>(static_cast<T*>(dataOut),
                                               static_cast<T*>(dataOut) + chunk_size);
         }

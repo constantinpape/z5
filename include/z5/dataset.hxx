@@ -36,6 +36,7 @@ namespace z5 {
                                                     chunkSize_(std::accumulate(chunkShape_.begin(), chunkShape_.end(), std::size_t(1), std::multiplies<std::size_t>())),
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     dimensionNames_(metadata.dimensionNames),
+                                                    transposeOrder_(metadata.transposeOrder),
                                                     chunking_(shape_, chunkShape_)
         {}
 
@@ -100,6 +101,9 @@ namespace z5 {
         // sharding (zarr v3) - default: not sharded; overridden by ShardedDataset
         virtual bool isSharded() const {return false;}
         virtual types::ShapeType shardShape() const {return types::ShapeType();}
+
+        // zarr v3 transpose codec order (numpy ``transpose`` semantics); empty if none
+        inline const std::vector<std::size_t> & transposeOrder() const {return transposeOrder_;}
 
         // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
         // do a single read-modify-write per shard and parallelize across shards. Default
@@ -171,6 +175,7 @@ namespace z5 {
         std::size_t chunkSize_;
         std::string zarrDelimiter_;
         std::vector<std::optional<std::string>> dimensionNames_;
+        std::vector<std::size_t> transposeOrder_;
 
         util::Blocking chunking_;
     };
@@ -180,17 +185,19 @@ namespace z5 {
     template<class T>
     class MixinTyped {
     public:
-        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)),
-                                                       reverseBytes_(metadata.bigEndian && sizeof(T) > 1) {
+        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)) {
+            arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1;
+            arrayCodecs_.order = metadata.transposeOrder;
+            arrayCodecs_.chunkShape = metadata.chunkShape;
             init_compressor(metadata);
         }
         ~MixinTyped(){}
 
     protected:
         T fillValue_;
-        // chunk data is stored big-endian (zarr v3 ``bytes`` codec, endian "big")
-        // and must be byte-swapped on encode / decode
-        bool reverseBytes_;
+        // zarr v3 element codecs (transpose, big-endian ``bytes``) applied around
+        // the compressor on encode / decode; identity for zarr v2 and n5
+        util::ArrayCodecs arrayCodecs_;
         // unique ptr to hold child classes of compressor
         std::unique_ptr<compression::CompressorBase<T>> compressor_;
 

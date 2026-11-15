@@ -91,12 +91,12 @@ namespace gcs {
         inline void decompress(const std::vector<char> & buffer,
                                void * dataOut,
                                const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
                                void * dataOut,
                                const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::reverseBytes_);
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
         }
 
         inline bool checkVarlenChunk(const types::ShapeType & chunkId, std::size_t & chunkSize) const {
