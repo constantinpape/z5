@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -325,10 +326,59 @@ namespace z5 {
         }
 
 
+        // The spec requires refusing an array with a metadata field we don't
+        // know, unless it is an extension object marked "must_understand": false.
+        static void checkV3Fields(const nlohmann::json & j) {
+            static const std::set<std::string> known = {
+                "zarr_format", "node_type", "shape", "data_type", "chunk_grid",
+                "chunk_key_encoding", "fill_value", "codecs", "attributes",
+                "storage_transformers", "dimension_names"
+            };
+            for(const auto & item : j.items()) {
+                if(known.count(item.key())) {
+                    continue;
+                }
+                const auto & val = item.value();
+                const auto mu = val.is_object() ? val.find("must_understand") : val.end();
+                if(val.is_object() && mu != val.end() && mu->is_boolean() && !mu->get<bool>()) {
+                    continue;
+                }
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported metadata field: " +
+                                         item.key());
+            }
+            // storage transformers change where and how chunks are stored; z5 supports none
+            const auto st = j.find("storage_transformers");
+            if(st != j.end() && !st->is_null() && !st->empty()) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: storage_transformers are not supported");
+            }
+        }
+
+        // z5 reads the shard index as little-endian uint64 pairs at the end of
+        // the shard, followed by a crc32c; reading another layout would make
+        // every shard look empty
+        static void checkV3ShardIndex(const nlohmann::json & scfg) {
+            const auto loc = scfg.find("index_location");
+            if(loc != scfg.end() && *loc != "end") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: shard index_location " +
+                                         loc->dump() + " is not supported");
+            }
+            const auto & ic = scfg.at("index_codecs");
+            const bool supported = ic.is_array() && ic.size() == 2 &&
+                ic[0].at("name") == "bytes" &&
+                ic[0].contains("configuration") &&
+                ic[0].at("configuration").value("endian", std::string()) == "little" &&
+                ic[1].at("name") == "crc32c";
+            if(!supported) {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: shard index_codecs other than "
+                                         "little-endian bytes + crc32c are not supported: " + ic.dump());
+            }
+        }
+
         void fromJsonV3(const nlohmann::json & j) {
             if(j.at("node_type") != "array") {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: node_type is not 'array'");
             }
+            checkV3Fields(j);
             try {
                 dtype = types::Datatypes::n5ToDtype().at(j.at("data_type"));
             } catch(std::out_of_range) {
@@ -337,14 +387,27 @@ namespace z5 {
             shape = types::ShapeType(j.at("shape").begin(), j.at("shape").end());
 
             // outer chunk grid (== shard shape when sharded, else inner chunk shape)
-            const auto & gridShape = j.at("chunk_grid").at("configuration").at("chunk_shape");
+            const auto & grid = j.at("chunk_grid");
+            if(grid.at("name") != "regular") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported chunk_grid: " +
+                                         grid.at("name").dump());
+            }
+            const auto & gridShape = grid.at("configuration").at("chunk_shape");
             types::ShapeType outerShape(gridShape.begin(), gridShape.end());
 
             // chunk key encoding
             const auto & cke = j.at("chunk_key_encoding");
             chunkKeyEncoding = cke.at("name").get<std::string>();
+            if(chunkKeyEncoding != "default" && chunkKeyEncoding != "v2") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: unsupported chunk_key_encoding: " +
+                                         chunkKeyEncoding);
+            }
             if(cke.contains("configuration") && cke.at("configuration").contains("separator")) {
                 zarrDelimiter = cke.at("configuration").at("separator").get<std::string>();
+                if(zarrDelimiter != "/" && zarrDelimiter != ".") {
+                    throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: invalid chunk key separator: " +
+                                             zarrDelimiter);
+                }
             } else {
                 zarrDelimiter = (chunkKeyEncoding == "v2") ? "." : "/";
             }
@@ -380,6 +443,7 @@ namespace z5 {
                     chunkShape = types::ShapeType(innerShapeJson.begin(), innerShapeJson.end());
                     shardShape = outerShape;
                     innerCodecs = &scfg.at("codecs");
+                    checkV3ShardIndex(scfg);
                     break;
                 }
             }
