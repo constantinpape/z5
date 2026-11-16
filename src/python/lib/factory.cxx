@@ -31,7 +31,8 @@ namespace z5 {
                                    const std::vector<std::size_t> & shards,
                                    const std::string & chunk_key_encoding,
                                    const std::vector<std::optional<std::string>> & dimension_names,
-                                   const std::vector<std::size_t> & transpose_order){
+                                   const std::vector<std::size_t> & transpose_order,
+                                   const bool crc32c){
                 DatasetOptions options;
                 options.compressor = compression;
                 types::jsonToCompressionType(nlohmann::json::parse(copts), options.compressionOptions);
@@ -42,6 +43,7 @@ namespace z5 {
                 options.shardShape = shards;
                 options.dimensionNames = dimension_names;
                 options.transposeOrder = transpose_order;
+                options.crc32c = crc32c;
                 return createDataset(root, key, dtype, shape, chunk_shape, options);
             },
             nb::arg("root"), nb::arg("key"),
@@ -55,6 +57,7 @@ namespace z5 {
             nb::arg("chunk_key_encoding")=std::string("default"),
             nb::arg("dimension_names")=std::vector<std::optional<std::string>>(),
             nb::arg("transpose_order")=std::vector<std::size_t>(),
+            nb::arg("crc32c")=false,
             nb::call_guard<nb::gil_scoped_release>());
     }
 
