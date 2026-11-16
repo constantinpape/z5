@@ -599,6 +599,56 @@ class TestInteropZarrPyV3Transpose(unittest.TestCase):
         self._z5_create(sharded=True)
 
 
+@requires_z5_v3_sharding
+@requires_zarr_v3
+class TestInteropZarrPyV3ShardIndex(unittest.TestCase):
+    """zarr-python shards with a non-default index layout."""
+    path = "interop_shard_index.zr"
+    shape = (37, 29)
+    chunks = (8, 8)
+    shards = (16, 16)
+
+    def tearDown(self):
+        try:
+            rmtree(self.path)
+        except OSError:
+            pass
+
+    def test_index_layouts(self):
+        from zarr.codecs import BytesCodec, Crc32cCodec, GzipCodec, ShardingCodec
+        for location in ("start", "end"):
+            for endian in ("little", "big"):
+                for checksum in (True, False):
+                    name = "%s_%s_%s" % (location, endian, "crc" if checksum else "nocrc")
+                    index_codecs = [BytesCodec(endian=endian)]
+                    if checksum:
+                        index_codecs.append(Crc32cCodec())
+                    sharding = ShardingCodec(chunk_shape=self.chunks,
+                                             codecs=[BytesCodec(), GzipCodec()],
+                                             index_codecs=index_codecs,
+                                             index_location=location)
+                    za = zarr.create_array(store=self.path, name=name, shape=self.shape,
+                                           chunks=self.shards, dtype="int32",
+                                           serializer=sharding, compressors=None,
+                                           zarr_format=3)
+                    data = np.random.randint(0, 1000, size=self.shape).astype("int32")
+                    # leave the last inner chunks unwritten -> empty slots
+                    data[32:, 24:] = 0
+                    za[:] = data
+
+                    # zarr -> z5
+                    ds = z5py.File(self.path, mode="a")[name]
+                    self.assertEqual(ds.shards, self.shards)
+                    np.testing.assert_array_equal(ds[:], data, err_msg=name)
+
+                    # z5 -> zarr: partial write, z5 rebuilds the shards in their layout
+                    new = np.random.randint(0, 1000, size=(20, 11)).astype("int32")
+                    ds[3:23, 10:21] = new
+                    data[3:23, 10:21] = new
+                    out = zarr.open_array(store=self.path, path=name, mode="r")[:]
+                    np.testing.assert_array_equal(out, data, err_msg=name)
+
+
 @requires_z5_v3
 @requires_tensorstore
 class TestInteropTsV3(InteropMixin, unittest.TestCase):
