@@ -62,6 +62,26 @@ namespace compression {
             }
         }
 
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            // the blosc header holds the decompressed and compressed sizes
+            if(nBytesIn < BLOSC_MIN_HEADER_LENGTH) {
+                throw std::runtime_error("Blosc decompression failed: chunk is too short");
+            }
+            size_t nbytes = 0, cbytes = 0, blocksize = 0;
+            blosc_cbuffer_sizes(dataIn, &nbytes, &cbytes, &blocksize);
+            if(cbytes > nBytesIn) {
+                throw std::runtime_error("Blosc decompression failed: chunk is truncated");
+            }
+            out.resize(nbytes);
+            if(nbytes == 0) {
+                return;
+            }
+            const int sizeDecompressed = blosc_decompress_ctx(dataIn, out.data(), nbytes, nthreads_);
+            if(sizeDecompressed < 0 || static_cast<size_t>(sizeDecompressed) != nbytes) {
+                throw std::runtime_error("Blosc decompression failed");
+            }
+        }
+
         inline types::Compressor type() const {
             return types::blosc;
         }
