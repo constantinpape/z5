@@ -90,9 +90,9 @@ namespace util {
 
     template<class T, class COMPRESSOR>
     inline void compress(const T * dataIn, const std::size_t dataSize, std::vector<char> & buffer, const COMPRESSOR & compressor) {
-        // if we have raw compression (== no compression = enum 0), we bypass the compression step
-        // but need to copy the data
-        if(compressor->type() == 0) {
+        // if we have raw compression (no compression and no codec chain), we bypass
+        // the compression step but need to copy the data
+        if(compressor->isRaw()) {
             buffer.resize(dataSize * sizeof(T));
             memcpy(&buffer[0], dataIn, dataSize * sizeof(T));
         } else {
@@ -232,7 +232,7 @@ namespace util {
                            const std::size_t data_size, const COMPRESSOR & compressor,
                            const ArrayCodecs & arrayCodecs=ArrayCodecs()) {
         // we don't need to decompress for raw compression
-        if(compressor->type() == 0) {
+        if(compressor->isRaw()) {
             // bound the copy by the output capacity: a corrupt chunk (or corrupt shard
             // slot length) must not overflow the caller's buffer
             if(nBytes > data_size * sizeof(T)) {
