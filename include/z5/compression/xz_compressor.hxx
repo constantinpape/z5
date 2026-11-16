@@ -41,7 +41,7 @@ namespace compression {
 
             // initialize lzma stream
             // TODO is second argument (= preset) the level ?!
-            if(lzma_easy_encoder(&lzs, level_, LZMA_CHECK_CRC64) != LZMA_OK) {
+            if(lzma_easy_encoder(&lzs, level_, check_) != LZMA_OK) {
                 throw(std::runtime_error("Initializing xz stream failed"));
             }
 
@@ -136,15 +136,26 @@ namespace compression {
 
         inline void getOptions(types::CompressionOptions & opts) const {
             opts["level"] = level_;
+            if(hasCheckOption_) {
+                opts["check"] = static_cast<int>(check_);
+            }
         }
 
     private:
         void init(const DatasetMetadata & metadata) {
-            level_ = std::get<int>(metadata.compressionOptions.at("level"));
+            const auto & cOpts = metadata.compressionOptions;
+            level_ = std::get<int>(cOpts.at("level"));
+            // integrity check of the xz container (zarr v3 ``numcodecs.lzma``);
+            // the values are liblzma's lzma_check, CRC64 by default
+            const auto check = cOpts.find("check");
+            hasCheckOption_ = check != cOpts.end();
+            check_ = hasCheckOption_ ? static_cast<lzma_check>(std::get<int>(check->second)) : LZMA_CHECK_CRC64;
         }
 
         // compression level
         int level_;
+        lzma_check check_;
+        bool hasCheckOption_;
 
     };
 
