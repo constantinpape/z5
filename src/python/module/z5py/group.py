@@ -203,6 +203,7 @@ class Group(Mapping):
                        chunk_key_encoding='default',
                        dimension_names=None,
                        transpose_order=None,
+                       crc32c=False,
                        **compression_options):
         """ Create a new dataset.
 
@@ -218,15 +219,19 @@ class Group(Mapping):
             name (str): name of the new dataset.
             shape (tuple): shape of the new dataset. If no shape is given,
                 the ``data`` argument must be given. (default: None).
-            dtype (str or np.dtpye): datatype of the new dataset. If no dtype is given,
-                the ``data`` argument must be given (default: None).
+            dtype (str or np.dtype): datatype of the new dataset. If no dtype is given,
+                the ``data`` argument must be given. ``str`` (or numpy's StringDType, or
+                object) makes a variable-length string dataset (zarr only), stored as
+                zarr-python stores ``str`` arrays. ``bool``, ``float16``, ``complex64`` and
+                ``complex128`` are zarr only too (default: None).
             data (np.ndarray): data used to infer shape, dtype and fill the dataset
                 upon creation (default: None).
             chunks (tuple): chunk sizes of the new dataset. If no chunks are given,
                 a suitable default value for the number of dimensions will be used (default: None).
             compression (str): name of the compression library used to compress chunks.
                 If no compression is given, the default for the current format is used (default: None).
-            fillvalue (float): fillvalue for empty chunks (only zarr) (default: 0).
+            fillvalue (scalar): value of elements in chunks that were never written,
+                kept exactly in the dataset's dtype (only zarr) (default: 0).
             n_threads (int): number of threads used for chunk I/O (default: 1).
             shards (tuple): shard shape, a multiple of ``chunks``; enables the
                 ``sharding_indexed`` codec (only zarr v3) (default: None).
@@ -238,6 +243,9 @@ class Group(Mapping):
                 stored, with ``numpy.transpose`` semantics (e.g. ``(2, 1, 0)`` stores
                 chunks in Fortran order); adds the ``transpose`` codec (only zarr v3)
                 (default: None).
+            crc32c (bool): append a CRC32C checksum to every chunk (inner chunk when
+                sharded), verified on read; adds the ``crc32c`` codec after the
+                compressor (only zarr v3) (default: False).
             **compression_options: options for the compression library.
 
         Returns:
@@ -262,6 +270,7 @@ class Group(Mapping):
                                         chunk_key_encoding=chunk_key_encoding,
                                         dimension_names=dimension_names,
                                         transpose_order=transpose_order,
+                                        crc32c=crc32c,
                                         **compression_options)
 
         return Dataset._create_dataset(self, name, shape, dtype,
@@ -273,7 +282,8 @@ class Group(Mapping):
                                        shards=shards,
                                        chunk_key_encoding=chunk_key_encoding,
                                        dimension_names=dimension_names,
-                                       transpose_order=transpose_order)
+                                       transpose_order=transpose_order,
+                                       crc32c=crc32c)
 
     def require_dataset(self, name, shape,
                         dtype=None, chunks=None,
