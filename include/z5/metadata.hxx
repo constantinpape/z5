@@ -9,6 +9,7 @@
 #include <iomanip>
 
 #include "z5/types/types.hxx"
+#include "z5/types/fill_value.hxx"
 
 
 namespace z5 {
@@ -43,7 +44,7 @@ namespace z5 {
             const bool isZarr,
             const types::Compressor compressor=types::raw,
             const types::CompressionOptions & compressionOptions=types::CompressionOptions(),
-            const double fillValue=0,
+            const types::FillValue & fillValue=0.,
             const std::string & zarrDelimiter=".",
             const int zarrFormat=2,
             const std::string & chunkKeyEncoding="default",
@@ -55,7 +56,7 @@ namespace z5 {
                 chunkShape(chunkShape),
                 compressor(compressor),
                 compressionOptions(compressionOptions),
-                fillValue(fillValue),
+                fillValue(types::normalizeFillValue(fillValue, dtype, false)),
                 zarrDelimiter(zarrDelimiter),
                 chunkKeyEncoding(chunkKeyEncoding),
                 shardShape(shardShape),
@@ -112,13 +113,7 @@ namespace z5 {
             j["shape"] = shape;
             j["chunks"] = chunkShape;
 
-            if (std::isnan(fillValue)) {
-              j["fill_value"] = "NaN";
-            } else if (std::isinf(fillValue)) {
-              j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
-            } else {
-              j["fill_value"] = fillValue;
-            }
+            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
 
             j["filters"] = nullptr;
             j["order"] = "C";
@@ -155,22 +150,7 @@ namespace z5 {
             shape = types::ShapeType(j["shape"].begin(), j["shape"].end());
             chunkShape = types::ShapeType(j["chunks"].begin(), j["chunks"].end());
 
-            const auto & fillValJson = j["fill_value"];
-            if(fillValJson.type() == nlohmann::json::value_t::string) {
-                if (fillValJson == "NaN") {
-                    fillValue = std::numeric_limits<double>::quiet_NaN();
-                } else if (fillValJson == "Infinity") {
-                    fillValue = std::numeric_limits<double>::infinity();
-                } else if (fillValJson == "-Infinity") {
-                    fillValue = -std::numeric_limits<double>::infinity();
-                } else {
-                    throw std::runtime_error("Invalid string value for fillValue");
-                }
-            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
-                fillValue = std::numeric_limits<double>::quiet_NaN();
-            } else {
-                fillValue = static_cast<double>(fillValJson);
-            }
+            fillValue = types::fillValueFromJson(j["fill_value"], dtype, 2);
 
             auto jIt = j.find("dimension_separator");
             if(jIt != j.end()) {
@@ -249,7 +229,8 @@ namespace z5 {
                 compressionOptions["useZlib"] = false;
             }
 
-            fillValue = 0;
+            // n5 has no fill value
+            fillValue = types::normalizeFillValue(0., dtype, false);
         }
 
 
@@ -269,26 +250,13 @@ namespace z5 {
             j["chunk_key_encoding"]["name"] = chunkKeyEncoding;
             j["chunk_key_encoding"]["configuration"]["separator"] = zarrDelimiter;
 
-            if(std::isnan(fillValue)) {
-                j["fill_value"] = "NaN";
-            } else if(std::isinf(fillValue)) {
-                j["fill_value"] = fillValue > 0 ? "Infinity" : "-Infinity";
-            } else {
-                // zarr v3 expects an integer fill_value for integer data types
-                switch(dtype) {
-                    case types::int8: case types::int16: case types::int32: case types::int64:
-                        j["fill_value"] = static_cast<int64_t>(fillValue); break;
-                    case types::uint8: case types::uint16: case types::uint32: case types::uint64:
-                        j["fill_value"] = static_cast<uint64_t>(fillValue); break;
-                    default:
-                        j["fill_value"] = fillValue;
-                }
-            }
+            types::fillValueToJson(dtype, fillValue, j["fill_value"]);
 
             nlohmann::json innerCodecs;
             types::writeV3CodecsToJson(compressor, compressionOptions,
                                        types::datatypeSize(dtype), innerCodecs, bigEndian,
-                                       transposeOrder);
+                                       transposeOrder, crc32cBeforeCompressor,
+                                       crc32cAfterCompressor);
 
             if(sharded) {
                 nlohmann::json sharding;
@@ -298,13 +266,15 @@ namespace z5 {
                 nlohmann::json indexCodecs = nlohmann::json::array();
                 nlohmann::json bytesCodec;
                 bytesCodec["name"] = "bytes";
-                bytesCodec["configuration"]["endian"] = "little";
+                bytesCodec["configuration"]["endian"] = shardIndexBigEndian ? "big" : "little";
                 indexCodecs.push_back(bytesCodec);
-                nlohmann::json crcCodec;
-                crcCodec["name"] = "crc32c";
-                indexCodecs.push_back(crcCodec);
+                if(shardIndexChecksum) {
+                    nlohmann::json crcCodec;
+                    crcCodec["name"] = "crc32c";
+                    indexCodecs.push_back(crcCodec);
+                }
                 sharding["configuration"]["index_codecs"] = indexCodecs;
-                sharding["configuration"]["index_location"] = "end";
+                sharding["configuration"]["index_location"] = shardIndexAtStart ? "start" : "end";
                 j["codecs"] = nlohmann::json::array({sharding});
             } else {
                 j["codecs"] = innerCodecs;
@@ -353,25 +323,29 @@ namespace z5 {
             }
         }
 
-        // z5 reads the shard index as little-endian uint64 pairs at the end of
-        // the shard, followed by a crc32c; reading another layout would make
-        // every shard look empty
-        static void checkV3ShardIndex(const nlohmann::json & scfg) {
-            const auto loc = scfg.find("index_location");
-            if(loc != scfg.end() && *loc != "end") {
-                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: shard index_location " +
-                                         loc->dump() + " is not supported");
+        // read the shard index layout: index_location "end" (the default) or
+        // "start", and index_codecs = bytes (either endian) optionally followed
+        // by crc32c; any other index codec can't be decoded and is refused
+        void readV3ShardIndex(const nlohmann::json & scfg) {
+            const std::string loc = scfg.value("index_location", std::string("end"));
+            if(loc != "end" && loc != "start") {
+                throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: invalid shard index_location: " + loc);
             }
+            shardIndexAtStart = loc == "start";
+
             const auto & ic = scfg.at("index_codecs");
-            const bool supported = ic.is_array() && ic.size() == 2 &&
+            const bool supported = ic.is_array() && (ic.size() == 1 || ic.size() == 2) &&
                 ic[0].at("name") == "bytes" &&
-                ic[0].contains("configuration") &&
-                ic[0].at("configuration").value("endian", std::string()) == "little" &&
-                ic[1].at("name") == "crc32c";
+                (ic.size() == 1 || ic[1].at("name") == "crc32c");
             if(!supported) {
                 throw std::runtime_error("z5.DatasetMetadata.fromJsonV3: shard index_codecs other than "
-                                         "little-endian bytes + crc32c are not supported: " + ic.dump());
+                                         "bytes, optionally followed by crc32c, are not supported: " +
+                                         ic.dump());
             }
+            const auto & bytesCfg = ic[0].contains("configuration") ? ic[0].at("configuration")
+                                                                     : nlohmann::json::object();
+            shardIndexBigEndian = types::readV3BytesEndian(bytesCfg, sizeof(uint64_t));
+            shardIndexChecksum = ic.size() == 2;
         }
 
         void fromJsonV3(const nlohmann::json & j) {
@@ -413,22 +387,7 @@ namespace z5 {
             }
 
             // fill value
-            const auto & fillValJson = j.at("fill_value");
-            if(fillValJson.type() == nlohmann::json::value_t::string) {
-                if(fillValJson == "NaN") {
-                    fillValue = std::numeric_limits<double>::quiet_NaN();
-                } else if(fillValJson == "Infinity") {
-                    fillValue = std::numeric_limits<double>::infinity();
-                } else if(fillValJson == "-Infinity") {
-                    fillValue = -std::numeric_limits<double>::infinity();
-                } else {
-                    throw std::runtime_error("Invalid string value for fillValue");
-                }
-            } else if(fillValJson.type() == nlohmann::json::value_t::null) {
-                fillValue = 0;
-            } else {
-                fillValue = static_cast<double>(fillValJson);
-            }
+            fillValue = types::fillValueFromJson(j.at("fill_value"), dtype, 3);
 
             // codecs: detect sharding, recover inner chunk shape + inner compressor
             const auto & codecs = j.at("codecs");
@@ -443,7 +402,7 @@ namespace z5 {
                     chunkShape = types::ShapeType(innerShapeJson.begin(), innerShapeJson.end());
                     shardShape = outerShape;
                     innerCodecs = &scfg.at("codecs");
-                    checkV3ShardIndex(scfg);
+                    readV3ShardIndex(scfg);
                     break;
                 }
             }
@@ -456,9 +415,10 @@ namespace z5 {
                                          "sharding_indexed are not supported");
             }
 
-            types::readV3CodecsFromJson(
-                *innerCodecs, types::datatypeSize(dtype), shape.size(),
-                compressor, compressionOptions, bigEndian, transposeOrder);
+            types::readV3CodecsFromJson(*innerCodecs, types::datatypeSize(dtype), shape.size(),
+                                        compressor, compressionOptions, bigEndian,
+                                        transposeOrder, crc32cBeforeCompressor,
+                                        crc32cAfterCompressor);
 
             // optional names of the dimensions; a null name is an unnamed dimension
             dimensionNames.clear();
@@ -489,7 +449,10 @@ namespace z5 {
         types::Compressor compressor;
         types::CompressionOptions compressionOptions;
 
-        double fillValue;
+        // the fill value: an exact integer for integer types, a double for
+        // float types; see types/fill_value.hxx. Read the typed value with
+        // fillValueAs<T>().
+        types::FillValue fillValue;
         std::string zarrDelimiter;
 
         // zarr v3 specific: chunk key encoding ("default"/"v2") and the shard
@@ -504,9 +467,26 @@ namespace z5 {
         // unnamed dimension; empty if the array has no dimension names
         std::vector<std::optional<std::string>> dimensionNames;
 
+        // zarr v3 specific: layout of the shard index (sharding codec's
+        // index_location and index_codecs); new arrays use the defaults
+        bool shardIndexAtStart = false;
+        bool shardIndexBigEndian = false;
+        bool shardIndexChecksum = true;
+
+        // zarr v3 specific: number of ``crc32c`` codecs before and after the
+        // compressor (without a compressor, all count as after it)
+        unsigned crc32cBeforeCompressor = 0;
+        unsigned crc32cAfterCompressor = 0;
+
         // zarr v3 specific: composed permutation of the ``transpose`` codecs
         // (numpy ``transpose`` semantics); empty == no transpose
         std::vector<std::size_t> transposeOrder;
+
+        // the fill value as the dataset's element type
+        template<class T>
+        T fillValueAs() const {
+            return types::fillValueAs<T>(fillValue);
+        }
 
         // metadata values that are fixed for now
         // zarr format is fixed to 2
@@ -566,7 +546,9 @@ namespace z5 {
     struct DatasetOptions {
         std::string compressor = "raw";
         types::CompressionOptions compressionOptions;
-        double fillValue = 0;
+        // any alternative is accepted and converted to the data type's form
+        // (see types::FillValue); int64_t / uint64_t keep 64-bit integers exact
+        types::FillValue fillValue = 0.;
         std::string zarrDelimiter = ".";
         int zarrFormat = 2;
         // zarr v3 only
@@ -578,6 +560,8 @@ namespace z5 {
         std::vector<std::optional<std::string>> dimensionNames;
         // zarr v3 only; the transpose codec's permutation, empty: no transpose
         std::vector<std::size_t> transposeOrder;
+        // zarr v3 only; add a crc32c codec after the compressor
+        bool crc32c = false;
     };
 
 
@@ -614,6 +598,13 @@ namespace z5 {
         // add the default compression options if necessary
         // we need to make a copy of the compression options, because they are const
         auto internalCompressionOptions = options.compressionOptions;
+        // zarr v3 names the framing: "gzip" is the core gzip codec, "zlib" is
+        // numcodecs.zlib. (The generic default, zlib framing for zarr, would store
+        // zlib chunks under the gzip codec.)
+        if(createAsZarr && zarrFormat == 3 && internalCompressor == types::zlib &&
+           internalCompressionOptions.find("useZlib") == internalCompressionOptions.end()) {
+            internalCompressionOptions["useZlib"] = compressor == "zlib";
+        }
         types::defaultCompressionOptions(internalCompressor, internalCompressionOptions, createAsZarr);
 
         // sharding is only valid for zarr v3, and the shard shape must be a
@@ -662,13 +653,23 @@ namespace z5 {
             }
         }
 
+        if(options.crc32c && !(createAsZarr && zarrFormat == 3)) {
+            throw std::runtime_error("z5::createDatasetMetadata: crc32c is only supported for zarr v3");
+        }
+
+        // zarr v3 refuses a non-integral fill value for integer types; zarr v2
+        // and n5 truncate it, as before
+        const types::FillValue fillValue = types::normalizeFillValue(options.fillValue, internalDtype,
+                                                                     createAsZarr && zarrFormat == 3);
+
         metadata = DatasetMetadata(internalDtype, shape,
                                    chunkShape, createAsZarr,
                                    internalCompressor, internalCompressionOptions,
-                                   options.fillValue, options.zarrDelimiter,
+                                   fillValue, options.zarrDelimiter,
                                    zarrFormat, options.chunkKeyEncoding, shardShape,
                                    dimensionNames);
         metadata.transposeOrder = order;
+        metadata.crc32cAfterCompressor = options.crc32c ? 1 : 0;
     }
 
 
