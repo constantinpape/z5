@@ -218,12 +218,9 @@ namespace util {
 
     private:
         void init() {
+            // a zero-dimensional shape has a single block with an empty coordinate:
+            // the per-dimension loops below do nothing and the product is 1
             const unsigned ndim = shape_.size();
-            if(ndim == 0) {
-                // guard the stride computation below (blockStrides_[ndim - 1] would
-                // be an out-of-bounds write for a zero-dimensional shape)
-                throw std::invalid_argument("z5: zero-dimensional shapes are not supported");
-            }
             blocksPerDimension_.resize(ndim);
 
             for(int d = 0; d < ndim; ++d) {
@@ -235,8 +232,11 @@ namespace util {
 
             // get the block strides
             blockStrides_.resize(ndim);
+            if(ndim == 0) {
+                return;
+            }
             blockStrides_[ndim - 1] = 1;
-            for(int d = ndim - 2; d >= 0; --d) {
+            for(int d = static_cast<int>(ndim) - 2; d >= 0; --d) {
                 blockStrides_[d] = blockStrides_[d + 1] * blocksPerDimension_[d + 1];
             }
         }
