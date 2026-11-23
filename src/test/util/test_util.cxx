@@ -1,6 +1,8 @@
 #include <random>
 #include "gtest/gtest.h"
 #include "z5/util/util.hxx"
+#include "z5/util/blocking.hxx"
+#include "z5/util/base64.hxx"
 
 
 namespace test_util_detail {
@@ -118,6 +120,61 @@ namespace util {
                     EXPECT_EQ(out[i], expected[i]);
                 }
             }
+        }
+    }
+
+
+    // a zero-dimensional grid is a single point with an empty coordinate
+    TEST(RegularGridTest, ZeroDim) {
+        std::vector<std::vector<size_t>> out;
+        makeRegularGrid({}, {}, out);
+        ASSERT_EQ(out.size(), 1u);
+        EXPECT_TRUE(out[0].empty());
+    }
+
+    // a zero-dimensional shape has one block with an empty coordinate and shape
+    TEST(BlockingTest, ZeroDim) {
+        const Blocking blocking({}, {});
+        EXPECT_EQ(blocking.numberOfBlocks(), 1u);
+        EXPECT_TRUE(blocking.blocksPerDimension().empty());
+
+        types::ShapeType coord{7}, begin{7}, shape{7};
+        blocking.blockIdToBlockCoordinate(0, coord);
+        EXPECT_TRUE(coord.empty());
+        EXPECT_EQ(blocking.blockCoordinatesToBlockId(coord), 0u);
+        EXPECT_TRUE(blocking.checkBlockCoordinate(coord));
+        blocking.getBlockBeginAndShape(coord, begin, shape);
+        EXPECT_TRUE(begin.empty());
+        EXPECT_TRUE(shape.empty());
+
+        std::vector<types::ShapeType> blocks;
+        blocking.getBlocksOverlappingRoi({}, {}, blocks);
+        ASSERT_EQ(blocks.size(), 1u);
+        EXPECT_TRUE(blocks[0].empty());
+
+        types::ShapeType beginInRoi, shapeInRoi, beginInBlock;
+        EXPECT_TRUE(blocking.getCoordinatesInRoi(coord, {}, {}, beginInRoi, shapeInRoi, beginInBlock));
+    }
+
+    // base64 as zarr-python writes bytes fill values (RFC 4648, padded)
+    TEST(Base64Test, RoundTrip) {
+        const std::vector<std::pair<std::string, std::string>> cases{
+            {"", ""}, {"a", "YQ=="}, {"ab", "YWI="}, {"abc", "YWJj"},
+            {std::string("\x00\xff\x01", 3), "AP8B"}, {std::string(1, '\xfb'), "+w=="}, {"\xff\xff", "//8="}};
+        for(const auto & c : cases) {
+            EXPECT_EQ(base64Encode(c.first), c.second);
+            EXPECT_EQ(base64Decode(c.second), c.first);
+        }
+        std::string all;
+        for(int i = 0; i < 256; ++i) {
+            all += static_cast<char>(i);
+        }
+        EXPECT_EQ(base64Decode(base64Encode(all)), all);
+    }
+
+    TEST(Base64Test, Invalid) {
+        for(const std::string bad : {"YQ", "YQ=", "Y===", "YQ==YQ==", "YW!=", "=YWI", "YW=I"}) {
+            EXPECT_THROW(base64Decode(bad), std::runtime_error) << bad;
         }
     }
 
