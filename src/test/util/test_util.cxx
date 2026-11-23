@@ -1,6 +1,7 @@
 #include <random>
 #include "gtest/gtest.h"
 #include "z5/util/util.hxx"
+#include "z5/util/blocking.hxx"
 
 
 namespace test_util_detail {
@@ -119,6 +120,39 @@ namespace util {
                 }
             }
         }
+    }
+
+
+    // a zero-dimensional grid is a single point with an empty coordinate
+    TEST(RegularGridTest, ZeroDim) {
+        std::vector<std::vector<size_t>> out;
+        makeRegularGrid({}, {}, out);
+        ASSERT_EQ(out.size(), 1u);
+        EXPECT_TRUE(out[0].empty());
+    }
+
+    // a zero-dimensional shape has one block with an empty coordinate and shape
+    TEST(BlockingTest, ZeroDim) {
+        const Blocking blocking({}, {});
+        EXPECT_EQ(blocking.numberOfBlocks(), 1u);
+        EXPECT_TRUE(blocking.blocksPerDimension().empty());
+
+        types::ShapeType coord{7}, begin{7}, shape{7};
+        blocking.blockIdToBlockCoordinate(0, coord);
+        EXPECT_TRUE(coord.empty());
+        EXPECT_EQ(blocking.blockCoordinatesToBlockId(coord), 0u);
+        EXPECT_TRUE(blocking.checkBlockCoordinate(coord));
+        blocking.getBlockBeginAndShape(coord, begin, shape);
+        EXPECT_TRUE(begin.empty());
+        EXPECT_TRUE(shape.empty());
+
+        std::vector<types::ShapeType> blocks;
+        blocking.getBlocksOverlappingRoi({}, {}, blocks);
+        ASSERT_EQ(blocks.size(), 1u);
+        EXPECT_TRUE(blocks[0].empty());
+
+        types::ShapeType beginInRoi, shapeInRoi, beginInBlock;
+        EXPECT_TRUE(blocking.getCoordinatesInRoi(coord, {}, {}, beginInRoi, shapeInRoi, beginInBlock));
     }
 
 }

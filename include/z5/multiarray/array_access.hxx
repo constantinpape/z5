@@ -143,7 +143,7 @@ namespace multiarray {
                           &buffer[0], chunkSize);
 
             // reverse the endianness for N5 data (unless datatype is byte)
-            if(!isZarr && sizeof(T) > 1) {
+            if(!isZarr && sizeof(T) > 1 && !util::isVlenElement<T>) {
                 util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
             }
 
