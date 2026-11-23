@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "z5/dataset.hxx"
 
@@ -26,6 +27,15 @@ namespace generic {
             case types::uint64:  return make(uint64_t());
             case types::float32: return make(float());
             case types::float64: return make(double());
+            // bool: one byte per element, 0 or 1 (numpy's layout); a
+            // std::vector<bool> buffer couldn't hold it
+            case types::boolean: return make(uint8_t());
+            // float16: the half-precision bits (types/float16.hxx)
+            case types::float16: return make(uint16_t());
+            // variable-length strings: chunks are std::string elements, encoded by
+            // the vlen codecs (util/vlen.hxx)
+            case types::vlen_utf8: return make(std::string());
+            case types::vlen_bytes: return make(std::string());
             default:             return fallback(dtype);
         }
     }
