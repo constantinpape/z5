@@ -40,7 +40,8 @@ namespace generic {
         //
 
         inline void writeChunk(const types::ShapeType & chunkIndices, const void * dataIn,
-                               const bool isVarlen=false, const std::size_t varSize=0) const {
+                               const bool isVarlen=false, const std::size_t varSize=0,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
 
             // check if we are allowed to write
             if(!handle_.mode().canWrite()) {
@@ -57,7 +58,7 @@ namespace generic {
             // data_to_buffer will return false if there's nothing to write (all fill value)
             if(!util::data_to_buffer(chunk, dataIn, buffer, Mixin::compressor_,
                                      Mixin::fillValue_, isVarlen, varSize,
-                                     Mixin::arrayCodecs_)) {
+                                     Mixin::codecs(order))) {
                 // if we have data on store for the chunk, delete it
                 STORE::erase(chunk);
                 return;
@@ -70,7 +71,8 @@ namespace generic {
 
         // read a chunk
         // IMPORTANT we assume that the data pointer is already initialized up to chunkSize_
-        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut) const {
+        inline bool readChunk(const types::ShapeType & chunkIndices, void * dataOut,
+                              const util::ChunkOrder order=util::ChunkOrder::logical) const {
             // get the chunk handle
             ChunkHandleType chunk(handle_, chunkIndices, defaultChunkShape(), shape());
 
@@ -85,7 +87,8 @@ namespace generic {
             }
 
             // format the data
-            const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_, Mixin::arrayCodecs_);
+            const bool is_varlen = util::buffer_to_data<T>(chunk, buffer, dataOut, Mixin::compressor_,
+                                                            Mixin::codecs(order));
 
             return is_varlen;
         }
@@ -162,13 +165,15 @@ namespace generic {
 
         inline void decompress(const std::vector<char> & buffer,
                                void * dataOut,
-                               const std::size_t data_size) const {
-            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
         inline void decompress(const char * buffer, std::size_t nBytes,
                                void * dataOut,
-                               const std::size_t data_size) const {
-            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::arrayCodecs_);
+                               const std::size_t data_size,
+                               const util::ChunkOrder order=util::ChunkOrder::logical) const {
+            util::decompress<T>(buffer, nBytes, dataOut, data_size, Mixin::compressor_, Mixin::codecs(order));
         }
 
         inline void getFillValue(void * fillValue) const {

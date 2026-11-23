@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <type_traits>
 
 #include "z5/metadata.hxx"
 #include "z5/handle.hxx"
@@ -18,6 +20,7 @@
 #include "z5/compression/xz_compressor.hxx"
 #include "z5/compression/lz4_compressor.hxx"
 #include "z5/compression/zstd_compressor.hxx"
+#include "z5/compression/crc32c_chain.hxx"
 
 
 namespace z5 {
@@ -37,6 +40,8 @@ namespace z5 {
                                                     zarrDelimiter_(metadata.zarrDelimiter),
                                                     dimensionNames_(metadata.dimensionNames),
                                                     transposeOrder_(metadata.transposeOrder),
+                                                    elementSize_(metadata.elementSize),
+                                                    crc32c_(metadata.crc32cBeforeCompressor + metadata.crc32cAfterCompressor > 0),
                                                     chunking_(shape_, chunkShape_)
         {}
 
@@ -105,6 +110,21 @@ namespace z5 {
         // zarr v3 transpose codec order (numpy ``transpose`` semantics); empty if none
         inline const std::vector<std::size_t> & transposeOrder() const {return transposeOrder_;}
 
+        // element strides of a chunk buffer of `chunkShape` in ChunkOrder::stored:
+        // C-order strides without a transpose codec, else the strides that address
+        // the transposed buffer by logical chunk coordinates. The sub-array paths
+        // view their chunk buffers this way, so the transpose costs no extra pass.
+        // (Transposed datasets are zarr v3, whose chunks are always full-shape.)
+        inline types::ShapeType chunkBufferStrides(const types::ShapeType & chunkShape) const {
+            return util::transposedStrides(chunkShape, transposeOrder_);
+        }
+
+        // zarr v3: the chunk codecs include at least one crc32c checksum
+        inline bool hasCrc32c() const {return crc32c_;}
+
+        // the byte size of a raw element (raw_bits, raw_bytes); 0 otherwise
+        inline std::size_t elementSize() const {return elementSize_;}
+
         // batched shard IO (zarr v3 sharding) - used by the shard-aware sub-array paths to
         // do a single read-modify-write per shard and parallelize across shards. Default
         // bodies are no-ops; only ShardedDataset overrides them (and the sub-array code
@@ -124,18 +144,22 @@ namespace z5 {
         // compress one inner chunk to its on-disk blob; returns false if it is all-fill
         // (-> empty slot), in which case 'blob' is left empty
         virtual bool makeChunkBlob(const types::ShapeType &, const void *,
-                                   std::vector<char> &) const {return false;}
+                                   std::vector<char> &,
+                                   const util::ChunkOrder=util::ChunkOrder::logical) const {return false;}
 
         //
         // API - MUST implement
         //
 
-        // we need to use void pointer here to have a generic API
+        // we need to use void pointer here to have a generic API; the chunk
+        // buffer is in C order unless ChunkOrder::stored is passed (see util::ChunkOrder)
         // write a chunk
         virtual void writeChunk(const types::ShapeType &, const void *,
-                                const bool=false, const std::size_t=0) const = 0;
+                                const bool=false, const std::size_t=0,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // read a chunk - returns True if this is a varlen chunk
-        virtual bool readChunk(const types::ShapeType &, void *) const = 0;
+        virtual bool readChunk(const types::ShapeType &, void *,
+                               const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // read a chunk; return the unformatted data
         virtual void readRawChunk(const types::ShapeType &, std::vector<char> &) const = 0;
 
@@ -154,10 +178,12 @@ namespace z5 {
         virtual void getCompressor(std::string &) const = 0;
         virtual void getFillValue(void *) const = 0;
         virtual void getCompressionOptions(types::CompressionOptions &) const = 0;
-        virtual void decompress(const std::vector<char> &, void *, const std::size_t) const = 0;
+        virtual void decompress(const std::vector<char> &, void *, const std::size_t,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
         // decompress straight from a raw byte range (used by the sharded read path to decode
         // an inner chunk in-place from the shard buffer, without copying the blob out first)
-        virtual void decompress(const char *, std::size_t, void *, const std::size_t) const = 0;
+        virtual void decompress(const char *, std::size_t, void *, const std::size_t,
+                                const util::ChunkOrder=util::ChunkOrder::logical) const = 0;
 
         // file paths, permissions and removal
         virtual const FileMode & mode() const = 0;
@@ -176,19 +202,59 @@ namespace z5 {
         std::string zarrDelimiter_;
         std::vector<std::optional<std::string>> dimensionNames_;
         std::vector<std::size_t> transposeOrder_;
+        std::size_t elementSize_;
+        bool crc32c_;
 
         util::Blocking chunking_;
     };
+
+
+    // build the compressor named by the metadata, for elements of type U
+    template<class U>
+    inline std::unique_ptr<compression::CompressorBase<U>> makeCompressor(const DatasetMetadata & metadata) {
+        switch(metadata.compressor) {
+            #ifdef WITH_BLOSC
+            case types::blosc: return std::make_unique<compression::BloscCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_ZLIB
+            case types::zlib: return std::make_unique<compression::ZlibCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_BZIP2
+            case types::bzip2: return std::make_unique<compression::Bzip2Compressor<U>>(metadata);
+            #endif
+            #ifdef WITH_XZ
+            case types::xz: return std::make_unique<compression::XzCompressor<U>>(metadata);
+            #endif
+            #ifdef WITH_LZ4
+            case types::lz4: return std::make_unique<compression::Lz4Compressor<U>>(metadata);
+            #endif
+            #ifdef WITH_ZSTD
+            case types::zstd: return std::make_unique<compression::ZstdCompressor<U>>(metadata);
+            #endif
+            default: return std::make_unique<compression::RawCompressor<U>>();
+        }
+    }
+
+
+    // the element type a dataset's compressor works on: variable-length strings
+    // (util/vlen.hxx) and raw elements are encoded to bytes before compression
+    template<class T>
+    using CodecElement = std::conditional_t<std::is_same_v<T, std::string>, char, T>;
 
 
     // mixin to provide some typed functionality for typing
     template<class T>
     class MixinTyped {
     public:
-        MixinTyped(const DatasetMetadata & metadata) : fillValue_(static_cast<T>(metadata.fillValue)) {
-            arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1;
+        using CodecT = CodecElement<T>;
+
+        MixinTyped(const DatasetMetadata & metadata) : fillValue_(metadata.fillValueAs<T>()) {
+            // strings and raw elements have no byte order
+            arrayCodecs_.reverseBytes = metadata.bigEndian && sizeof(T) > 1 && !util::isVlenElement<T>;
             arrayCodecs_.order = metadata.transposeOrder;
+            arrayCodecs_.fixedItemSize = metadata.elementSize;
             arrayCodecs_.chunkShape = metadata.chunkShape;
+            storedCodecs_ = arrayCodecs_.withoutTranspose();
             init_compressor(metadata);
         }
         ~MixinTyped(){}
@@ -198,39 +264,38 @@ namespace z5 {
         // zarr v3 element codecs (transpose, big-endian ``bytes``) applied around
         // the compressor on encode / decode; identity for zarr v2 and n5
         util::ArrayCodecs arrayCodecs_;
-        // unique ptr to hold child classes of compressor
-        std::unique_ptr<compression::CompressorBase<T>> compressor_;
+        // the same without the transpose, for buffers in util::ChunkOrder::stored
+        util::ArrayCodecs storedCodecs_;
+
+        inline const util::ArrayCodecs & codecs(const util::ChunkOrder order) const {
+            return order == util::ChunkOrder::stored ? storedCodecs_ : arrayCodecs_;
+        }
+        // unique ptr to hold child classes of compressor; for zarr v3 with crc32c
+        // codecs, a Crc32cChain wrapping the compressor
+        std::unique_ptr<compression::CompressorBase<CodecT>> compressor_;
 
     private:
         void init_compressor(const DatasetMetadata & metadata) {
-            switch(metadata.compressor) {
-                case types::raw:
-            	    compressor_.reset(new compression::RawCompressor<T>()); break;
-                #ifdef WITH_BLOSC
-                case types::blosc:
-            	    compressor_.reset(new compression::BloscCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_ZLIB
-                case types::zlib:
-                    compressor_.reset(new compression::ZlibCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_BZIP2
-                case types::bzip2:
-                    compressor_.reset(new compression::Bzip2Compressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_XZ
-                case types::xz:
-                    compressor_.reset(new compression::XzCompressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_LZ4
-                case types::lz4:
-                    compressor_.reset(new compression::Lz4Compressor<T>(metadata)); break;
-                #endif
-                #ifdef WITH_ZSTD
-                case types::zstd:
-                    compressor_.reset(new compression::ZstdCompressor<T>(metadata)); break;
-                #endif
+            compressor_ = makeCompressor<CodecT>(metadata);
+            const unsigned before = metadata.crc32cBeforeCompressor;
+            const unsigned after = metadata.crc32cAfterCompressor;
+            if(before == 0 && after == 0) {
+                return;
             }
+            // crc32c around a raw compressor: the order doesn't matter, all go after
+            if(compressor_->isRaw()) {
+                compressor_ = std::make_unique<compression::Crc32cChain<CodecT>>(
+                    std::move(compressor_), nullptr, 0, before + after);
+                return;
+            }
+            // checksums before the compressor make its input a byte stream that is
+            // not a whole number of elements, so it needs a byte-typed compressor
+            std::unique_ptr<compression::CompressorBase<char>> byteCompressor;
+            if(before > 0) {
+                byteCompressor = makeCompressor<char>(metadata);
+            }
+            compressor_ = std::make_unique<compression::Crc32cChain<CodecT>>(
+                std::move(compressor_), std::move(byteCompressor), before, after);
         }
     };
 
