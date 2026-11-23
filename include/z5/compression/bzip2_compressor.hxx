@@ -2,6 +2,7 @@
 
 #ifdef WITH_BZIP2
 
+#include <algorithm>
 #include <bzlib.h>
 
 #include "z5/compression/compressor_base.hxx"
@@ -97,6 +98,39 @@ namespace compression {
             }
 
 		}
+
+        void decompressBytes(const char * dataIn, std::size_t nBytesIn, std::vector<char> & out) const {
+            bz_stream bzs;
+            bzs.opaque = NULL;
+            bzs.bzalloc = NULL;
+            bzs.bzfree = NULL;
+            if(BZ2_bzDecompressInit(&bzs, 0, 0) != BZ_OK) {
+                throw std::runtime_error("Initializing bzip decompression failed");
+            }
+            bzs.next_in = (char *) dataIn;
+            bzs.avail_in = nBytesIn;
+            out.resize(std::max<std::size_t>(4 * nBytesIn, 4096));
+            std::size_t produced = 0;
+            int ret;
+            for(;;) {
+                if(produced == out.size()) {
+                    out.resize(2 * out.size());
+                }
+                bzs.next_out = out.data() + produced;
+                bzs.avail_out = out.size() - produced;
+                ret = BZ2_bzDecompress(&bzs);
+                produced = out.size() - bzs.avail_out;
+                // BZ_OK with all input consumed and room left: the stream is truncated
+                if(ret != BZ_OK || (bzs.avail_in == 0 && bzs.avail_out > 0)) {
+                    break;
+                }
+            }
+            BZ2_bzDecompressEnd(&bzs);
+            if(ret != BZ_STREAM_END) {
+                throw std::runtime_error("Exception during bzip decompression: (" + std::to_string(ret) + ")");
+            }
+            out.resize(produced);
+        }
 
         inline types::Compressor type() const {
             return types::bzip2;
