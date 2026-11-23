@@ -31,23 +31,46 @@ namespace compression {
             if(bytesIn > static_cast<std::size_t>(LZ4_MAX_INPUT_SIZE)) {
                 throw std::runtime_error("z5: chunk is too large for lz4 compression");
             }
+            const std::size_t header = sizeHeader_ ? 4 : 0;
             const int outSize = LZ4_compressBound(bytesIn);
-            dataOut.resize(outSize);
-            const int compressed = LZ4_compress_default((const char *) dataIn,
-                                                        &dataOut[0],
-                                                        bytesIn,
-                                                        outSize);
+            dataOut.resize(header + outSize);
+            if(sizeHeader_) {
+                for(int b = 0; b < 4; ++b) {
+                    dataOut[b] = static_cast<char>((bytesIn >> (8 * b)) & 0xFFu);
+                }
+            }
+            // the zarr v3 (numcodecs) codec honours its acceleration; other formats
+            // keep their output unchanged
+            const int compressed = sizeHeader_ ?
+                LZ4_compress_fast((const char *) dataIn, &dataOut[header], bytesIn, outSize, level_) :
+                LZ4_compress_default((const char *) dataIn, &dataOut[0], bytesIn, outSize);
             if(compressed <= 0) {
                 std::string err = "Exception during lz4 compression: (" + std::to_string(compressed)  + ")";
     		    throw std::runtime_error(err);
             }
 
-            dataOut.resize(compressed);
+            dataOut.resize(header + compressed);
         }
 
         void decompress(const char * dataIn, std::size_t nBytesIn, T * dataOut, std::size_t sizeOut) const {
+            std::size_t capacity = sizeOut * sizeof(T);
+            if(sizeHeader_) {
+                // numcodecs framing: the uncompressed size as uint32 LE, then the block
+                if(nBytesIn < 4) {
+                    throw std::runtime_error("Exception during lz4 decompression: missing size header");
+                }
+                const unsigned char * p = reinterpret_cast<const unsigned char *>(dataIn);
+                const std::size_t stored = std::size_t(p[0]) | (std::size_t(p[1]) << 8) |
+                                           (std::size_t(p[2]) << 16) | (std::size_t(p[3]) << 24);
+                if(stored > capacity) {
+                    throw std::runtime_error("Exception during lz4 decompression: chunk is larger than expected");
+                }
+                capacity = stored;
+                dataIn += 4;
+                nBytesIn -= 4;
+            }
             const int compressed = LZ4_decompress_safe(dataIn, (char *) dataOut,
-                                                       nBytesIn, sizeOut * sizeof(T));
+                                                       nBytesIn, capacity);
             if(compressed <= 0) {
                 std::string err = "Exception during lz4 decompression: (" + std::to_string(compressed)  + ")";
     		    throw std::runtime_error(err);
@@ -69,10 +92,14 @@ namespace compression {
             // (the level is currently not wired into LZ4_compress_default, which
             // takes no level parameter)
             level_ = std::get<int>(metadata.compressionOptions.at("level"));
+            sizeHeader_ = metadata.isZarr && metadata.zarrFormat == 3;
         }
 
-        // compression level
+        // compression level; for zarr v3, the numcodecs acceleration
         int level_;
+        // zarr v3 ``numcodecs.lz4``: blocks are prefixed with their uncompressed
+        // size (uint32 LE). zarr v2 and n5 keep z5's bare blocks.
+        bool sizeHeader_;
     };
 
 } // namespace compression
